@@ -18,6 +18,15 @@ const checkoutRules = [
   validate
 ];
 
+const webhookRules = [
+  body('provider').trim().notEmpty().withMessage('Provider is required'),
+  body('providerReference').trim().notEmpty().withMessage('Provider reference is required'),
+  body('invoiceNo').trim().notEmpty().withMessage('Invoice number is required'),
+  body('status').equals('paid').withMessage('Only paid webhook status is supported'),
+  validate
+];
+
 module.exports = {
-  checkoutRules
+  checkoutRules,
+  webhookRules
 };

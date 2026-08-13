@@ -3,9 +3,10 @@ const router = express.Router();
 const settingController = require('../controllers/settingController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
+const branchContextMiddleware = require('../middleware/branchContextMiddleware');
 const { updateSettingRules } = require('../validations/settingValidation');
 
-router.use(authMiddleware, roleMiddleware(['admin']));
+router.use(authMiddleware, branchContextMiddleware, roleMiddleware(['admin']));
 
 router.get('/', settingController.getSettings);
 router.put('/', updateSettingRules, settingController.updateSetting);

@@ -9,8 +9,18 @@ module.exports = (sequelize) => {
     },
     employeeId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       field: 'employee_id'
+    },
+    userId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'user_id'
+    },
+    branchId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'branch_id'
     },
     action: {
       type: DataTypes.STRING(100),
@@ -25,6 +35,21 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       allowNull: true,
       field: 'target_id'
+    },
+    oldValues: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      field: 'old_values'
+    },
+    newValues: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      field: 'new_values'
+    },
+    requestId: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
+      field: 'request_id'
     }
   }, {
     tableName: 'activity_logs',

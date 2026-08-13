@@ -93,6 +93,8 @@ backend/
 
 ## Mô hình dữ liệu
 
+Tài liệu kiến trúc mục tiêu và lộ trình migration: [`docs/architecture/README.md`](docs/architecture/README.md).
+
 ```
 Role ──< User >──── Employee ──< ActivityLog
                 │           └──< Payment

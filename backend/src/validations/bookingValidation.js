@@ -19,6 +19,17 @@ const createBookingRules = [
   validate
 ];
 
+const updateBookingRules = [
+  param('id').isInt().withMessage('Booking ID must be an integer'),
+  body('courtId').optional().isInt().withMessage('Court ID must be an integer'),
+  body('customerId').optional({ nullable: true }).isInt().withMessage('Customer ID must be an integer'),
+  body('bookingDate').optional().isISO8601().withMessage('Booking date must be valid'),
+  body('startTime').optional().matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('Start time must be HH:mm or HH:mm:ss'),
+  body('endTime').optional().matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('End time must be HH:mm or HH:mm:ss'),
+  body('status').not().exists().withMessage('Booking status cannot be changed directly'),
+  validate
+];
+
 const checkAvailabilityRules = [
   query('courtId').isInt().withMessage('Court ID is required'),
   query('bookingDate').isISO8601().withMessage('Booking date is required (YYYY-MM-DD)'),
@@ -29,5 +40,6 @@ const checkAvailabilityRules = [
 
 module.exports = {
   createBookingRules,
+  updateBookingRules,
   checkAvailabilityRules
 };

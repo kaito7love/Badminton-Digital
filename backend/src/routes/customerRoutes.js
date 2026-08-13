@@ -3,12 +3,13 @@ const router = express.Router();
 const customerController = require('../controllers/customerController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
+const branchContextMiddleware = require('../middleware/branchContextMiddleware');
 const {
   createCustomerRules,
   updateCustomerRules
 } = require('../validations/customerValidation');
 
-router.use(authMiddleware);
+router.use(authMiddleware, branchContextMiddleware);
 
 router.get('/', roleMiddleware(['admin', 'employee']), customerController.getCustomers);
 router.get('/:id/history', customerController.getCustomerHistory);

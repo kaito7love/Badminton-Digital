@@ -1,5 +1,5 @@
 const { verifyAccessToken } = require('../utils/jwt');
-const { User, Role } = require('../models');
+const { User, Role, Employee, Customer } = require('../models');
 
 const authMiddleware = async (req, res, next) => {
   try {
@@ -27,7 +27,11 @@ const authMiddleware = async (req, res, next) => {
     }
 
     const user = await User.findByPk(decoded.id, {
-      include: [{ model: Role, as: 'role' }]
+      include: [
+        { model: Role, as: 'role' },
+        { model: Employee, as: 'employee' },
+        { model: Customer, as: 'customer' }
+      ]
     });
 
     if (!user || !user.isActive) {

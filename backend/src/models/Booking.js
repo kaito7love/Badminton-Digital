@@ -7,6 +7,11 @@ module.exports = (sequelize) => {
       primaryKey: true,
       autoIncrement: true
     },
+    branchId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: 'branch_id'
+    },
     courtId: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -45,7 +50,9 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'bookings',
     timestamps: true,
-    underscored: true
+    underscored: true,
+    paranoid: true,
+    version: true
   });
 
   return Booking;

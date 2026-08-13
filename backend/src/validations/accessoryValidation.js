@@ -34,8 +34,16 @@ const addSessionExtraRules = [
   validate
 ];
 
+const returnSessionExtraRules = [
+  param('sessionId').isInt().withMessage('Session ID must be an integer'),
+  body('extraId').isInt().withMessage('Extra ID is required'),
+  body('returnQuantity').isInt({ min: 1 }).withMessage('Return quantity must be at least 1'),
+  validate
+];
+
 module.exports = {
   createAccessoryRules,
   updateAccessoryRules,
-  addSessionExtraRules
+  addSessionExtraRules,
+  returnSessionExtraRules
 };

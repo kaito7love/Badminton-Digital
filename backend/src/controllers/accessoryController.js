@@ -21,7 +21,7 @@ const getAccessoryById = async (req, res, next) => {
 
 const createAccessory = async (req, res, next) => {
   try {
-    const newAccessory = await AccessoryService.createAccessory(req.body);
+    const newAccessory = await AccessoryService.createAccessory(req.body, { actor: req.user, branchId: req.branchId, requestId: req.requestId });
     return successResponse(res, newAccessory, 'Accessory created successfully', 201);
   } catch (err) {
     next(err);
@@ -30,7 +30,7 @@ const createAccessory = async (req, res, next) => {
 
 const updateAccessory = async (req, res, next) => {
   try {
-    const updated = await AccessoryService.updateAccessory(req.params.id, req.body);
+    const updated = await AccessoryService.updateAccessory(req.params.id, req.body, { actor: req.user, branchId: req.branchId, requestId: req.requestId });
     return successResponse(res, updated, 'Accessory updated successfully');
   } catch (err) {
     next(err);
@@ -39,7 +39,7 @@ const updateAccessory = async (req, res, next) => {
 
 const deleteAccessory = async (req, res, next) => {
   try {
-    await AccessoryService.deleteAccessory(req.params.id);
+    await AccessoryService.deleteAccessory(req.params.id, { actor: req.user, branchId: req.branchId, requestId: req.requestId });
     return successResponse(res, null, 'Accessory deleted successfully');
   } catch (err) {
     next(err);
@@ -51,7 +51,8 @@ const addSessionExtra = async (req, res, next) => {
     const sessionExtra = await AccessoryService.addSessionExtra(
       req.params.sessionId,
       req.body.extraId,
-      req.body.quantity
+      req.body.quantity,
+      { actor: req.user, branchId: req.branchId, requestId: req.requestId }
     );
     return successResponse(res, sessionExtra, 'Accessory added to court session', 201);
   } catch (err) {
@@ -68,6 +69,20 @@ const getSessionExtras = async (req, res, next) => {
   }
 };
 
+const returnSessionExtra = async (req, res, next) => {
+  try {
+    const result = await AccessoryService.returnSessionExtra(
+      req.params.sessionId,
+      req.body.extraId,
+      req.body.returnQuantity,
+      { actor: req.user, branchId: req.branchId, requestId: req.requestId }
+    );
+    return successResponse(res, result, 'Accessory returned successfully');
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getAccessories,
   getAccessoryById,
@@ -75,5 +90,6 @@ module.exports = {
   updateAccessory,
   deleteAccessory,
   addSessionExtra,
-  getSessionExtras
+  getSessionExtras,
+  returnSessionExtra
 };

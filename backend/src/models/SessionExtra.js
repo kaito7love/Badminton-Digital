@@ -33,7 +33,9 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'session_extras',
     timestamps: true,
-    underscored: true
+    underscored: true,
+    paranoid: true,
+    version: true
   });
 
   return SessionExtra;

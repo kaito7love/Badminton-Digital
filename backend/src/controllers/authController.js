@@ -48,6 +48,20 @@ class AuthController {
     }
   }
 
+  static async logout(req, res, next) {
+    try {
+      await AuthService.logout(req.user.id);
+      res.status(200).json({
+        success: true,
+        data: null,
+        message: 'Đăng xuất thành công.',
+        errors: null
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async changePassword(req, res, next) {
     try {
       const { oldPassword, newPassword } = req.body;

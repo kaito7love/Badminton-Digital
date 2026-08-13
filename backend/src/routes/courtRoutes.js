@@ -3,6 +3,7 @@ const router = express.Router();
 const courtController = require('../controllers/courtController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
+const branchContextMiddleware = require('../middleware/branchContextMiddleware');
 const {
   createCourtRules,
   updateCourtRules,
@@ -10,7 +11,7 @@ const {
   transferCourtRules
 } = require('../validations/courtValidation');
 
-router.use(authMiddleware);
+router.use(authMiddleware, branchContextMiddleware);
 
 router.get('/', courtController.getCourts);
 router.get('/:id', courtController.getCourtById);

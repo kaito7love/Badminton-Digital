@@ -25,6 +25,8 @@ db.Invoice = require('./Invoice')(sequelize);
 db.Payment = require('./Payment')(sequelize);
 db.Setting = require('./Setting')(sequelize);
 db.ActivityLog = require('./ActivityLog')(sequelize);
+db.Branch = require('./Branch')(sequelize);
+db.BranchDocumentSequence = require('./BranchDocumentSequence')(sequelize);
 
 // Associations
 // Role <-> User
@@ -34,6 +36,24 @@ db.User.belongsTo(db.Role, { foreignKey: 'roleId', as: 'role' });
 // User <-> Employee (1-1)
 db.User.hasOne(db.Employee, { foreignKey: 'userId', as: 'employee' });
 db.Employee.belongsTo(db.User, { foreignKey: 'userId', as: 'user' });
+
+// Branch context
+db.Branch.hasMany(db.Court, { foreignKey: 'branchId', as: 'courts' });
+db.Court.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
+db.Branch.hasMany(db.Booking, { foreignKey: 'branchId', as: 'bookings' });
+db.Booking.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
+db.Branch.hasMany(db.CourtSession, { foreignKey: 'branchId', as: 'sessions' });
+db.CourtSession.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
+db.Branch.hasMany(db.Customer, { foreignKey: 'branchId', as: 'customers' });
+db.Customer.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
+db.Branch.hasMany(db.Employee, { foreignKey: 'branchId', as: 'employees' });
+db.Employee.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
+db.Branch.hasMany(db.Invoice, { foreignKey: 'branchId', as: 'invoices' });
+db.Invoice.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
+db.Branch.hasMany(db.Payment, { foreignKey: 'branchId', as: 'payments' });
+db.Payment.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
+db.Branch.hasMany(db.BranchDocumentSequence, { foreignKey: 'branchId', as: 'documentSequences' });
+db.BranchDocumentSequence.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
 
 // User <-> Customer (1-1, optional)
 db.User.hasOne(db.Customer, { foreignKey: 'userId', as: 'customer' });
@@ -89,6 +109,8 @@ db.Payment.belongsTo(db.Employee, { foreignKey: 'employeeId', as: 'employee' });
 // Employee <-> ActivityLog
 db.Employee.hasMany(db.ActivityLog, { foreignKey: 'employeeId', as: 'activityLogs' });
 db.ActivityLog.belongsTo(db.Employee, { foreignKey: 'employeeId', as: 'employee' });
+db.ActivityLog.belongsTo(db.User, { foreignKey: 'userId', as: 'user' });
+db.ActivityLog.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;

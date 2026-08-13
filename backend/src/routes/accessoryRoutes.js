@@ -3,13 +3,14 @@ const router = express.Router();
 const accessoryController = require('../controllers/accessoryController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
+const branchContextMiddleware = require('../middleware/branchContextMiddleware');
 const {
   createAccessoryRules,
   updateAccessoryRules,
   addSessionExtraRules
 } = require('../validations/accessoryValidation');
 
-router.use(authMiddleware);
+router.use(authMiddleware, branchContextMiddleware);
 
 // Accessories CRUD
 router.get('/', accessoryController.getAccessories);

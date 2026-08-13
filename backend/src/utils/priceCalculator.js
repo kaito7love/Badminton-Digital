@@ -55,7 +55,8 @@ const calculateInvoiceTotals = (courtFee = 0, sessionExtras = [], discountInput 
   
   const extrasFee = sessionExtras.reduce((sum, item) => {
     const qty = Number(item.quantity) || 0;
-    const price = Number(item.unitPrice || item.subtotal / qty || item.Extra?.price) || 0;
+    const price = item.unitPrice != null ? Number(item.unitPrice)
+                : (item.Extra?.price != null ? Number(item.Extra.price) : 0);
     return sum + (qty * price);
   }, 0);
 

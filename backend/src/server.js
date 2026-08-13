@@ -4,12 +4,17 @@ const cors = require('cors');
 const { sequelize } = require('./models');
 const authRoutes = require('./routes/authRoutes');
 const errorHandler = require('./middleware/errorHandler');
+const requestContextMiddleware = require('./middleware/requestContextMiddleware');
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(requestContextMiddleware);
 
 // Health Check Endpoints
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
