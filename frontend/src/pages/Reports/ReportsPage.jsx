@@ -3,7 +3,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianG
 import { StatBox, Table } from '../../components/UIComponents';
 import { reportService } from '../../services/apiServices';
 
-const formatMoney = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(Number(n) || 0)) + ' đ';
+const formatMoney = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(Number(n) || 0)) + 'đ';
 
 const formatDuration = (seconds) => {
   const hours = (Number(seconds) || 0) / 3600;
@@ -97,9 +97,9 @@ export default function ReportsPage() {
           highlight
         />
         <StatBox
-          label="Doanh thu phụ kiện (Top 5)"
+          label="Doanh thu Top 5 phụ kiện bán chạy"
           value={formatMoney(accessoryRevenue)}
-          subtext={topAccessories[0]?.extra?.name ? `Bán chạy nhất: ${topAccessories[0].extra.name}` : 'Chưa có dữ liệu'}
+          subtext={topAccessories[0]?.extra?.name ? `Xếp theo số lượng bán · #1: ${topAccessories[0].extra.name}` : 'Chưa có dữ liệu'}
         />
       </div>
 

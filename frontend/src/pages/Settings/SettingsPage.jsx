@@ -77,6 +77,7 @@ export default function SettingsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl shadow-slate-950/20">
           <h2 className="text-xl font-bold text-slate-100">Giờ mở cửa</h2>
+          <p className="mt-2 text-xs text-slate-500">Chỉ mang tính hiển thị/tham khảo — hệ thống hiện chưa dùng giờ cao điểm ở đây để tính giá checkout (giá checkout dùng khung giờ cố định trong cấu hình backend).</p>
           <div className="mt-6 grid grid-cols-2 gap-4">
             <label className="space-y-2">
               <span className={labelClass}>Giờ mở cửa</span>
@@ -99,7 +100,7 @@ export default function SettingsPage() {
 
         <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl shadow-slate-950/20">
           <h2 className="text-xl font-bold text-slate-100">Giá khung giờ mặc định</h2>
-          <p className="mt-2 text-xs text-slate-500">Áp dụng khi tạo sân mới; mỗi sân có thể có giá riêng ở trang Quản lý sân.</p>
+          <p className="mt-2 text-xs text-slate-500">Giá trị lưu tham khảo — hệ thống hiện tính giá theo cấu hình riêng của từng sân ở trang Quản lý sân và chưa tự động lấy giá trị này khi tạo sân mới.</p>
           <div className="mt-6 space-y-4">
             <label className="block space-y-2">
               <span className={labelClass}>Giờ cao điểm (đ/giờ)</span>
