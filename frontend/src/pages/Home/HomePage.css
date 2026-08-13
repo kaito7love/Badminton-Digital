@@ -1,0 +1,310 @@
+/* ==========================================================================
+   BADMINTON DIGITAL - NIKE 2026 KINETIC CYBER-SPORT DESIGN SYSTEM
+   ========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap");
+
+.home-page-wrapper {
+  --nike-emerald: #00ff66;
+  --nike-volt: #ccff00;
+  --nike-dark: #030508;
+  --nike-card-bg: rgba(10, 15, 26, 0.85);
+  --nike-card-border: rgba(0, 255, 102, 0.2);
+  --nike-text-main: #ffffff;
+  --nike-text-dim: #94a3b8;
+  --font-kinetic: "Cabinet Grotesk", "Space Grotesk", -apple-system, sans-serif;
+  --font-body: "Plus Jakarta Sans", -apple-system, sans-serif;
+
+  font-family: var(--font-body);
+  background-color: var(--nike-dark);
+  color: var(--nike-text-main);
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Background Dynamic Cyber Noise & Mesh Grid */
+.home-page-wrapper::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at 10% 20%,
+      rgba(0, 255, 102, 0.15) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 90% 80%,
+      rgba(204, 255, 0, 0.1) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(5, 10, 20, 0.95) 0%,
+      transparent 100%
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.nike-grid-bg {
+  background-size: 80px 80px;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+}
+
+/* Kinetic Typography */
+.font-kinetic {
+  font-family: var(--font-kinetic);
+  letter-spacing: -0.04em;
+}
+
+.text-gradient-nike {
+  background: linear-gradient(135deg, #ffffff 0%, #00ff66 50%, #ccff00 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-volt {
+  background: linear-gradient(135deg, #ccff00 0%, #00ff66 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Cyber Glass Card */
+.nike-card {
+  background: var(--nike-card-bg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-radius: 28px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+}
+
+.nike-card:hover {
+  border-color: rgba(0, 255, 102, 0.5);
+  box-shadow:
+    0 35px 80px rgba(0, 0, 0, 0.8),
+    0 0 40px rgba(0, 255, 102, 0.2);
+  transform: translateY(-6px);
+}
+
+.nike-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  transition: left 0.7s ease;
+}
+
+.nike-card:hover::after {
+  left: 100%;
+}
+
+/* Nike Magnetic Glow Button */
+.btn-nike-bolt {
+  background: linear-gradient(135deg, #00ff66 0%, #ccff00 100%);
+  color: #030508;
+  font-family: var(--font-kinetic);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 18px 36px;
+  border-radius: 9999px;
+  box-shadow: 0 0 30px rgba(0, 255, 102, 0.4);
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-nike-bolt:hover {
+  transform: translateY(-4px) scale(1.04);
+  box-shadow: 0 0 50px rgba(0, 255, 102, 0.7);
+}
+
+.btn-nike-dark {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  font-family: var(--font-kinetic);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 18px 36px;
+  border-radius: 9999px;
+  backdrop-filter: blur(16px);
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.btn-nike-dark:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(0, 255, 102, 0.4);
+  transform: translateY(-3px);
+  color: #00ff66;
+}
+
+/* Live Ticker Bar */
+.live-ticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px;
+  border-radius: 9999px;
+  background: rgba(0, 255, 102, 0.1);
+  border: 1px solid rgba(0, 255, 102, 0.3);
+  color: #00ff66;
+  font-family: var(--font-kinetic);
+  font-weight: 800;
+  font-size: 0.8125rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.live-ticker-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #00ff66;
+  box-shadow: 0 0 12px #00ff66;
+  animation: pulse-ring 1.5s infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+}
+
+/* Timeline Slots */
+.cyber-slot {
+  transition: all 0.25s ease;
+  cursor: pointer;
+  font-family: var(--font-kinetic);
+  font-weight: 800;
+  font-size: 0.8125rem;
+  padding: 14px 12px;
+  text-align: center;
+  border-radius: 14px;
+}
+
+.cyber-slot.available {
+  background: rgba(0, 255, 102, 0.1);
+  border: 1px solid rgba(0, 255, 102, 0.25);
+  color: #00ff66;
+}
+
+.cyber-slot.available:hover {
+  background: #00ff66;
+  color: #030508;
+  box-shadow: 0 0 25px rgba(0, 255, 102, 0.6);
+  transform: scale(1.05);
+}
+
+.cyber-slot.booked {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.2);
+  cursor: not-allowed;
+}
+
+/* Floating 3D Graphic Visual */
+.floating-hero-visual {
+  animation: float-hero 5s ease-in-out infinite;
+}
+
+@keyframes float-hero {
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(5deg);
+  }
+}
+
+.booking-input {
+  width: 100%;
+  background: rgba(2, 6, 23, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.875rem 1rem;
+}
+
+.booking-input:focus-visible,
+.cyber-slot:focus-visible,
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--nike-volt);
+  outline-offset: 3px;
+}
+
+.feature-chip {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  background: rgba(2, 6, 23, 0.8);
+  color: #cbd5e1;
+  font-family: var(--font-kinetic);
+  font-size: 0.75rem;
+  padding: 0.375rem 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* =============================================
+   SMOOTH SCROLL + HEADER OFFSET COMPENSATION
+   Header height is h-24 = 96px
+   ============================================= */
+html {
+  scroll-behavior: smooth;
+}
+
+#courts,
+#availability,
+#facilities,
+#pricing,
+#services,
+#faq,
+#booking-widget {
+  scroll-margin-top: 100px;
+}

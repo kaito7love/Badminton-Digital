@@ -32,7 +32,10 @@ apiClient.interceptors.response.use(
           throw new Error('No refresh token available');
         }
 
-        const res = await axios.post('/api/v1/auth/refresh-token', { refreshToken });
+        const res = await axios.post(
+          `${import.meta.env.VITE_API_BASE_URL || '/api/v1'}/auth/refresh-token`,
+          { refreshToken }
+        );
         if (res.data?.success && res.data?.data?.accessToken) {
           const newAccessToken = res.data.data.accessToken;
           localStorage.setItem('access_token', newAccessToken);
