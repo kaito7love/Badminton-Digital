@@ -1,39 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import { settingService } from '../../services/apiServices';
 
-const formatMoney = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n)) + 'đ';
+const DEFAULT_HOURS = { open: '06:00', close: '22:00', peak_start: '17:00', peak_end: '21:00' };
+const DEFAULT_PRICING = { peakPricePerHour: 180000, offpeakPricePerHour: 120000 };
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState(null);
+  const [hours, setHours] = useState(DEFAULT_HOURS);
+  const [pricing, setPricing] = useState(DEFAULT_PRICING);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchSettings = async () => {
-    try {
-      const res = await settingService.getAll();
-      const data = res.data?.data || res.data || {};
-      setSettings(data);
-    } catch (err) {
-      setError(err.message || 'Không tải được cài đặt');
-    }
-  };
-
   useEffect(() => {
     const init = async () => {
-      setLoading(true);
-      await fetchSettings();
-      setLoading(false);
+      try {
+        setLoading(true);
+        const res = await settingService.getAll();
+        const data = res.data?.data || res.data || {};
+        setHours({ ...DEFAULT_HOURS, ...(data.operating_hours || {}) });
+        setPricing({ ...DEFAULT_PRICING, ...(data.pricing || {}) });
+      } catch (err) {
+        setError(err.response?.data?.message || err.message || 'Không tải được cài đặt');
+      } finally {
+        setLoading(false);
+      }
     };
     init();
   }, []);
 
+  const handleHoursChange = (field, value) => {
+    setHours((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handlePricingChange = (field, value) => {
+    setPricing((prev) => ({ ...prev, [field]: Number(value) || 0 }));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (settings.pricing) await settingService.updatePricing(settings.pricing);
-      if (settings.operating_hours) await settingService.updateOperatingHours(settings.operating_hours);
-      if (settings.branding) await settingService.updateBranding(settings.branding);
+      await Promise.all([
+        settingService.updateOperatingHours(hours),
+        settingService.updatePricing(pricing),
+      ]);
       alert('Đã lưu cài đặt thành công!');
     } catch (err) {
       alert(err.response?.data?.message || 'Lỗi lưu cài đặt');
@@ -45,14 +54,8 @@ export default function SettingsPage() {
   if (loading) return <div className="p-8 text-slate-300">⏳ Đang tải cài đặt...</div>;
   if (error) return <div className="p-8 text-rose-400">❌ {error}</div>;
 
-  // Extract settings with fallbacks
-  const hours = settings?.operating_hours || [
-    { day: 'Monday - Friday', open: '06:00', close: '22:00' },
-    { day: 'Saturday - Sunday', open: '07:00', close: '23:00' }
-  ];
-  const pricing = settings?.pricing || {};
-  const peakPrice = pricing.peakPricePerHour || 180000;
-  const offpeakPrice = pricing.offpeakPricePerHour || 120000;
+  const inputClass = 'w-full rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-emerald-500/60';
+  const labelClass = 'text-sm text-slate-400';
 
   return (
     <div className="space-y-8">
@@ -74,27 +77,52 @@ export default function SettingsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl shadow-slate-950/20">
           <h2 className="text-xl font-bold text-slate-100">Giờ mở cửa</h2>
-          <div className="mt-6 space-y-4">
-            {(Array.isArray(hours) ? hours : []).map((item, idx) => (
-              <div key={idx} className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
-                <p className="text-sm text-slate-400">{item.day}</p>
-                <p className="mt-2 text-lg font-semibold text-slate-100">{item.open} - {item.close}</p>
-              </div>
-            ))}
+          <div className="mt-6 grid grid-cols-2 gap-4">
+            <label className="space-y-2">
+              <span className={labelClass}>Giờ mở cửa</span>
+              <input type="time" className={inputClass} value={hours.open} onChange={(e) => handleHoursChange('open', e.target.value)} />
+            </label>
+            <label className="space-y-2">
+              <span className={labelClass}>Giờ đóng cửa</span>
+              <input type="time" className={inputClass} value={hours.close} onChange={(e) => handleHoursChange('close', e.target.value)} />
+            </label>
+            <label className="space-y-2">
+              <span className={labelClass}>Bắt đầu giờ cao điểm</span>
+              <input type="time" className={inputClass} value={hours.peak_start} onChange={(e) => handleHoursChange('peak_start', e.target.value)} />
+            </label>
+            <label className="space-y-2">
+              <span className={labelClass}>Kết thúc giờ cao điểm</span>
+              <input type="time" className={inputClass} value={hours.peak_end} onChange={(e) => handleHoursChange('peak_end', e.target.value)} />
+            </label>
           </div>
         </div>
 
         <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl shadow-slate-950/20">
-          <h2 className="text-xl font-bold text-slate-100">Giá khung giờ</h2>
-          <div className="mt-6 space-y-4 text-slate-300">
-            <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
-              <p className="text-sm text-slate-400">Giờ cao điểm</p>
-              <p className="mt-2 text-lg font-semibold text-slate-100">{formatMoney(peakPrice)} / giờ</p>
-            </div>
-            <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
-              <p className="text-sm text-slate-400">Giờ thấp điểm</p>
-              <p className="mt-2 text-lg font-semibold text-slate-100">{formatMoney(offpeakPrice)} / giờ</p>
-            </div>
+          <h2 className="text-xl font-bold text-slate-100">Giá khung giờ mặc định</h2>
+          <p className="mt-2 text-xs text-slate-500">Áp dụng khi tạo sân mới; mỗi sân có thể có giá riêng ở trang Quản lý sân.</p>
+          <div className="mt-6 space-y-4">
+            <label className="block space-y-2">
+              <span className={labelClass}>Giờ cao điểm (đ/giờ)</span>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                className={inputClass}
+                value={pricing.peakPricePerHour}
+                onChange={(e) => handlePricingChange('peakPricePerHour', e.target.value)}
+              />
+            </label>
+            <label className="block space-y-2">
+              <span className={labelClass}>Giờ thấp điểm (đ/giờ)</span>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                className={inputClass}
+                value={pricing.offpeakPricePerHour}
+                onChange={(e) => handlePricingChange('offpeakPricePerHour', e.target.value)}
+              />
+            </label>
           </div>
         </div>
       </div>
