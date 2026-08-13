@@ -29,6 +29,11 @@ module.exports = (sequelize) => {
         allowNull: true,
         field: "customer_id",
       },
+      playerName: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: "player_name",
+      },
       employeeId: {
         type: DataTypes.INTEGER,
         allowNull: false,

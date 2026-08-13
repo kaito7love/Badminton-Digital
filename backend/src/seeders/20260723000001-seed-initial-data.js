@@ -58,6 +58,7 @@ module.exports = {
     await queryInterface.bulkInsert('employees', [
       {
         id: 1,
+        branch_id: 1,
         user_id: 1,
         position: 'Chủ sân',
         shift: 'Toàn thời gian',
@@ -67,6 +68,7 @@ module.exports = {
       },
       {
         id: 2,
+        branch_id: 1,
         user_id: 2,
         position: 'Thu ngân',
         shift: 'Ca sáng',
@@ -80,6 +82,7 @@ module.exports = {
     await queryInterface.bulkInsert('customers', [
       {
         id: 1,
+        branch_id: 1,
         user_id: 3,
         full_name: 'Nguyễn Văn Khách',
         phone: '0903333333',
@@ -91,6 +94,7 @@ module.exports = {
       },
       {
         id: 2,
+        branch_id: 1,
         user_id: null,
         full_name: 'Khách Vãng Lai VIP',
         phone: '0988888888',
@@ -106,8 +110,9 @@ module.exports = {
     await queryInterface.bulkInsert('courts', [
       {
         id: 1,
+        branch_id: 1,
         name: 'Sân số 1 (Thường)',
-        status: 'empty',
+        status: 'active',
         offpeak_price_per_hour: 60000.00,
         peak_price_per_hour: 90000.00,
         note: 'Gần cửa ra vào',
@@ -116,8 +121,9 @@ module.exports = {
       },
       {
         id: 2,
+        branch_id: 1,
         name: 'Sân số 2 (Thường)',
-        status: 'empty',
+        status: 'active',
         offpeak_price_per_hour: 60000.00,
         peak_price_per_hour: 90000.00,
         note: 'Sân tiêu chuẩn',
@@ -126,8 +132,9 @@ module.exports = {
       },
       {
         id: 3,
+        branch_id: 1,
         name: 'Sân số 3 (Thường)',
-        status: 'empty',
+        status: 'active',
         offpeak_price_per_hour: 60000.00,
         peak_price_per_hour: 90000.00,
         note: 'Gần quầy nước',
@@ -136,8 +143,9 @@ module.exports = {
       },
       {
         id: 4,
+        branch_id: 1,
         name: 'Sân VIP (Thảm Yonex)',
-        status: 'empty',
+        status: 'active',
         offpeak_price_per_hour: 100000.00,
         peak_price_per_hour: 140000.00,
         note: 'Thảm thi đấu quốc tế, điều hòa',

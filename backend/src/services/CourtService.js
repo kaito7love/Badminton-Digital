@@ -132,7 +132,7 @@ class CourtService {
     }
   }
 
-  static async openCourt(courtId, customerId = null, bookingId = null, context) {
+  static async openCourt(courtId, customerId = null, bookingId = null, context, playerName = null) {
     if (!context.branchId || !context.employeeId) {
       const error = new Error('Không xác định được nhân viên hoặc chi nhánh vận hành');
       error.statusCode = 403;
@@ -184,6 +184,7 @@ class CourtService {
         branchId: context.branchId,
         courtId,
         customerId: resolvedCustomerId,
+        playerName: playerName?.trim() || null,
         bookingId: booking?.id || null,
         employeeId: context.employeeId,
         startTime: new Date(),

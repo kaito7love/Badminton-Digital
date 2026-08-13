@@ -46,7 +46,8 @@ class BookingService {
       order: [['bookingDate', 'ASC'], ['startTime', 'ASC']],
       include: [
         { model: Court, as: 'court', attributes: ['id', 'name'] },
-        { model: Customer, as: 'customer', attributes: ['id', 'fullName', 'phone'] }
+        { model: Customer, as: 'customer', attributes: ['id', 'fullName', 'phone'] },
+        { model: User, as: 'creator', attributes: ['id', 'email', 'fullName'] }
       ]
     });
 
@@ -97,7 +98,18 @@ class BookingService {
         error.conflictBookingId = conflictBookingId;
         throw error;
       }
-      const booking = await Booking.create({ courtId: data.courtId, branchId: court.branchId, customerId, bookingDate: data.bookingDate, startTime: data.startTime, endTime: data.endTime, status: 'pending', createdBy: context.actor.id }, { transaction });
+      const booking = await Booking.create({
+        courtId: data.courtId,
+        branchId: court.branchId,
+        customerId,
+        customerName: customerId ? null : (data.customerName?.trim() || null),
+        customerPhone: customerId ? null : (data.customerPhone?.trim() || null),
+        bookingDate: data.bookingDate,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        status: 'pending',
+        createdBy: context.actor.id
+      }, { transaction });
       await AuditService.record({ actor: context.actor, branchId: court.branchId, action: 'booking.created', targetType: 'booking', targetId: booking.id, newValues: booking.toJSON(), requestId: context.requestId, transaction });
       await transaction.commit();
       return booking;

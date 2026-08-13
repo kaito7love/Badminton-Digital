@@ -65,8 +65,6 @@ class PaymentService {
           courtFee,
           status: 'closed'
         }, { transaction });
-
-        await session.court.update({ status: 'empty' }, { transaction });
       }
 
       // Calculate Invoice Totals

@@ -23,7 +23,7 @@ const updateCourtRules = [
   body('name').optional().trim().notEmpty().withMessage('Court name cannot be empty'),
   body('peakPricePerHour').optional().isNumeric().withMessage('Peak price must be a number'),
   body('offpeakPricePerHour').optional().isNumeric().withMessage('Off-peak price must be a number'),
-  body('status').optional().isIn(['empty', 'playing', 'maintenance']).withMessage('Invalid status'),
+  body('status').optional().isIn(['active', 'maintenance', 'inactive']).withMessage('Invalid status'),
   validate
 ];
 
@@ -31,6 +31,7 @@ const openCourtRules = [
   param('id').isInt().withMessage('Court ID must be an integer'),
   body('customerId').optional({ nullable: true }).isInt().withMessage('Customer ID must be an integer'),
   body('bookingId').optional({ nullable: true }).isInt().withMessage('Booking ID must be an integer'),
+  body('playerName').optional({ nullable: true }).trim().isLength({ max: 100 }).withMessage('Player name too long'),
   validate
 ];
 
