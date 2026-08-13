@@ -1,4 +1,10 @@
 # API Design Specification
+
+## Phase 1 production-safety additions
+
+- Staff APIs support `X-Branch-Id`; when omitted, the authenticated employee branch is used.
+- `POST /payments/checkout` supports the `Idempotency-Key` header. Reuse the key when retrying a request.
+- `POST /payments/webhook` accepts `provider`, `providerReference`, `invoiceNo`, and `status: "paid"`. Configure `PAYMENT_WEBHOOK_SECRET` and pass it as `X-Webhook-Secret` in production.
 ## Dự án: Badminton Digital Management – Hệ thống quản lý sân cầu lông
 
 **Phiên bản:** 1.0

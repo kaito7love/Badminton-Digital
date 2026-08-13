@@ -1,4 +1,4 @@
-﻿# Project Progress
+# Project Progress
 
 ## Dự án: Badminton Digital Management
 
@@ -8,5 +8,5 @@
 | Phase 2 | Architecture & Database Design | ✅ DONE | 19/07/2026 |
 | Phase 3 | Backend Core (Auth, Middleware, Models) | ✅ DONE | 20/07/2026 |
 | Phase 4 | Full Backend Business APIs | ✅ DONE | 23/07/2026 |
-| Phase 5 | Frontend Web Application (Next.js) | ⏳ TODO | - |
+| Phase 5 | Frontend Web Application (React SPA + Realtime UI) | ✅ DONE | 03/08/2026 |
 | Phase 6 | Testing, DevOps & Deployment | ⏳ TODO | - |
