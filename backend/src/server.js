@@ -10,7 +10,9 @@ const app = express();
 
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
-  credentials: true
+  credentials: true,
+  // Cho phép frontend đọc tên file khi tải báo cáo Excel/PDF
+  exposedHeaders: ['Content-Disposition']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
