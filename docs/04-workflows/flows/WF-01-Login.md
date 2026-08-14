@@ -12,12 +12,15 @@ Người dùng
     │
     ├─→ Truy cập trang Login
     │
-    ├─→ Nhập email / username
+    ├─→ Nhập SĐT hoặc email (một ô duy nhất)
     │   Nhập password
     │
-    ├─→ [POST /api/v1/auth/login]
+    ├─→ [POST /api/v1/auth/login] { identifier, password }
     │         │
-    │         ├─→ Xác thực email + bcrypt verify password
+    │         ├─→ Chuỗi có '@' → tra theo email
+    │         │   Chuỗi toàn số → chuẩn hoá rồi tra theo phone
+    │         │   (0903 333 333 / +84903333333 / 0903-333-333 → 0903333333)
+    │         ├─→ bcrypt verify password
     │         ├─→ Kiểm tra tài khoản isActive = true
     │         ├─→ Tạo Access Token (JWT, TTL: 15 phút)
     │         └─→ Tạo Refresh Token (HttpOnly Cookie, TTL: 7 ngày)
@@ -35,7 +38,10 @@ Người dùng
 ```
 Nhập sai mật khẩu / email không tồn tại
     └─→ API trả về 401
-        Hiển thị: "Email hoặc mật khẩu không đúng"
+        Hiển thị: "Số điện thoại/email hoặc mật khẩu không chính xác"
+        (thông báo giống hệt nhau cho mọi trường hợp sai — phân biệt
+         "chưa đăng ký" với "sai mật khẩu" là chỉ đường cho người dò
+         xem số nào đã có tài khoản)
         Cho phép thử lại (không giới hạn bởi hệ thống)
 ```
 
@@ -48,6 +54,44 @@ isActive = false
     └─→ API trả về 401
         Hiển thị: "Tài khoản bị khóa, vui lòng liên hệ Admin"
 ```
+
+---
+
+## Luồng: Khách hàng tự đăng ký
+
+```
+Khách hàng (chưa có tài khoản)
+    │
+    ├─→ Trang chủ → Đặt sân → "Đăng ký" (hoặc /register)
+    │
+    ├─→ Nhập họ tên + SĐT + mật khẩu (email không bắt buộc)
+    │
+    ├─→ [POST /api/v1/auth/register]
+    │         │
+    │         ├─→ Chuẩn hoá SĐT, kiểm tra chưa có tài khoản nào dùng số này
+    │         ├─→ Tạo User (role: customer, email có thể NULL)
+    │         │
+    │         ├─→ Tìm Customer cùng (branch, SĐT) mà chưa gắn tài khoản:
+    │         │     ├─→ CÓ  → gắn userId vào hồ sơ đó  ⇒ mergedHistory: true
+    │         │     │        (khách từng ra chơi tại quầy giữ nguyên lịch sử
+    │         │     │         chơi và mức chi tiêu tích luỹ)
+    │         │     └─→ KHÔNG → tạo hồ sơ Customer mới
+    │         │
+    │         └─→ Trả về token luôn — đăng ký xong là đã đăng nhập
+    │
+    └─→ Về /my-bookings
+```
+
+**Chỉ mở cho vai trò khách hàng.** Tài khoản nhân viên vẫn phải do admin tạo
+qua `/employees` — không có đường nào tự nâng quyền ở endpoint này.
+
+Hai đường tạo tài khoản khách, kết quả như nhau:
+
+| Đường | Ai làm | Kết quả |
+|---|---|---|
+| `POST /auth/register` | Khách tự làm trên web | Gắn vào hồ sơ cũ nếu trùng SĐT |
+| `POST /customers` kèm `password` | Nhân viên nhập tại quầy | Tạo hồ sơ + tài khoản cùng lúc |
+| `POST /customers` không `password` | Nhân viên nhập tại quầy | Chỉ hồ sơ; khách tự đăng ký sau sẽ nhận lại đúng hồ sơ này |
 
 ---
 

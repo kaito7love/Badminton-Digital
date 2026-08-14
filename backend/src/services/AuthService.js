@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const { User, Role, Employee, Customer } = require("../models");
+const { User, Role, Employee, Customer, sequelize } = require("../models");
 const {
   generateAccessToken,
   generateRefreshToken,
@@ -9,19 +9,45 @@ const {
   verifyResetToken,
 } = require("../utils/jwt");
 const { sendPasswordResetEmail } = require("../utils/mailer");
+const { normalizePhone, looksLikePhone, isValidPhone } = require("../utils/phone");
+const PublicCatalogService = require("./PublicCatalogService");
 
 class AuthService {
-  static async login({ email, password }) {
+  /**
+   * `identifier` nhận cả số điện thoại lẫn email trong cùng một ô. Khách đặt
+   * sân online hầu như chỉ có số điện thoại, còn nhân viên đã quen dùng email —
+   * bắt họ chọn tab trước khi gõ là thêm một bước không cần thiết.
+   *
+   * Tham số `email` vẫn được chấp nhận để không phá các chỗ gọi cũ.
+   */
+  static async login({ identifier, email, password }) {
+    const rawIdentity = String(identifier || email || "").trim();
+    if (!rawIdentity) {
+      const error = new Error("Vui lòng nhập số điện thoại hoặc email.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const where = looksLikePhone(rawIdentity)
+      ? { phone: normalizePhone(rawIdentity) }
+      : { email: rawIdentity.toLowerCase() };
+
     const user = await User.findOne({
-      where: { email },
+      where,
       include: [{ model: Role, as: "role" }],
     });
 
-    if (!user) {
-      const error = new Error("Email hoặc mật khẩu không chính xác.");
+    // Thông báo giống hệt nhau cho "không có tài khoản" và "sai mật khẩu":
+    // phân biệt hai trường hợp là chỉ đường cho người dò xem số nào đã đăng ký.
+    const rejectCredentials = () => {
+      const error = new Error(
+        "Số điện thoại/email hoặc mật khẩu không chính xác."
+      );
       error.statusCode = 401;
-      throw error;
-    }
+      return error;
+    };
+
+    if (!user) throw rejectCredentials();
 
     if (!user.isActive) {
       const error = new Error("Tài khoản đã bị vô hiệu hóa.");
@@ -30,11 +56,7 @@ class AuthService {
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) {
-      const error = new Error("Email hoặc mật khẩu không chính xác.");
-      error.statusCode = 401;
-      throw error;
-    }
+    if (!isMatch) throw rejectCredentials();
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
@@ -190,6 +212,128 @@ class AuthService {
     await user.save();
 
     return { message: "Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại." };
+  }
+
+  /**
+   * Khách tự đăng ký bằng số điện thoại.
+   *
+   * Điểm mấu chốt: rất nhiều khách đã có hồ sơ trong hệ thống từ những lần ra
+   * chơi tại quầy. Nếu đăng ký mà tạo hồ sơ mới thì lịch sử chơi và mức chi
+   * tiêu tích luỹ của họ bị bỏ lại ở hồ sơ cũ. Nên ở đây tìm theo SĐT trước:
+   * có hồ sơ chưa gắn tài khoản nào thì gắn vào, chỉ khi không có mới tạo mới.
+   */
+  static async register({ fullName, phone, email = null, password }) {
+    const normalizedPhone = normalizePhone(phone);
+    if (!isValidPhone(normalizedPhone)) {
+      const error = new Error("Số điện thoại không hợp lệ.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const normalizedEmail = email ? String(email).trim().toLowerCase() : null;
+    const branch = await PublicCatalogService.resolveBranch();
+
+    const transaction = await sequelize.transaction();
+    try {
+      const takenPhone = await User.findOne({
+        where: { phone: normalizedPhone },
+        transaction,
+      });
+      if (takenPhone) {
+        const error = new Error(
+          "Số điện thoại này đã có tài khoản. Bạn hãy đăng nhập hoặc dùng chức năng quên mật khẩu."
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      if (normalizedEmail) {
+        const takenEmail = await User.findOne({
+          where: { email: normalizedEmail },
+          transaction,
+        });
+        if (takenEmail) {
+          const error = new Error("Email này đã được dùng cho tài khoản khác.");
+          error.statusCode = 409;
+          throw error;
+        }
+      }
+
+      const customerRole = await Role.findOne({
+        where: { name: "customer" },
+        transaction,
+      });
+      if (!customerRole) {
+        const error = new Error("Hệ thống chưa cấu hình vai trò khách hàng.");
+        error.statusCode = 500;
+        throw error;
+      }
+
+      const user = await User.create(
+        {
+          roleId: customerRole.id,
+          email: normalizedEmail,
+          phone: normalizedPhone,
+          passwordHash: await bcrypt.hash(password, 10),
+          fullName: String(fullName).trim(),
+          isActive: true,
+        },
+        { transaction }
+      );
+
+      // Gộp với hồ sơ cũ nếu khách từng ra chơi tại quầy
+      const existing = await Customer.findOne({
+        where: { branchId: branch.id, phone: normalizedPhone, userId: null },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      let customer;
+      let mergedHistory = false;
+      if (existing) {
+        customer = await existing.update(
+          { userId: user.id, fullName: String(fullName).trim() },
+          { transaction }
+        );
+        mergedHistory = true;
+      } else {
+        customer = await Customer.create(
+          {
+            branchId: branch.id,
+            userId: user.id,
+            fullName: String(fullName).trim(),
+            phone: normalizedPhone,
+            email: normalizedEmail,
+          },
+          { transaction }
+        );
+      }
+
+      await transaction.commit();
+
+      const accessToken = generateAccessToken(user);
+      const refreshToken = generateRefreshToken(user);
+      user.refreshToken = refreshToken;
+      await user.save();
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          phone: user.phone,
+          avatarUrl: user.avatarUrl,
+          role: customerRole.name,
+        },
+        customerId: customer.id,
+        mergedHistory,
+        accessToken,
+        refreshToken,
+      };
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   }
 }
 

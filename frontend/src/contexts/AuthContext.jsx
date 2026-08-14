@@ -37,8 +37,9 @@ export function AuthProvider({ children }) {
     checkAuth();
   }, []);
 
-  const login = async (email, password) => {
-    const res = await apiClient.post("/auth/login", { email, password });
+  // `identifier` nhận cả số điện thoại lẫn email — backend tự phân biệt.
+  const login = async (identifier, password) => {
+    const res = await apiClient.post("/auth/login", { identifier, password });
     if (res.data?.success) {
       const { user: userData, accessToken, refreshToken } = res.data.data;
       localStorage.setItem("access_token", accessToken);
@@ -48,6 +49,20 @@ export function AuthProvider({ children }) {
       return userData;
     }
     throw new Error(res.data?.message || "Đăng nhập thất bại");
+  };
+
+  /** Khách tự đăng ký bằng SĐT — đăng ký xong là đã đăng nhập luôn. */
+  const register = async (payload) => {
+    const res = await apiClient.post("/auth/register", payload);
+    if (res.data?.success) {
+      const { user: userData, accessToken, refreshToken } = res.data.data;
+      localStorage.setItem("access_token", accessToken);
+      localStorage.setItem("refresh_token", refreshToken);
+      localStorage.setItem("user_info", JSON.stringify(userData));
+      setUser(userData);
+      return { user: userData, mergedHistory: res.data.data.mergedHistory };
+    }
+    throw new Error(res.data?.message || "Đăng ký thất bại");
   };
 
   const logout = async () => {
@@ -65,7 +80,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, setUser, loading, login, logout, checkAuth }}
+      value={{ user, setUser, loading, login, register, logout, checkAuth }}
     >
       {children}
     </AuthContext.Provider>

@@ -1159,10 +1159,16 @@ export default function HomePage() {
                   {user.phone && <span className="ml-2 text-slate-400">• {user.phone}</span>}
                 </div>
               ) : (
-                <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs font-semibold text-emerald-300">
-                  Bạn cần đăng nhập để hoàn tất. Lựa chọn hiện tại sẽ được giữ lại,
-                  đăng nhập xong quay về là đặt tiếp.
-                </p>
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs font-semibold text-emerald-300 space-y-2">
+                  <p>
+                    Bạn cần đăng nhập để hoàn tất. Lựa chọn hiện tại sẽ được giữ lại,
+                    đăng nhập xong quay về là đặt tiếp.
+                  </p>
+                  <p className="text-emerald-400/80 font-medium">
+                    Chưa có tài khoản? Đăng ký chỉ cần số điện thoại — bấm nút bên dưới
+                    rồi chọn “Đăng ký”.
+                  </p>
+                </div>
               )}
 
               <button

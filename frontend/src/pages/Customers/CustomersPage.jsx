@@ -19,7 +19,7 @@ export default function CustomersPage() {
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
-  const [formData, setFormData] = useState({ fullName: '', phone: '', email: '' });
+  const [formData, setFormData] = useState({ fullName: '', phone: '', email: '', password: '' });
 
   const fetchCustomers = async (keyword) => {
     try {
@@ -48,7 +48,7 @@ export default function CustomersPage() {
 
   const handleOpenAddModal = () => {
     setEditingCustomer(null);
-    setFormData({ fullName: '', phone: '', email: '' });
+    setFormData({ fullName: '', phone: '', email: '', password: '' });
     setIsModalOpen(true);
   };
 
@@ -76,6 +76,9 @@ export default function CustomersPage() {
           fullName: formData.fullName,
           phone: formData.phone,
           email: formData.email || null,
+          // Bỏ trống thì chỉ lập hồ sơ; khách tự đăng ký sau bằng chính số này
+          // sẽ được gắn vào hồ sơ có sẵn nên lịch sử không bị chẻ đôi.
+          password: formData.password || undefined,
         });
       }
       setIsModalOpen(false);
@@ -229,6 +232,27 @@ export default function CustomersPage() {
               placeholder="khachhang@gmail.com"
             />
           </div>
+
+          {!editingCustomer && (
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">
+                Mật khẩu đăng nhập (Tùy chọn)
+              </label>
+              <input
+                type="text"
+                minLength={6}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
+                placeholder="Tối thiểu 6 ký tự"
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                Điền nếu khách muốn tự đặt sân online ngay — khách sẽ đăng nhập bằng
+                số điện thoại vừa nhập. Bỏ trống cũng được, khách tự đăng ký sau vẫn
+                nhận lại đúng hồ sơ này.
+              </p>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
             <button

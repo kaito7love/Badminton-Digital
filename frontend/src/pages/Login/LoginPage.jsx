@@ -7,8 +7,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-  const [email, setEmail] = useState('admin@badminton.com');
-  const [password, setPassword] = useState('Admin@123');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -20,7 +20,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const user = await login(email, password);
+      const user = await login(identifier, password);
 
       // Đích đến phải hợp với vai trò. Trước đây mọi người đều bị đẩy về
       // /dashboard, kể cả khách hàng — mà /reports/dashboard chặn 'customer',
@@ -56,17 +56,20 @@ export default function LoginPage() {
 
           <div>
             <h1 className="text-2xl font-black text-white tracking-tight">Badminton <span className="text-emerald-400">Digital</span></h1>
-            <p className="text-xs uppercase font-extrabold tracking-widest text-slate-400 mt-1">Hệ Thống Quản Trị Sân Cầu Lông</p>
+            <p className="text-xs uppercase font-extrabold tracking-widest text-slate-400 mt-1">Đăng nhập đặt sân &amp; quản trị</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
-            <label className="block text-xs font-extrabold uppercase tracking-widest text-slate-300">Email Quản Trị</label>
+            <label className="block text-xs font-extrabold uppercase tracking-widest text-slate-300">Số điện thoại hoặc Email</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              inputMode="text"
+              autoComplete="username"
+              placeholder="0903 333 333 hoặc ban@email.com"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3.5 text-sm text-slate-100 outline-none transition focus:border-emerald-400"
               required
             />
@@ -95,14 +98,21 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-lime-400 px-4 py-4 text-sm font-black uppercase tracking-wider text-slate-950 transition hover:brightness-110 shadow-lg shadow-emerald-500/25 disabled:opacity-70 cursor-pointer"
           >
-            {loading ? 'Đang Đăng Nhập...' : 'Đăng Nhập Quản Trị ⚡'}
+            {loading ? 'Đang Đăng Nhập...' : 'Đăng Nhập ⚡'}
           </button>
         </form>
 
+        <p className="text-center text-sm text-slate-400">
+          Chưa có tài khoản?{' '}
+          <Link to="/register" className="font-bold text-emerald-400 hover:underline">
+            Đăng ký bằng số điện thoại
+          </Link>
+        </p>
+
         <div className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-4 text-xs text-slate-400 space-y-1">
           <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">Tài Khoản Thử Nghiệm System</p>
-          <p>Email: <span className="text-emerald-400 font-mono">admin@badminton.com</span></p>
-          <p>Mật khẩu: <span className="text-emerald-400 font-mono">Admin@123</span></p>
+          <p>Nhân viên: <span className="text-emerald-400 font-mono">admin@badminton.com</span> / <span className="text-emerald-400 font-mono">Admin@123</span></p>
+          <p>Khách hàng: <span className="text-emerald-400 font-mono">0903333333</span> / <span className="text-emerald-400 font-mono">Customer@123</span></p>
         </div>
 
         <div className="text-center pt-2">

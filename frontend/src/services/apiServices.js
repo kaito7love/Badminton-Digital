@@ -3,6 +3,7 @@ import apiClient from './apiClient';
 // ─── Auth ────────────────────────────────────────────────────────
 export const authService = {
   login: (data) => apiClient.post('/auth/login', data),
+  register: (data) => apiClient.post('/auth/register', data),
   logout: () => apiClient.post('/auth/logout'),
   refreshToken: () => apiClient.post('/auth/refresh-token'),
   changePassword: (data) => apiClient.put('/auth/change-password', data),

@@ -1,10 +1,28 @@
 const AuthService = require('../services/AuthService');
 
 class AuthController {
+  static async register(req, res, next) {
+    try {
+      const { fullName, phone, email, password } = req.body;
+      const result = await AuthService.register({ fullName, phone, email, password });
+
+      res.status(201).json({
+        success: true,
+        data: result,
+        message: result.mergedHistory
+          ? 'Tạo tài khoản thành công. Lịch sử chơi trước đây của bạn đã được gắn vào tài khoản này.'
+          : 'Tạo tài khoản thành công.',
+        errors: null
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async login(req, res, next) {
     try {
-      const { email, password } = req.body;
-      const result = await AuthService.login({ email, password });
+      const { identifier, email, password } = req.body;
+      const result = await AuthService.login({ identifier, email, password });
 
       res.status(200).json({
         success: true,

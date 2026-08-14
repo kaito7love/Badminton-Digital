@@ -4,6 +4,7 @@ import ProtectedRoute from './ProtectedRoute';
 import SidebarLayout from '../layouts/SidebarLayout';
 import HomePage from '../pages/Home/HomePage';
 import LoginPage from '../pages/Login/LoginPage';
+import RegisterPage from '../pages/Login/RegisterPage';
 import ForgotPasswordPage from '../pages/Login/ForgotPasswordPage';
 import ResetPasswordPage from '../pages/Login/ResetPasswordPage';
 import DashboardPage from '../pages/Dashboard/DashboardPage';
@@ -37,6 +38,7 @@ export default function AppRoutes() {
 
         {/* Auth Route */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 

@@ -1,8 +1,27 @@
-const { Customer, CourtSession, Booking, Invoice, Court } = require('../models');
+const bcrypt = require('bcrypt');
+const { Customer, CourtSession, Booking, Invoice, Court, User, Role, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { getPagination, getPagingData } = require('../utils/pagination');
+const { normalizePhone } = require('../utils/phone');
 
 class CustomerService {
+  /**
+   * Các trường nhân viên được phép nhập/sửa trên hồ sơ khách hàng.
+   *
+   * `totalSpent` và `loyaltyTier` cố tình nằm ngoài: chúng do PaymentService
+   * cộng dồn sau mỗi lần thanh toán, sửa tay thì hạng thành viên và ưu đãi đi
+   * kèm không còn phản ánh khoản khách đã chi. `userId` và `branchId` cũng
+   * vậy — gắn hồ sơ vào tài khoản nào, thuộc chi nhánh nào, không phải việc
+   * của một form sửa thông tin.
+   */
+  static pickEditableFields(data = {}) {
+    const editable = ['fullName', 'phone', 'email'];
+    return editable.reduce((payload, key) => {
+      if (data[key] !== undefined) payload[key] = data[key];
+      return payload;
+    }, {});
+  }
+
   static async getAllCustomers(query, context = {}) {
     const { page, limit, offset } = getPagination(query);
     const { search } = query;
@@ -44,17 +63,74 @@ class CustomerService {
       error.statusCode = 400;
       throw error;
     }
-    // Chỉ kiểm tra trùng khi thực sự có số điện thoại — khách vãng lai không số
-    // vẫn được phép tạo hồ sơ.
-    if (data.phone) {
-      const existing = await Customer.findOne({ where: { phone: data.phone, branchId: context.branchId } });
-      if (existing) {
-        const error = new Error('Customer with this phone number already exists');
-        error.statusCode = 400;
+    const phone = normalizePhone(data.phone);
+    const email = data.email ? String(data.email).trim().toLowerCase() : null;
+
+    const existing = await Customer.findOne({ where: { phone, branchId: context.branchId } });
+    if (existing) {
+      const error = new Error('Số điện thoại này đã có hồ sơ khách hàng');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Không có mật khẩu thì chỉ lập hồ sơ, khách tự đăng ký sau bằng chính số
+    // này và sẽ được gắn vào hồ sơ có sẵn — lịch sử không bị chẻ làm đôi.
+    if (!data.password) {
+      return await Customer.create({
+        ...CustomerService.pickEditableFields(data),
+        branchId: context.branchId,
+        phone,
+        email
+      });
+    }
+
+    const transaction = await sequelize.transaction();
+    try {
+      const takenPhone = await User.findOne({ where: { phone }, transaction });
+      if (takenPhone) {
+        const error = new Error('Số điện thoại này đã có tài khoản đăng nhập');
+        error.statusCode = 409;
         throw error;
       }
+      if (email) {
+        const takenEmail = await User.findOne({ where: { email }, transaction });
+        if (takenEmail) {
+          const error = new Error('Email này đã được dùng cho tài khoản khác');
+          error.statusCode = 409;
+          throw error;
+        }
+      }
+
+      const customerRole = await Role.findOne({ where: { name: 'customer' }, transaction });
+      if (!customerRole) {
+        const error = new Error('Hệ thống chưa cấu hình vai trò khách hàng');
+        error.statusCode = 500;
+        throw error;
+      }
+
+      const user = await User.create({
+        roleId: customerRole.id,
+        email,
+        phone,
+        passwordHash: await bcrypt.hash(data.password, 10),
+        fullName: String(data.fullName).trim(),
+        isActive: true
+      }, { transaction });
+
+      const customer = await Customer.create({
+        ...CustomerService.pickEditableFields(data),
+        branchId: context.branchId,
+        userId: user.id,
+        phone,
+        email
+      }, { transaction });
+
+      await transaction.commit();
+      return customer;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
     }
-    return await Customer.create({ ...data, branchId: context.branchId, phone: data.phone || null });
   }
 
   /**
@@ -68,7 +144,7 @@ class CustomerService {
    */
   static async resolveWalkIn({ branchId, fullName, phone, transaction = null }) {
     const name = (fullName || '').trim();
-    const normalizedPhone = (phone || '').trim() || null;
+    const normalizedPhone = normalizePhone(phone);
 
     if (!name && !normalizedPhone) return null;
 
@@ -96,15 +172,28 @@ class CustomerService {
     }
     // Chuỗi rỗng phải thành NULL: unique index coi '' là một giá trị thật nên hai
     // khách cùng để trống sẽ đụng nhau, còn NULL thì bao nhiêu cũng được.
-    const payload = { ...data };
-    if ('phone' in payload) payload.phone = (payload.phone || '').trim() || null;
+    const payload = CustomerService.pickEditableFields(data);
+    if ('phone' in payload) payload.phone = normalizePhone(payload.phone);
 
     if (payload.phone && payload.phone !== customer.phone) {
       const existing = await Customer.findOne({ where: { phone: payload.phone, branchId: customer.branchId } });
       if (existing) {
-        const error = new Error('Phone number is already in use by another customer');
+        const error = new Error('Số điện thoại này đã thuộc về khách hàng khác');
         error.statusCode = 400;
         throw error;
+      }
+      // Hồ sơ đã gắn tài khoản thì SĐT còn là danh tính đăng nhập — đổi ở đây
+      // mà quên đổi bên users là khách mất đường vào hệ thống.
+      if (customer.userId) {
+        const takenByUser = await User.findOne({
+          where: { phone: payload.phone, id: { [Op.ne]: customer.userId } }
+        });
+        if (takenByUser) {
+          const error = new Error('Số điện thoại này đã có tài khoản đăng nhập khác');
+          error.statusCode = 409;
+          throw error;
+        }
+        await User.update({ phone: payload.phone }, { where: { id: customer.userId } });
       }
     }
     return await customer.update(payload);

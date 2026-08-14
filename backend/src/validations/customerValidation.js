@@ -1,5 +1,6 @@
 const { body, param, validationResult } = require('express-validator');
 const { errorResponse } = require('../utils/responseHandler');
+const { isValidPhone } = require('../utils/phone');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -10,12 +11,21 @@ const validate = (req, res, next) => {
   next();
 };
 
-// Số điện thoại là tuỳ chọn: khách vãng lai chưa để lại số vẫn là khách hàng,
-// chỉ là hồ sơ thiếu thông tin. Tính duy nhất do (branch_id, phone) đảm nhiệm.
+// Tính duy nhất của SĐT trong một chi nhánh do chỉ mục (branch_id, phone) đảm nhiệm.
+// Tạo hồ sơ có chủ đích từ màn Khách hàng thì SĐT là bắt buộc: đó là thứ duy
+// nhất nhận ra khách ở lần ghé sau, và cũng là danh tính để họ đăng nhập đặt
+// sân online. Khách vãng lai không chịu đưa số vẫn mở sân được bình thường —
+// đường đó đi qua resolveWalkIn chứ không qua đây.
 const createCustomerRules = [
-  body('fullName').trim().notEmpty().withMessage('Full name is required'),
-  body('phone').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 20 }).withMessage('Phone number must be at most 20 characters'),
-  body('email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('Invalid email address'),
+  body('fullName').trim().notEmpty().withMessage('Vui lòng nhập họ tên khách hàng'),
+  body('phone').custom((value) => {
+    if (!isValidPhone(value)) throw new Error('Số điện thoại không hợp lệ');
+    return true;
+  }),
+  body('email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('Email không hợp lệ'),
+  // Có mật khẩu nghĩa là nhân viên tạo luôn tài khoản đăng nhập cho khách
+  body('password').optional({ nullable: true, checkFalsy: true })
+    .isLength({ min: 6 }).withMessage('Mật khẩu phải có tối thiểu 6 ký tự'),
   validate
 ];
 
