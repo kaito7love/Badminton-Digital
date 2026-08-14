@@ -58,3 +58,41 @@ describe('CourtService Unit Tests', () => {
     expect(formatted.state).toBe('INACTIVE');
   });
 });
+
+describe('CourtService — bảng chuyển đổi trạng thái', () => {
+  test.each([
+    ['active', 'maintenance', 'court.maintenance_started'],
+    ['active', 'inactive', 'court.retired'],
+    ['maintenance', 'active', 'court.maintenance_completed'],
+    ['maintenance', 'inactive', 'court.retired'],
+    ['inactive', 'active', 'court.reactivated']
+  ])('cho phép %s -> %s và đặt tên hành động là %s', (from, to, action) => {
+    expect(CourtService.resolveStatusTransition(from, to)).toBe(action);
+  });
+
+  // Sân đã ngưng khai thác thì không có gì để bảo trì — phải khai thác trở lại trước
+  test('chặn inactive -> maintenance', () => {
+    expect(CourtService.resolveStatusTransition('inactive', 'maintenance')).toBeNull();
+  });
+
+  test('chặn chuyển sang chính trạng thái đang có', () => {
+    ['active', 'maintenance', 'inactive'].forEach((s) => {
+      expect(CourtService.resolveStatusTransition(s, s)).toBeNull();
+    });
+  });
+});
+
+describe('CourtService — lọc trường được sửa', () => {
+  // Đổ thẳng req.body vào update() từng cho phép đổi cả status (đi vòng qua mọi
+  // kiểm tra) lẫn branchId (chuyển sân sang chi nhánh khác)
+  test('bỏ qua status và branchId, chỉ giữ thông tin mô tả sân', () => {
+    const picked = CourtService.pickEditableFields({
+      name: 'Sân 01',
+      peakPricePerHour: 120000,
+      status: 'inactive',
+      branchId: 99,
+      version: 5
+    });
+    expect(picked).toEqual({ name: 'Sân 01', peakPricePerHour: 120000 });
+  });
+});

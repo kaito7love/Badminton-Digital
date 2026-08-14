@@ -72,6 +72,7 @@ docs/
 │
 ├── APIDesign.md                               ← Đặc tả REST API toàn bộ hệ thống
 ├── Architecture.md                            ← Sơ đồ kiến trúc hệ thống
+├── CourtStateModel.md                         ← Mô hình trạng thái sân (4 quyết định đã chốt)
 ├── DatabaseDesign.md                          ← Thiết kế cơ sở dữ liệu (ERD + Schema)
 ├── DeploymentGuide.md                         ← Hướng dẫn triển khai (Docker, CI/CD)
 ├── SRS.md                                     ← Software Requirements Specification
@@ -100,6 +101,7 @@ docs/
 | [UseCase.md](../UseCase.md) | 21 Use Case của hệ thống |
 | [APIDesign.md](../APIDesign.md) | Thiết kế REST API chuẩn |
 | [DatabaseDesign.md](../DatabaseDesign.md) | ERD & Schema MySQL |
+| [CourtStateModel.md](../CourtStateModel.md) | Mô hình trạng thái sân: lifecycle vs operational, bảng chuyển đổi, nguồn sự thật, quy tắc realtime |
 | [Architecture.md](../Architecture.md) | Kiến trúc hệ thống backend/frontend |
 | [DeploymentGuide.md](../DeploymentGuide.md) | Hướng dẫn deploy Docker |
 | [TestPlan.md](../TestPlan.md) | Kế hoạch kiểm thử toàn diện |
