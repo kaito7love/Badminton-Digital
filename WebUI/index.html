@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description"
+    content="BadmintonDigital - Premium indoor badminton court booking with instant real-time reservation. Play Better. Book Smarter.">
+  <title>Badminton Digital | Premium Badminton Court Booking</title>
+
+  <!-- Google Fonts: Poppins & Be Vietnam Pro -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Poppins:wght@400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Theme must be applied before first paint to avoid a flash -->
+  <script>
+    (function () {
+      var saved = localStorage.getItem('bp-theme');
+      if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
+</head>
+
+<body>
+
+  <!-- Background Ambient Glow Blobs -->
+  <div class="ambient-blob blob-1"></div>
+  <div class="ambient-blob blob-2"></div>
+
+  <!-- NAVIGATION BAR -->
+  <header class="navbar" id="navbar">
+    <div class="container navbar-container">
+      <a href="#" class="brand-logo">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="45" stroke="#22C55E" stroke-width="4" fill="rgba(34, 197, 94, 0.1)" />
+          <path d="M50 20 L65 45 L50 40 L35 45 Z" fill="#84CC16" />
+          <path d="M50 40 L50 80" stroke="#22C55E" stroke-width="4" stroke-linecap="round" />
+          <circle cx="50" cy="80" r="6" fill="#22C55E" />
+        </svg>
+        <span>Badminton<span class="logo-accent">Digital</span></span>
+      </a>
+
+      <nav>
+        <ul class="nav-links" id="nav-links">
+          <li><a href="#courts" class="nav-link">Courts</a></li>
+          <li><a href="#availability" class="nav-link">Availability</a></li>
+          <li><a href="#facilities" class="nav-link">Facilities</a></li>
+          <li><a href="#pricing" class="nav-link">Pricing</a></li>
+          <li><a href="#services" class="nav-link">Services</a></li>
+          <li><a href="#gallery" class="nav-link">Gallery</a></li>
+          <li><a href="#faq" class="nav-link">FAQ</a></li>
+        </ul>
+      </nav>
+
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <button class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle dark mode" title="Toggle theme">
+          <span class="toggle-knob" id="theme-toggle-knob">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+            </svg>
+          </span>
+        </button>
+        <a href="#booking-widget" class="btn btn-primary ripple-btn">Book Now</a>
+        <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle Menu">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO SECTION (~100vh) -->
+  <section class="hero" id="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-overlay"></div>
+
+    <!-- Floating 3D Graphic Visual -->
+    <img src="assets/images/shuttlecock_3d.jpg" alt="BadmintonDigital Shuttlecock" class="floating-shuttle">
+
+    <div class="container hero-content">
+      <div class="hero-grid">
+
+        <!-- Left: Hero Text Content -->
+        <div class="hero-text">
+          <div class="section-badge">
+            Play Better. Book Smarter.
+          </div>
+          <h1 class="hero-headline">
+            Book Your Court <span>Within Seconds</span>
+          </h1>
+          <p class="hero-sub">
+            Play at premium indoor badminton courts with instant booking. World-class BWF approved mats, precision LED
+            lighting, and climate control.
+          </p>
+
+          <div class="hero-actions">
+            <a href="#booking-widget" class="btn btn-primary ripple-btn">Book Now</a>
+            <a href="#courts" class="btn btn-secondary">Explore Courts</a>
+          </div>
+
+          <!-- Hero Statistics Bar -->
+          <div class="hero-stats">
+            <div class="stat-item">
+              <div class="stat-number" data-target="4.9">4.9 ★</div>
+              <div class="stat-label">User Rating</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number" data-target="12000">12,000+</div>
+              <div class="stat-label">Bookings</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number" data-target="8">8</div>
+              <div class="stat-label">Pro Courts</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number">6AM–11PM</div>
+              <div class="stat-label">Open Daily</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Floating Glass Booking Widget -->
+        <div class="hero-widget-wrap" id="booking-widget">
+          <div class="booking-widget-card">
+            <div class="widget-title">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              Reserve A Court
+            </div>
+
+            <form class="widget-form" id="quick-booking-form">
+              <!-- Date Selection -->
+              <div class="form-group">
+                <label class="form-label">Date</label>
+                <div class="form-input-wrapper">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <input type="date" class="form-control" id="booking-date">
+                </div>
+              </div>
+
+              <!-- Time Slot -->
+              <div class="form-group">
+                <label class="form-label">Time</label>
+                <div class="form-input-wrapper">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  <select class="form-control" id="booking-time">
+                    <option value="08:00">08:00 AM</option>
+                    <option value="10:00">10:00 AM</option>
+                    <option value="14:00">02:00 PM</option>
+                    <option value="17:00" selected>05:00 PM (Peak)</option>
+                    <option value="19:00">07:00 PM (Peak)</option>
+                    <option value="21:00">09:00 PM (Peak)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Duration -->
+              <div class="form-group">
+                <label class="form-label">Duration</label>
+                <div class="form-input-wrapper">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <select class="form-control" id="booking-duration">
+                    <option value="1">1 Hour</option>
+                    <option value="1.5">1.5 Hours</option>
+                    <option value="2" selected>2 Hours</option>
+                    <option value="3">3 Hours</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Court Type -->
+              <div class="form-group">
+                <label class="form-label">Court Type</label>
+                <div class="form-input-wrapper">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path
+                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
+                    </path>
+                  </svg>
+                  <select class="form-control" id="booking-court">
+                    <option value="all">Any Available Court</option>
+                    <option value="bwf">BWF Tournament Arena</option>
+                    <option value="vip">VIP Lounge Court</option>
+                    <option value="pro">Pro Performance Studio</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Search Button -->
+              <button type="button" class="btn btn-primary btn-search ripple-btn" id="search-courts-btn">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                Find Available Courts
+              </button>
+            </form>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURED COURTS SECTION -->
+  <section class="courts-section" id="courts">
+    <div class="container">
+      <div class="text-center">
+        <div class="section-badge">World-Class Venue</div>
+        <h2 class="section-title">Our <span class="text-gradient">Featured Courts</span></h2>
+        <p class="section-subtitle mx-auto">
+          Built with shock-absorbing subflooring, high-contrast BWF standard green mats, and anti-glare vertical LED
+          lighting arrays.
+        </p>
+      </div>
+
+      <div class="courts-grid">
+
+        <!-- Court 1 -->
+        <article class="court-card">
+          <div class="court-img-wrap">
+            <img src="assets/images/court_1.jpg" alt="Court 01 - BWF Tournament Arena" class="court-img">
+            <div class="court-badges">
+              <span class="badge-status available">Available Now</span>
+              <span class="badge-price">$30 / hr</span>
+            </div>
+          </div>
+          <div class="court-body">
+            <div class="court-header">
+              <h3 class="court-name">Court 01 - BWF Arena</h3>
+              <div class="court-rating">★ 4.9</div>
+            </div>
+            <p class="court-desc">Official competition court with elevated spectator gallery and broadcast-grade light
+              dispersion.</p>
+            <div class="court-specs">
+              <span class="spec-chip">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M5 13l4 4L19 7"></path>
+                </svg>
+                BWF Mat 5.0mm
+              </span>
+              <span class="spec-chip">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M5 13l4 4L19 7"></path>
+                </svg>
+                Pro LED 1200 Lux
+              </span>
+              <span class="spec-chip">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M5 13l4 4L19 7"></path>
+                </svg>
+                Air Conditioned
+              </span>
+            </div>
+            <div class="court-footer">
+              <button class="btn btn-secondary open-booking-trigger" data-court="Court 01 - BWF Arena"
+                data-price="30">Quick Book</button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Court 2 -->
+        <article class="court-card">
+          <div class="court-img-wrap">
+            <img src="assets/images/court_2.jpg" alt="Court 02 - VIP Executive Suite" class="court-img">
+            <div class="court-badges">
+              <span class="badge-status vip">VIP Suite</span>
+              <span class="badge-price">$45 / hr</span>
+            </div>
+          </div>
+          <div class="court-body">
+            <div class="court-header">
+              <h3 class="court-name">Court 02 - VIP Lounge</h3>
+              <div class="court-rating">★ 5.0</div>
+            </div>
+            <p class="court-desc">Private enclosed court featuring luxury leather lounge seating, dedicated refreshment
+              fridge, and sound system.</p>
+            <div class="court-specs">
+              <span class="spec-chip">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M5 13l4 4L19 7"></path>
+                </svg>
+                Private Suite
+              </span>
+              <span class="spec-chip">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M5 13l4 4L19 7"></path>
+                </svg>
+                Maple Subfloor
+              </span>
+              <span class="spec-chip">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M5 13l4 4L19 7"></path>
+                </svg>
+                Lounge Seating
+              </span>
+            </div>
+            <div class="court-footer">
+              <button class="btn btn-primary ripple-btn open-booking-trigger" data-court="Court 02 - VIP Lounge"
+                data-price="45">Reserve VIP</button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Court 3 -->
+        <article class="court-card">
+          <div class="court-img-wrap">
+            <img src="assets/images/court_1.jpg" alt="Court 03 - Pro Performance Studio" class="court-img">
+            <div class="court-badges">
+              <span class="badge-status available">Available Now</span>
+              <span class="badge-price">$28 / hr</span>
+            </div>
+          </div>
+          <div class="court-body">
+            <div class="court-header">
+              <h3 class="court-name">Court 03 - Pro Studio</h3>
+              <div class="court-rating">★ 4.8</div>
+            </div>
+            <p class="court-desc">Designed for high-intensity training sessions, featuring high frame-rate replay
+              cameras for motion analysis.</p>
+            <div class="court-specs">
+              <span class="spec-chip">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M5 13l4 4L19 7"></path>
+                </svg>
+                Smash Analytics
+              </span>
+              <span class="spec-chip">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M5 13l4 4L19 7"></path>
+                </svg>
+                Cushioned Sub-base
+              </span>
+            </div>
+            <div class="court-footer">
+              <button class="btn btn-secondary open-booking-trigger" data-court="Court 03 - Pro Studio"
+                data-price="28">Quick Book</button>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- INTERACTIVE AVAILABILITY TIMELINE SECTION -->
+  <section class="availability-section" id="availability">
+    <div class="container">
+      <div class="text-center">
+        <div class="section-badge">Real-Time Schedule</div>
+        <h2 class="section-title">Live Court <span class="text-gradient">Availability Grid</span></h2>
+        <p class="section-subtitle mx-auto">
+          Select any available green slot below to instantly reserve your preferred court time.
+        </p>
+      </div>
+
+      <div class="availability-controls">
+        <div class="date-selector-bar">
+          <button class="date-btn active">Today (Aug 5)</button>
+          <button class="date-btn">Tomorrow (Aug 6)</button>
+          <button class="date-btn">Thu (Aug 7)</button>
+          <button class="date-btn">Fri (Aug 8)</button>
+        </div>
+
+        <div class="timeline-legend">
+          <div class="legend-item"><span class="legend-dot available"></span> Available</div>
+          <div class="legend-item"><span class="legend-dot booked"></span> Booked</div>
+          <div class="legend-item"><span class="legend-dot maintenance"></span> Maintenance</div>
+        </div>
+      </div>
+
+      <!-- Google Calendar Style Timeline Table -->
+      <div class="timeline-wrapper">
+        <table class="timeline-table">
+          <thead>
+            <tr>
+              <th class="court-col-header">Court</th>
+              <th>06:00</th>
+              <th>08:00</th>
+              <th>10:00</th>
+              <th>12:00</th>
+              <th>14:00</th>
+              <th>16:00</th>
+              <th>18:00</th>
+              <th>20:00</th>
+              <th>22:00</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="court-col-header">Court 01 (BWF)</td>
+              <td class="slot-cell available" data-time="06:00" data-court="Court 01">$25</td>
+              <td class="slot-cell booked">Booked</td>
+              <td class="slot-cell available" data-time="10:00" data-court="Court 01">$25</td>
+              <td class="slot-cell available" data-time="12:00" data-court="Court 01">$25</td>
+              <td class="slot-cell booked">Booked</td>
+              <td class="slot-cell available" data-time="16:00" data-court="Court 01">$30</td>
+              <td class="slot-cell booked">Booked</td>
+              <td class="slot-cell booked">Booked</td>
+              <td class="slot-cell available" data-time="22:00" data-court="Court 01">$30</td>
+            </tr>
+            <tr>
+              <td class="court-col-header">Court 02 (VIP)</td>
+              <td class="slot-cell maintenance">Maint.</td>
+              <td class="slot-cell available" data-time="08:00" data-court="Court 02">$40</td>
+              <td class="slot-cell available" data-time="10:00" data-court="Court 02">$40</td>
+              <td class="slot-cell booked">Booked</td>
+              <td class="slot-cell available" data-time="14:00" data-court="Court 02">$40</td>
+              <td class="slot-cell available" data-time="16:00" data-court="Court 02">$45</td>
+              <td class="slot-cell booked">Booked</td>
+              <td class="slot-cell available" data-time="20:00" data-court="Court 02">$45</td>
+              <td class="slot-cell available" data-time="22:00" data-court="Court 02">$45</td>
+            </tr>
+            <tr>
+              <td class="court-col-header">Court 03 (Pro)</td>
+              <td class="slot-cell available" data-time="06:00" data-court="Court 03">$25</td>
+              <td class="slot-cell available" data-time="08:00" data-court="Court 03">$25</td>
+              <td class="slot-cell booked">Booked</td>
+              <td class="slot-cell available" data-time="12:00" data-court="Court 03">$25</td>
+              <td class="slot-cell available" data-time="14:00" data-court="Court 03">$25</td>
+              <td class="slot-cell booked">Booked</td>
+              <td class="slot-cell booked">Booked</td>
+              <td class="slot-cell available" data-time="20:00" data-court="Court 03">$30</td>
+              <td class="slot-cell available" data-time="22:00" data-court="Court 03">$30</td>
+            </tr>
+            <tr>
+              <td class="court-col-header">Court 04 (Std)</td>
+              <td class="slot-cell available" data-time="06:00" data-court="Court 04">$22</td>
+              <td class="slot-cell available" data-time="08:00" data-court="Court 04">$22</td>
+              <td class="slot-cell available" data-time="10:00" data-court="Court 04">$22</td>
+              <td class="slot-cell booked">Booked</td>
+              <td class="slot-cell available" data-time="14:00" data-court="Court 04">$22</td>
+              <td class="slot-cell available" data-time="16:00" data-court="Court 04">$28</td>
+              <td class="slot-cell available" data-time="18:00" data-court="Court 04">$28</td>
+              <td class="slot-cell booked">Booked</td>
+              <td class="slot-cell booked">Booked</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- FACILITIES & AMENITIES -->
+  <section class="facilities-section" id="facilities">
+    <div class="container">
+      <div class="text-center">
+        <div class="section-badge">Premium Amenities</div>
+        <h2 class="section-title">Designed For <span class="text-gradient">Peak Performance</span></h2>
+        <p class="section-subtitle mx-auto">
+          Every detail is curated to deliver a seamless athletic luxury experience before, during, and after your match.
+        </p>
+      </div>
+
+      <div class="facilities-grid">
+        <div class="facility-card">
+          <div class="facility-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path
+                d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 002 12v4c0 .6.4 1 1 1h2">
+              </path>
+              <circle cx="7" cy="17" r="2"></circle>
+              <circle cx="17" cy="17" r="2"></circle>
+            </svg>
+          </div>
+          <h3 class="facility-title">Free VIP Parking</h3>
+          <p class="facility-desc">Spacious 100+ spot secure indoor parking with EV charging stations.</p>
+        </div>
+
+        <div class="facility-card">
+          <div class="facility-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M4 14.899A7 7 0 1115.71 8h1.79a4.5 4.5 0 012.5 8.242"></path>
+              <path d="M12 12v9m-4-3l4 3 4-3"></path>
+            </svg>
+          </div>
+          <h3 class="facility-title">Luxury Showers</h3>
+          <p class="facility-desc">Private rain showers, complimentary organic toiletries, and heated towel racks.</p>
+        </div>
+
+        <div class="facility-card">
+          <div class="facility-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0110 0v4"></path>
+            </svg>
+          </div>
+          <h3 class="facility-title">Digital Lockers</h3>
+          <p class="facility-desc">Keyless RFID digital lockers with built-in USB-C fast phone chargers.</p>
+        </div>
+
+        <div class="facility-card">
+          <div class="facility-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"></path>
+            </svg>
+          </div>
+          <h3 class="facility-title">Gigabit Wi-Fi 6</h3>
+          <p class="facility-desc">Ultra-fast fiber network for streaming match recordings and remote work.</p>
+        </div>
+
+        <div class="facility-card">
+          <div class="facility-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path
+                d="M9.59 4.59A2 2 0 0111 4h2a2 2 0 012 2v2H9V6c0-.53.21-1.04.59-1.41zM5 8h14a1 1 0 011 1v11a1 1 0 01-1 1H5a1 1 0 01-1-1V9a1 1 0 011-1z">
+              </path>
+            </svg>
+          </div>
+          <h3 class="facility-title">Precision Climate Control</h3>
+          <p class="facility-desc">Draft-free HVAC airflow regulation preventing air drag on shuttlecock flight
+            trajectory.</p>
+        </div>
+
+        <div class="facility-card">
+          <div class="facility-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8zM6 1v3M10 1v3M14 1v3"></path>
+            </svg>
+          </div>
+          <h3 class="facility-title">Pro Cafe & Bar</h3>
+          <p class="facility-desc">Serving specialty espresso drinks, cold-pressed electrolyte juices, and protein
+            bowls.</p>
+        </div>
+
+        <div class="facility-card">
+          <div class="facility-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <circle cx="9" cy="21" r="1"></circle>
+              <circle cx="20" cy="21" r="1"></circle>
+              <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"></path>
+            </svg>
+          </div>
+          <h3 class="facility-title">Yonex Pro Shop</h3>
+          <p class="facility-desc">Official dealer for Yonex and Victor equipment, shoes, bags, and accessories.</p>
+        </div>
+
+        <div class="facility-card">
+          <div class="facility-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path
+                d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z">
+              </path>
+            </svg>
+          </div>
+          <h3 class="facility-title">Same-Day Racket Stringing</h3>
+          <p class="facility-desc">Electronic constant-pull stringing machines operated by certified stringers.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING & MEMBERSHIP TIERS -->
+  <section class="pricing-section" id="pricing">
+    <div class="container">
+      <div class="text-center">
+        <div class="section-badge">Transparent Pricing</div>
+        <h2 class="section-title">Flexible <span class="text-gradient">Booking Rates</span></h2>
+        <p class="section-subtitle mx-auto">
+          No hidden fees or unexpected charges. Book per hour or join our elite club membership for exclusive perks.
+        </p>
+      </div>
+
+      <div class="pricing-grid">
+        <!-- Morning Tier -->
+        <div class="pricing-card">
+          <div class="pricing-header">
+            <div class="pricing-time">06:00 AM - 12:00 PM</div>
+            <h3 class="pricing-title">Morning Early Bird</h3>
+          </div>
+          <div class="pricing-amount">$22 <span>/ hr</span></div>
+          <ul class="pricing-features">
+            <li><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7"></path>
+              </svg> Standard BWF Mat Access</li>
+            <li><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7"></path>
+              </svg> Shower & Locker included</li>
+            <li><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7"></path>
+              </svg> Free Wi-Fi 6 access</li>
+          </ul>
+          <a href="#booking-widget" class="btn btn-secondary" style="width: 100%;">Book Morning Slot</a>
+        </div>
+
+        <!-- Peak Tier (Highlighted) -->
+        <div class="pricing-card popular">
+          <div class="popular-badge">Most Popular</div>
+          <div class="pricing-header">
+            <div class="pricing-time">05:00 PM - 11:00 PM</div>
+            <h3 class="pricing-title">Prime Evening Hours</h3>
+          </div>
+          <div class="pricing-amount">$30 <span>/ hr</span></div>
+          <ul class="pricing-features">
+            <li><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7"></path>
+              </svg> Tournament LED Lighting</li>
+            <li><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7"></path>
+              </svg> Full Climate Air-Con</li>
+            <li><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7"></path>
+              </svg> Free Racket Rental for 2</li>
+            <li><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7"></path>
+              </svg> Priority Booking Window</li>
+          </ul>
+          <a href="#booking-widget" class="btn btn-primary ripple-btn" style="width: 100%;">Book Peak Hour</a>
+        </div>
+
+        <!-- VIP Pass Tier -->
+        <div class="pricing-card">
+          <div class="pricing-header">
+            <div class="pricing-time">Monthly Membership</div>
+            <h3 class="pricing-title">Pro VIP Club Pass</h3>
+          </div>
+          <div class="pricing-amount">$149 <span>/ month</span></div>
+          <ul class="pricing-features">
+            <li><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7"></path>
+              </svg> 10 Hours Included Court Time</li>
+            <li><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7"></path>
+              </svg> 14-Day Advance Reservation</li>
+            <li><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7"></path>
+              </svg> 20% Off Pro Shop & Drinks</li>
+            <li><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7"></path>
+              </svg> Free Stringing Labor</li>
+          </ul>
+          <a href="#booking-widget" class="btn btn-secondary" style="width: 100%;">Join Pro Pass</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES & RENTALS -->
+  <section class="services-section" id="services">
+    <div class="container">
+      <div class="text-center">
+        <div class="section-badge">Extra Services</div>
+        <h2 class="section-title">Equipment & <span class="text-gradient">Coaching Add-ons</span></h2>
+        <p class="section-subtitle mx-auto">
+          Forgot your gear or want to elevate your game? We provide everything you need on-site.
+        </p>
+      </div>
+
+      <div class="services-grid">
+        <div class="service-card">
+          <div class="service-header">
+            <div class="service-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+              </svg>
+            </div>
+            <div class="service-price">$28 / tube</div>
+          </div>
+          <h3 class="service-title">Yonex AS-50 Feather Shuttles</h3>
+          <p class="service-desc">Tournament grade goose feather shuttlecocks for true flight consistency.</p>
+        </div>
+
+        <div class="service-card">
+          <div class="service-header">
+            <div class="service-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+            </div>
+            <div class="service-price">$5 / session</div>
+          </div>
+          <h3 class="service-title">Pro Racket Rental</h3>
+          <p class="service-desc">Try latest Yonex Astrox 99, 88D Pro, or Victor Thruster rackets.</p>
+        </div>
+
+        <div class="service-card">
+          <div class="service-header">
+            <div class="service-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 00-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 010 7.75"></path>
+              </svg>
+            </div>
+            <div class="service-price">$65 / hour</div>
+          </div>
+          <h3 class="service-title">1-on-1 Pro Coaching</h3>
+          <p class="service-desc">Private tactical drills and footwork training with former national squad players.</p>
+        </div>
+
+        <div class="service-card">
+          <div class="service-header">
+            <div class="service-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"></path>
+              </svg>
+            </div>
+            <div class="service-price">$4 - $8</div>
+          </div>
+          <h3 class="service-title">Artisan Coffee & Electrolytes</h3>
+          <p class="service-desc">Freshly roasted pour-overs, cold brew, and chilled hydration beverages.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MASONRY GALLERY -->
+  <section class="gallery-section" id="gallery">
+    <div class="container">
+      <div class="text-center">
+        <div class="section-badge">Visual Tour</div>
+        <h2 class="section-title">Experience <span class="text-gradient">BadmintonPro</span></h2>
+        <p class="section-subtitle mx-auto">
+          A glance inside our high-performance indoor arena, player lounges, and active games.
+        </p>
+      </div>
+
+      <div class="gallery-grid">
+        <div class="gallery-item wide">
+          <img src="assets/images/court_1.jpg" alt="Court 01 Arena View" class="gallery-img">
+          <div class="gallery-overlay">
+            <div class="gallery-caption">BWF Tournament Arena 01</div>
+          </div>
+        </div>
+
+        <div class="gallery-item tall">
+          <img src="assets/images/player_smash.jpg" alt="Player Smash Action" class="gallery-img">
+          <div class="gallery-overlay">
+            <div class="gallery-caption">High Performance Action</div>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <img src="assets/images/court_2.jpg" alt="VIP Court Lounge" class="gallery-img">
+          <div class="gallery-overlay">
+            <div class="gallery-caption">VIP Executive Suite</div>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <img src="assets/images/facility_cafe.jpg" alt="Sports Cafe" class="gallery-img">
+          <div class="gallery-overlay">
+            <div class="gallery-caption">Sports Cafe & Bar</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS CAROUSEL -->
+  <section class="testimonials-section">
+    <div class="container">
+      <div class="text-center">
+        <div class="section-badge">Community Feedback</div>
+        <h2 class="section-title">Loved By <span class="text-gradient">Players & Clubs</span></h2>
+      </div>
+
+      <div class="testimonials-wrapper">
+        <div class="testimonial-card active">
+          <div class="stars">★★★★★</div>
+          <p class="testimonial-quote">
+            "BadmintonPro is hands down the best facility in the city. The lighting is crisp with zero glare, and the
+            instant booking system takes seconds!"
+          </p>
+          <div class="testimonial-author">
+            <img src="assets/images/court_1.jpg" alt="Marcus Chen" class="author-avatar">
+            <div class="author-info">
+              <div class="author-name">Marcus Chen</div>
+              <div class="author-role">Amateur League Captain</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card">
+          <div class="stars">★★★★★</div>
+          <p class="testimonial-quote">
+            "The VIP court lounge is fantastic for hosting corporate team matches. Shock-absorbing floor mats saved my
+            knees during long sessions."
+          </p>
+          <div class="testimonial-author">
+            <img src="assets/images/court_2.jpg" alt="Sarah Jenkins" class="author-avatar">
+            <div class="author-info">
+              <div class="author-name">Sarah Jenkins</div>
+              <div class="author-role">Tech Executive & Player</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="carousel-dots">
+          <span class="dot active" data-index="0"></span>
+          <span class="dot" data-index="1"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ ACCORDION -->
+  <section class="faq-section" id="faq">
+    <div class="container">
+      <div class="text-center">
+        <div class="section-badge">Got Questions?</div>
+        <h2 class="section-title">Frequently Asked <span class="text-gradient">Questions</span></h2>
+      </div>
+
+      <div class="faq-container">
+        <div class="faq-item active">
+          <div class="faq-header">
+            <span>What type of footwear is required on the courts?</span>
+            <svg class="faq-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+              viewBox="0 0 24 24">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="faq-body">
+            Only non-marking indoor court shoes are allowed on all synthetic BWF court mats to preserve floor grip and
+            prevent surface scuffing.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-header">
+            <span>What is your booking cancellation & refund policy?</span>
+            <svg class="faq-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+              viewBox="0 0 24 24">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="faq-body">
+            You can cancel or reschedule any court reservation up to 6 hours before your slot start time for a full
+            account credit or refund.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-header">
+            <span>Can I rent rackets and buy shuttlecocks on arrival?</span>
+            <svg class="faq-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+              viewBox="0 0 24 24">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="faq-body">
+            Yes! Our Pro Shop stocks high-end Yonex and Victor rental rackets, feather shuttle tubes, grips, and
+            restringing services.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="#" class="brand-logo">
+            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+              <circle cx="50" cy="50" r="45" stroke="#22C55E" stroke-width="4" fill="rgba(34, 197, 94, 0.1)" />
+              <path d="M50 20 L65 45 L50 40 L35 45 Z" fill="#84CC16" />
+              <path d="M50 40 L50 80" stroke="#22C55E" stroke-width="4" stroke-linecap="round" />
+            </svg>
+            <span>Badminton<span class="logo-accent">Pro</span></span>
+          </a>
+          <p class="footer-desc">
+            The premier indoor badminton venue. Elevated synthetic courts, precision LED lighting, and effortless online
+            court reservations.
+          </p>
+        </div>
+
+        <div>
+          <h4 class="footer-title">Quick Links</h4>
+          <ul class="footer-links">
+            <li><a href="#courts">Courts</a></li>
+            <li><a href="#availability">Availability</a></li>
+            <li><a href="#facilities">Facilities</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="footer-title">Hours</h4>
+          <ul class="footer-links">
+            <li>Mon – Fri: 06:00 – 23:00</li>
+            <li>Sat – Sun: 06:00 – 23:00</li>
+            <li style="color: var(--primary); font-weight: 600; margin-top: 6px;">Open 365 Days / Year</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="footer-title">Contact & Location</h4>
+          <div class="footer-contact">
+            <div class="footer-contact-item">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+              <span>128 Sports Arena Way, Metro City</span>
+            </div>
+            <div class="footer-contact-item">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path
+                  d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z">
+                </path>
+              </svg>
+              <span>+1 (800) 555-COURT</span>
+            </div>
+            <div class="footer-contact-item">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+              <span>support@badmintonpro.com</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>© 2026 BadmintonPro Center. All rights reserved.</div>
+        <div>Designed for High-Performance Badminton</div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- BOOKING CONFIRMATION MODAL DRAWER -->
+  <div class="modal-backdrop" id="booking-modal">
+    <div class="booking-modal-card">
+      <span class="modal-close" id="modal-close-btn">&times;</span>
+      <h3 class="modal-title">Confirm Booking</h3>
+
+      <div class="summary-box">
+        <div class="summary-row">
+          <span>Court:</span>
+          <strong id="modal-court-name">Court 01 - BWF Arena</strong>
+        </div>
+        <div class="summary-row">
+          <span>Date & Time:</span>
+          <strong id="modal-date-time">Today, 05:00 PM</strong>
+        </div>
+        <div class="summary-row">
+          <span>Duration:</span>
+          <strong id="modal-duration">2 Hours</strong>
+        </div>
+        <div class="summary-row total">
+          <span>Total Price:</span>
+          <span id="modal-total-price">$60.00</span>
+        </div>
+      </div>
+
+      <form id="confirm-booking-form">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Full Name</label>
+          <input type="text" class="form-control" placeholder="Alex Morgan" required style="padding-left: 16px;">
+        </div>
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label class="form-label">Phone Number</label>
+          <input type="tel" class="form-control" placeholder="+1 (555) 019-2834" required style="padding-left: 16px;">
+        </div>
+
+        <button type="submit" class="btn btn-primary ripple-btn" style="width: 100%;">
+          Complete Reservation
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- LIGHTBOX MODAL FOR GALLERY -->
+  <div class="lightbox-modal" id="lightbox-modal">
+    <span class="lightbox-close" id="lightbox-close">&times;</span>
+    <img src="" alt="Enlarged View" class="lightbox-content" id="lightbox-img">
+  </div>
+
+  <!-- JavaScript logic -->
+  <script src="script.js"></script>
+</body>
+
+</html>

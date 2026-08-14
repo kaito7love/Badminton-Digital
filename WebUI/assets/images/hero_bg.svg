@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="55%" stop-color="#132a1e"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#22C55E" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#22C55E" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#84CC16" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#84CC16" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <circle cx="1500" cy="250" r="500" fill="url(#glow1)"/>
+  <circle cx="350" cy="850" r="550" fill="url(#glow2)"/>
+  <!-- court floor lines -->
+  <g stroke="#22C55E" stroke-opacity="0.18" stroke-width="4" fill="none">
+    <rect x="260" y="600" width="1400" height="420" rx="4"/>
+    <line x1="960" y1="600" x2="960" y2="1020"/>
+    <line x1="260" y1="810" x2="1660" y2="810"/>
+    <rect x="420" y="650" width="1080" height="330"/>
+  </g>
+</svg>

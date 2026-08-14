@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bgp" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#132a1e"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bgp)"/>
+  <circle cx="400" cy="230" r="220" fill="#22C55E" opacity="0.12"/>
+  <!-- silhouette: jumping smash pose -->
+  <g fill="#0F172A" stroke="#84CC16" stroke-width="3">
+    <circle cx="430" cy="150" r="28"/>
+    <path d="M430 178 L400 260 L470 300 L520 220 Z"/>
+    <path d="M470 300 L440 420 L410 560" stroke-width="14" stroke-linecap="round" fill="none"/>
+    <path d="M470 300 L520 430 L560 560" stroke-width="14" stroke-linecap="round" fill="none"/>
+    <path d="M420 210 L340 120" stroke-width="14" stroke-linecap="round" fill="none"/>
+    <path d="M460 220 L560 150" stroke-width="14" stroke-linecap="round" fill="none"/>
+  </g>
+  <!-- racquet -->
+  <g stroke="#F8FAFC" stroke-width="4" fill="none" opacity="0.85">
+    <ellipse cx="600" cy="110" rx="34" ry="46" transform="rotate(20 600 110)"/>
+    <line x1="580" y1="150" x2="560" y2="150"/>
+  </g>
+  <!-- motion lines -->
+  <g stroke="#84CC16" stroke-opacity="0.5" stroke-width="5" stroke-linecap="round">
+    <line x1="500" y1="90" x2="560" y2="70"/>
+    <line x1="510" y1="120" x2="580" y2="105"/>
+  </g>
+</svg>

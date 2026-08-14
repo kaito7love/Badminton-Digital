@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="BadmintonPro Admin Dashboard — courts, bookings, customers, employees and revenue at a glance.">
+<title>Dashboard | BadmintonPro</title>
+
+<!-- Theme must be applied before first paint to avoid a flash -->
+<script>
+  (function () {
+    var saved = localStorage.getItem('bp-theme');
+    var theme = saved || 'auto';
+    if (theme === 'light' || theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  })();
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="sidebar-scrim" id="sidebar-scrim"></div>
+
+<div class="app-shell">
+
+  <!-- ============================= SIDEBAR ============================= -->
+  <aside class="sidebar" id="sidebar">
+    <a href="index.html" class="sidebar-brand">
+      <svg viewBox="0 0 100 100" fill="none" width="30" height="30" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="45" stroke="#22C55E" stroke-width="4" fill="rgba(34, 197, 94, 0.1)"/>
+        <path d="M50 20 L65 45 L50 40 L35 45 Z" fill="#84CC16"/>
+        <path d="M50 40 L50 80" stroke="#22C55E" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="50" cy="80" r="6" fill="#22C55E"/>
+      </svg>
+      <span>Badminton<span class="logo-accent">Pro</span></span>
+    </a>
+
+    <div class="nav-section-label">Overview</div>
+    <a href="#overview" class="side-link active" data-section="overview">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>
+      Dashboard
+    </a>
+    <a href="#courts" class="side-link" data-section="courts">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="12" y1="4" x2="12" y2="20"></line><path d="M7 9h2M15 9h2"></path></svg>
+      Courts
+    </a>
+    <a href="#schedule" class="side-link" data-section="schedule">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+      Bookings &amp; Sessions
+    </a>
+
+    <div class="nav-section-label">People</div>
+    <a href="#customers" class="side-link" data-section="customers">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-3-3.87"></path><path d="M4 21v-2a4 4 0 013-3.87"></path><circle cx="12" cy="7" r="4"></circle><path d="M16 3.13a4 4 0 010 7.75"></path></svg>
+      Customers
+    </a>
+    <a href="#employees" class="side-link" data-section="employees">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"></path></svg>
+      Employees
+    </a>
+
+    <div class="nav-section-label">Finance</div>
+    <a href="#invoices" class="side-link" data-section="invoices">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line></svg>
+      Invoices
+      <span class="badge-count">5</span>
+    </a>
+    <a href="#" class="side-link" data-section="reports">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"></path></svg>
+      Reports
+    </a>
+    <a href="#" class="side-link" data-section="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09c0 .68.39 1.29 1 1.51.36.15.68.36.99.6"></path></svg>
+      Settings
+    </a>
+
+    <div class="sidebar-branch">
+      <select class="branch-select" aria-label="Active branch">
+        <option>District 1 Arena</option>
+        <option>Thao Dien Courts</option>
+        <option>Binh Thanh Branch</option>
+      </select>
+    </div>
+  </aside>
+
+  <!-- =============================== MAIN =============================== -->
+  <div>
+    <!-- ----- Topbar ----- -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+        <div class="page-heading">
+          <h1>Dashboard Overview</h1>
+          <p id="live-clock">Loading…</p>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <div class="search-box">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" placeholder="Search bookings, customers…">
+        </div>
+
+        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode" title="Toggle theme">
+          <span class="knob" id="theme-knob">
+            <svg id="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+          </span>
+        </button>
+
+        <button class="icon-btn" aria-label="Notifications">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 01-3.46 0"></path></svg>
+          <span class="dot"></span>
+        </button>
+
+        <div class="profile-chip">
+          <div class="profile-avatar">AT</div>
+          <div>
+            <div class="name">Anh Tuan</div>
+            <div class="role">Branch Manager</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ----- Content ----- -->
+    <main class="main-content">
+
+      <!-- OVERVIEW / KPI -->
+      <section id="overview">
+        <div class="filter-row">
+          <button class="filter-chip" data-range="1">Today</button>
+          <button class="filter-chip active" data-range="7">Last 7 days</button>
+          <button class="filter-chip" data-range="30">Last 30 days</button>
+          <button class="filter-chip" data-range="90">Last 90 days</button>
+        </div>
+
+        <div class="stat-grid" id="stat-grid"></div>
+      </section>
+
+      <!-- CHARTS -->
+      <section id="schedule">
+        <div class="section-heading">
+          <h2>Revenue &amp; Bookings Trend</h2>
+        </div>
+        <div class="chart-grid">
+          <div class="card chart-card">
+            <div class="chart-card-head">
+              <div>
+                <h3>Revenue</h3>
+                <div class="chart-value" id="revenue-total">$0</div>
+                <div class="chart-legend-note">Last 7 days · hover to inspect a day</div>
+              </div>
+              <span class="stat-delta up" id="revenue-delta">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 15l-6-6-6 6"></path></svg>
+                <span></span>
+              </span>
+            </div>
+            <div class="chart-svg-wrap" id="revenue-chart-wrap"></div>
+          </div>
+
+          <div class="card chart-card">
+            <div class="chart-card-head">
+              <div>
+                <h3>Court Utilization</h3>
+                <div class="chart-value" id="util-total">0%</div>
+                <div class="chart-legend-note">Average across all courts today</div>
+              </div>
+            </div>
+            <div id="util-bars"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COURT STATUS -->
+      <section id="courts">
+        <div class="section-heading">
+          <h2>Court Status — Live</h2>
+          <span class="view-all">View all courts</span>
+        </div>
+        <div class="courts-grid" id="courts-grid"></div>
+      </section>
+
+      <!-- BOOKINGS CHART + SESSIONS TABLE -->
+      <section>
+        <div class="section-heading">
+          <h2>Bookings Volume</h2>
+        </div>
+        <div class="card chart-card">
+          <div class="chart-card-head">
+            <div>
+              <h3>Sessions per day</h3>
+              <div class="chart-value" id="bookings-total">0</div>
+              <div class="chart-legend-note">Last 7 days · hover a bar for the exact count</div>
+            </div>
+          </div>
+          <div class="chart-svg-wrap" id="bookings-chart-wrap"></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-heading">
+          <h2>Today's Sessions</h2>
+          <span class="view-all">View all sessions</span>
+        </div>
+        <div class="card table-card">
+          <table class="data-table" id="sessions-table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Court</th>
+                <th>Start</th>
+                <th>Duration</th>
+                <th>Status</th>
+                <th style="text-align:right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- CUSTOMERS + EMPLOYEES -->
+      <section id="customers">
+        <div class="section-heading">
+          <h2>People</h2>
+        </div>
+        <div class="widget-grid">
+          <div class="card widget-card">
+            <h3>Top Customers</h3>
+            <div class="widget-list" id="top-customers"></div>
+          </div>
+          <div class="card widget-card" id="employees">
+            <h3>Employees On Shift</h3>
+            <div class="widget-list" id="employees-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- INVOICES + ACTIVITY -->
+      <section id="invoices">
+        <div class="section-heading">
+          <h2>Invoices &amp; Activity</h2>
+        </div>
+        <div class="chart-grid">
+          <div class="card table-card">
+            <table class="data-table" id="invoices-table">
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Customer</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th style="text-align:right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="card widget-card">
+            <h3>Recent Activity</h3>
+            <div class="activity-feed" id="activity-feed"></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script src="dashboard.js"></script>
+</body>
+</html>
