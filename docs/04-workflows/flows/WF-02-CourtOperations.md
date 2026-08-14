@@ -54,8 +54,9 @@ Nhân viên
     │         │         Đoạn 16:30–17:00 (30p) × Off-peak rate
     │         │         Đoạn 17:00–17:45 (45p) × Peak rate
     │         │       Làm tròn đến 1.000đ
-    │         ├─→ Cập nhật CourtSession { endTime, durationSeconds, courtFee, status = 'closed' }
-    │         └─→ Cập nhật Court.status = 'empty'
+    │         └─→ Cập nhật CourtSession { endTime, durationSeconds, courtFee, status = 'closed' }
+    │             (KHÔNG đụng tới Court.status — sân trở lại trống là hệ quả tự
+    │              nhiên của việc không còn phiên nào đang mở)
     │
     └─→ Chuyển sang màn hình Thanh toán (UC-18)
         Hiển thị bảng tổng kết:
@@ -78,9 +79,9 @@ Nhân viên
     │
     ├─→ [POST /api/v1/courts/:id/transfer]
     │         │ DB Transaction:
-    │         ├─→ Cập nhật CourtSession.courtId = targetCourtId
-    │         ├─→ Cập nhật sân nguồn: status = 'empty'
-    │         └─→ Cập nhật sân đích: status = 'playing'
+    │         └─→ Cập nhật CourtSession.courtId = targetCourtId
+    │             (chỉ một thao tác duy nhất: phiên chơi đổi sân thì cả hai sân
+    │              tự động đổi cách hiển thị, không phải ghi thêm ở đâu)
     │
     └─→ Sân nguồn → 🟢 Trống
         Sân đích → 🔴 Đang chơi (với session cũ)
@@ -92,49 +93,58 @@ Nhân viên
 
 ---
 
-## D. Luồng Bảo trì Sân (UC-09)
+## D. Luồng Đổi Trạng Thái Khai Thác Sân (UC-09)
 
 ```
 Admin / Nhân viên
     │
-    ├─→ Chọn sân đang TRỐNG
+    ├─→ Chọn sân KHÔNG có phiên chơi đang mở
     │
-    ├─→ [PUT /api/v1/courts/:id/maintenance]
-    │         Body: { isMaintenance: true }
-    │         → Cập nhật Court.status = 'maintenance'
+    ├─→ [PUT /api/v1/courts/:id/status]
+    │         Body: { status: 'maintenance' | 'inactive' | 'active' }
+    │         → Cập nhật Court.status
     │
-    └─→ Sân hiển thị 🔧 Bảo trì
-        Không thể mở cho khách chơi cho đến khi tắt bảo trì
+    └─→ maintenance 🔧 : tạm ngưng để sửa chữa, vẫn thuộc công suất kinh doanh
+        inactive    ⚫ : ngưng khai thác dài hạn (chưa mở bán, đã thanh lý...),
+                         KHÔNG tính vào mẫu số của tỷ lệ lấp đầy
+        active      🟢 : sẵn sàng tiếp nhận khách
 
-Tắt bảo trì:
-    ├─→ Body: { isMaintenance: false }
-    └─→ Court.status = 'empty' → Sân sẵn sàng trở lại 🟢
+Cả hai trạng thái ngưng đều chặn mở sân cho tới khi chuyển về 'active'.
 ```
 
 **Ngoại lệ:**
-- Sân đang có người chơi → `400`: "Không thể bật bảo trì khi sân đang hoạt động"
+- Sân đang có người chơi → `400`: "Không thể đổi trạng thái sân khi đang có phiên chơi"
+- Giá trị ngoài 3 giá trị trên → `400` từ tầng validation
 
 ---
 
-## 🔄 Sơ đồ trạng thái sân tổng hợp
+## 🔄 Hai trục trạng thái — vì sao không gộp làm một
+
+`courts.status` **chỉ mô tả vòng đời khai thác của sân**, do con người quyết định.
+Việc "sân có đang được chơi hay không" **không được lưu ở đâu cả** mà suy ra từ
+`court_sessions`: sân đang chơi ⟺ tồn tại một phiên có `status = 'playing'`.
+
+Lý do: nếu lưu trạng thái chiếm dụng vào `courts.status` thì cùng một dữ kiện tồn
+tại ở hai nơi và có thể lệch nhau — chỉ cần tiến trình đóng sân chết giữa chừng là
+sân kẹt vĩnh viễn ở trạng thái "đang chơi", không ai mở lại được.
+
+Bất biến "một sân tối đa một phiên đang mở" được **cơ sở dữ liệu** bảo đảm bằng
+unique index có điều kiện (`uq_court_sessions_open_court`), chứ không chỉ dựa vào
+kiểm tra ở tầng ứng dụng — kể cả một câu INSERT chạy tay cũng bị chặn.
 
 ```
-          [empty] ◄──────────────────────────────┐
-             │                                    │
-       openCourt()                         closeCourt()
-             │                             transferCourt() (destination)
-             ▼                                    │
-         [playing] ─── transferCourt() ──► [empty] (source)
-             │
-    (chỉ khi trống)
-             │
-    toggleMaintenance(true)
-             │
-             ▼
-       [maintenance]
-             │
-    toggleMaintenance(false)
-             │
-             ▼
-          [empty]
+TRỤC A — vòng đời (lưu trong courts.status)
+                    updateCourtStatus()
+   [active] ◄──────────────────────────────► [maintenance]
+       ▲                                            │
+       └──────────────────────────────────────► [inactive]
+       (chỉ đổi được khi sân không có phiên chơi đang mở)
+
+TRỤC B — chiếm dụng (suy ra từ court_sessions, KHÔNG lưu)
+   openCourt()  → tạo phiên status='playing'   → sân hiển thị PLAYING
+   closeCourt() → phiên chuyển 'closed'        → sân hiển thị AVAILABLE
+   transferCourt() → đổi court_id của phiên    → nguồn AVAILABLE, đích PLAYING
+
+GIAO DIỆN nhận `state` do backend gộp sẵn hai trục:
+   MAINTENANCE > INACTIVE > PLAYING > AVAILABLE
 ```

@@ -93,7 +93,7 @@ Settings (bảng cấu hình độc lập, không quan hệ FK trực tiếp)
 | branch_id | INT | FK → branches.id, NOT NULL | Chi nhánh phục vụ |
 | user_id | INT | FK → users.id, NULL | NULL nếu khách vãng lai không có tài khoản |
 | full_name | VARCHAR(100) | NOT NULL | |
-| phone | VARCHAR(20) | UNIQUE, NOT NULL | dùng để tra cứu nhanh |
+| phone | VARCHAR(20) | NULL, UNIQUE theo `(branch_id, phone)` | Cho phép rỗng để khách vãng lai vẫn là khách hàng (hồ sơ thiếu thông tin). UNIQUE gắn với chi nhánh nên hai chi nhánh được trùng số |
 | email | VARCHAR(100) | NULL | |
 | total_spent | DECIMAL(12,2) | DEFAULT 0 | denormalized, cập nhật khi có Payment |
 | loyalty_tier | VARCHAR(20) | DEFAULT 'normal' | **normal / silver / gold** |
@@ -113,7 +113,7 @@ Settings (bảng cấu hình độc lập, không quan hệ FK trực tiếp)
 | id | INT | PK, AUTO_INCREMENT | |
 | branch_id | INT | FK → branches.id, NOT NULL | Multi-branch |
 | name | VARCHAR(50) | NOT NULL | VD: "Sân số 1" |
-| status | ENUM | 'empty','playing','maintenance' | DEFAULT 'empty' |
+| status | ENUM | 'active','maintenance','inactive' | DEFAULT 'active'. Chỉ mô tả vòng đời khai thác. Việc sân có đang được chơi hay không **không lưu ở đây** mà suy ra từ `court_sessions` đang mở |
 | peak_price_per_hour | DECIMAL(10,2) | NOT NULL | |
 | offpeak_price_per_hour | DECIMAL(10,2) | NOT NULL | |
 | note | VARCHAR(255) | NULL | |
@@ -301,10 +301,11 @@ Các thao tác sau bọc trong **Sequelize transaction** (kể cả ghi `activit
 |---|---|---|
 | bookings | (court_id, booking_date, start_time, end_time) | Kiểm tra trùng lịch nhanh |
 | bookings | (branch_id, status) | Lọc booking theo chi nhánh & trạng thái |
-| customers | (phone) | Tìm kiếm khách hàng |
+| customers | (branch_id, phone) | UNIQUE — chống trùng số trong cùng chi nhánh, vẫn cho nhiều khách vãng lai không số |
 | customers | (branch_id, loyalty_tier) | Phân tích khách VIP theo chi nhánh |
 | court_sessions | (court_id, status) | Truy vấn sân đang chơi |
 | court_sessions | (branch_id, status) | Dashboard theo chi nhánh |
+| court_sessions | (open_court_id) | UNIQUE — chặn hai phiên cùng mở trên một sân ngay ở tầng DB. `open_court_id` là cột sinh tự động, mang `court_id` khi phiên đang mở và NULL khi đã đóng/xoá mềm |
 | activity_logs | (employee_id, created_at) | Truy vấn log theo nhân viên/thời gian |
 | activity_logs | (branch_id, created_at) | Audit log theo chi nhánh |
 | payments | (idempotency_key) | UNIQUE — tra cứu idempotent request |
