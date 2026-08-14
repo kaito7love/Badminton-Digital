@@ -10,9 +10,20 @@
  * which means CourtService.closeCourt() (sets session status 'completed') and
  * any attempt to persist court status 'active'/'inactive' fail against the
  * live DB even though the Sequelize model accepts those values.
+ *
+ * courts.status data must be remapped to different string values, which MySQL
+ * ENUMs reject mid-flight (UPDATE ... SET status = 'active' fails with "Data
+ * truncated" while the column is still the old ENUM, since 'active' isn't a
+ * member of it yet). So both directions widen to a union of old+new values
+ * first, remap the data, then narrow to the final target ENUM.
  */
 module.exports = {
   async up(queryInterface, Sequelize) {
+    await queryInterface.changeColumn('courts', 'status', {
+      type: Sequelize.ENUM('empty', 'playing', 'maintenance', 'active', 'inactive'),
+      allowNull: false,
+      defaultValue: 'empty'
+    });
     await queryInterface.sequelize.query(
       `UPDATE courts SET status = 'active' WHERE status IN ('empty', 'playing')`
     );
@@ -39,8 +50,16 @@ module.exports = {
       defaultValue: 'playing'
     });
 
+    await queryInterface.changeColumn('courts', 'status', {
+      type: Sequelize.ENUM('active', 'maintenance', 'inactive', 'empty', 'playing'),
+      allowNull: false,
+      defaultValue: 'active'
+    });
     await queryInterface.sequelize.query(
       `UPDATE courts SET status = 'empty' WHERE status = 'active'`
+    );
+    await queryInterface.sequelize.query(
+      `UPDATE courts SET status = 'maintenance' WHERE status = 'inactive'`
     );
     await queryInterface.changeColumn('courts', 'status', {
       type: Sequelize.ENUM('empty', 'playing', 'maintenance'),

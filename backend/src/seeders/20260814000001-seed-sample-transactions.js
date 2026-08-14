@@ -252,11 +252,32 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.sequelize.query(`DELETE FROM bookings WHERE booking_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)`);
+    // Resolve exactly which sessions this seeder created (via the invoice_no
+    // marker) before invoices are deleted, so the cleanup below never touches
+    // real court_sessions/session_extras rows created by actual app usage.
+    const [seededInvoices] = await queryInterface.sequelize.query(
+      `SELECT session_id FROM invoices WHERE invoice_no LIKE 'BD-1-%'`
+    );
+    const sessionIds = seededInvoices
+      .map((row) => Number(row.session_id))
+      .filter((id) => Number.isInteger(id));
+
+    await queryInterface.sequelize.query(
+      `DELETE FROM bookings WHERE customer_name = 'Phạm Quốc Bảo' OR customer_id IN (SELECT id FROM customers WHERE full_name IN ('Trần Thị Mai', 'Lê Hoàng Nam'))`
+    );
     await queryInterface.sequelize.query(`DELETE FROM payments WHERE idempotency_key LIKE 'seed-session-%'`);
     await queryInterface.sequelize.query(`DELETE FROM invoices WHERE invoice_no LIKE 'BD-1-%'`);
-    await queryInterface.sequelize.query(`DELETE FROM session_extras`);
-    await queryInterface.sequelize.query(`DELETE FROM court_sessions`);
+
+    if (sessionIds.length > 0) {
+      const idList = sessionIds.join(',');
+      await queryInterface.sequelize.query(`DELETE FROM session_extras WHERE session_id IN (${idList})`);
+      await queryInterface.sequelize.query(`DELETE FROM court_sessions WHERE id IN (${idList})`);
+    }
+    // The single still-"playing" demo session from up() has no reliable
+    // marker once real usage may have started on top of it (its court/employee
+    // could now belong to a genuine session) — left for manual cleanup rather
+    // than risk deleting an unrelated active session.
+
     await queryInterface.bulkDelete('customers', { full_name: ['Trần Thị Mai', 'Lê Hoàng Nam'] }, {});
   }
 };

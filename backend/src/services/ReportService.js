@@ -21,9 +21,14 @@ class ReportService {
 
     const todayRevenue = todayPayments.reduce((sum, p) => sum + Number(p.invoice.totalAmount), 0);
 
-    // Active Courts / Sessions
+    // Active Courts / Sessions — court status never stores "playing"; a court
+    // is playing iff it has an open CourtSession, so count that instead.
     const totalCourts = await Court.count({ where: { branchId } });
-    const activeCourts = await Court.count({ where: { branchId, status: 'playing' } });
+    const activeCourts = await CourtSession.count({
+      where: { branchId, status: 'playing' },
+      distinct: true,
+      col: 'courtId'
+    });
     const occupancyRate = totalCourts > 0 ? Math.round((activeCourts / totalCourts) * 100) : 0;
 
     // Low stock items count

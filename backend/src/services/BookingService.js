@@ -160,6 +160,12 @@ class BookingService {
         error.statusCode = 409;
         throw error;
       }
+      const resolvedCustomerId = data.customerId !== undefined ? data.customerId : booking.customerId;
+      if (resolvedCustomerId) {
+        data.customerName = null;
+        data.customerPhone = null;
+      }
+
       const oldValues = booking.toJSON();
       const updated = await booking.update(data, { transaction });
       await AuditService.record({ actor: context.actor, branchId: booking.branchId, action: 'booking.updated', targetType: 'booking', targetId: booking.id, oldValues, newValues: updated.toJSON(), requestId: context.requestId, transaction });
