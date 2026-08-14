@@ -1,8 +1,14 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { roleOf, homePathForRole } from '../utils/roles';
 
-export default function ProtectedRoute({ children }) {
+/**
+ * `roles` bỏ trống nghĩa là chỉ cần đăng nhập. Truyền vào thì chặn luôn ở tầng
+ * route: sai vai trò sẽ được đưa về đúng trang chủ của mình, thay vì vào rồi mới
+ * lãnh 403 từ API và ngồi nhìn màn hình trắng.
+ */
+export default function ProtectedRoute({ children, roles = null }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -18,6 +24,10 @@ export default function ProtectedRoute({ children }) {
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (roles && !roles.includes(roleOf(user))) {
+    return <Navigate to={homePathForRole(user)} replace />;
   }
 
   return children;

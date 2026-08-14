@@ -10,6 +10,12 @@ export const authService = {
   resetPassword: (data) => apiClient.post('/auth/reset-password', data),
 };
 
+// ─── Public (trang chủ, không cần đăng nhập) ─────────────────────
+export const publicService = {
+  getCourts: (params) => apiClient.get('/public/courts', { params }),
+  checkAvailability: (params) => apiClient.get('/public/availability', { params }),
+};
+
 // ─── Courts ──────────────────────────────────────────────────────
 export const courtService = {
   getAllCourts: () => apiClient.get('/courts'),

@@ -23,6 +23,9 @@ app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 app.get('/api/v1/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 
 // Register API Routes
+// Trang chủ công khai: chỉ đọc danh mục sân và khung giờ trống, không cần đăng nhập
+app.use('/api/v1/public', require('./routes/publicRoutes'));
+
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/courts', require('./routes/courtRoutes'));
 app.use('/api/v1/bookings', require('./routes/bookingRoutes'));

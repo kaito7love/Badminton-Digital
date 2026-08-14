@@ -3,23 +3,29 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { MoonIcon, SunIcon, ChartBarIcon, HomeIcon, TicketIcon, ClipboardListIcon, UserGroupIcon, BuildingOfficeIcon, FileChartBarIcon, Cog6ToothIcon, HistoryIcon } from './icons';
+import { roleOf } from '../utils/roles';
 
+// `roles` bỏ trống = mọi nhân sự đều thấy. Những mục chỉ admin mới gọi được API
+// thì cũng chỉ hiện với admin — bày ra một đường dẫn chắc chắn trả 403 là mời
+// người ta bấm vào chỗ hỏng.
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: HomeIcon },
+  { path: '/dashboard', label: 'Dashboard', icon: HomeIcon, roles: ['admin'] },
   { path: '/courts', label: 'Quản Lý Sân', icon: BuildingOfficeIcon },
   { path: '/bookings', label: 'Đặt Sân', icon: TicketIcon },
   { path: '/accessories', label: 'Dịch Vụ & Kho', icon: ClipboardListIcon },
   { path: '/customers', label: 'Khách Hàng', icon: UserGroupIcon },
-  { path: '/employees', label: 'Nhân Viên', icon: ChartBarIcon },
+  { path: '/employees', label: 'Nhân Viên', icon: ChartBarIcon, roles: ['admin'] },
   { path: '/history', label: 'Lịch Sử', icon: HistoryIcon },
-  { path: '/reports', label: 'Báo Cáo', icon: FileChartBarIcon },
-  { path: '/settings', label: 'Cài Đặt', icon: Cog6ToothIcon }
+  { path: '/reports', label: 'Báo Cáo', icon: FileChartBarIcon, roles: ['admin'] },
+  { path: '/settings', label: 'Cài Đặt', icon: Cog6ToothIcon, roles: ['admin'] }
 ];
 
 export default function SidebarLayout({ children }) {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const role = roleOf(user);
+  const visibleNavItems = navItems.filter((item) => !item.roles || item.roles.includes(role));
 
   return (
     <div className="min-h-screen bg-[#070A11] text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950">
@@ -49,7 +55,7 @@ export default function SidebarLayout({ children }) {
           </Link>
 
           <div className="space-y-1.5 flex-1">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const active = location.pathname === item.path;
               return (
@@ -113,7 +119,7 @@ export default function SidebarLayout({ children }) {
       {/* MOBILE BOTTOM NAV BAR */}
       <div className="fixed inset-x-0 bottom-0 z-40 block md:hidden border-t border-slate-800/90 bg-slate-950/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md items-center justify-around px-4 py-2.5">
-          {navItems.slice(0, 5).map((item) => {
+          {visibleNavItems.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const active = location.pathname === item.path;
             return (

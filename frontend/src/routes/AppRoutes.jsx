@@ -15,10 +15,14 @@ import EmployeesPage from '../pages/Employees/EmployeesPage';
 import ReportsPage from '../pages/Reports/ReportsPage';
 import SettingsPage from '../pages/Settings/SettingsPage';
 import HistoryPage from '../pages/History/HistoryPage';
+import MyBookingsPage from '../pages/MyBookings/MyBookingsPage';
+import { STAFF_ROLES } from '../utils/roles';
 
-function ProtectedLayout({ children }) {
+// Toàn bộ màn hình dưới đây là bàn làm việc của nhân viên: chặn theo vai trò ngay
+// ở route để khách hàng không lọt vào rồi mới bị API trả 403.
+function StaffLayout({ children }) {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute roles={STAFF_ROLES}>
       <SidebarLayout>{children}</SidebarLayout>
     </ProtectedRoute>
   );
@@ -36,16 +40,48 @@ export default function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        {/* Protected Admin Routes */}
-        <Route path="/dashboard" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
-        <Route path="/courts" element={<ProtectedLayout><CourtsPage /></ProtectedLayout>} />
-        <Route path="/bookings" element={<ProtectedLayout><BookingsPage /></ProtectedLayout>} />
-        <Route path="/accessories" element={<ProtectedLayout><AccessoriesPage /></ProtectedLayout>} />
-        <Route path="/customers" element={<ProtectedLayout><CustomersPage /></ProtectedLayout>} />
-        <Route path="/employees" element={<ProtectedLayout><EmployeesPage /></ProtectedLayout>} />
-        <Route path="/history" element={<ProtectedLayout><HistoryPage /></ProtectedLayout>} />
-        <Route path="/reports" element={<ProtectedLayout><ReportsPage /></ProtectedLayout>} />
-        <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
+        {/* Trang của khách hàng */}
+        <Route path="/my-bookings" element={<ProtectedRoute roles={['customer']}><MyBookingsPage /></ProtectedRoute>} />
+
+        {/* Bàn làm việc của nhân viên & quản trị */}
+        {/* Dashboard đọc báo cáo — API chỉ mở cho admin, nên route cũng vậy */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute roles={['admin']}>
+              <SidebarLayout><DashboardPage /></SidebarLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/courts" element={<StaffLayout><CourtsPage /></StaffLayout>} />
+        <Route path="/bookings" element={<StaffLayout><BookingsPage /></StaffLayout>} />
+        <Route path="/accessories" element={<StaffLayout><AccessoriesPage /></StaffLayout>} />
+        <Route path="/customers" element={<StaffLayout><CustomersPage /></StaffLayout>} />
+        <Route
+          path="/employees"
+          element={
+            <ProtectedRoute roles={['admin']}>
+              <SidebarLayout><EmployeesPage /></SidebarLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/history" element={<StaffLayout><HistoryPage /></StaffLayout>} />
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute roles={['admin']}>
+              <SidebarLayout><ReportsPage /></SidebarLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute roles={['admin']}>
+              <SidebarLayout><SettingsPage /></SidebarLayout>
+            </ProtectedRoute>
+          }
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

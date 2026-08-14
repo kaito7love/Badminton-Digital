@@ -1,31 +1,57 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./HomePage.css";
+import { publicService, bookingService } from "../../services/apiServices";
+import { useAuth } from "../../contexts/AuthContext";
+import { roleOf } from "../../utils/roles";
+
+// Lựa chọn của khách được giữ lại khi họ phải rẽ qua trang đăng nhập, để quay
+// về là đặt tiếp chứ không phải chọn lại từ đầu.
+const PENDING_BOOKING_KEY = "pending_booking";
+
+const addHours = (hhmm, hours) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  const end = Math.min(h + Number(hours), 23);
+  return `${String(end).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+};
+
+const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
 export default function HomePage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCourt, setSelectedCourt] = useState({
-    name: "Court 01 - BWF Tournament Arena",
-    time: "05:00 PM",
-    duration: 2,
-    price: 30,
-  });
-  const [addons, setAddons] = useState({
-    shuttles: false,
-    racket: false,
-    coaching: false,
-  });
+  const [courts, setCourts] = useState([]);
+  const [peakHours, setPeakHours] = useState({ peakStartHour: 17, peakEndHour: 22 });
+  const [catalogError, setCatalogError] = useState(null);
+  const [selectedCourt, setSelectedCourt] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [booking, setBooking] = useState({
     date: new Date().toLocaleDateString("en-CA"),
     time: "17:00",
     duration: "2",
-    court: "bwf",
+    court: "",
   });
   const closeButtonRef = useRef(null);
   const lastFocusedElementRef = useRef(null);
+
+  // Giá một khung đặt: cộng theo từng giờ, giờ nào rơi vào cao điểm thì tính giá
+  // cao điểm — cùng quy tắc với priceCalculator ở backend.
+  const estimatePrice = (court, startTime, hours) => {
+    if (!court) return 0;
+    const startHour = Number(String(startTime).split(":")[0]);
+    let total = 0;
+    for (let i = 0; i < Number(hours); i += 1) {
+      const hour = startHour + i;
+      const isPeak = hour >= peakHours.peakStartHour && hour < peakHours.peakEndHour;
+      total += isPeak ? court.peakPricePerHour : court.offpeakPricePerHour;
+    }
+    return total;
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -45,15 +71,69 @@ export default function HomePage() {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isModalOpen]);
 
-  const openBookingModal = (name, time, duration, price) => {
-    lastFocusedElementRef.current = document.activeElement;
-    setSelectedCourt({ name, time, duration, price });
-    setIsModalOpen(true);
-  };
+  // Danh mục sân và bảng giá lấy thẳng từ hệ thống, không cứng trong code —
+  // nếu không, đổi giá ở màn Cài đặt mà trang chủ vẫn rao giá cũ.
+  useEffect(() => {
+    let cancelled = false;
+    publicService
+      .getCourts()
+      .then((res) => {
+        if (cancelled) return;
+        const data = res.data?.data;
+        const list = data?.courts || [];
+        setCourts(list);
+        if (data?.peakHours) setPeakHours(data.peakHours);
+        const firstBookable = list.find((c) => c.bookable);
+        if (firstBookable) setBooking((cur) => ({ ...cur, court: String(firstBookable.id) }));
+      })
+      .catch(() => {
+        if (!cancelled) setCatalogError("Chưa tải được danh sách sân. Vui lòng thử lại sau.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Quay lại sau khi đăng nhập: dựng lại đúng lựa chọn dở dang.
+  useEffect(() => {
+    if (!user || courts.length === 0) return;
+    const saved = sessionStorage.getItem(PENDING_BOOKING_KEY);
+    if (!saved) return;
+    sessionStorage.removeItem(PENDING_BOOKING_KEY);
+    try {
+      const pending = JSON.parse(saved);
+      setBooking(pending.form);
+      setSelectedCourt(pending.selection);
+      setIsModalOpen(true);
+    } catch {
+      // Dữ liệu hỏng thì bỏ qua, khách chọn lại từ đầu
+    }
+  }, [user, courts.length]);
 
   const closeBookingModal = () => {
     setIsModalOpen(false);
     lastFocusedElementRef.current?.focus();
+  };
+
+  /**
+   * Các nút "Đặt sân" rải khắp phần giới thiệu chỉ là lối tắt: chúng điền sẵn
+   * form rồi đưa khách về widget, chứ không tự mở hộp xác nhận. Khung giờ có
+   * còn trống hay không phải do hệ thống trả lời, không phải do trang tĩnh này
+   * đoán — nên mọi đường đều đi qua đúng một chỗ kiểm tra.
+   */
+  const startBookingFromCard = (courtIndex, time, hours = 2) => {
+    const court = courts[courtIndex] || courts.find((c) => c.bookable);
+    if (!court) {
+      showToast("Chưa tải được danh sách sân. Vui lòng thử lại sau.");
+      return;
+    }
+    setBooking((cur) => ({
+      ...cur,
+      court: String(court.id),
+      time,
+      duration: String(hours),
+    }));
+    scrollToSection("booking-widget");
   };
 
   const handleBookingChange = (event) => {
@@ -63,42 +143,84 @@ export default function HomePage() {
     }));
   };
 
-  const handleQuickBooking = (event) => {
+  const handleQuickBooking = async (event) => {
     event.preventDefault();
-    const courtDetails = {
-      bwf: ["Court 01 - BWF Tournament Arena", 30],
-      vip: ["Court 02 - VIP Executive Suite", 45],
-      pro: ["Court 03 - Pro Performance Studio", 28],
-    }[booking.court];
-    openBookingModal(
-      courtDetails[0],
-      booking.time,
-      Number(booking.duration),
-      courtDetails[1],
-    );
+    const court = courts.find((c) => String(c.id) === String(booking.court));
+    if (!court) {
+      showToast("Vui lòng chọn sân.");
+      return;
+    }
+
+    const startTime = booking.time;
+    const endTime = addHours(startTime, booking.duration);
+
+    setChecking(true);
+    try {
+      // Hỏi đúng hệ thống xem còn trống không, thay vì hứa suông rồi để khách
+      // phát hiện trùng lịch ở bước cuối.
+      const res = await publicService.checkAvailability({
+        courtId: court.id,
+        bookingDate: booking.date,
+        startTime,
+        endTime,
+      });
+      if (!res.data?.data?.available) {
+        showToast(res.data?.data?.message || "Khung giờ này đã có người đặt. Mời bạn chọn giờ khác.");
+        return;
+      }
+
+      lastFocusedElementRef.current = document.activeElement;
+      setSelectedCourt({
+        courtId: court.id,
+        name: court.name,
+        bookingDate: booking.date,
+        startTime,
+        endTime,
+        duration: Number(booking.duration),
+        price: estimatePrice(court, startTime, booking.duration),
+      });
+      setIsModalOpen(true);
+    } catch (err) {
+      showToast(err.response?.data?.message || "Không kiểm tra được khung giờ. Vui lòng thử lại.");
+    } finally {
+      setChecking(false);
+    }
   };
 
-  const toggleAddon = (key) => {
-    setAddons((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const calculateTotal = () => {
-    let total = selectedCourt.duration * selectedCourt.price;
-    if (addons.shuttles) total += 28;
-    if (addons.racket) total += 10;
-    if (addons.coaching) total += 65;
-    return total;
-  };
-
-  const handleBookingSubmit = (e) => {
+  const handleBookingSubmit = async (e) => {
     e.preventDefault();
-    closeBookingModal();
-    showToast("Please sign in to confirm your booking and payment.");
-    return;
-    setIsModalOpen(false);
-    showToast(
-      `⚡ RESERVATION CONFIRMED! CHECK-IN PASS #BD-${Math.floor(1000 + Math.random() * 9000)}`,
-    );
+    if (!selectedCourt) return;
+
+    // Chưa đăng nhập: cất lựa chọn lại rồi mời đăng nhập, quay về là đặt tiếp.
+    if (!user) {
+      sessionStorage.setItem(
+        PENDING_BOOKING_KEY,
+        JSON.stringify({ form: booking, selection: selectedCourt }),
+      );
+      navigate("/login", { state: { from: { pathname: "/" } } });
+      return;
+    }
+
+    if (roleOf(user) !== "customer") {
+      showToast("Tài khoản nhân viên vui lòng đặt lịch trong màn Quản Lý Đặt Sân.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await bookingService.createBooking({
+        courtId: selectedCourt.courtId,
+        bookingDate: selectedCourt.bookingDate,
+        startTime: selectedCourt.startTime,
+        endTime: selectedCourt.endTime,
+      });
+      closeBookingModal();
+      navigate("/my-bookings");
+    } catch (err) {
+      showToast(err.response?.data?.message || "Đặt sân không thành công. Vui lòng thử lại.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const showToast = (msg) => {
@@ -424,11 +546,15 @@ export default function HomePage() {
                         onChange={handleBookingChange}
                         className="booking-input"
                       >
-                        <option value="08:00">08:00 AM</option>
-                        <option value="10:00">10:00 AM</option>
-                        <option value="14:00">02:00 PM</option>
-                        <option value="17:00">05:00 PM (PEAK)</option>
-                        <option value="19:00">07:00 PM (PEAK)</option>
+                        {["06:00", "08:00", "10:00", "14:00", "16:00", "17:00", "19:00", "21:00"].map((t) => {
+                          const hour = Number(t.split(":")[0]);
+                          const peak = hour >= peakHours.peakStartHour && hour < peakHours.peakEndHour;
+                          return (
+                            <option key={t} value={t}>
+                              {t}{peak ? " (CAO ĐIỂM)" : ""}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                     <div>
@@ -442,9 +568,9 @@ export default function HomePage() {
                         onChange={handleBookingChange}
                         className="booking-input"
                       >
-                        <option value="1">1 HOUR</option>
-                        <option value="2">2 HOURS</option>
-                        <option value="3">3 HOURS</option>
+                        <option value="1">1 GIỜ</option>
+                        <option value="2">2 GIỜ</option>
+                        <option value="3">3 GIỜ</option>
                       </select>
                     </div>
                   </div>
@@ -459,24 +585,30 @@ export default function HomePage() {
                       value={booking.court}
                       onChange={handleBookingChange}
                       className="booking-input"
+                      disabled={courts.length === 0}
                     >
-                      <option value="bwf">
-                        Court 01 - BWF Tournament Arena ($30/h)
-                      </option>
-                      <option value="vip">
-                        Court 02 - VIP Executive Suite ($45/h)
-                      </option>
-                      <option value="pro">
-                        Court 03 - Pro Performance Studio ($28/h)
-                      </option>
+                      {courts.length === 0 && <option value="">Đang tải danh sách sân...</option>}
+                      {courts.map((court) => (
+                        <option key={court.id} value={court.id} disabled={!court.bookable}>
+                          {court.name} — {formatVnd(court.offpeakPricePerHour)}
+                          {court.peakPricePerHour !== court.offpeakPricePerHour
+                            ? ` / ${formatVnd(court.peakPricePerHour)} cao điểm`
+                            : ""}
+                          {court.bookable ? "" : " (đang bảo trì)"}
+                        </option>
+                      ))}
                     </select>
+                    {catalogError && (
+                      <p className="mt-2 text-xs font-bold text-rose-400">{catalogError}</p>
+                    )}
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full btn-nike-bolt justify-center py-4 text-sm mt-4"
+                    disabled={checking || courts.length === 0}
+                    className="w-full btn-nike-bolt justify-center py-4 text-sm mt-4 disabled:opacity-60"
                   >
-                    FIND AVAILABLE SLOTS ⚡
+                    {checking ? "ĐANG KIỂM TRA..." : "TÌM KHUNG GIỜ TRỐNG ⚡"}
                   </button>
                 </form>
               </div>
@@ -513,13 +645,13 @@ export default function HomePage() {
                   LIVE OPEN
                 </span>
                 <span className="absolute top-4 right-4 bg-slate-950/80 text-white font-kinetic font-black text-sm px-4 py-1.5 rounded-full border border-white/10">
-                  $30 / HR
+                  {courts[0] ? `${formatVnd(courts[0].offpeakPricePerHour)} / giờ` : "—"}
                 </span>
               </div>
               <div className="p-8">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-kinetic text-2xl font-black text-white uppercase">
-                    Court 01 - BWF Arena
+                    {courts[0]?.name || "Đang tải..."}
                   </h3>
                   <span className="text-amber-400 font-black text-sm">
                     ★ 4.9
@@ -539,12 +671,7 @@ export default function HomePage() {
                 </div>
                 <button
                   onClick={() =>
-                    openBookingModal(
-                      "Court 01 - BWF Tournament Arena",
-                      "05:00 PM",
-                      2,
-                      30,
-                    )
+                    startBookingFromCard(0, "17:00", 2)
                   }
                   className="w-full btn-nike-dark justify-center text-xs py-4"
                 >
@@ -565,13 +692,13 @@ export default function HomePage() {
                   VIP SUITE
                 </span>
                 <span className="absolute top-4 right-4 bg-slate-950/80 text-white font-kinetic font-black text-sm px-4 py-1.5 rounded-full border border-white/10">
-                  $45 / HR
+                  {courts[1] ? `${formatVnd(courts[1].offpeakPricePerHour)} / giờ` : "—"}
                 </span>
               </div>
               <div className="p-8">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-kinetic text-2xl font-black text-white uppercase">
-                    Court 02 - VIP Lounge
+                    {courts[1]?.name || "Đang tải..."}
                   </h3>
                   <span className="text-amber-400 font-black text-sm">
                     ★ 5.0
@@ -591,12 +718,7 @@ export default function HomePage() {
                 </div>
                 <button
                   onClick={() =>
-                    openBookingModal(
-                      "Court 02 - VIP Executive Suite",
-                      "05:00 PM",
-                      2,
-                      45,
-                    )
+                    startBookingFromCard(1, "17:00", 2)
                   }
                   className="w-full btn-nike-bolt justify-center text-xs py-4"
                 >
@@ -617,13 +739,13 @@ export default function HomePage() {
                   LIVE OPEN
                 </span>
                 <span className="absolute top-4 right-4 bg-slate-950/80 text-white font-kinetic font-black text-sm px-4 py-1.5 rounded-full border border-white/10">
-                  $28 / HR
+                  {courts[2] ? `${formatVnd(courts[2].offpeakPricePerHour)} / giờ` : "—"}
                 </span>
               </div>
               <div className="p-8">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-kinetic text-2xl font-black text-white uppercase">
-                    Court 03 - Pro Studio
+                    {courts[2]?.name || "Đang tải..."}
                   </h3>
                   <span className="text-amber-400 font-black text-sm">
                     ★ 4.8
@@ -643,7 +765,7 @@ export default function HomePage() {
                 </div>
                 <button
                   onClick={() =>
-                    openBookingModal("Court 03 - Pro Studio", "05:00 PM", 2, 28)
+                    startBookingFromCard(2, "17:00", 2)
                   }
                   className="w-full btn-nike-dark justify-center text-xs py-4"
                 >
@@ -662,13 +784,13 @@ export default function HomePage() {
       >
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <div className="live-ticker mb-4">REAL-TIME SCHEDULE GRID</div>
+            <div className="live-ticker mb-4">KHUNG GIỜ THAM KHẢO</div>
             <h2 className="font-kinetic text-5xl sm:text-6xl font-black text-white uppercase tracking-tighter">
               COURT{" "}
               <span className="text-gradient-nike">AVAILABILITY GRID</span>
             </h2>
             <p className="text-slate-400 text-lg mt-4 font-medium">
-              Click any green time slot to open instant checkout drawer.
+              Bấm vào khung giờ để điền sẵn form đặt sân — hệ thống sẽ kiểm tra chỗ trống thực tế khi bạn bấm tìm.
             </p>
           </div>
 
@@ -697,10 +819,10 @@ export default function HomePage() {
                     <div
                       className="cyber-slot available"
                       onClick={() =>
-                        openBookingModal("Court 01", "08:00 AM", 1, 25)
+                        startBookingFromCard(0, "08:00", 1)
                       }
                     >
-                      $25
+                      {courts[0] ? formatVnd(estimatePrice(courts[0], "08:00", 1)) : "—"}
                     </div>
                   </td>
                   <td className="p-2">
@@ -710,10 +832,10 @@ export default function HomePage() {
                     <div
                       className="cyber-slot available"
                       onClick={() =>
-                        openBookingModal("Court 01", "12:00 PM", 1, 25)
+                        startBookingFromCard(0, "12:00", 1)
                       }
                     >
-                      $25
+                      {courts[0] ? formatVnd(estimatePrice(courts[0], "12:00", 1)) : "—"}
                     </div>
                   </td>
                   <td className="p-2">
@@ -723,10 +845,10 @@ export default function HomePage() {
                     <div
                       className="cyber-slot available"
                       onClick={() =>
-                        openBookingModal("Court 01", "04:00 PM", 1, 30)
+                        startBookingFromCard(0, "16:00", 1)
                       }
                     >
-                      $30
+                      {courts[0] ? formatVnd(estimatePrice(courts[0], "16:00", 1)) : "—"}
                     </div>
                   </td>
                   <td className="p-2">
@@ -736,10 +858,10 @@ export default function HomePage() {
                     <div
                       className="cyber-slot available"
                       onClick={() =>
-                        openBookingModal("Court 01", "08:00 PM", 1, 30)
+                        startBookingFromCard(0, "20:00", 1)
                       }
                     >
-                      $30
+                      {courts[0] ? formatVnd(estimatePrice(courts[0], "20:00", 1)) : "—"}
                     </div>
                   </td>
                 </tr>
@@ -754,10 +876,10 @@ export default function HomePage() {
                     <div
                       className="cyber-slot available"
                       onClick={() =>
-                        openBookingModal("Court 02", "10:00 AM", 1, 40)
+                        startBookingFromCard(1, "17:00", 2)
                       }
                     >
-                      $40
+                      {courts[1] ? formatVnd(estimatePrice(courts[1], "10:00", 1)) : "—"}
                     </div>
                   </td>
                   <td className="p-2">
@@ -767,20 +889,20 @@ export default function HomePage() {
                     <div
                       className="cyber-slot available"
                       onClick={() =>
-                        openBookingModal("Court 02", "02:00 PM", 1, 40)
+                        startBookingFromCard(1, "17:00", 2)
                       }
                     >
-                      $40
+                      {courts[1] ? formatVnd(estimatePrice(courts[1], "14:00", 1)) : "—"}
                     </div>
                   </td>
                   <td className="p-2">
                     <div
                       className="cyber-slot available"
                       onClick={() =>
-                        openBookingModal("Court 02", "04:00 PM", 1, 45)
+                        startBookingFromCard(1, "17:00", 2)
                       }
                     >
-                      $45
+                      {courts[1] ? formatVnd(estimatePrice(courts[1], "16:00", 1)) : "—"}
                     </div>
                   </td>
                   <td className="p-2">
@@ -790,10 +912,10 @@ export default function HomePage() {
                     <div
                       className="cyber-slot available"
                       onClick={() =>
-                        openBookingModal("Court 02", "08:00 PM", 1, 45)
+                        startBookingFromCard(1, "17:00", 2)
                       }
                     >
-                      $45
+                      {courts[1] ? formatVnd(estimatePrice(courts[1], "20:00", 1)) : "—"}
                     </div>
                   </td>
                 </tr>
@@ -842,18 +964,37 @@ export default function HomePage() {
             </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
-            {[
-              ["Off-peak", "$25", "06:00–16:00"],
-              ["Peak time", "$30", "16:00–23:00"],
-              ["VIP Lounge", "$45", "Private court experience"],
-            ].map(([title, price, detail]) => (
+            {/* Bảng giá phải là giá đang áp dụng thật. Đây là chỗ khách nhìn để
+                quyết định, treo nhầm một con số là mất lòng tin ngay ở bước đầu. */}
+            {(() => {
+              const standard = courts.find((c) => !/vip/i.test(c.name)) || courts[0];
+              const vip = courts.find((c) => /vip/i.test(c.name));
+              const pad = (h) => `${String(h).padStart(2, "0")}:00`;
+              return [
+                [
+                  "Giờ thường",
+                  standard ? formatVnd(standard.offpeakPricePerHour) : "—",
+                  `Ngoài khung ${pad(peakHours.peakStartHour)}–${pad(peakHours.peakEndHour)}`,
+                ],
+                [
+                  "Giờ cao điểm",
+                  standard ? formatVnd(standard.peakPricePerHour) : "—",
+                  `${pad(peakHours.peakStartHour)}–${pad(peakHours.peakEndHour)} hằng ngày`,
+                ],
+                [
+                  vip ? vip.name : "Sân VIP",
+                  vip ? formatVnd(vip.peakPricePerHour) : "—",
+                  "Mặt thảm cao cấp, giá giờ cao điểm",
+                ],
+              ];
+            })().map(([title, price, detail]) => (
               <div key={title} className="nike-card p-8 text-center">
                 <h3 className="font-kinetic text-2xl font-black text-white uppercase">
                   {title}
                 </h3>
-                <p className="font-kinetic text-5xl font-black text-emerald-400 my-5">
+                <p className="font-kinetic text-4xl font-black text-emerald-400 my-5">
                   {price}
-                  <span className="text-sm text-slate-400">/hr</span>
+                  <span className="text-sm text-slate-400">/giờ</span>
                 </p>
                 <p className="text-slate-400">{detail}</p>
                 <button
@@ -946,7 +1087,7 @@ export default function HomePage() {
       </footer>
 
       {/* CHECKOUT MODAL DRAWER */}
-      {isModalOpen && (
+      {isModalOpen && selectedCourt && (
         <div
           className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl z-50 flex items-center justify-center p-6"
           onMouseDown={(event) => {
@@ -973,113 +1114,67 @@ export default function HomePage() {
               id="booking-dialog-title"
               className="font-kinetic text-3xl font-black text-white uppercase tracking-tight mb-6"
             >
-              CHECKOUT RESERVATION
+              XÁC NHẬN ĐẶT SÂN
             </h3>
 
             <div className="bg-slate-950/90 p-5 rounded-2xl mb-6 space-y-3 border border-white/10 font-kinetic text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-400">COURT:</span>
+                <span className="text-slate-400">SÂN:</span>
                 <strong className="text-white font-black">
                   {selectedCourt.name}
                 </strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">TIME SLOT:</span>
+                <span className="text-slate-400">NGÀY:</span>
                 <strong className="text-white font-black">
-                  {selectedCourt.time} ({selectedCourt.duration} HOURS)
+                  {selectedCourt.bookingDate.split("-").reverse().join("/")}
+                </strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">GIỜ:</span>
+                <strong className="text-white font-black">
+                  {selectedCourt.startTime}–{selectedCourt.endTime} ({selectedCourt.duration} giờ)
                 </strong>
               </div>
               <div className="flex justify-between pt-3 border-t border-white/10 text-xl font-black">
-                <span className="text-white">TOTAL DUE:</span>
-                <span className="text-emerald-400">${calculateTotal()}.00</span>
+                <span className="text-white">TẠM TÍNH:</span>
+                <span className="text-emerald-400">{formatVnd(selectedCourt.price)}</span>
               </div>
             </div>
 
-            {/* Gear Addons */}
-            <div className="mb-6 space-y-2 font-kinetic">
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                GEAR & COACHING ADD-ONS
-              </div>
-
-              <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-white/10 cursor-pointer hover:border-emerald-400/40">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={addons.shuttles}
-                    onChange={() => toggleAddon("shuttles")}
-                    className="w-4 h-4 accent-emerald-400"
-                  />
-                  <span className="text-sm font-bold text-white">
-                    Yonex AS-50 Feather Shuttles (1 Tube)
-                  </span>
-                </div>
-                <span className="text-xs font-black text-emerald-400">
-                  +$28
-                </span>
-              </label>
-              <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-white/10 cursor-pointer hover:border-emerald-400/40">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={addons.coaching}
-                    onChange={() => toggleAddon("coaching")}
-                    className="w-4 h-4 accent-emerald-400"
-                  />
-                  <span className="text-sm font-bold text-white">
-                    One-on-one coaching session
-                  </span>
-                </div>
-                <span className="text-xs font-black text-emerald-400">
-                  +$65
-                </span>
-              </label>
-
-              <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-white/10 cursor-pointer hover:border-emerald-400/40">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={addons.racket}
-                    onChange={() => toggleAddon("racket")}
-                    className="w-4 h-4 accent-emerald-400"
-                  />
-                  <span className="text-sm font-bold text-white">
-                    Pro Yonex Astrox 99 Racket Rental
-                  </span>
-                </div>
-                <span className="text-xs font-black text-emerald-400">
-                  +$10
-                </span>
-              </label>
-            </div>
+            {/* Cầu, vợt, nước gọi tại quầy lúc vào chơi và tính vào hoá đơn cuối
+                buổi — không đặt trước ở đây, nên không bày ra để hứa hão. */}
+            <p className="mb-6 rounded-xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-relaxed text-slate-400">
+              Tiền sân tính theo giờ chơi thực tế khi kết thúc. Cầu, vợt và nước gọi thêm
+              tại quầy sẽ được cộng vào hoá đơn cuối buổi.
+            </p>
 
             <form onSubmit={handleBookingSubmit} className="space-y-4">
-              <div>
-                <label className="block font-kinetic text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                  FULL NAME
-                </label>
-                <input
-                  type="text"
-                  placeholder="Alex Morgan"
-                  required
-                  className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm font-semibold focus:border-emerald-400 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block font-kinetic text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                  PHONE NUMBER
-                </label>
-                <input
-                  type="tel"
-                  placeholder="+1 (555) 019-2834"
-                  required
-                  className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm font-semibold focus:border-emerald-400 focus:outline-none"
-                />
-              </div>
+              {user ? (
+                <div className="rounded-xl border border-white/10 bg-slate-950/60 p-4 font-kinetic text-sm">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                    ĐẶT DƯỚI TÊN
+                  </div>
+                  <strong className="text-white font-black">{user.fullName}</strong>
+                  {user.phone && <span className="ml-2 text-slate-400">• {user.phone}</span>}
+                </div>
+              ) : (
+                <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs font-semibold text-emerald-300">
+                  Bạn cần đăng nhập để hoàn tất. Lựa chọn hiện tại sẽ được giữ lại,
+                  đăng nhập xong quay về là đặt tiếp.
+                </p>
+              )}
+
               <button
                 type="submit"
-                className="w-full btn-nike-bolt justify-center py-4 text-sm mt-2"
+                disabled={submitting}
+                className="w-full btn-nike-bolt justify-center py-4 text-sm mt-2 disabled:opacity-60"
               >
-                CONFIRM & PAY (${calculateTotal()}.00) ⚡
+                {submitting
+                  ? "ĐANG GỬI..."
+                  : user
+                    ? "XÁC NHẬN ĐẶT SÂN ⚡"
+                    : "ĐĂNG NHẬP ĐỂ ĐẶT SÂN ⚡"}
               </button>
             </form>
           </div>

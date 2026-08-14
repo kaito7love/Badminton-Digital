@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { redirectAfterLogin } from '../../utils/roles';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -11,7 +12,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from?.pathname || null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,8 +20,12 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      await login(email, password);
-      navigate(from, { replace: true });
+      const user = await login(email, password);
+
+      // Đích đến phải hợp với vai trò. Trước đây mọi người đều bị đẩy về
+      // /dashboard, kể cả khách hàng — mà /reports/dashboard chặn 'customer',
+      // nên khách đăng nhập xong chỉ thấy một màn hình lỗi 403.
+      navigate(redirectAfterLogin(user, from), { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Đăng nhập không thành công');
     } finally {
