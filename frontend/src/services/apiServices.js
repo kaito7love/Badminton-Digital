@@ -6,6 +6,8 @@ export const authService = {
   logout: () => apiClient.post('/auth/logout'),
   refreshToken: () => apiClient.post('/auth/refresh-token'),
   changePassword: (data) => apiClient.put('/auth/change-password', data),
+  forgotPassword: (data) => apiClient.post('/auth/forgot-password', data),
+  resetPassword: (data) => apiClient.post('/auth/reset-password', data),
 };
 
 // ─── Courts ──────────────────────────────────────────────────────

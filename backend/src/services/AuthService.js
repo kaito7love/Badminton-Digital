@@ -4,7 +4,11 @@ const {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
+  generateResetToken,
+  decodeResetToken,
+  verifyResetToken,
 } = require("../utils/jwt");
+const { sendPasswordResetEmail } = require("../utils/mailer");
 
 class AuthService {
   static async login({ email, password }) {
@@ -133,6 +137,59 @@ class AuthService {
     await user.save();
 
     return { message: "Đổi mật khẩu thành công." };
+  }
+
+  static async forgotPassword(email) {
+    // Trả cùng một thông điệp dù email có tồn tại hay không, tránh lộ danh sách email
+    const genericMessage =
+      "Nếu email tồn tại trong hệ thống, link đặt lại mật khẩu đã được gửi tới hộp thư của bạn.";
+
+    const user = await User.findOne({ where: { email } });
+    if (!user || !user.isActive) {
+      return { message: genericMessage };
+    }
+
+    const token = generateResetToken(user);
+    const baseUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+    const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
+    await sendPasswordResetEmail({
+      to: user.email,
+      fullName: user.fullName,
+      resetUrl,
+    });
+
+    return { message: genericMessage };
+  }
+
+  static async resetPassword({ token, newPassword }) {
+    const invalidTokenError = () => {
+      const error = new Error("Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.");
+      error.statusCode = 400;
+      return error;
+    };
+
+    const decoded = decodeResetToken(token);
+    if (!decoded || !decoded.id || decoded.type !== "password_reset") {
+      throw invalidTokenError();
+    }
+
+    const user = await User.findByPk(decoded.id);
+    if (!user || !user.isActive) {
+      throw invalidTokenError();
+    }
+
+    try {
+      verifyResetToken(token, user);
+    } catch (err) {
+      throw invalidTokenError();
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.refreshToken = null; // đăng xuất mọi phiên đang mở
+    await user.save();
+
+    return { message: "Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại." };
   }
 }
 
