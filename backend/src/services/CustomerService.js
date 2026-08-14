@@ -94,15 +94,20 @@ class CustomerService {
       error.statusCode = 404;
       throw error;
     }
-    if (data.phone && data.phone !== customer.phone) {
-      const existing = await Customer.findOne({ where: { phone: data.phone, branchId: customer.branchId } });
+    // Chuỗi rỗng phải thành NULL: unique index coi '' là một giá trị thật nên hai
+    // khách cùng để trống sẽ đụng nhau, còn NULL thì bao nhiêu cũng được.
+    const payload = { ...data };
+    if ('phone' in payload) payload.phone = (payload.phone || '').trim() || null;
+
+    if (payload.phone && payload.phone !== customer.phone) {
+      const existing = await Customer.findOne({ where: { phone: payload.phone, branchId: customer.branchId } });
       if (existing) {
         const error = new Error('Phone number is already in use by another customer');
         error.statusCode = 400;
         throw error;
       }
     }
-    return await customer.update(data);
+    return await customer.update(payload);
   }
 
   static async deleteCustomer(id, context) {

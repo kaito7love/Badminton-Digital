@@ -117,7 +117,7 @@ Mỗi endpoint có cột **Role** quy định vai trò được phép gọi: `Ad
 | DELETE | `/courts/:id` | Admin | Xóa sân |
 | POST | `/courts/:id/open` | Employee, Admin | Mở sân cho khách chơi (UC-06) |
 | POST | `/courts/:id/close` | Employee, Admin | Đóng sân & tính tiền (UC-07) |
-| PUT | `/courts/:id/maintenance` | Employee, Admin | Bật/tắt trạng thái bảo trì |
+| PUT | `/courts/:id/status` | Employee, Admin | Đổi vòng đời khai thác: `active` / `maintenance` / `inactive` |
 | POST | `/courts/:id/transfer` | Employee, Admin | Chuyển khách sang sân khác |
 
 **POST /courts/:id/open**

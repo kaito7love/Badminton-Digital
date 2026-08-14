@@ -142,7 +142,7 @@ export default function ReportsPage() {
         <StatBox
           label="Tỷ lệ lấp đầy sân"
           value={`${Number(summary?.occupancyRate || 0)}%`}
-          subtext={`${Number(summary?.activeCourts || 0)}/${Number(summary?.totalCourts || 0)} sân đang hoạt động`}
+          subtext={`${Number(summary?.activeCourts || 0)}/${Number(summary?.operatingCourts ?? summary?.totalCourts ?? 0)} sân đang khai thác`}
           highlight
         />
         <StatBox

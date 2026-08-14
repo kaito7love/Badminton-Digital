@@ -87,6 +87,7 @@ const buildRevenueSheet = (workbook, data) => {
   sheet.addRow(['Số giao dịch', num(data.summary.totalTransactions)]);
   sheet.addRow(['Số phiên chơi', num(data.summary.totalSessions)]);
   sheet.addRow(['Số sân', num(data.summary.totalCourts)]);
+  sheet.addRow(['Trong đó đang khai thác', num(data.summary.operatingCourts)]);
   sheet.addRow(['Phụ kiện sắp hết hàng', num(data.summary.lowStockCount)]);
   sheet.addRow([]);
 
@@ -346,7 +347,7 @@ const buildPdf = (data) =>
           { label: 'Số giao dịch', value: num(data.summary.totalTransactions).toLocaleString('vi-VN') },
           { label: 'Số phiên chơi', value: num(data.summary.totalSessions).toLocaleString('vi-VN') },
           { label: 'Doanh thu hôm nay', value: formatMoney(data.summary.todayRevenue) },
-          { label: 'Sân đang hoạt động', value: `${num(data.summary.activeCourts)} / ${num(data.summary.totalCourts)} (${num(data.summary.occupancyRate)}%)` },
+          { label: 'Sân đang chơi', value: `${num(data.summary.activeCourts)} / ${num(data.summary.operatingCourts)} đang khai thác (${num(data.summary.occupancyRate)}%)` },
           { label: 'Phụ kiện sắp hết hàng', value: `${num(data.summary.lowStockCount)} sản phẩm` }
         ]
       });

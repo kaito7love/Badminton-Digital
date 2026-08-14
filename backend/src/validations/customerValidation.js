@@ -10,18 +10,20 @@ const validate = (req, res, next) => {
   next();
 };
 
+// Số điện thoại là tuỳ chọn: khách vãng lai chưa để lại số vẫn là khách hàng,
+// chỉ là hồ sơ thiếu thông tin. Tính duy nhất do (branch_id, phone) đảm nhiệm.
 const createCustomerRules = [
   body('fullName').trim().notEmpty().withMessage('Full name is required'),
-  body('phone').trim().notEmpty().withMessage('Phone number is required'),
-  body('email').optional({ nullable: true }).isEmail().withMessage('Invalid email address'),
+  body('phone').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 20 }).withMessage('Phone number must be at most 20 characters'),
+  body('email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('Invalid email address'),
   validate
 ];
 
 const updateCustomerRules = [
   param('id').isInt().withMessage('Customer ID must be an integer'),
   body('fullName').optional().trim().notEmpty().withMessage('Full name cannot be empty'),
-  body('phone').optional().trim().notEmpty().withMessage('Phone number cannot be empty'),
-  body('email').optional({ nullable: true }).isEmail().withMessage('Invalid email address'),
+  body('phone').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 20 }).withMessage('Phone number must be at most 20 characters'),
+  body('email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('Invalid email address'),
   validate
 ];
 

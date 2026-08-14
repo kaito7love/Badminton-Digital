@@ -30,14 +30,22 @@ class ReportService {
 
     const todayRevenue = todayPayments.reduce((sum, p) => sum + Number(p.invoice.totalAmount), 0);
 
-    // Active Courts / Sessions
     const totalCourts = await Court.count({ where: { branchId } });
+
+    // Mẫu số của tỷ lệ lấp đầy là công suất khai thác, không phải tổng số sân:
+    // sân bảo trì vẫn tính (đang mất doanh thu tạm thời), sân đã ngưng khai thác
+    // thì không — tính vào sẽ kéo tỷ lệ xuống một cách sai lệch.
+    const operatingCourts = await Court.count({
+      where: { branchId, status: { [Op.in]: ['active', 'maintenance'] } }
+    });
+
+    // Sân đang chơi suy ra từ phiên đang mở, không đọc courts.status
     const activeCourts = await CourtSession.count({
       distinct: true,
       col: 'courtId',
       where: { branchId, status: 'playing' }
     });
-    const occupancyRate = totalCourts > 0 ? Math.round((activeCourts / totalCourts) * 100) : 0;
+    const occupancyRate = operatingCourts > 0 ? Math.round((activeCourts / operatingCourts) * 100) : 0;
 
     // Low stock items count
     const lowStockCount = await Extra.count({
@@ -49,6 +57,7 @@ class ReportService {
     return {
       todayRevenue,
       totalCourts,
+      operatingCourts,
       activeCourts,
       occupancyRate,
       lowStockCount

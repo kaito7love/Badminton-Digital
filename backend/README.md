@@ -223,7 +223,7 @@ Base URL: `/api/v1`
 | POST   | `/:id/open`          | Mở sân (bắt đầu phiên)     | admin, employee |
 | POST   | `/:id/close`         | Đóng sân (kết thúc phiên)  | admin, employee |
 | POST   | `/:id/transfer`      | Chuyển khách sang sân khác | admin, employee |
-| PUT    | `/:id/maintenance`   | Bật/tắt chế độ bảo trì     | admin, employee |
+| PUT    | `/:id/status`        | Đổi vòng đời khai thác (active/maintenance/inactive) | admin, employee |
 
 ---
 

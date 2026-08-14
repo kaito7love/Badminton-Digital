@@ -19,21 +19,26 @@ Nhân viên
     ├─→ Chọn sân trạng thái "Trống"
     │
     ├─→ Nhấn "Mở sân"
-    │         ├─→ Gán khách hàng? (tìm theo SĐT/tên) — optional
-    │         └─→ Khách vãng lai — để null
+    │         ├─→ Gán khách hàng có sẵn (tìm theo SĐT/tên), hoặc
+    │         └─→ Nhập tên khách vãng lai → hệ thống tự tạo hồ sơ khách hàng
     │
     ├─→ [POST /api/v1/courts/:id/open]
     │         │ DB Transaction:
-    │         ├─→ Tạo CourtSession { courtId, customerId, employeeId, startTime = NOW() }
-    │         └─→ Cập nhật Court.status = 'playing'
+    │         ├─→ Khách vãng lai: tạo (hoặc gộp theo SĐT) bản ghi Customer
+    │         └─→ Tạo CourtSession { courtId, customerId, employeeId, startTime = NOW() }
+    │             (KHÔNG đụng tới Court.status — sân hiển thị "đang chơi" nhờ có
+    │              phiên đang mở, không phải nhờ một cột trạng thái)
     │
     └─→ Sân hiển thị trạng thái "Đang chơi" 🔴
         Hiển thị: tên khách (nếu có), giờ bắt đầu, đồng hồ tính giờ ⏱️
 ```
 
 **Ngoại lệ:**
-- Sân đang bảo trì → API trả về `400 Bad Request`: "Sân đang bảo trì, không thể mở"
-- Sân đang có người chơi → `400`: "Sân đã đang được sử dụng"
+- Sân đang bảo trì → `400`: "Sân đang bảo trì"
+- Sân đã ngưng khai thác → `400`: "Sân đã ngưng khai thác"
+- Sân đang có người chơi → `400`: "Court is already in use"
+  (kể cả khi lách qua tầng ứng dụng, DB vẫn chặn bằng unique index
+  `uq_court_sessions_open_court`)
 
 ---
 
