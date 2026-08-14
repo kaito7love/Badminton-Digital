@@ -1,6 +1,7 @@
 const { Court, CourtSession, Customer, Booking, Employee, sequelize } = require('../models');
 const { calculateCourtFee } = require('../utils/priceCalculator');
 const AuditService = require('./AuditService');
+const SettingService = require('./SettingService');
 
 class CourtService {
   static formatCourt(court) {
@@ -8,8 +9,6 @@ class CourtService {
     let state = 'AVAILABLE';
     if (plain.status === 'maintenance') {
       state = 'MAINTENANCE';
-    } else if (plain.status === 'inactive') {
-      state = 'INACTIVE';
     } else if (plain.sessions && plain.sessions.length > 0) {
       state = 'PLAYING';
     }
@@ -75,7 +74,7 @@ class CourtService {
         peakPricePerHour: data.peakPricePerHour,
         offpeakPricePerHour: data.offpeakPricePerHour,
         note: data.note || null,
-        status: 'active'
+        status: 'empty'
       }, { transaction });
       await AuditService.record({ actor: context.actor, branchId: context.branchId, action: 'court.created', targetType: 'court', targetId: court.id, newValues: court.toJSON(), requestId: context.requestId, transaction });
       await transaction.commit();
@@ -132,7 +131,7 @@ class CourtService {
     }
   }
 
-  static async openCourt(courtId, customerId = null, bookingId = null, context) {
+  static async openCourt(courtId, customerId = null, bookingId = null, guestName = null, context) {
     if (!context.branchId || !context.employeeId) {
       const error = new Error('Không xác định được nhân viên hoặc chi nhánh vận hành');
       error.statusCode = 403;
@@ -146,8 +145,8 @@ class CourtService {
         error.statusCode = 404;
         throw error;
       }
-      if (court.status !== 'active') {
-        const error = new Error(court.status === 'maintenance' ? 'Court is currently under maintenance' : 'Court is inactive');
+      if (court.status !== 'empty') {
+        const error = new Error(court.status === 'maintenance' ? 'Court is currently under maintenance' : 'Court is not available');
         error.statusCode = 400;
         throw error;
       }
@@ -184,6 +183,7 @@ class CourtService {
         branchId: context.branchId,
         courtId,
         customerId: resolvedCustomerId,
+        guestName: resolvedCustomerId ? null : (guestName || null),
         bookingId: booking?.id || null,
         employeeId: context.employeeId,
         startTime: new Date(),
@@ -219,18 +219,21 @@ class CourtService {
       }
       const oldValues = activeSession.toJSON();
       const endTime = new Date();
+      const { peakStartHour, peakEndHour } = await SettingService.getPeakHours();
       const { durationSeconds, courtFee } = calculateCourtFee(
         activeSession.startTime,
         endTime,
         court.peakPricePerHour,
-        court.offpeakPricePerHour
+        court.offpeakPricePerHour,
+        peakStartHour,
+        peakEndHour
       );
 
       await activeSession.update({
         endTime,
         durationSeconds,
         courtFee,
-        status: 'completed'
+        status: 'closed'
       }, { transaction });
 
       await AuditService.record({ actor: context.actor, branchId: court.branchId, action: 'court.session_closed', targetType: 'court_session', targetId: activeSession.id, oldValues, newValues: activeSession.toJSON(), requestId: context.requestId, transaction });
@@ -252,7 +255,7 @@ class CourtService {
   }
 
   static async transferCourt(sourceCourtId, targetCourtId, context) {
-    if (sourceCourtId === targetCourtId) {
+    if (Number(sourceCourtId) === Number(targetCourtId)) {
       const error = new Error('Source and target court cannot be the same');
       error.statusCode = 400;
       throw error;
@@ -263,7 +266,7 @@ class CourtService {
       const courts = await Court.findAll({ where: { id: [sourceCourtId, targetCourtId], ...(context.branchId ? { branchId: context.branchId } : {}) }, transaction, lock: transaction.LOCK.UPDATE, order: [['id', 'ASC']] });
       const sourceCourt = courts.find((court) => court.id === Number(sourceCourtId));
       const targetCourt = courts.find((court) => court.id === Number(targetCourtId));
-      if (!sourceCourt || !targetCourt || sourceCourt.status !== 'active' || targetCourt.status !== 'active') {
+      if (!sourceCourt || !targetCourt || sourceCourt.status !== 'empty' || targetCourt.status !== 'empty') {
         const error = new Error('Trạng thái hoặc chi nhánh sân không hợp lệ để chuyển sân');
         error.statusCode = 400;
         throw error;
@@ -320,7 +323,7 @@ class CourtService {
         throw error;
       }
       const oldValues = court.toJSON();
-      const updated = await court.update({ status: isMaintenance ? 'maintenance' : 'active' }, { transaction });
+      const updated = await court.update({ status: isMaintenance ? 'maintenance' : 'empty' }, { transaction });
       await AuditService.record({ actor: context.actor, branchId: court.branchId, action: 'court.maintenance_changed', targetType: 'court', targetId: court.id, oldValues, newValues: updated.toJSON(), requestId: context.requestId, transaction });
       await transaction.commit();
       return CourtService.formatCourt(updated);

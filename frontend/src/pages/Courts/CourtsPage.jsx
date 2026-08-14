@@ -34,7 +34,7 @@ const mapCourt = (c) => {
     session: activeSession ? {
       id: activeSession.id,
       startTime: new Date(activeSession.startTime).getTime(),
-      playerName: activeSession.customer?.fullName || 'Khách vãng lai',
+      playerName: activeSession.customer?.fullName || activeSession.guestName || 'Khách vãng lai',
       customerId: activeSession.customerId,
     } : null,
     extras: [],
@@ -193,7 +193,7 @@ export default function CourtsPage() {
     e.preventDefault();
     if (!playerNameInput.trim()) return;
     try {
-      await courtService.openCourt(activeModal.courtId, { playerName: playerNameInput.trim() });
+      await courtService.openCourt(activeModal.courtId, { guestName: playerNameInput.trim() });
       await fetchCourts();
       setActiveModal(null);
     } catch (err) {

@@ -97,7 +97,7 @@ class BookingService {
         error.conflictBookingId = conflictBookingId;
         throw error;
       }
-      const booking = await Booking.create({ courtId: data.courtId, branchId: court.branchId, customerId, bookingDate: data.bookingDate, startTime: data.startTime, endTime: data.endTime, status: 'pending', createdBy: context.actor.id }, { transaction });
+      const booking = await Booking.create({ courtId: data.courtId, branchId: court.branchId, customerId, customerName: data.customerName || null, customerPhone: data.customerPhone || null, bookingDate: data.bookingDate, startTime: data.startTime, endTime: data.endTime, status: 'pending', createdBy: context.actor.id }, { transaction });
       await AuditService.record({ actor: context.actor, branchId: court.branchId, action: 'booking.created', targetType: 'booking', targetId: booking.id, newValues: booking.toJSON(), requestId: context.requestId, transaction });
       await transaction.commit();
       return booking;

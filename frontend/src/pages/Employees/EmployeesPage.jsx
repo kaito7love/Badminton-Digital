@@ -11,7 +11,6 @@ export default function EmployeesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null); // null = Create, object = Edit
   const [formData, setFormData] = useState({
-    username: '',
     password: '',
     email: '',
     fullName: '',
@@ -39,7 +38,6 @@ export default function EmployeesPage() {
   const handleOpenAddModal = () => {
     setEditingEmployee(null);
     setFormData({
-      username: '',
       password: '',
       email: '',
       fullName: '',
@@ -52,7 +50,6 @@ export default function EmployeesPage() {
   const handleOpenEditModal = (employee) => {
     setEditingEmployee(employee);
     setFormData({
-      username: employee.username || employee.user?.username || '',
       password: '',
       email: employee.email || employee.user?.email || '',
       fullName: employee.fullName || employee.name || '',
@@ -74,7 +71,6 @@ export default function EmployeesPage() {
       } else {
         // Create mode
         await employeeService.createEmployee({
-          username: formData.username,
           password: formData.password,
           email: formData.email,
           fullName: formData.fullName,
@@ -128,7 +124,7 @@ export default function EmployeesPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {employees.map((emp) => {
-              const name = emp.user?.fullName || emp.user?.full_name || emp.fullName || emp.full_name || emp.name || emp.user?.username || emp.username || 'N/A';
+              const name = emp.user?.fullName || emp.user?.full_name || emp.fullName || emp.full_name || emp.name || 'N/A';
               const email = emp.email || emp.user?.email || '';
               const role = emp.position || emp.role || 'Nhân viên';
               const shift = emp.shift || 'Ca sáng';
@@ -178,18 +174,6 @@ export default function EmployeesPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {!editingEmployee && (
             <>
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Tên đăng nhập (Username) *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
-                  placeholder="nv_van_a"
-                />
-              </div>
-
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Mật khẩu *</label>
                 <input

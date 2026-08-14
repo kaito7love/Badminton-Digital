@@ -24,6 +24,16 @@ class SettingService {
     }
     return setting.value;
   }
+
+  static async getPeakHours() {
+    const pricing = await SettingService.getSettingByKey('pricing');
+    const peakStartHour = Number(pricing?.peakStartHour);
+    const peakEndHour = Number(pricing?.peakEndHour);
+    return {
+      peakStartHour: Number.isFinite(peakStartHour) ? peakStartHour : 17,
+      peakEndHour: Number.isFinite(peakEndHour) ? peakEndHour : 22
+    };
+  }
 }
 
 module.exports = SettingService;

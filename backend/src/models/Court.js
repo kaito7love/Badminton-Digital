@@ -19,8 +19,8 @@ module.exports = (sequelize) => {
         allowNull: false,
       },
       status: {
-        type: DataTypes.ENUM("active", "maintenance", "inactive"),
-        defaultValue: "active",
+        type: DataTypes.ENUM("empty", "playing", "maintenance"),
+        defaultValue: "empty",
         allowNull: false,
       },
       peakPricePerHour: {

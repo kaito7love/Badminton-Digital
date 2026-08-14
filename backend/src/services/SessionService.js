@@ -14,7 +14,7 @@ class SessionService {
     const { page, limit, offset } = getPagination(query);
     const { date, courtName, customerId, employeeId } = query;
 
-    const where = { status: { [Op.in]: ['completed', 'closed'] } };
+    const where = { status: 'closed' };
     if (context.branchId) where.branchId = context.branchId;
     if (customerId)  where.customerId  = customerId;
     if (employeeId)  where.employeeId  = employeeId;

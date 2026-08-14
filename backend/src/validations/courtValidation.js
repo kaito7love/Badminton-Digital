@@ -31,6 +31,7 @@ const openCourtRules = [
   param('id').isInt().withMessage('Court ID must be an integer'),
   body('customerId').optional({ nullable: true }).isInt().withMessage('Customer ID must be an integer'),
   body('bookingId').optional({ nullable: true }).isInt().withMessage('Booking ID must be an integer'),
+  body('guestName').optional({ nullable: true }).isString().trim().isLength({ max: 100 }).withMessage('Guest name must be a string up to 100 characters'),
   validate
 ];
 

@@ -29,6 +29,11 @@ module.exports = (sequelize) => {
         allowNull: true,
         field: "customer_id",
       },
+      guestName: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: "guest_name",
+      },
       employeeId: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -55,7 +60,7 @@ module.exports = (sequelize) => {
         field: "court_fee",
       },
       status: {
-        type: DataTypes.ENUM("playing", "completed", "cancelled", "closed"),
+        type: DataTypes.ENUM("playing", "closed"),
         defaultValue: "playing",
         allowNull: false,
       },

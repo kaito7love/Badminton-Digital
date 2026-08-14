@@ -22,6 +22,16 @@ module.exports = (sequelize) => {
       allowNull: true,
       field: 'customer_id'
     },
+    customerName: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: 'guest_name'
+    },
+    customerPhone: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      field: 'guest_phone'
+    },
     bookingDate: {
       type: DataTypes.DATEONLY,
       allowNull: false,

@@ -3,6 +3,7 @@ const { calculateCourtFee, calculateInvoiceTotals } = require('../utils/priceCal
 const { generateVietQRUrl } = require('../utils/vietqr');
 const { nextInvoiceNumber } = require('../utils/invoiceNumber');
 const AuditService = require('./AuditService');
+const SettingService = require('./SettingService');
 
 class PaymentService {
   static async checkout({ sessionId, paymentMethod = 'cash', discountAmount = 0, isDiscountPercent = false, employeeId, branchId, actor, requestId, idempotencyKey }) {
@@ -51,11 +52,14 @@ class PaymentService {
       let courtFee = Number(session.courtFee) || 0;
       if (session.status === 'playing') {
         const endTime = new Date();
+        const { peakStartHour, peakEndHour } = await SettingService.getPeakHours();
         const feeCalc = calculateCourtFee(
           session.startTime,
           endTime,
           session.court.peakPricePerHour,
-          session.court.offpeakPricePerHour
+          session.court.offpeakPricePerHour,
+          peakStartHour,
+          peakEndHour
         );
         courtFee = feeCalc.courtFee;
 
@@ -126,9 +130,9 @@ class PaymentService {
           const newTotalSpent = Number(customer.totalSpent) + totals.totalAmount;
           let loyaltyTier = 'normal';
           if (newTotalSpent >= 15000000) {
-            loyaltyTier = 'gold';
+            loyaltyTier = 'vip';
           } else if (newTotalSpent >= 5000000) {
-            loyaltyTier = 'silver';
+            loyaltyTier = 'gold';
           }
 
           await customer.update({
@@ -264,7 +268,7 @@ class PaymentService {
         const customer = await Customer.findByPk(session.customerId, { transaction, lock: transaction.LOCK.UPDATE });
         if (customer) {
           const totalSpent = Number(customer.totalSpent) + Number(invoice.totalAmount);
-          await customer.update({ totalSpent, loyaltyTier: totalSpent >= 15000000 ? 'gold' : totalSpent >= 5000000 ? 'silver' : 'normal' }, { transaction });
+          await customer.update({ totalSpent, loyaltyTier: totalSpent >= 15000000 ? 'vip' : totalSpent >= 5000000 ? 'gold' : 'normal' }, { transaction });
         }
       }
       await AuditService.record({ branchId: invoice.branchId, action: 'payment.webhook_confirmed', targetType: 'payment', targetId: payment.id, oldValues, newValues: payment.toJSON(), requestId, transaction });

@@ -79,7 +79,7 @@ class EmployeeService {
       const passwordHash = await bcrypt.hash(data.password, 10);
       const user = await User.create(
         {
-          fullName: data.fullName || data.name || data.username || "Nhân viên mới",
+          fullName: data.fullName || data.name || "Nhân viên mới",
           email: data.email,
           passwordHash,
           roleId,
