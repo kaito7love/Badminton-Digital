@@ -8,7 +8,8 @@ const {
   createCourtRules,
   updateCourtRules,
   openCourtRules,
-  transferCourtRules
+  transferCourtRules,
+  updateCourtStatusRules
 } = require('../validations/courtValidation');
 
 router.use(authMiddleware, branchContextMiddleware);
@@ -23,6 +24,6 @@ router.delete('/:id', roleMiddleware(['admin']), courtController.deleteCourt);
 router.post('/:id/open', roleMiddleware(['admin', 'employee']), openCourtRules, courtController.openCourt);
 router.post('/:id/close', roleMiddleware(['admin', 'employee']), courtController.closeCourt);
 router.post('/:id/transfer', roleMiddleware(['admin', 'employee']), transferCourtRules, courtController.transferCourt);
-router.put('/:id/maintenance', roleMiddleware(['admin', 'employee']), courtController.toggleMaintenance);
+router.put('/:id/status', roleMiddleware(['admin', 'employee']), updateCourtStatusRules, courtController.updateCourtStatus);
 
 module.exports = router;

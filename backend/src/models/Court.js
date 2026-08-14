@@ -18,9 +18,11 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(50),
         allowNull: false,
       },
+      // Chỉ mô tả vòng đời khai thác của sân. Việc "đang có người chơi" không lưu
+      // ở đây mà suy ra từ court_sessions đang mở — xem CourtService.formatCourt.
       status: {
-        type: DataTypes.ENUM("empty", "playing", "maintenance"),
-        defaultValue: "empty",
+        type: DataTypes.ENUM("active", "maintenance", "inactive"),
+        defaultValue: "active",
         allowNull: false,
       },
       peakPricePerHour: {

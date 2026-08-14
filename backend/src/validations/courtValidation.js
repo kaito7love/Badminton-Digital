@@ -23,7 +23,14 @@ const updateCourtRules = [
   body('name').optional().trim().notEmpty().withMessage('Court name cannot be empty'),
   body('peakPricePerHour').optional().isNumeric().withMessage('Peak price must be a number'),
   body('offpeakPricePerHour').optional().isNumeric().withMessage('Off-peak price must be a number'),
-  body('status').optional().isIn(['empty', 'playing', 'maintenance']).withMessage('Invalid status'),
+  body('status').optional().isIn(['active', 'maintenance', 'inactive']).withMessage('Invalid status'),
+  validate
+];
+
+const updateCourtStatusRules = [
+  param('id').isInt().withMessage('Court ID must be an integer'),
+  body('status').isIn(['active', 'maintenance', 'inactive'])
+    .withMessage('Trạng thái sân phải là active, maintenance hoặc inactive'),
   validate
 ];
 
@@ -45,5 +52,6 @@ module.exports = {
   createCourtRules,
   updateCourtRules,
   openCourtRules,
-  transferCourtRules
+  transferCourtRules,
+  updateCourtStatusRules
 };

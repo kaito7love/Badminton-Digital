@@ -63,14 +63,14 @@ class PaymentService {
         );
         courtFee = feeCalc.courtFee;
 
+        // Đóng phiên là đủ để sân trở lại trạng thái trống — courts.status chỉ nói
+        // về vòng đời khai thác, không phản ánh việc có ai đang chơi hay không.
         await session.update({
           endTime,
           durationSeconds: feeCalc.durationSeconds,
           courtFee,
           status: 'closed'
         }, { transaction });
-
-        await session.court.update({ status: 'empty' }, { transaction });
       }
 
       // Calculate Invoice Totals

@@ -20,7 +20,7 @@ export const courtService = {
   openCourt: (id, data) => apiClient.post(`/courts/${id}/open`, data),
   closeCourt: (id) => apiClient.post(`/courts/${id}/close`),
   transferCourt: (id, data) => apiClient.post(`/courts/${id}/transfer`, data),
-  toggleMaintenance: (id, data) => apiClient.put(`/courts/${id}/maintenance`, data),
+  updateStatus: (id, status) => apiClient.put(`/courts/${id}/status`, { status }),
 };
 
 // ─── Bookings ────────────────────────────────────────────────────

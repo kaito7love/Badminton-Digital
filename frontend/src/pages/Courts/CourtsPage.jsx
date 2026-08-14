@@ -12,11 +12,11 @@ const formatTime = (ms) => {
 
 const formatMoney = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n)) + 'đ';
 
-// Map backend court state → frontend local status
+// Backend trả về `state` đã gộp sẵn vòng đời sân + việc có phiên chơi đang mở
 const mapStatus = (c) => {
-  if (c.state === 'PLAYING' || c.status === 'playing' || c.status === 'in_use') return 'busy';
-  if (c.state === 'AVAILABLE' || c.status === 'empty' || c.status === 'active') return 'open';
-  if (c.state === 'MAINTENANCE' || c.status === 'maintenance') return 'maintenance';
+  if (c.state === 'PLAYING') return 'busy';
+  if (c.state === 'MAINTENANCE') return 'maintenance';
+  if (c.state === 'INACTIVE') return 'inactive';
   return 'open';
 };
 
@@ -34,7 +34,7 @@ const mapCourt = (c) => {
     session: activeSession ? {
       id: activeSession.id,
       startTime: new Date(activeSession.startTime).getTime(),
-      playerName: activeSession.customer?.fullName || activeSession.guestName || 'Khách vãng lai',
+      playerName: activeSession.customer?.fullName || 'Khách vãng lai',
       customerId: activeSession.customerId,
     } : null,
     extras: [],
@@ -269,12 +269,9 @@ export default function CourtsPage() {
     }
   };
 
-  const toggleMaintenance = async (courtId) => {
-    const court = courts.find(c => c.id === courtId);
+  const changeCourtStatus = async (courtId, status) => {
     try {
-      await courtService.toggleMaintenance(courtId, {
-        isMaintenance: court.status !== 'maintenance',
-      });
+      await courtService.updateStatus(courtId, status);
       await fetchCourts();
     } catch (err) {
       alert(err.response?.data?.message || 'Lỗi chuyển trạng thái');
@@ -339,8 +336,11 @@ export default function CourtsPage() {
           const isBusy = court.status === 'busy';
           const isOpen = court.status === 'open';
           const isMaint = court.status === 'maintenance';
+          const isInactive = court.status === 'inactive';
 
-          const elapsed = isBusy && court.session ? now - court.session.startTime : 0;
+          // Kẹp về 0: đồng hồ trình duyệt có thể chậm hơn server vài giây, để âm
+          // thì tiền sân tạm tính hiện ra số âm ngay khi vừa mở sân.
+          const elapsed = isBusy && court.session ? Math.max(0, now - court.session.startTime) : 0;
           const hours = elapsed / 3600000;
           const courtFee = Math.ceil(hours * court.pricePerHour);
           const extrasFee = court.extras.reduce((sum, e) => sum + e.price * e.qty, 0);
@@ -382,8 +382,8 @@ export default function CourtsPage() {
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5">{formatMoney(court.pricePerHour)}/giờ</p>
                   </div>
-                  <Badge variant={isBusy ? 'rose' : isOpen ? 'emerald' : 'amber'}>
-                    {isBusy ? '🔴 Đang chơi' : isOpen ? '🟢 Trống' : '🟡 Bảo trì'}
+                  <Badge variant={isBusy ? 'rose' : isOpen ? 'emerald' : isInactive ? 'slate' : 'amber'}>
+                    {isBusy ? '🔴 Đang chơi' : isOpen ? '🟢 Trống' : isInactive ? '⚫ Ngưng khai thác' : '🟡 Bảo trì'}
                   </Badge>
                 </div>
 
@@ -448,6 +448,13 @@ export default function CourtsPage() {
                     <p className="text-amber-400 text-sm font-medium">🛠 Đang trong quá trình bảo trì</p>
                   </div>
                 )}
+
+                {isInactive && (
+                  <div className="mt-8 mb-6 text-center py-6 border border-slate-700 bg-slate-800/30 rounded-2xl">
+                    <p className="text-slate-400 text-sm font-medium">⚫ Sân đã ngưng khai thác</p>
+                    <p className="text-slate-500 text-xs mt-1">Không nằm trong công suất kinh doanh</p>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -485,21 +492,29 @@ export default function CourtsPage() {
                     >
                       ▶️ Mở Sân Ngay
                     </button>
-                    <button
-                      onClick={() => toggleMaintenance(court.id)}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 transition"
-                    >
-                      🔧 Chuyển sang bảo trì
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => changeCourtStatus(court.id, 'maintenance')}
+                        className="rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 transition"
+                      >
+                        🔧 Chuyển sang bảo trì
+                      </button>
+                      <button
+                        onClick={() => changeCourtStatus(court.id, 'inactive')}
+                        className="rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 transition"
+                      >
+                        ⚫ Ngưng khai thác
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                {isMaint && (
+                {(isMaint || isInactive) && (
                   <button
-                    onClick={() => toggleMaintenance(court.id)}
+                    onClick={() => changeCourtStatus(court.id, 'active')}
                     className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 transition"
                   >
-                    ✅ Hoàn tất bảo trì (Mở lại)
+                    {isMaint ? '✅ Hoàn tất bảo trì (Mở lại)' : '✅ Khai thác trở lại'}
                   </button>
                 )}
               </div>
@@ -607,7 +622,7 @@ export default function CourtsPage() {
 
       {activeModal?.type === 'checkout' && (() => {
         const { court } = activeModal;
-        const elapsed = now - court.session.startTime;
+        const elapsed = Math.max(0, now - court.session.startTime);
         const hours = elapsed / 3600000;
         const courtFee = Math.ceil(hours * court.pricePerHour);
         const extrasFee = court.extras.reduce((sum, e) => sum + e.price * e.qty, 0);

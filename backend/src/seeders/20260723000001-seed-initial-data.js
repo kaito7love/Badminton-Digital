@@ -107,7 +107,7 @@ module.exports = {
       {
         id: 1,
         name: 'Sân số 1 (Thường)',
-        status: 'empty',
+        status: 'active',
         offpeak_price_per_hour: 60000.00,
         peak_price_per_hour: 90000.00,
         note: 'Gần cửa ra vào',
@@ -117,7 +117,7 @@ module.exports = {
       {
         id: 2,
         name: 'Sân số 2 (Thường)',
-        status: 'empty',
+        status: 'active',
         offpeak_price_per_hour: 60000.00,
         peak_price_per_hour: 90000.00,
         note: 'Sân tiêu chuẩn',
@@ -127,7 +127,7 @@ module.exports = {
       {
         id: 3,
         name: 'Sân số 3 (Thường)',
-        status: 'empty',
+        status: 'active',
         offpeak_price_per_hour: 60000.00,
         peak_price_per_hour: 90000.00,
         note: 'Gần quầy nước',
@@ -137,7 +137,7 @@ module.exports = {
       {
         id: 4,
         name: 'Sân VIP (Thảm Yonex)',
-        status: 'empty',
+        status: 'active',
         offpeak_price_per_hour: 100000.00,
         peak_price_per_hour: 140000.00,
         note: 'Thảm thi đấu quốc tế, điều hòa',

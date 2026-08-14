@@ -79,11 +79,10 @@ const transferCourt = async (req, res, next) => {
   }
 };
 
-const toggleMaintenance = async (req, res, next) => {
+const updateCourtStatus = async (req, res, next) => {
   try {
-    const isMaintenance = req.body.isMaintenance !== false;
-    const result = await CourtService.toggleMaintenance(req.params.id, isMaintenance, { actor: req.user, branchId: req.branchId, requestId: req.requestId });
-    return successResponse(res, result, 'Maintenance mode updated');
+    const result = await CourtService.updateCourtStatus(req.params.id, req.body.status, { actor: req.user, branchId: req.branchId, requestId: req.requestId });
+    return successResponse(res, result, 'Court status updated');
   } catch (err) {
     next(err);
   }
@@ -98,5 +97,5 @@ module.exports = {
   openCourt,
   closeCourt,
   transferCourt,
-  toggleMaintenance
+  updateCourtStatus
 };
