@@ -53,6 +53,7 @@ const openCourt = async (req, res, next) => {
       req.body.customerId,
       req.body.bookingId,
       req.body.guestName,
+      req.body.guestPhone,
       { actor: req.user, branchId: req.branchId, employeeId: req.user?.employee?.id, requestId: req.requestId }
     );
     return successResponse(res, session, 'Court opened successfully', 201);

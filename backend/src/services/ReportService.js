@@ -1,5 +1,6 @@
 const { Invoice, Payment, CourtSession, Court, Customer, Extra, SessionExtra, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const { startOfLocalDay, endOfLocalDay } = require('../utils/dateTime');
 
 // Dựng điều kiện lọc theo khoảng ngày (from/to dạng YYYY-MM-DD, cả hai đều optional)
 const buildDateRange = (column, from, to) => {
@@ -13,16 +14,16 @@ const buildDateRange = (column, from, to) => {
 class ReportService {
   static async getDashboardSummary(branchId) {
     ReportService.requireBranch(branchId);
-    const today = new Date().toISOString().slice(0, 10);
-    
-    // Total Revenue Today
+    // "Hôm nay" phải là ngày theo giờ quán, không phải theo UTC: mốc 00:00Z ứng
+    // với 07:00 sáng giờ Việt Nam, nên doanh thu ca sáng sớm sẽ bị đẩy sang ngày
+    // hôm trước còn khách chơi qua nửa đêm lại bị đếm nhầm vào hôm nay.
     const todayPayments = await Payment.findAll({
       where: {
         branchId,
         status: 'paid',
         paidAt: {
-          [Op.gte]: new Date(`${today}T00:00:00.000Z`),
-          [Op.lte]: new Date(`${today}T23:59:59.999Z`)
+          [Op.gte]: startOfLocalDay(),
+          [Op.lte]: endOfLocalDay()
         }
       },
       include: [{ model: Invoice, as: 'invoice' }]

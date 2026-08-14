@@ -412,7 +412,114 @@ const buildPdf = (data) =>
     }
   });
 
+/* ─────────────────────── PDF HOÁ ĐƠN (một phiên chơi) ─────────────────────── */
+
+const PAYMENT_METHOD_LABELS = {
+  cash: 'Tiền mặt',
+  transfer: 'Chuyển khoản',
+  card: 'Thẻ'
+};
+
+const PAYMENT_STATUS_LABELS = {
+  paid: 'Đã thanh toán',
+  pending: 'Chờ thanh toán',
+  failed: 'Thất bại',
+  refunded: 'Đã hoàn tiền'
+};
+
+const buildInvoicePdf = (invoice) =>
+  new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margin: 40,
+        info: { Title: `Hoá đơn ${invoice.invoiceNo || invoice.id}` }
+      });
+      const chunks = [];
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      doc.registerFont('Regular', FONT_REGULAR);
+      doc.registerFont('Bold', FONT_BOLD);
+
+      const session = invoice.session || {};
+      const payment = invoice.payment || {};
+
+      doc.font('Bold').fontSize(20).fillColor(COLORS.heading).text('HOÁ ĐƠN THANH TOÁN');
+      doc.font('Bold').fontSize(12).fillColor(COLORS.accent).text('Badminton Digital Management');
+      doc.font('Regular').fontSize(9).fillColor(COLORS.muted)
+        .text(`Số hoá đơn: ${invoice.invoiceNo || `#${invoice.id}`}`)
+        .text(`Xuất lúc: ${formatDateTime(new Date())}`);
+
+      doc.moveDown(0.8);
+      doc.moveTo(doc.page.margins.left, doc.y)
+        .lineTo(doc.page.width - doc.page.margins.right, doc.y)
+        .strokeColor(COLORS.accent).lineWidth(2).stroke();
+
+      drawSectionTitle(doc, 'Thông tin phiên chơi');
+      drawTable(doc, {
+        columns: [
+          { key: 'label', label: 'Mục', width: 260 },
+          { key: 'value', label: 'Nội dung', width: 255, align: 'right' }
+        ],
+        rows: [
+          { label: 'Sân', value: session.court?.name || '—' },
+          { label: 'Khách hàng', value: customerLabel(session) },
+          { label: 'Bắt đầu', value: formatDateTime(session.startTime) },
+          { label: 'Kết thúc', value: formatDateTime(session.endTime) },
+          { label: 'Thời lượng', value: formatDuration(session.durationSeconds) }
+        ]
+      });
+
+      drawSectionTitle(doc, 'Phụ kiện đã dùng');
+      drawTable(doc, {
+        columns: [
+          { key: 'name', label: 'Tên', width: 235 },
+          { key: 'quantity', label: 'SL', width: 60, align: 'right' },
+          { key: 'unitPrice', label: 'Đơn giá', width: 110, align: 'right' },
+          { key: 'subtotal', label: 'Thành tiền', width: 110, align: 'right' }
+        ],
+        rows: (session.sessionExtras || []).map((item) => ({
+          name: item.extra?.name || `Phụ kiện #${item.extraId}`,
+          quantity: num(item.quantity).toLocaleString('vi-VN'),
+          unitPrice: formatMoney(item.unitPrice),
+          subtotal: formatMoney(item.subtotal)
+        })),
+        emptyText: 'Không dùng phụ kiện'
+      });
+
+      drawSectionTitle(doc, 'Thanh toán');
+      drawTable(doc, {
+        columns: [
+          { key: 'label', label: 'Khoản', width: 260 },
+          { key: 'value', label: 'Số tiền', width: 255, align: 'right' }
+        ],
+        rows: [
+          { label: 'Tiền sân', value: formatMoney(invoice.courtFee) },
+          { label: 'Tiền phụ kiện', value: formatMoney(invoice.extrasFee) },
+          { label: 'Giảm giá', value: `- ${formatMoney(invoice.discountAmount)}` },
+          { label: 'TỔNG CỘNG', value: formatMoney(invoice.totalAmount) },
+          { label: 'Hình thức', value: PAYMENT_METHOD_LABELS[payment.method] || payment.method || '—' },
+          { label: 'Trạng thái', value: PAYMENT_STATUS_LABELS[payment.status] || payment.status || '—' },
+          { label: 'Thanh toán lúc', value: formatDateTime(payment.paidAt) }
+        ]
+      });
+
+      doc.moveDown(1);
+      resetX(doc);
+      doc.font('Regular').fontSize(8).fillColor(COLORS.muted)
+        .text('Cảm ơn quý khách. Hẹn gặp lại!',
+          doc.page.margins.left, doc.y, { width: contentWidth(doc), align: 'center' });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+
 module.exports = {
   buildExcel,
-  buildPdf
+  buildPdf,
+  buildInvoicePdf
 };

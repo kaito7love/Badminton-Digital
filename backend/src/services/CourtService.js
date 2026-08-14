@@ -4,6 +4,7 @@ const { calculateCourtFee } = require('../utils/priceCalculator');
 const AuditService = require('./AuditService');
 const SettingService = require('./SettingService');
 const CustomerService = require('./CustomerService');
+const { localDateString, localTimeString } = require('../utils/dateTime');
 
 const COURT_STATUSES = ['active', 'maintenance', 'inactive'];
 
@@ -194,7 +195,7 @@ class CourtService {
     }
   }
 
-  static async openCourt(courtId, customerId = null, bookingId = null, guestName = null, context) {
+  static async openCourt(courtId, customerId = null, bookingId = null, guestName = null, guestPhone = null, context) {
     if (!context.branchId || !context.employeeId) {
       const error = new Error('Không xác định được nhân viên hoặc chi nhánh vận hành');
       error.statusCode = 403;
@@ -242,10 +243,14 @@ class CourtService {
           throw error;
         }
       } else {
-        // Khách vãng lai: tạo hồ sơ khách hàng thay vì nhét tên vào bảng phiên chơi
+        // Khách vãng lai: tạo hồ sơ khách hàng thay vì nhét tên vào bảng phiên chơi.
+        // SĐT là thứ duy nhất gộp được hai lần ghé của cùng một người — thiếu nó
+        // thì mỗi lần mở sân lại đẻ thêm một hồ sơ trùng tên, và lịch sử chi tiêu
+        // của khách bị chẻ nhỏ ra không dùng được.
         const walkIn = await CustomerService.resolveWalkIn({
           branchId: context.branchId,
           fullName: guestName,
+          phone: guestPhone,
           transaction
         });
         resolvedCustomerId = walkIn ? walkIn.id : null;
@@ -429,13 +434,22 @@ class CourtService {
           throw error;
         }
 
-        const today = new Date().toISOString().slice(0, 10);
+        // "Sắp tới" phải tính theo mốc thời gian thật, không chỉ theo ngày: một
+        // lịch 08:00 sáng nay đã chơi xong lúc 4 giờ chiều thì không còn là lời
+        // hứa nào cả. Nếu chỉ so ngày, sân sẽ bị khoá tới tận nửa đêm.
+        const now = new Date();
         const upcoming = await Booking.count({
           where: {
             courtId,
             branchId: court.branchId,
             status: { [Op.in]: ['pending', 'confirmed'] },
-            bookingDate: { [Op.gte]: today }
+            [Op.or]: [
+              { bookingDate: { [Op.gt]: localDateString(now) } },
+              {
+                bookingDate: localDateString(now),
+                endTime: { [Op.gt]: localTimeString(now) }
+              }
+            ]
           },
           transaction
         });

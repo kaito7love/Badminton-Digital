@@ -60,6 +60,7 @@ export default function CourtsPage() {
   });
 
   const [playerNameInput, setPlayerNameInput] = useState('');
+  const [playerPhoneInput, setPlayerPhoneInput] = useState('');
   const [selectedExtra, setSelectedExtra] = useState(null);
   const [extraQty, setExtraQty] = useState(1);
   const [returnItems, setReturnItems] = useState({});
@@ -187,13 +188,17 @@ export default function CourtsPage() {
     const court = courts.find((c) => c.id === courtId);
     setActiveModal({ type: 'open', courtId, courtName: court.name, pricePerHour: court.pricePerHour });
     setPlayerNameInput('');
+    setPlayerPhoneInput('');
   };
 
   const confirmOpen = async (e) => {
     e.preventDefault();
     if (!playerNameInput.trim()) return;
     try {
-      await courtService.openCourt(activeModal.courtId, { guestName: playerNameInput.trim() });
+      await courtService.openCourt(activeModal.courtId, {
+        guestName: playerNameInput.trim(),
+        guestPhone: playerPhoneInput.trim() || undefined
+      });
       await fetchCourts();
       setActiveModal(null);
     } catch (err) {
@@ -610,6 +615,16 @@ export default function CourtsPage() {
               value={playerNameInput}
               onChange={(e) => setPlayerNameInput(e.target.value)}
               placeholder="Nhập tên khách (VD: Anh Hùng...)"
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 mb-1">Số điện thoại</label>
+            <input
+              type="tel"
+              value={playerPhoneInput}
+              onChange={(e) => setPlayerPhoneInput(e.target.value)}
+              placeholder="Không bắt buộc — có SĐT thì lần sau nhận ra khách cũ"
               className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
             />
           </div>

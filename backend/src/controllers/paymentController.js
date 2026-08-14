@@ -1,5 +1,6 @@
 const PaymentService = require('../services/PaymentService');
 const { successResponse } = require('../utils/responseHandler');
+const { buildInvoicePdf } = require('../utils/reportExporter');
 
 const checkout = async (req, res, next) => {
   try {
@@ -33,12 +34,13 @@ const getInvoiceById = async (req, res, next) => {
 const exportPdf = async (req, res, next) => {
   try {
     const invoice = await PaymentService.getInvoiceById(req.params.id, { actor: req.user, branchId: req.branchId });
-    // For export PDF API, returning printable JSON payload or HTML content
-    return successResponse(res, {
-      invoice,
-      exportFormat: 'PDF/Printable',
-      printedAt: new Date()
-    }, 'Invoice PDF ready for printing');
+    const buffer = await buildInvoicePdf(invoice);
+    const fileName = `hoa-don-${invoice.invoiceNo || invoice.id}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', buffer.length);
+    return res.send(buffer);
   } catch (err) {
     next(err);
   }
