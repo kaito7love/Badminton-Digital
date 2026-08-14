@@ -4,8 +4,42 @@ const { getPagination, getPagingData } = require('../utils/pagination');
 const AuditService = require('./AuditService');
 const CustomerService = require('./CustomerService');
 
+const UNAVAILABLE = {
+  COURT_NOT_FOUND: 'Không tìm thấy sân',
+  COURT_INACTIVE: 'Sân đã ngưng khai thác, không nhận đặt lịch',
+  COURT_MAINTENANCE: 'Sân đang bảo trì, không nhận đặt lịch mới cho tới khi hoàn tất',
+  ALREADY_BOOKED: 'Selected court and time slot is already booked'
+};
+
 class BookingService {
+  /**
+   * Nguồn duy nhất trả lời "sân này có đặt được khoảng giờ đó không".
+   *
+   * Mọi đường đặt/sửa lịch đều phải đi qua đây, và API tra cứu khả dụng cũng gọi
+   * đúng hàm này — nếu để nơi khác tự suy luận từ court.status thì giao diện và
+   * server sẽ có lúc nói khác nhau.
+   *
+   * Hạn chế đã biết: `maintenance` hiện là một lá cờ không có thời hạn, nên chỉ
+   * trả lời được theo trạng thái *hiện tại*. Sân đang bảo trì sẽ bị chặn đặt cho
+   * mọi khung giờ tương lai, kể cả khi tới lúc đó đã sửa xong. Muốn đặt lịch né
+   * đúng khoảng bảo trì thì phải chuyển bảo trì thành bản ghi có starts_at/ends_at.
+   */
   static async checkAvailability({ courtId, bookingDate, startTime, endTime, excludeBookingId = null, branchId = null, transaction = null }) {
+    const deny = (reason, conflictBookingId = null) => ({
+      available: false,
+      reason,
+      message: UNAVAILABLE[reason],
+      conflictBookingId
+    });
+
+    const court = await Court.findOne({
+      where: { id: courtId, ...(branchId ? { branchId } : {}) },
+      transaction
+    });
+    if (!court) return deny('COURT_NOT_FOUND');
+    if (court.status === 'inactive') return deny('COURT_INACTIVE');
+    if (court.status === 'maintenance') return deny('COURT_MAINTENANCE');
+
     const whereCondition = {
       courtId,
       ...(branchId ? { branchId } : {}),
@@ -22,11 +56,9 @@ class BookingService {
     }
 
     const conflictBooking = await Booking.findOne({ where: whereCondition, transaction, lock: transaction ? transaction.LOCK.UPDATE : undefined });
+    if (conflictBooking) return deny('ALREADY_BOOKED', conflictBooking.id);
 
-    return {
-      available: !conflictBooking,
-      conflictBookingId: conflictBooking ? conflictBooking.id : null
-    };
+    return { available: true, reason: null, message: null, conflictBookingId: null };
   }
 
   static async getAllBookings(query, context = {}) {
@@ -101,11 +133,13 @@ class BookingService {
         });
         customerId = walkIn ? walkIn.id : null;
       }
-      const { available, conflictBookingId } = await BookingService.checkAvailability({ courtId: data.courtId, bookingDate: data.bookingDate, startTime: data.startTime, endTime: data.endTime, branchId: court.branchId, transaction });
-      if (!available) {
-        const error = new Error('Selected court and time slot is already booked');
-        error.statusCode = 409;
-        error.conflictBookingId = conflictBookingId;
+      const availability = await BookingService.checkAvailability({ courtId: data.courtId, bookingDate: data.bookingDate, startTime: data.startTime, endTime: data.endTime, branchId: court.branchId, transaction });
+      if (!availability.available) {
+        const error = new Error(availability.message);
+        // Trùng lịch là xung đột tài nguyên (409); sân ngưng/bảo trì là yêu cầu
+        // không hợp lệ ngay từ đầu (400)
+        error.statusCode = availability.reason === 'ALREADY_BOOKED' ? 409 : 400;
+        error.conflictBookingId = availability.conflictBookingId;
         throw error;
       }
       const booking = await Booking.create({ courtId: data.courtId, branchId: court.branchId, customerId, bookingDate: data.bookingDate, startTime: data.startTime, endTime: data.endTime, status: 'pending', createdBy: context.actor.id }, { transaction });
@@ -153,10 +187,13 @@ class BookingService {
         error.statusCode = 404;
         throw error;
       }
-      const { available } = await BookingService.checkAvailability({ courtId, bookingDate, startTime, endTime, excludeBookingId: id, branchId: booking.branchId, transaction });
-      if (!available) {
-        const error = new Error('Updated time slot conflicts with an existing booking');
-        error.statusCode = 409;
+      const availability = await BookingService.checkAvailability({ courtId, bookingDate, startTime, endTime, excludeBookingId: id, branchId: booking.branchId, transaction });
+      if (!availability.available) {
+        const error = new Error(availability.reason === 'ALREADY_BOOKED'
+          ? 'Updated time slot conflicts with an existing booking'
+          : availability.message);
+        error.statusCode = availability.reason === 'ALREADY_BOOKED' ? 409 : 400;
+        error.conflictBookingId = availability.conflictBookingId;
         throw error;
       }
       const oldValues = booking.toJSON();

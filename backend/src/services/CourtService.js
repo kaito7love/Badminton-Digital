@@ -28,6 +28,21 @@ class CourtService {
     };
   }
 
+  /**
+   * Các trường được phép sửa qua PUT /courts/:id.
+   *
+   * `status` cố tình nằm ngoài danh sách: đổi trạng thái là một hành động nghiệp
+   * vụ có tiền điều kiện riêng, phải đi qua updateCourtStatus. `branchId` cũng vậy
+   * — sân không được chuyển chi nhánh bằng một lệnh sửa thông tin.
+   */
+  static pickEditableFields(data = {}) {
+    const editable = ['name', 'peakPricePerHour', 'offpeakPricePerHour', 'note'];
+    return editable.reduce((payload, key) => {
+      if (data[key] !== undefined) payload[key] = data[key];
+      return payload;
+    }, {});
+  }
+
   static unavailableReason(status) {
     if (status === 'maintenance') return 'Sân đang bảo trì';
     if (status === 'inactive') return 'Sân đã ngưng khai thác';
@@ -111,7 +126,10 @@ class CourtService {
         throw error;
       }
       const oldValues = court.toJSON();
-      const updated = await court.update(data, { transaction });
+      // Chỉ nhận đúng các trường mô tả sân. Đổ thẳng `data` vào update() sẽ cho
+      // phép sửa cả `status` (đi vòng qua mọi kiểm tra của updateCourtStatus) lẫn
+      // `branchId` (chuyển sân sang chi nhánh khác, thủng cách ly dữ liệu).
+      const updated = await court.update(CourtService.pickEditableFields(data), { transaction });
       await AuditService.record({ actor: context.actor, branchId: court.branchId, action: 'court.updated', targetType: 'court', targetId: court.id, oldValues, newValues: updated.toJSON(), requestId: context.requestId, transaction });
       await transaction.commit();
       return CourtService.formatCourt(updated);

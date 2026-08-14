@@ -23,7 +23,7 @@ const updateCourtRules = [
   body('name').optional().trim().notEmpty().withMessage('Court name cannot be empty'),
   body('peakPricePerHour').optional().isNumeric().withMessage('Peak price must be a number'),
   body('offpeakPricePerHour').optional().isNumeric().withMessage('Off-peak price must be a number'),
-  body('status').optional().isIn(['active', 'maintenance', 'inactive']).withMessage('Invalid status'),
+  // Cố tình KHÔNG nhận `status` ở đây — đổi trạng thái chỉ qua PUT /courts/:id/status
   validate
 ];
 
