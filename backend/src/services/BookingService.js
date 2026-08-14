@@ -2,6 +2,7 @@ const { Booking, Court, Customer, User, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const AuditService = require('./AuditService');
+const CustomerService = require('./CustomerService');
 
 class BookingService {
   static async checkAvailability({ courtId, bookingDate, startTime, endTime, excludeBookingId = null, branchId = null, transaction = null }) {
@@ -84,11 +85,21 @@ class BookingService {
         error.statusCode = 404;
         throw error;
       }
-      const customerId = context.actor?.role?.name === 'customer' ? context.actor.customer?.id : (data.customerId || null);
+      let customerId = context.actor?.role?.name === 'customer' ? context.actor.customer?.id : (data.customerId || null);
       if (context.actor?.role?.name === 'customer' && !customerId) {
         const error = new Error('Tài khoản khách hàng chưa có hồ sơ khách hàng');
         error.statusCode = 403;
         throw error;
+      }
+      if (!customerId) {
+        // Khách đặt tại quầy chưa có hồ sơ: tạo (hoặc gộp theo SĐT) thành khách hàng
+        const walkIn = await CustomerService.resolveWalkIn({
+          branchId: court.branchId,
+          fullName: data.customerName,
+          phone: data.customerPhone,
+          transaction
+        });
+        customerId = walkIn ? walkIn.id : null;
       }
       const { available, conflictBookingId } = await BookingService.checkAvailability({ courtId: data.courtId, bookingDate: data.bookingDate, startTime: data.startTime, endTime: data.endTime, branchId: court.branchId, transaction });
       if (!available) {
@@ -97,7 +108,7 @@ class BookingService {
         error.conflictBookingId = conflictBookingId;
         throw error;
       }
-      const booking = await Booking.create({ courtId: data.courtId, branchId: court.branchId, customerId, customerName: data.customerName || null, customerPhone: data.customerPhone || null, bookingDate: data.bookingDate, startTime: data.startTime, endTime: data.endTime, status: 'pending', createdBy: context.actor.id }, { transaction });
+      const booking = await Booking.create({ courtId: data.courtId, branchId: court.branchId, customerId, bookingDate: data.bookingDate, startTime: data.startTime, endTime: data.endTime, status: 'pending', createdBy: context.actor.id }, { transaction });
       await AuditService.record({ actor: context.actor, branchId: court.branchId, action: 'booking.created', targetType: 'booking', targetId: booking.id, newValues: booking.toJSON(), requestId: context.requestId, transaction });
       await transaction.commit();
       return booking;

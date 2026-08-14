@@ -44,13 +44,47 @@ class CustomerService {
       error.statusCode = 400;
       throw error;
     }
-    const existing = await Customer.findOne({ where: { phone: data.phone, branchId: context.branchId } });
-    if (existing) {
-      const error = new Error('Customer with this phone number already exists');
-      error.statusCode = 400;
-      throw error;
+    // Chỉ kiểm tra trùng khi thực sự có số điện thoại — khách vãng lai không số
+    // vẫn được phép tạo hồ sơ.
+    if (data.phone) {
+      const existing = await Customer.findOne({ where: { phone: data.phone, branchId: context.branchId } });
+      if (existing) {
+        const error = new Error('Customer with this phone number already exists');
+        error.statusCode = 400;
+        throw error;
+      }
     }
-    return await Customer.create({ ...data, branchId: context.branchId });
+    return await Customer.create({ ...data, branchId: context.branchId, phone: data.phone || null });
+  }
+
+  /**
+   * Biến thông tin khách vãng lai (tên, có thể kèm SĐT) thành hồ sơ khách hàng.
+   *
+   * Có SĐT thì gộp vào hồ sơ cũ trong cùng chi nhánh — nhờ vậy khách vãng lai hôm
+   * nay để lại số, mai quay lại sẽ nối liền lịch sử chi tiêu. Chỉ có tên thì mỗi
+   * lần là một hồ sơ mới, vì không có gì để định danh mà gộp.
+   *
+   * Trả về null nếu không có thông tin gì — phiên chơi/booking khi đó thực sự ẩn danh.
+   */
+  static async resolveWalkIn({ branchId, fullName, phone, transaction = null }) {
+    const name = (fullName || '').trim();
+    const normalizedPhone = (phone || '').trim() || null;
+
+    if (!name && !normalizedPhone) return null;
+
+    if (normalizedPhone) {
+      const existing = await Customer.findOne({
+        where: { branchId, phone: normalizedPhone },
+        transaction
+      });
+      if (existing) return existing;
+    }
+
+    return await Customer.create({
+      branchId,
+      fullName: name || 'Khách vãng lai',
+      phone: normalizedPhone
+    }, { transaction });
   }
 
   static async updateCustomer(id, data, context) {

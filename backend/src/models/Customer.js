@@ -22,10 +22,12 @@ module.exports = (sequelize) => {
       allowNull: false,
       field: 'full_name'
     },
+    // Cho phép rỗng: khách vãng lai chưa để lại số vẫn là khách hàng, chỉ là hồ sơ
+    // thiếu thông tin. Tính duy nhất do unique index (branch_id, phone) đảm nhiệm —
+    // vừa cho phép nhiều hồ sơ không số, vừa cho phép hai chi nhánh trùng số.
     phone: {
       type: DataTypes.STRING(20),
-      allowNull: false,
-      unique: true
+      allowNull: true
     },
     email: {
       type: DataTypes.STRING(100),

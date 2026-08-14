@@ -42,7 +42,7 @@ const rangeLabel = ({ from, to }) => {
 };
 
 const customerLabel = (session) =>
-  session.customer?.fullName || session.guestName || 'Khách vãng lai';
+  session.customer?.fullName || 'Khách vãng lai';
 
 /* ────────────────────────────── EXCEL ────────────────────────────── */
 

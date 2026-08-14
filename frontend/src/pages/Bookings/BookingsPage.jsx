@@ -66,8 +66,8 @@ export default function BookingsPage() {
   const handleOpenEditModal = (b) => {
     setEditingBooking(b);
     setFormData({
-      customerName: b.customer?.fullName || b.customerName || '',
-      customerPhone: b.customer?.phone || b.customerPhone || '',
+      customerName: b.customer?.fullName || '',
+      customerPhone: b.customer?.phone || '',
       courtId: String(b.courtId || b.court?.id || ''),
       bookingDate: b.bookingDate || b.date || '',
       startTime: b.startTime || '08:00',
@@ -166,8 +166,8 @@ export default function BookingsPage() {
               {bookings.map((b) => {
                 const status = (b.status || '').toUpperCase();
                 const courtName = b.court?.name || b.courtName || `Sân #${b.courtId}`;
-                const customerName = b.customer?.fullName || b.customerName || 'Khách vãng lai';
-                const phone = b.customer?.phone || b.customerPhone || '';
+                const customerName = b.customer?.fullName || 'Khách vãng lai';
+                const phone = b.customer?.phone || '';
                 const date = b.bookingDate || b.date || '';
                 const time = b.startTime && b.endTime ? `${b.startTime} - ${b.endTime}` : '';
 

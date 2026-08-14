@@ -165,10 +165,8 @@ function SessionsTab() {
                           <td className="px-4 py-3.5 font-bold text-emerald-400">{s.court?.name || '—'}</td>
                           <td className="px-4 py-3.5">
                             {s.customer
-                              ? <div><p className="font-semibold text-white">{s.customer.fullName}</p><p className="text-xs text-slate-500">{s.customer.phone}</p></div>
-                              : s.guestName
-                                ? <p className="font-semibold text-white">{s.guestName}</p>
-                                : <span className="text-slate-600 italic text-xs">Khách vãng lai</span>}
+                              ? <div><p className="font-semibold text-white">{s.customer.fullName}</p>{s.customer.phone && <p className="text-xs text-slate-500">{s.customer.phone}</p>}</div>
+                              : <span className="text-slate-600 italic text-xs">Khách vãng lai</span>}
                           </td>
                           <td className="px-4 py-3.5 text-slate-300 font-semibold">{fmtDuration(s.durationSeconds)}</td>
                           <td className="px-4 py-3.5 text-slate-200 font-semibold">{fmtMoney(s.courtFee)}</td>
