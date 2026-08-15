@@ -156,39 +156,49 @@ class CustomerService {
   }
 
   static async updateCustomer(id, data, context) {
-    const customer = await Customer.findByPk(id);
-    if (!customer) {
-      const error = new Error('Customer not found');
-      error.statusCode = 404;
-      throw error;
-    }
-    // Chuỗi rỗng phải thành NULL: unique index coi '' là một giá trị thật nên hai
-    // khách cùng để trống sẽ đụng nhau, còn NULL thì bao nhiêu cũng được.
-    const payload = CustomerService.pickEditableFields(data);
-    if ('phone' in payload) payload.phone = normalizePhone(payload.phone);
-
-    if (payload.phone && payload.phone !== customer.phone) {
-      const existing = await Customer.findOne({ where: { phone: payload.phone } });
-      if (existing) {
-        const error = new Error('Số điện thoại này đã thuộc về khách hàng khác');
-        error.statusCode = 400;
+    const transaction = await sequelize.transaction();
+    try {
+      const customer = await Customer.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
+      if (!customer) {
+        const error = new Error('Customer not found');
+        error.statusCode = 404;
         throw error;
       }
-      // Hồ sơ đã gắn tài khoản thì SĐT còn là danh tính đăng nhập — đổi ở đây
-      // mà quên đổi bên users là khách mất đường vào hệ thống.
-      if (customer.userId) {
-        const takenByUser = await User.findOne({
-          where: { phone: payload.phone, id: { [Op.ne]: customer.userId } }
-        });
-        if (takenByUser) {
-          const error = new Error('Số điện thoại này đã có tài khoản đăng nhập khác');
-          error.statusCode = 409;
+      // Chuỗi rỗng phải thành NULL: unique index coi '' là một giá trị thật nên hai
+      // khách cùng để trống sẽ đụng nhau, còn NULL thì bao nhiêu cũng được.
+      const payload = CustomerService.pickEditableFields(data);
+      if ('phone' in payload) payload.phone = normalizePhone(payload.phone);
+
+      if (payload.phone && payload.phone !== customer.phone) {
+        const existing = await Customer.findOne({ where: { phone: payload.phone }, transaction });
+        if (existing) {
+          const error = new Error('Số điện thoại này đã thuộc về khách hàng khác');
+          error.statusCode = 400;
           throw error;
         }
-        await User.update({ phone: payload.phone }, { where: { id: customer.userId } });
+        // Hồ sơ đã gắn tài khoản thì SĐT còn là danh tính đăng nhập — đổi ở đây
+        // mà quên đổi bên users là khách mất đường vào hệ thống. Cùng transaction
+        // với việc sửa customer bên dưới để không lệch nhau nếu 1 trong 2 lỗi.
+        if (customer.userId) {
+          const takenByUser = await User.findOne({
+            where: { phone: payload.phone, id: { [Op.ne]: customer.userId } },
+            transaction
+          });
+          if (takenByUser) {
+            const error = new Error('Số điện thoại này đã có tài khoản đăng nhập khác');
+            error.statusCode = 409;
+            throw error;
+          }
+          await User.update({ phone: payload.phone }, { where: { id: customer.userId }, transaction });
+        }
       }
+      const updated = await customer.update(payload, { transaction });
+      await transaction.commit();
+      return updated;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
     }
-    return await customer.update(payload);
   }
 
   static async deleteCustomer(id) {
