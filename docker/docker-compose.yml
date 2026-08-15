@@ -10,14 +10,23 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     ports:
-      - "3306:3306"
+      # Chỉ bind vào 127.0.0.1 — vẫn debug được từ máy host (MySQL
+      # Workbench/DBeaver trỏ localhost:3306), nhưng không mở ra mạng ngoài
+      # như trước (0.0.0.0:3306).
+      - "127.0.0.1:3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build:
       context: ../backend
     env_file: ../backend/.env
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     ports:
       - "5000:5000"
 
