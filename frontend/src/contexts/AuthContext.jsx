@@ -39,14 +39,25 @@ export function AuthProvider({ children }) {
 
   // `identifier` nhận cả số điện thoại lẫn email — backend tự phân biệt.
   const login = async (identifier, password) => {
+    // Xoá chi nhánh đã chọn của phiên đăng nhập trước (nếu có) — tránh gửi
+    // nhầm X-Branch-Id của admin cũ sang tài khoản vừa đăng nhập trên cùng
+    // trình duyệt. BranchContext sẽ tự đặt lại mặc định nếu user mới là admin.
+    localStorage.removeItem("admin_selected_branch_id");
+
     const res = await apiClient.post("/auth/login", { identifier, password });
     if (res.data?.success) {
-      const { user: userData, accessToken, refreshToken } = res.data.data;
+      const { accessToken, refreshToken } = res.data.data;
       localStorage.setItem("access_token", accessToken);
       localStorage.setItem("refresh_token", refreshToken);
-      localStorage.setItem("user_info", JSON.stringify(userData));
-      setUser(userData);
-      return userData;
+
+      // /auth/login trả bản rút gọn (không có employee.branch) — lấy lại
+      // profile đầy đủ ngay để bộ chuyển chi nhánh/badge chi nhánh có dữ
+      // liệu ngay sau khi đăng nhập, không cần F5.
+      const me = await apiClient.get("/auth/me");
+      const fullUser = me.data.data;
+      localStorage.setItem("user_info", JSON.stringify(fullUser));
+      setUser(fullUser);
+      return fullUser;
     }
     throw new Error(res.data?.message || "Đăng nhập thất bại");
   };
@@ -74,6 +85,7 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user_info');
+      localStorage.removeItem('admin_selected_branch_id');
       setUser(null);
     }
   };

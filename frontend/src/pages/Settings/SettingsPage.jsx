@@ -42,8 +42,8 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-slate-300">⏳ Đang tải cài đặt...</div>;
-  if (error) return <div className="p-8 text-rose-400">❌ {error}</div>;
+  if (loading) return <div className="p-8 text-slate-600 dark:text-slate-300">⏳ Đang tải cài đặt...</div>;
+  if (error) return <div className="p-8 text-rose-600 dark:text-rose-400">❌ {error}</div>;
 
   // Extract settings with fallbacks
   const hours = settings?.operating_hours || [
@@ -58,9 +58,9 @@ export default function SettingsPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-sm uppercase tracking-[0.24em] text-emerald-400 font-medium">Settings</p>
-          <h1 className="text-3xl font-bold text-slate-100">Cài đặt hệ thống</h1>
-          <p className="mt-2 text-sm text-slate-400 max-w-2xl">Thiết lập giờ mở cửa và giá khung giờ cao điểm/thấp điểm.</p>
+          <p className="text-sm uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400 font-medium">Settings</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Cài đặt hệ thống</h1>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">Thiết lập giờ mở cửa và giá khung giờ cao điểm/thấp điểm.</p>
         </div>
         <button
           onClick={handleSave}
@@ -72,28 +72,28 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl shadow-slate-950/20">
-          <h2 className="text-xl font-bold text-slate-100">Giờ mở cửa</h2>
+        <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-6 shadow-xl shadow-slate-200/40 dark:shadow-slate-950/20">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Giờ mở cửa</h2>
           <div className="mt-6 space-y-4">
             {(Array.isArray(hours) ? hours : []).map((item, idx) => (
-              <div key={idx} className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
-                <p className="text-sm text-slate-400">{item.day}</p>
-                <p className="mt-2 text-lg font-semibold text-slate-100">{item.open} - {item.close}</p>
+              <div key={idx} className="rounded-3xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/80 p-4">
+                <p className="text-sm text-slate-500 dark:text-slate-400">{item.day}</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{item.open} - {item.close}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl shadow-slate-950/20">
-          <h2 className="text-xl font-bold text-slate-100">Giá khung giờ</h2>
-          <div className="mt-6 space-y-4 text-slate-300">
-            <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
-              <p className="text-sm text-slate-400">Giờ cao điểm</p>
-              <p className="mt-2 text-lg font-semibold text-slate-100">{formatMoney(peakPrice)} / giờ</p>
+        <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-6 shadow-xl shadow-slate-200/40 dark:shadow-slate-950/20">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Giá khung giờ</h2>
+          <div className="mt-6 space-y-4 text-slate-600 dark:text-slate-300">
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/80 p-4">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Giờ cao điểm</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{formatMoney(peakPrice)} / giờ</p>
             </div>
-            <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
-              <p className="text-sm text-slate-400">Giờ thấp điểm</p>
-              <p className="mt-2 text-lg font-semibold text-slate-100">{formatMoney(offpeakPrice)} / giờ</p>
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/80 p-4">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Giờ thấp điểm</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{formatMoney(offpeakPrice)} / giờ</p>
             </div>
           </div>
         </div>

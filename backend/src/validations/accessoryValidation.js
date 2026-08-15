@@ -13,7 +13,6 @@ const validate = (req, res, next) => {
 const createAccessoryRules = [
   body('name').trim().notEmpty().withMessage('Accessory name is required'),
   body('price').isNumeric().withMessage('Price must be a number'),
-  body('stockQuantity').optional().isInt({ min: 0 }).withMessage('Stock quantity must be non-negative'),
   body('lowStockThreshold').optional().isInt({ min: 0 }),
   validate
 ];
@@ -22,7 +21,6 @@ const updateAccessoryRules = [
   param('id').isInt().withMessage('Accessory ID must be an integer'),
   body('name').optional().trim().notEmpty(),
   body('price').optional().isNumeric(),
-  body('stockQuantity').optional().isInt({ min: 0 }),
   body('lowStockThreshold').optional().isInt({ min: 0 }),
   validate
 ];

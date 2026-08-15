@@ -27,6 +27,11 @@ db.Setting = require('./Setting')(sequelize);
 db.ActivityLog = require('./ActivityLog')(sequelize);
 db.Branch = require('./Branch')(sequelize);
 db.BranchDocumentSequence = require('./BranchDocumentSequence')(sequelize);
+db.Supplier = require('./Supplier')(sequelize);
+db.ExtraStock = require('./ExtraStock')(sequelize);
+db.StockMovement = require('./StockMovement')(sequelize);
+db.GoodsReceipt = require('./GoodsReceipt')(sequelize);
+db.GoodsReceiptItem = require('./GoodsReceiptItem')(sequelize);
 
 // Associations
 // Role <-> User
@@ -44,8 +49,6 @@ db.Branch.hasMany(db.Booking, { foreignKey: 'branchId', as: 'bookings' });
 db.Booking.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
 db.Branch.hasMany(db.CourtSession, { foreignKey: 'branchId', as: 'sessions' });
 db.CourtSession.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
-db.Branch.hasMany(db.Customer, { foreignKey: 'branchId', as: 'customers' });
-db.Customer.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
 db.Branch.hasMany(db.Employee, { foreignKey: 'branchId', as: 'employees' });
 db.Employee.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
 db.Branch.hasMany(db.Invoice, { foreignKey: 'branchId', as: 'invoices' });
@@ -105,6 +108,33 @@ db.Payment.belongsTo(db.Invoice, { foreignKey: 'invoiceId', as: 'invoice' });
 // Employee <-> Payment
 db.Employee.hasMany(db.Payment, { foreignKey: 'employeeId', as: 'payments' });
 db.Payment.belongsTo(db.Employee, { foreignKey: 'employeeId', as: 'employee' });
+
+// Branch <-> ExtraStock <-> Extra (tồn kho riêng theo từng chi nhánh)
+db.Branch.hasMany(db.ExtraStock, { foreignKey: 'branchId', as: 'extraStocks' });
+db.ExtraStock.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
+db.Extra.hasMany(db.ExtraStock, { foreignKey: 'extraId', as: 'stocks' });
+db.ExtraStock.belongsTo(db.Extra, { foreignKey: 'extraId', as: 'extra' });
+
+// Stock movements (sổ nhật ký kho)
+db.Branch.hasMany(db.StockMovement, { foreignKey: 'branchId', as: 'stockMovements' });
+db.StockMovement.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
+db.Extra.hasMany(db.StockMovement, { foreignKey: 'extraId', as: 'stockMovements' });
+db.StockMovement.belongsTo(db.Extra, { foreignKey: 'extraId', as: 'extra' });
+db.User.hasMany(db.StockMovement, { foreignKey: 'actorUserId', as: 'stockMovements' });
+db.StockMovement.belongsTo(db.User, { foreignKey: 'actorUserId', as: 'actor' });
+
+// Goods receipts (phiếu nhập kho)
+db.Branch.hasMany(db.GoodsReceipt, { foreignKey: 'branchId', as: 'goodsReceipts' });
+db.GoodsReceipt.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
+db.Supplier.hasMany(db.GoodsReceipt, { foreignKey: 'supplierId', as: 'goodsReceipts' });
+db.GoodsReceipt.belongsTo(db.Supplier, { foreignKey: 'supplierId', as: 'supplier' });
+db.User.hasMany(db.GoodsReceipt, { foreignKey: 'receivedByUserId', as: 'goodsReceipts' });
+db.GoodsReceipt.belongsTo(db.User, { foreignKey: 'receivedByUserId', as: 'receivedBy' });
+
+db.GoodsReceipt.hasMany(db.GoodsReceiptItem, { foreignKey: 'goodsReceiptId', as: 'items' });
+db.GoodsReceiptItem.belongsTo(db.GoodsReceipt, { foreignKey: 'goodsReceiptId', as: 'goodsReceipt' });
+db.Extra.hasMany(db.GoodsReceiptItem, { foreignKey: 'extraId', as: 'goodsReceiptItems' });
+db.GoodsReceiptItem.belongsTo(db.Extra, { foreignKey: 'extraId', as: 'extra' });
 
 // Employee <-> ActivityLog
 db.Employee.hasMany(db.ActivityLog, { foreignKey: 'employeeId', as: 'activityLogs' });

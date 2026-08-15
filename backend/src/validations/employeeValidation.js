@@ -1,5 +1,6 @@
 const { body, param, validationResult } = require('express-validator');
 const { errorResponse } = require('../utils/responseHandler');
+const { isValidPhone } = require('../utils/phone');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -13,6 +14,10 @@ const validate = (req, res, next) => {
 const createEmployeeRules = [
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('email').isEmail().withMessage('Valid email is required'),
+  body('phone').custom((value) => {
+    if (!isValidPhone(value)) throw new Error('Số điện thoại không hợp lệ');
+    return true;
+  }),
   body('fullName').trim().notEmpty().withMessage('Full name is required'),
   body('position').optional().isString(),
   body('shift').optional().isString(),
@@ -21,6 +26,10 @@ const createEmployeeRules = [
 
 const updateEmployeeRules = [
   param('id').isInt().withMessage('Employee ID must be an integer'),
+  body('phone').optional({ nullable: true, checkFalsy: true }).custom((value) => {
+    if (!isValidPhone(value)) throw new Error('Số điện thoại không hợp lệ');
+    return true;
+  }),
   body('position').optional().isString(),
   body('shift').optional().isString(),
   validate

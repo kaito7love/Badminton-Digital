@@ -12,3 +12,4 @@ build/
 # Claude Code: giữ launch.json dùng chung, bỏ qua state/config riêng của từng máy
 .claude/settings.local.json
 .claude/worktrees/
+backend/backups/

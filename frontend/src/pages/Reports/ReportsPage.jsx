@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { StatBox } from '../../components/UIComponents';
 import { reportService } from '../../services/apiServices';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getChartColors } from '../../utils/chartColors';
 
 const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} đ`;
 
@@ -48,6 +50,8 @@ const downloadBlob = (blob, fileName) => {
 };
 
 export default function ReportsPage() {
+  const { theme } = useTheme();
+  const chartColors = getChartColors(theme);
   const [revenueData, setRevenueData] = useState([]);
   const [topCourts, setTopCourts] = useState([]);
   const [topAccessories, setTopAccessories] = useState([]);
@@ -102,30 +106,30 @@ export default function ReportsPage() {
   const totalRevenue = revenueData.reduce((sum, row) => sum + Number(row.totalRevenue || 0), 0);
   const accessoriesRevenue = topAccessories.reduce((sum, row) => sum + Number(row.totalRevenue || 0), 0);
 
-  if (loading) return <div className="p-8 text-slate-100">Đang tải báo cáo...</div>;
-  if (error) return <div className="p-8 text-red-400">Lỗi: {error}</div>;
+  if (loading) return <div className="p-8 text-slate-900 dark:text-slate-100">Đang tải báo cáo...</div>;
+  if (error) return <div className="p-8 text-red-600 dark:text-red-400">Lỗi: {error}</div>;
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-sm uppercase tracking-[0.24em] text-emerald-400 font-medium">Reports &amp; Analytics</p>
-          <h1 className="text-3xl font-bold text-slate-100">Báo cáo &amp; Thống kê doanh thu</h1>
-          <p className="mt-2 text-sm text-slate-400 max-w-2xl">Phân tích doanh thu sân, phụ kiện và xuất dữ liệu báo cáo chi tiết Excel/PDF.</p>
+          <p className="text-sm uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400 font-medium">Reports &amp; Analytics</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Báo cáo &amp; Thống kê doanh thu</h1>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">Phân tích doanh thu sân, phụ kiện và xuất dữ liệu báo cáo chi tiết Excel/PDF.</p>
         </div>
 
         <div className="flex gap-3">
           <button
             onClick={() => exportFile('Excel')}
             disabled={exporting !== null}
-            className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-60"
+            className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-60"
           >
             {exporting === 'Excel' ? '⏳ Đang xuất...' : '📊 Xuất Excel'}
           </button>
           <button
             onClick={() => exportFile('PDF')}
             disabled={exporting !== null}
-            className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-60"
+            className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 disabled:opacity-60"
           >
             {exporting === 'PDF' ? '⏳ Đang xuất...' : '📄 Xuất PDF'}
           </button>
@@ -152,8 +156,8 @@ export default function ReportsPage() {
         />
       </div>
 
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl shadow-slate-950/20">
-        <h3 className="text-lg font-bold text-slate-100 mb-6">Biểu đồ doanh thu 7 kỳ gần nhất</h3>
+      <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-6 shadow-xl shadow-slate-200/40 dark:shadow-slate-950/20">
+        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-6">Biểu đồ doanh thu 7 kỳ gần nhất</h3>
         <div className="h-80 w-full">
           {chartData.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-slate-500">
@@ -164,18 +168,18 @@ export default function ReportsPage() {
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    <stop offset="5%" stopColor={chartColors.area} stopOpacity={0.4} />
+                    <stop offset="95%" stopColor={chartColors.area} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                <XAxis dataKey="date" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" tickFormatter={(v) => (v >= 1000000 ? `${v / 1000000}M` : `${v / 1000}K`)} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} opacity={0.5} />
+                <XAxis dataKey="date" stroke={chartColors.axisTick} />
+                <YAxis stroke={chartColors.axisTick} tickFormatter={(v) => (v >= 1000000 ? `${v / 1000000}M` : `${v / 1000}K`)} />
                 <Tooltip
                   formatter={(v) => [formatMoney(v), 'Doanh thu']}
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#f8fafc' }}
+                  contentStyle={{ backgroundColor: chartColors.tooltipBg, borderColor: chartColors.tooltipBorder, borderRadius: '12px', color: chartColors.tooltipText }}
                 />
-                <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+                <Area type="monotone" dataKey="revenue" stroke={chartColors.area} strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -183,38 +187,38 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6">
-          <h3 className="text-lg font-bold text-slate-100 mb-4">Top sân được thuê nhiều nhất</h3>
+        <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-6">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Top sân được thuê nhiều nhất</h3>
           {topCourts.length === 0 ? (
             <p className="text-sm text-slate-500">Chưa có phiên chơi nào.</p>
           ) : (
             <ul className="space-y-3">
               {topCourts.map((court, index) => (
                 <li key={court.courtId} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-200">
-                    <span className="text-emerald-400 font-bold mr-2">#{index + 1}</span>
+                  <span className="text-slate-700 dark:text-slate-200">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold mr-2">#{index + 1}</span>
                     {court.court?.name || `Sân #${court.courtId}`}
                   </span>
-                  <span className="font-semibold text-slate-300">{Number(court.totalSessions || 0)} phiên</span>
+                  <span className="font-semibold text-slate-600 dark:text-slate-300">{Number(court.totalSessions || 0)} phiên</span>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6">
-          <h3 className="text-lg font-bold text-slate-100 mb-4">Top phụ kiện bán chạy</h3>
+        <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-6">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Top phụ kiện bán chạy</h3>
           {topAccessories.length === 0 ? (
             <p className="text-sm text-slate-500">Chưa bán phụ kiện nào.</p>
           ) : (
             <ul className="space-y-3">
               {topAccessories.map((item, index) => (
                 <li key={item.extraId} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-200">
-                    <span className="text-emerald-400 font-bold mr-2">#{index + 1}</span>
+                  <span className="text-slate-700 dark:text-slate-200">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold mr-2">#{index + 1}</span>
                     {item.extra?.name || `Phụ kiện #${item.extraId}`}
                   </span>
-                  <span className="font-semibold text-slate-300">
+                  <span className="font-semibold text-slate-600 dark:text-slate-300">
                     {Number(item.totalQuantitySold || 0)} · {formatMoney(item.totalRevenue)}
                   </span>
                 </li>

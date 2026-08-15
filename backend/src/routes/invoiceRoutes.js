@@ -8,6 +8,6 @@ const branchContextMiddleware = require('../middleware/branchContextMiddleware')
 router.use(authMiddleware, branchContextMiddleware);
 
 router.get('/:id', paymentController.getInvoiceById);
-router.get('/:id/export-pdf', roleMiddleware(['admin', 'employee']), paymentController.exportPdf);
+router.get('/:id/export-pdf', roleMiddleware(['admin', 'branch_manager', 'employee']), paymentController.exportPdf);
 
 module.exports = router;

@@ -236,9 +236,11 @@ class CourtService {
         throw error;
       }
       if (resolvedCustomerId) {
-        const customer = await Customer.findOne({ where: { id: resolvedCustomerId, branchId: context.branchId }, transaction, lock: transaction.LOCK.UPDATE });
+        // Khách hàng dùng chung toàn chuỗi — chỉ cần tồn tại, không cần thuộc
+        // đúng chi nhánh (khác Court/Booking, vốn phải khoá theo branch).
+        const customer = await Customer.findOne({ where: { id: resolvedCustomerId }, transaction, lock: transaction.LOCK.UPDATE });
         if (!customer) {
-          const error = new Error('Khách hàng không thuộc chi nhánh hiện tại');
+          const error = new Error('Khách hàng không tồn tại');
           error.statusCode = 400;
           throw error;
         }
@@ -248,7 +250,6 @@ class CourtService {
         // thì mỗi lần mở sân lại đẻ thêm một hồ sơ trùng tên, và lịch sử chi tiêu
         // của khách bị chẻ nhỏ ra không dùng được.
         const walkIn = await CustomerService.resolveWalkIn({
-          branchId: context.branchId,
           fullName: guestName,
           phone: guestPhone,
           transaction

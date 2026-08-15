@@ -11,13 +11,13 @@ router.use(authMiddleware, branchContextMiddleware);
 
 // ─── Session History & Detail ─────────────────────────────────────
 // QUAN TRỌNG: đặt /history TRƯỚC /:sessionId để tránh Express hiểu 'history' là param
-router.get('/history', roleMiddleware(['admin', 'employee']), sessionController.getSessionHistory);
-router.get('/:sessionId', roleMiddleware(['admin', 'employee']), sessionController.getSessionById);
+router.get('/history', roleMiddleware(['admin', 'branch_manager', 'employee']), sessionController.getSessionHistory);
+router.get('/:sessionId', roleMiddleware(['admin', 'branch_manager', 'employee']), sessionController.getSessionById);
 
 // ─── Session Extras (phụ kiện trong phiên chơi) ──────────────────
-router.post('/:sessionId/extras', roleMiddleware(['admin', 'employee']), addSessionExtraRules, accessoryController.addSessionExtra);
-router.get('/:sessionId/extras', roleMiddleware(['admin', 'employee']), accessoryController.getSessionExtras);
-router.post('/:sessionId/extras/return', roleMiddleware(['admin', 'employee']), returnSessionExtraRules, accessoryController.returnSessionExtra);
+router.post('/:sessionId/extras', roleMiddleware(['admin', 'branch_manager', 'employee']), addSessionExtraRules, accessoryController.addSessionExtra);
+router.get('/:sessionId/extras', roleMiddleware(['admin', 'branch_manager', 'employee']), accessoryController.getSessionExtras);
+router.post('/:sessionId/extras/return', roleMiddleware(['admin', 'branch_manager', 'employee']), returnSessionExtraRules, accessoryController.returnSessionExtra);
 
 module.exports = router;
 

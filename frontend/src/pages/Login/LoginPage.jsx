@@ -111,7 +111,12 @@ export default function LoginPage() {
 
         <div className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-4 text-xs text-slate-400 space-y-1">
           <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">Tài Khoản Thử Nghiệm System</p>
-          <p>Nhân viên: <span className="text-emerald-400 font-mono">admin@badminton.com</span> / <span className="text-emerald-400 font-mono">Admin@123</span></p>
+          <p>Admin (toàn chuỗi): <span className="text-emerald-400 font-mono">admin@badminton.com</span> / <span className="text-emerald-400 font-mono">Admin@123</span></p>
+          <p>Quản lý Chi nhánh Quận 3: <span className="text-emerald-400 font-mono">manager.q3@badminton.com</span> / <span className="text-emerald-400 font-mono">Manager@123</span></p>
+          <p>Quản lý Chi nhánh Quận 7: <span className="text-emerald-400 font-mono">manager.q7@badminton.com</span> / <span className="text-emerald-400 font-mono">Manager@123</span></p>
+          <p>NV Chi nhánh chính: <span className="text-emerald-400 font-mono">employee@badminton.com</span> / <span className="text-emerald-400 font-mono">Employee@123</span></p>
+          <p>NV Chi nhánh Quận 3: <span className="text-emerald-400 font-mono">employee.q3@badminton.com</span> / <span className="text-emerald-400 font-mono">Employee@123</span></p>
+          <p>NV Chi nhánh Quận 7: <span className="text-emerald-400 font-mono">employee.q7@badminton.com</span> / <span className="text-emerald-400 font-mono">Employee@123</span></p>
           <p>Khách hàng: <span className="text-emerald-400 font-mono">0903333333</span> / <span className="text-emerald-400 font-mono">Customer@123</span></p>
         </div>
 

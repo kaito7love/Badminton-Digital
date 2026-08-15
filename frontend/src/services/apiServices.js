@@ -17,6 +17,11 @@ export const publicService = {
   checkAvailability: (params) => apiClient.get('/public/availability', { params }),
 };
 
+// ─── Branches (chỉ admin — bộ chuyển chi nhánh) ─────────────────
+export const branchService = {
+  getAllBranches: () => apiClient.get('/branches'),
+};
+
 // ─── Courts ──────────────────────────────────────────────────────
 export const courtService = {
   getAllCourts: () => apiClient.get('/courts'),
@@ -55,6 +60,29 @@ export const sessionService = {
   addExtra: (sessionId, data) => apiClient.post(`/sessions/${sessionId}/extras`, data),
   getExtras: (sessionId) => apiClient.get(`/sessions/${sessionId}/extras`),
   returnExtra: (sessionId, data) => apiClient.post(`/sessions/${sessionId}/extras/return`, data),
+};
+
+// ─── Suppliers (Nhà cung cấp) ────────────────────────────────────
+export const supplierService = {
+  getAllSuppliers: (params) => apiClient.get('/suppliers', { params }),
+  getSupplierById: (id) => apiClient.get(`/suppliers/${id}`),
+  createSupplier: (data) => apiClient.post('/suppliers', data),
+  updateSupplier: (id, data) => apiClient.put(`/suppliers/${id}`, data),
+  deleteSupplier: (id) => apiClient.delete(`/suppliers/${id}`),
+};
+
+// ─── Goods Receipts (Phiếu nhập kho) ─────────────────────────────
+export const goodsReceiptService = {
+  getAllGoodsReceipts: (params) => apiClient.get('/goods-receipts', { params }),
+  getGoodsReceiptById: (id) => apiClient.get(`/goods-receipts/${id}`),
+  createGoodsReceipt: (data) => apiClient.post('/goods-receipts', data),
+};
+
+// ─── Inventory (Tồn kho / Lịch sử kho / Điều chỉnh kho) ─────────
+export const inventoryService = {
+  getStockLevels: (params) => apiClient.get('/inventory/stock-levels', { params }),
+  getMovements: (params) => apiClient.get('/inventory/movements', { params }),
+  createAdjustment: (data) => apiClient.post('/inventory/adjustments', data),
 };
 
 // ─── Customers ───────────────────────────────────────────────────
