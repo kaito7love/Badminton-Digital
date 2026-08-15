@@ -14,8 +14,8 @@ export default function ProtectedRoute({ children, roles = null }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100">
-        <div className="animate-pulse rounded-xl bg-slate-900 p-8 shadow-xl shadow-slate-900/40">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+        <div className="animate-pulse rounded-xl bg-white dark:bg-slate-900 p-8 shadow-xl shadow-slate-200/40 dark:shadow-slate-900/40">
           Đang kiểm tra quyền truy cập...
         </div>
       </div>

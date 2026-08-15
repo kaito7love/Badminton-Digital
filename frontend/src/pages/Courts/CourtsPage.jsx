@@ -303,27 +303,27 @@ export default function CourtsPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-slate-300">⏳ Đang tải danh sách sân...</div>;
-  if (error) return <div className="p-8 text-rose-400">❌ {error}</div>;
+  if (loading) return <div className="p-8 text-slate-600 dark:text-slate-300">⏳ Đang tải danh sách sân...</div>;
+  if (error) return <div className="p-8 text-rose-600 dark:text-rose-400">❌ {error}</div>;
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-sm uppercase tracking-[0.24em] text-emerald-400 font-medium">Realtime Court Matrix</p>
-          <h1 className="text-3xl font-bold text-slate-100 mt-1">Sơ đồ quản lý sân thời gian thực</h1>
-          <p className="mt-1 text-sm text-slate-400">Tự động đếm giờ, tính tiền sân, gọi đồ, trả đồ dư & cập nhật thông tin sân.</p>
+          <p className="text-sm uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400 font-medium">Realtime Court Matrix</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-1">Sơ đồ quản lý sân thời gian thực</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tự động đếm giờ, tính tiền sân, gọi đồ, trả đồ dư & cập nhật thông tin sân.</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex gap-3">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-2 text-center">
-              <span className="text-xs text-slate-400">Đang chơi</span>
-              <p className="text-base font-bold text-rose-400">{courts.filter(c => c.status === 'busy').length} sân</p>
+            <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 px-4 py-2 text-center">
+              <span className="text-xs text-slate-500 dark:text-slate-400">Đang chơi</span>
+              <p className="text-base font-bold text-rose-600 dark:text-rose-400">{courts.filter(c => c.status === 'busy').length} sân</p>
             </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-2 text-center">
-              <span className="text-xs text-slate-400">Sân trống</span>
-              <p className="text-base font-bold text-emerald-400">{courts.filter(c => c.status === 'open').length} sân</p>
+            <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 px-4 py-2 text-center">
+              <span className="text-xs text-slate-500 dark:text-slate-400">Sân trống</span>
+              <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">{courts.filter(c => c.status === 'open').length} sân</p>
             </div>
           </div>
           <button
@@ -356,10 +356,10 @@ export default function CourtsPage() {
               key={court.id}
               className={`rounded-3xl border p-6 transition shadow-xl flex flex-col justify-between ${
                 isBusy
-                  ? 'border-rose-500/40 bg-gradient-to-b from-slate-900 via-slate-900 to-rose-950/20 shadow-rose-950/10'
+                  ? 'border-rose-500/40 bg-gradient-to-b from-white via-white to-rose-50 dark:from-slate-900 dark:via-slate-900 dark:to-rose-950/20 shadow-rose-100 dark:shadow-rose-950/10'
                   : isOpen
-                  ? 'border-emerald-500/30 bg-slate-900/90 hover:border-emerald-500/50 shadow-slate-950/20'
-                  : 'border-amber-500/30 bg-slate-900/60 opacity-80'
+                  ? 'border-emerald-500/30 bg-white dark:bg-slate-900/90 hover:border-emerald-500/50 shadow-slate-200/40 dark:shadow-slate-950/20'
+                  : 'border-amber-500/30 bg-slate-50 dark:bg-slate-900/60 opacity-80'
               }`}
             >
               <div>
@@ -367,10 +367,10 @@ export default function CourtsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-xl font-bold text-slate-100">{court.name}</h3>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">{court.name}</h3>
                       <button
                         onClick={() => handleOpenEditCourtModal(court)}
-                        className="text-xs text-slate-500 hover:text-emerald-400"
+                        className="text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
                         title="Chỉnh sửa thông tin sân"
                       >
                         ✏️
@@ -378,14 +378,14 @@ export default function CourtsPage() {
                       {isOpen && (
                         <button
                           onClick={() => handleDeleteCourt(court.id, court.name)}
-                          className="text-xs text-slate-500 hover:text-rose-400"
+                          className="text-xs text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400"
                           title="Xóa sân"
                         >
                           🗑️
                         </button>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400 mt-0.5">{formatMoney(court.pricePerHour)}/giờ</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{formatMoney(court.pricePerHour)}/giờ</p>
                   </div>
                   <Badge variant={isBusy ? 'rose' : isOpen ? 'emerald' : isInactive ? 'slate' : 'amber'}>
                     {isBusy ? '🔴 Đang chơi' : isOpen ? '🟢 Trống' : isInactive ? '⚫ Ngưng khai thác' : '🟡 Bảo trì'}
@@ -395,38 +395,38 @@ export default function CourtsPage() {
                 {/* Body Content */}
                 {isBusy && court.session && (
                   <div className="mt-4 space-y-4">
-                    <div className="rounded-2xl border border-rose-500/20 bg-rose-950/30 p-4 flex items-center justify-between">
+                    <div className="rounded-2xl border border-rose-500/20 bg-rose-50 dark:bg-rose-950/30 p-4 flex items-center justify-between">
                       <div>
-                        <p className="text-xs text-slate-400">Khách hàng:</p>
-                        <p className="text-base font-semibold text-slate-100 mt-0.5">👤 {court.session.playerName}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Khách hàng:</p>
+                        <p className="text-base font-semibold text-slate-900 dark:text-slate-100 mt-0.5">👤 {court.session.playerName}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-slate-400">Thời gian chơi:</p>
-                        <p className="text-lg font-bold text-rose-400 font-mono tracking-wider animate-pulse">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Thời gian chơi:</p>
+                        <p className="text-lg font-bold text-rose-600 dark:text-rose-400 font-mono tracking-wider animate-pulse">
                           ⏱ {formatTime(elapsed)}
                         </p>
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 space-y-2 text-xs">
-                      <div className="flex justify-between text-slate-400">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/60 p-4 space-y-2 text-xs">
+                      <div className="flex justify-between text-slate-500 dark:text-slate-400">
                         <span>Tiền sân (tạm tính):</span>
-                        <span className="font-semibold text-slate-200">{formatMoney(courtFee)}</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">{formatMoney(courtFee)}</span>
                       </div>
 
                       {court.extras.length > 0 && (
-                        <div className="pt-2 border-t border-slate-800/80 space-y-1">
+                        <div className="pt-2 border-t border-slate-200 dark:border-slate-800/80 space-y-1">
                           <div className="flex items-center justify-between">
-                            <p className="text-slate-400 font-medium">Dịch vụ đi kèm:</p>
+                            <p className="text-slate-500 dark:text-slate-400 font-medium">Dịch vụ đi kèm:</p>
                             <button
                               onClick={() => handleReturnExtra(court.id)}
-                              className="text-[11px] text-amber-400 hover:underline font-semibold"
+                              className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline font-semibold"
                             >
                               ↩️ Trả lại đồ
                             </button>
                           </div>
                           {court.extras.map((e) => (
-                            <div key={e.id} className="flex justify-between text-slate-300">
+                            <div key={e.id} className="flex justify-between text-slate-600 dark:text-slate-300">
                               <span>{e.icon} {e.name} x{e.qty}</span>
                               <span>{formatMoney(e.price * e.qty)}</span>
                             </div>
@@ -434,7 +434,7 @@ export default function CourtsPage() {
                         </div>
                       )}
 
-                      <div className="pt-2 border-t border-slate-800 flex justify-between text-sm font-bold text-emerald-400">
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between text-sm font-bold text-emerald-600 dark:text-emerald-400">
                         <span>TỔNG TẠM TÍNH:</span>
                         <span>{formatMoney(totalTemp)}</span>
                       </div>
@@ -443,39 +443,39 @@ export default function CourtsPage() {
                 )}
 
                 {isOpen && (
-                  <div className="mt-8 mb-6 text-center py-6 border border-dashed border-slate-800 rounded-2xl">
+                  <div className="mt-8 mb-6 text-center py-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
                     <p className="text-slate-500 text-sm">Sân sẵn sàng tiếp nhận khách</p>
                   </div>
                 )}
 
                 {isMaint && (
                   <div className="mt-8 mb-6 text-center py-6 border border-amber-500/20 bg-amber-500/5 rounded-2xl">
-                    <p className="text-amber-400 text-sm font-medium">🛠 Đang trong quá trình bảo trì</p>
+                    <p className="text-amber-600 dark:text-amber-400 text-sm font-medium">🛠 Đang trong quá trình bảo trì</p>
                   </div>
                 )}
 
                 {isInactive && (
-                  <div className="mt-8 mb-6 text-center py-6 border border-slate-700 bg-slate-800/30 rounded-2xl">
-                    <p className="text-slate-400 text-sm font-medium">⚫ Sân đã ngưng khai thác</p>
-                    <p className="text-slate-500 text-xs mt-1">Không nằm trong công suất kinh doanh</p>
+                  <div className="mt-8 mb-6 text-center py-6 border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-slate-800/30 rounded-2xl">
+                    <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">⚫ Sân đã ngưng khai thác</p>
+                    <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Không nằm trong công suất kinh doanh</p>
                   </div>
                 )}
               </div>
 
               {/* Action Buttons */}
-              <div className="mt-6 pt-4 border-t border-slate-800/80 space-y-2">
+              <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
                 {isBusy && (
                   <>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => handleAddExtra(court.id)}
-                        className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-300 hover:bg-violet-500/20 transition"
+                        className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 transition"
                       >
                         🥤 Thêm Nước/Cầu
                       </button>
                       <button
                         onClick={() => handleSwitchCourt(court.id)}
-                        className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 transition"
+                        className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition"
                       >
                         🔄 Đổi sang sân khác
                       </button>
@@ -500,13 +500,13 @@ export default function CourtsPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => changeCourtStatus(court.id, 'maintenance')}
-                        className="rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 transition"
+                        className="rounded-xl border border-slate-300 bg-slate-100 text-slate-600 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:text-slate-200 px-3 py-1.5 text-xs transition"
                       >
                         🔧 Chuyển sang bảo trì
                       </button>
                       <button
                         onClick={() => changeCourtStatus(court.id, 'inactive')}
-                        className="rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 transition"
+                        className="rounded-xl border border-slate-300 bg-slate-100 text-slate-600 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:text-slate-200 px-3 py-1.5 text-xs transition"
                       >
                         ⚫ Ngưng khai thác
                       </button>
@@ -517,7 +517,7 @@ export default function CourtsPage() {
                 {(isMaint || isInactive) && (
                   <button
                     onClick={() => changeCourtStatus(court.id, 'active')}
-                    className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 transition"
+                    className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition"
                   >
                     {isMaint ? '✅ Hoàn tất bảo trì (Mở lại)' : '✅ Khai thác trở lại'}
                   </button>
@@ -536,47 +536,47 @@ export default function CourtsPage() {
       >
         <form onSubmit={handleSaveCourt} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1">Tên sân *</label>
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Tên sân *</label>
             <input
               type="text"
               required
               value={courtFormData.name}
               onChange={(e) => setCourtFormData({ ...courtFormData, name: e.target.value })}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
               placeholder="VD: Sân 7 (VIP)"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Giá cao điểm (/giờ) *</label>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Giá cao điểm (/giờ) *</label>
               <input
                 type="number"
                 required
                 value={courtFormData.peakPricePerHour}
                 onChange={(e) => setCourtFormData({ ...courtFormData, peakPricePerHour: e.target.value })}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Giá thấp điểm (/giờ) *</label>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Giá thấp điểm (/giờ) *</label>
               <input
                 type="number"
                 required
                 value={courtFormData.offpeakPricePerHour}
                 onChange={(e) => setCourtFormData({ ...courtFormData, offpeakPricePerHour: e.target.value })}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1">Ghi chú sân</label>
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Ghi chú sân</label>
             <input
               type="text"
               value={courtFormData.note}
               onChange={(e) => setCourtFormData({ ...courtFormData, note: e.target.value })}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
               placeholder="VD: Sân thảm Yonex cao cấp..."
             />
           </div>
@@ -585,7 +585,7 @@ export default function CourtsPage() {
             <button
               type="button"
               onClick={() => setActiveModal(null)}
-              className="rounded-xl bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700"
+              className="rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm"
             >
               Hủy
             </button>
@@ -607,7 +607,7 @@ export default function CourtsPage() {
       >
         <form onSubmit={confirmOpen} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1">Tên khách hàng hoặc tên nhóm *</label>
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Tên khách hàng hoặc tên nhóm *</label>
             <input
               type="text"
               required
@@ -615,21 +615,21 @@ export default function CourtsPage() {
               value={playerNameInput}
               onChange={(e) => setPlayerNameInput(e.target.value)}
               placeholder="Nhập tên khách (VD: Anh Hùng...)"
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1">Số điện thoại</label>
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Số điện thoại</label>
             <input
               type="tel"
               value={playerPhoneInput}
               onChange={(e) => setPlayerPhoneInput(e.target.value)}
               placeholder="Không bắt buộc — có SĐT thì lần sau nhận ra khách cũ"
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
             />
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">Hủy</button>
+            <button type="button" onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm">Hủy</button>
             <button type="submit" className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">▶️ Bắt Đầu Tính Giờ</button>
           </div>
         </form>
@@ -646,17 +646,17 @@ export default function CourtsPage() {
         return (
           <Modal isOpen={true} onClose={() => setActiveModal(null)} title={`Thanh Toán & Đóng ${court.name}`}>
             <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-slate-400">Khách hàng:</span><span className="font-bold text-slate-100">{court.session.playerName}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Thời gian chơi:</span><span className="font-mono font-bold text-rose-400">{formatTime(elapsed)}</span></div>
-                <div className="flex justify-between pt-2 border-t border-slate-800"><span className="text-slate-400">Tiền sân:</span><span className="font-semibold text-slate-200">{formatMoney(courtFee)}</span></div>
-                <div className="pt-3 border-t border-slate-800 flex justify-between items-center text-base font-bold">
-                  <span className="text-slate-200">TỔNG CỘNG:</span>
-                  <span className="text-xl text-emerald-400">{formatMoney(total)}</span>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/80 p-4 space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Khách hàng:</span><span className="font-bold text-slate-900 dark:text-slate-100">{court.session.playerName}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Thời gian chơi:</span><span className="font-mono font-bold text-rose-600 dark:text-rose-400">{formatTime(elapsed)}</span></div>
+                <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-800"><span className="text-slate-500 dark:text-slate-400">Tiền sân:</span><span className="font-semibold text-slate-700 dark:text-slate-200">{formatMoney(courtFee)}</span></div>
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-base font-bold">
+                  <span className="text-slate-700 dark:text-slate-200">TỔNG CỘNG:</span>
+                  <span className="text-xl text-emerald-600 dark:text-emerald-400">{formatMoney(total)}</span>
                 </div>
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">Quay lại</button>
+                <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm">Quay lại</button>
                 <button onClick={confirmCheckout} className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">💳 Xác Nhận Thanh Toán</button>
               </div>
             </div>
@@ -668,24 +668,24 @@ export default function CourtsPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2">
             {extrasList.map((item) => (
-              <button key={item.id} onClick={() => setSelectedExtra(item)} className={`p-3 rounded-2xl border text-left transition ${selectedExtra?.id === item.id ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300' : 'border-slate-800 bg-slate-950/60 text-slate-300'}`}>
+              <button key={item.id} onClick={() => setSelectedExtra(item)} className={`p-3 rounded-2xl border text-left transition ${selectedExtra?.id === item.id ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300'}`}>
                 <div className="font-semibold text-xs">{item.name}</div>
-                <div className="text-xs text-slate-400 font-mono mt-0.5">{formatMoney(item.price)} • Kho: {item.stock}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">{formatMoney(item.price)} • Kho: {item.stock}</div>
               </button>
             ))}
           </div>
           {selectedExtra && (
-            <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 p-3">
-              <span className="text-xs text-slate-300 font-medium">Số lượng mua:</span>
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950 p-3">
+              <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">Số lượng mua:</span>
               <div className="flex items-center gap-3">
-                <button onClick={() => setExtraQty(Math.max(1, extraQty - 1))} className="h-8 w-8 rounded-lg bg-slate-800 text-slate-200 font-bold">-</button>
-                <span className="font-bold text-base text-slate-100 min-w-6 text-center">{extraQty}</span>
-                <button onClick={() => setExtraQty(extraQty + 1)} className="h-8 w-8 rounded-lg bg-slate-800 text-slate-200 font-bold">+</button>
+                <button onClick={() => setExtraQty(Math.max(1, extraQty - 1))} className="h-8 w-8 rounded-lg bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200 font-bold">-</button>
+                <span className="font-bold text-base text-slate-900 dark:text-slate-100 min-w-6 text-center">{extraQty}</span>
+                <button onClick={() => setExtraQty(extraQty + 1)} className="h-8 w-8 rounded-lg bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200 font-bold">+</button>
               </div>
             </div>
           )}
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">Hủy</button>
+            <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm">Hủy</button>
             <button onClick={confirmAddExtra} className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">➕ Thêm Món</button>
           </div>
         </div>
@@ -695,21 +695,21 @@ export default function CourtsPage() {
         <div className="space-y-4">
           <div className="space-y-3">
             {activeModal?.court?.extras.map((item) => (
-              <div key={item.id} className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950 p-3.5">
+              <div key={item.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950 p-3.5">
                 <div>
-                  <p className="text-sm font-semibold text-slate-200">{item.name}</p>
-                  <p className="text-xs text-slate-400">Đã lấy: {item.qty} • Giá: {formatMoney(item.price)}</p>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{item.name}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Đã lấy: {item.qty} • Giá: {formatMoney(item.price)}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setReturnItems({ ...returnItems, [item.id]: Math.max(0, (returnItems[item.id] || 0) - 1) })} className="h-8 w-8 rounded-lg bg-slate-800 text-slate-200 font-bold">-</button>
-                  <span className="font-bold text-base text-amber-400 min-w-6 text-center">{returnItems[item.id] || 0}</span>
-                  <button onClick={() => setReturnItems({ ...returnItems, [item.id]: Math.min(item.qty, (returnItems[item.id] || 0) + 1) })} className="h-8 w-8 rounded-lg bg-slate-800 text-slate-200 font-bold">+</button>
+                  <button onClick={() => setReturnItems({ ...returnItems, [item.id]: Math.max(0, (returnItems[item.id] || 0) - 1) })} className="h-8 w-8 rounded-lg bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200 font-bold">-</button>
+                  <span className="font-bold text-base text-amber-600 dark:text-amber-400 min-w-6 text-center">{returnItems[item.id] || 0}</span>
+                  <button onClick={() => setReturnItems({ ...returnItems, [item.id]: Math.min(item.qty, (returnItems[item.id] || 0) + 1) })} className="h-8 w-8 rounded-lg bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200 font-bold">+</button>
                 </div>
               </div>
             ))}
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">Hủy</button>
+            <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm">Hủy</button>
             <button onClick={confirmReturnExtra} className="rounded-xl bg-amber-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400">↩️ Xác Nhận Trả Đồ</button>
           </div>
         </div>
@@ -717,13 +717,13 @@ export default function CourtsPage() {
 
       <Modal isOpen={activeModal?.type === 'switch'} onClose={() => setActiveModal(null)} title={`Đổi Sân`}>
         <div className="space-y-4">
-          <select value={targetSwitchId} onChange={(e) => setTargetSwitchId(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-slate-100">
+          <select value={targetSwitchId} onChange={(e) => setTargetSwitchId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 px-4 py-2.5 text-sm">
             {activeModal?.availableTargets?.map((c) => (
               <option key={c.id} value={c.id}>{c.name} — {formatMoney(c.pricePerHour)}/giờ</option>
             ))}
           </select>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">Hủy</button>
+            <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm">Hủy</button>
             <button onClick={confirmSwitchCourt} className="rounded-xl bg-sky-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-sky-400">🔄 Xác Nhận Đổi Sân</button>
           </div>
         </div>
