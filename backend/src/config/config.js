@@ -12,7 +12,8 @@ module.exports = {
     define: {
       timestamps: true,
       underscored: true
-    }
+    },
+    pool: { max: 5, min: 0, acquire: 30000, idle: 10000 }
   },
   test: {
     username: process.env.DB_USER || 'root',
@@ -25,7 +26,8 @@ module.exports = {
     define: {
       timestamps: true,
       underscored: true
-    }
+    },
+    pool: { max: 5, min: 0, acquire: 30000, idle: 10000 }
   },
   production: {
     username: process.env.DB_USER,
@@ -38,6 +40,10 @@ module.exports = {
     define: {
       timestamps: true,
       underscored: true
-    }
+    },
+    // max cao hơn dev vì đây là môi trường có nhiều request đồng thời thật;
+    // acquire là thời gian chờ tối đa để "xin" 1 kết nối từ pool trước khi
+    // báo lỗi thay vì client bị treo vô thời hạn.
+    pool: { max: 20, min: 2, acquire: 30000, idle: 10000 }
   }
 };

@@ -279,22 +279,24 @@ class BookingService {
   }
 
   static async cancelBooking(id, context) {
-    const booking = await Booking.findOne({
-      where: { id, ...(context.branchId ? { branchId: context.branchId } : {}) },
-    });
-    if (!booking) {
-      const error = new Error("Booking not found");
-      error.statusCode = 404;
-      throw error;
-    }
-    BookingService.assertOwnership(booking, context.actor, context.branchId);
-    if (!["pending", "confirmed"].includes(booking.status)) {
-      const error = new Error("Booking ở trạng thái hiện tại không thể hủy");
-      error.statusCode = 400;
-      throw error;
-    }
     const transaction = await sequelize.transaction();
     try {
+      const booking = await Booking.findOne({
+        where: { id, ...(context.branchId ? { branchId: context.branchId } : {}) },
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+      if (!booking) {
+        const error = new Error("Booking not found");
+        error.statusCode = 404;
+        throw error;
+      }
+      BookingService.assertOwnership(booking, context.actor, context.branchId);
+      if (!["pending", "confirmed"].includes(booking.status)) {
+        const error = new Error("Booking ở trạng thái hiện tại không thể hủy");
+        error.statusCode = 400;
+        throw error;
+      }
       const oldValues = booking.toJSON();
       const updated = await booking.update({ status: "cancelled" }, { transaction });
       await AuditService.record({
@@ -317,21 +319,23 @@ class BookingService {
   }
 
   static async confirmBooking(id, context) {
-    const booking = await Booking.findOne({
-      where: { id, ...(context.branchId ? { branchId: context.branchId } : {}) },
-    });
-    if (!booking) {
-      const error = new Error("Booking not found");
-      error.statusCode = 404;
-      throw error;
-    }
-    if (booking.status !== "pending") {
-      const error = new Error("Chỉ có thể xác nhận booking đang chờ");
-      error.statusCode = 400;
-      throw error;
-    }
     const transaction = await sequelize.transaction();
     try {
+      const booking = await Booking.findOne({
+        where: { id, ...(context.branchId ? { branchId: context.branchId } : {}) },
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+      if (!booking) {
+        const error = new Error("Booking not found");
+        error.statusCode = 404;
+        throw error;
+      }
+      if (booking.status !== "pending") {
+        const error = new Error("Chỉ có thể xác nhận booking đang chờ");
+        error.statusCode = 400;
+        throw error;
+      }
       const oldValues = booking.toJSON();
       const updated = await booking.update({ status: "confirmed" }, { transaction });
       await AuditService.record({
