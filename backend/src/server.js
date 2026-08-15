@@ -42,6 +42,17 @@ app.use('/api/v1/invoices', require('./routes/invoiceRoutes'));
 app.use('/api/v1/reports', require('./routes/reportRoutes'));
 app.use('/api/v1/settings', require('./routes/settingRoutes'));
 
+// Route không khớp bất kỳ mount nào ở trên — trả đúng envelope chuẩn thay
+// vì để Express tự render trang lỗi HTML mặc định.
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    data: null,
+    message: 'Không tìm thấy endpoint.',
+    errors: null
+  });
+});
+
 // Centralized Error Handling Middleware
 app.use(errorHandler);
 
