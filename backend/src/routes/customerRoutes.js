@@ -11,12 +11,12 @@ const {
 
 router.use(authMiddleware, branchContextMiddleware);
 
-router.get('/', roleMiddleware(['admin', 'employee']), customerController.getCustomers);
+router.get('/', roleMiddleware(['admin', 'branch_manager', 'employee']), customerController.getCustomers);
 router.get('/:id/history', customerController.getCustomerHistory);
 router.get('/:id', customerController.getCustomerById);
 
-router.post('/', roleMiddleware(['admin', 'employee']), createCustomerRules, customerController.createCustomer);
-router.put('/:id', roleMiddleware(['admin', 'employee']), updateCustomerRules, customerController.updateCustomer);
+router.post('/', roleMiddleware(['admin', 'branch_manager', 'employee']), createCustomerRules, customerController.createCustomer);
+router.put('/:id', roleMiddleware(['admin', 'branch_manager', 'employee']), updateCustomerRules, customerController.updateCustomer);
 router.delete('/:id', roleMiddleware(['admin']), customerController.deleteCustomer);
 
 module.exports = router;

@@ -7,11 +7,6 @@ module.exports = (sequelize) => {
       primaryKey: true,
       autoIncrement: true
     },
-    branchId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      field: 'branch_id'
-    },
     userId: {
       type: DataTypes.INTEGER,
       allowNull: true,
@@ -23,8 +18,9 @@ module.exports = (sequelize) => {
       field: 'full_name'
     },
     // Cho phép rỗng: khách vãng lai chưa để lại số vẫn là khách hàng, chỉ là hồ sơ
-    // thiếu thông tin. Tính duy nhất do unique index (branch_id, phone) đảm nhiệm —
-    // vừa cho phép nhiều hồ sơ không số, vừa cho phép hai chi nhánh trùng số.
+    // thiếu thông tin. Tính duy nhất do unique index (phone) toàn hệ thống đảm
+    // nhiệm — 1 khách hàng dùng chung 1 hồ sơ ở mọi chi nhánh; MySQL cho phép
+    // nhiều NULL trong unique index nên nhiều khách vãng lai không số vẫn ổn.
     phone: {
       type: DataTypes.STRING(20),
       allowNull: true

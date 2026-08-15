@@ -1,7 +1,7 @@
 const { Invoice, Payment, CourtSession, SessionExtra, Extra, Customer, Court, Employee, sequelize } = require('../models');
 const { calculateCourtFee, calculateInvoiceTotals } = require('../utils/priceCalculator');
 const { generateVietQRUrl } = require('../utils/vietqr');
-const { nextInvoiceNumber } = require('../utils/invoiceNumber');
+const { nextInvoiceNumber } = require('../utils/documentNumber');
 const AuditService = require('./AuditService');
 const SettingService = require('./SettingService');
 

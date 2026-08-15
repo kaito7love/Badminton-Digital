@@ -10,6 +10,6 @@ router.post('/webhook', webhookRules, paymentController.processWebhook);
 
 router.use(authMiddleware, branchContextMiddleware);
 
-router.post('/checkout', roleMiddleware(['admin', 'employee']), checkoutRules, paymentController.checkout);
+router.post('/checkout', roleMiddleware(['admin', 'branch_manager', 'employee']), checkoutRules, paymentController.checkout);
 
 module.exports = router;

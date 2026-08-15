@@ -1,15 +1,29 @@
-const { Extra, SessionExtra, CourtSession, sequelize } = require("../models");
+const { Extra, ExtraStock, SessionExtra, CourtSession, sequelize } = require("../models");
 const { getPagination, getPagingData } = require("../utils/pagination");
 const AuditService = require('./AuditService');
+const InventoryService = require('./InventoryService');
 
 class AccessoryService {
-  static async getAllAccessories(query) {
+  /** Tồn kho trả về là của branch trong context — mỗi chi nhánh có số tồn riêng. */
+  static async getAllAccessories(query, branchId = null) {
     const { page, limit, offset } = getPagination(query);
 
     const data = await Extra.findAndCountAll({
       limit,
       offset,
       order: [["id", "ASC"]],
+      include: branchId
+        ? [{ model: ExtraStock, as: 'stocks', where: { branchId }, required: false, attributes: ['quantity', 'averageCost'] }]
+        : [],
+    });
+
+    data.rows = data.rows.map((row) => {
+      const json = row.toJSON();
+      const stock = json.stocks?.[0];
+      json.stockQuantity = stock ? stock.quantity : 0;
+      json.averageCost = stock ? stock.averageCost : null;
+      delete json.stocks;
+      return json;
     });
 
     return getPagingData(data, page, limit);
@@ -31,7 +45,6 @@ class AccessoryService {
       const accessory = await Extra.create({
       name: data.name,
       price: data.price,
-      stockQuantity: data.stockQuantity || 0,
       lowStockThreshold: data.lowStockThreshold || 5,
       }, { transaction });
       await AuditService.record({ actor: context.actor, branchId: context.branchId, action: 'extra.created', targetType: 'extra', targetId: accessory.id, newValues: accessory.toJSON(), requestId: context.requestId, transaction });
@@ -53,7 +66,7 @@ class AccessoryService {
         throw error;
       }
       const oldValues = accessory.toJSON();
-      const updated = await accessory.update(data, { transaction });
+      const updated = await accessory.update({ name: data.name, price: data.price, lowStockThreshold: data.lowStockThreshold }, { transaction });
       await AuditService.record({ actor: context.actor, branchId: context.branchId, action: 'extra.updated', targetType: 'extra', targetId: accessory.id, oldValues, newValues: updated.toJSON(), requestId: context.requestId, transaction });
       await transaction.commit();
       return updated;
@@ -97,29 +110,15 @@ class AccessoryService {
         error.statusCode = 400;
         throw error;
       }
-      const extra = await Extra.findByPk(extraId, { transaction, lock: transaction.LOCK.UPDATE });
+      const extra = await Extra.findByPk(extraId, { transaction });
       if (!extra) {
         const error = new Error("Accessory not found");
         error.statusCode = 404;
         throw error;
       }
 
-      if (extra.stockQuantity < quantity) {
-        const error = new Error(
-          `Insufficient stock. Available: ${extra.stockQuantity}`,
-        );
-        error.statusCode = 400;
-        throw error;
-      }
-
       const unitPrice = Number(extra.price);
       const subtotal = unitPrice * quantity;
-
-      // Deduct stock
-      await extra.update(
-        { stockQuantity: extra.stockQuantity - quantity },
-        { transaction },
-      );
 
       // Create session extra record
       const sessionExtra = await SessionExtra.create(
@@ -132,6 +131,19 @@ class AccessoryService {
         },
         { transaction },
       );
+
+      // Trừ kho đúng chi nhánh của phiên sân — ném lỗi 400 nếu không đủ tồn.
+      await InventoryService.postMovement({
+        branchId: session.branchId,
+        extraId,
+        type: 'sale',
+        quantity,
+        referenceType: 'session_extra',
+        referenceId: sessionExtra.id,
+        actor: context.actor,
+        transaction,
+      });
+
       await AuditService.record({ actor: context.actor, branchId: session.branchId, action: 'session_extra.added', targetType: 'session_extra', targetId: sessionExtra.id, newValues: sessionExtra.toJSON(), requestId: context.requestId, transaction });
 
       await transaction.commit();
@@ -153,7 +165,7 @@ class AccessoryService {
    * Return unused accessories from a playing session back to stock.
    * - Validates session is still "playing".
    * - Ensures returnQuantity does not exceed the purchased quantity.
-   * - Restores returnQuantity to Extra.stockQuantity (inventory).
+   * - Restores returnQuantity to stock of the branch owning the session.
    * - If all items returned, deletes the SessionExtra record; otherwise adjusts quantity & subtotal.
    */
   static async returnSessionExtra(sessionId, extraId, returnQuantity, context = {}) {
@@ -192,17 +204,17 @@ class AccessoryService {
         throw error;
       }
 
-      // Restore stock to inventory
-      const extra = await Extra.findByPk(extraId, { transaction, lock: transaction.LOCK.UPDATE });
-      if (!extra) {
-        const error = new Error("Accessory not found in inventory");
-        error.statusCode = 404;
-        throw error;
-      }
-      await extra.update(
-        { stockQuantity: extra.stockQuantity + returnQuantity },
-        { transaction },
-      );
+      // Cộng lại kho đúng chi nhánh của phiên sân
+      await InventoryService.postMovement({
+        branchId: session.branchId,
+        extraId,
+        type: 'sale_return',
+        quantity: returnQuantity,
+        referenceType: 'session_extra',
+        referenceId: sessionExtra.id,
+        actor: context.actor,
+        transaction,
+      });
 
       let result;
       const newQuantity = sessionExtra.quantity - returnQuantity;

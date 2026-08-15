@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const { User, Role, Employee, Customer, sequelize } = require("../models");
+const { User, Role, Employee, Customer, Branch, sequelize } = require("../models");
 const {
   generateAccessToken,
   generateRefreshToken,
@@ -10,7 +10,6 @@ const {
 } = require("../utils/jwt");
 const { sendPasswordResetEmail } = require("../utils/mailer");
 const { normalizePhone, looksLikePhone, isValidPhone } = require("../utils/phone");
-const PublicCatalogService = require("./PublicCatalogService");
 
 class AuthService {
   /**
@@ -117,7 +116,11 @@ class AuthService {
       attributes: { exclude: ["passwordHash", "refreshToken"] },
       include: [
         { model: Role, as: "role", attributes: ["id", "name", "description"] },
-        { model: Employee, as: "employee" },
+        {
+          model: Employee,
+          as: "employee",
+          include: [{ model: Branch, as: "branch", attributes: ["id", "name", "code"] }],
+        },
         { model: Customer, as: "customer" },
       ],
     });
@@ -231,7 +234,6 @@ class AuthService {
     }
 
     const normalizedEmail = email ? String(email).trim().toLowerCase() : null;
-    const branch = await PublicCatalogService.resolveBranch();
 
     const transaction = await sequelize.transaction();
     try {
@@ -281,9 +283,10 @@ class AuthService {
         { transaction }
       );
 
-      // Gộp với hồ sơ cũ nếu khách từng ra chơi tại quầy
+      // Gộp với hồ sơ cũ nếu khách từng ra chơi tại quầy — ở bất kỳ chi nhánh
+      // nào, vì hồ sơ khách hàng giờ dùng chung toàn chuỗi.
       const existing = await Customer.findOne({
-        where: { branchId: branch.id, phone: normalizedPhone, userId: null },
+        where: { phone: normalizedPhone, userId: null },
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
@@ -299,7 +302,6 @@ class AuthService {
       } else {
         customer = await Customer.create(
           {
-            branchId: branch.id,
             userId: user.id,
             fullName: String(fullName).trim(),
             phone: normalizedPhone,

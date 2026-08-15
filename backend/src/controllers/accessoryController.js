@@ -3,7 +3,7 @@ const { successResponse } = require('../utils/responseHandler');
 
 const getAccessories = async (req, res, next) => {
   try {
-    const result = await AccessoryService.getAllAccessories(req.query);
+    const result = await AccessoryService.getAllAccessories(req.query, req.branchId);
     return successResponse(res, result.rows, 'Accessories retrieved successfully', 200, result.meta);
   } catch (err) {
     next(err);

@@ -14,6 +14,12 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Chỉ admin dùng bộ chuyển chi nhánh nên mới có key này trong localStorage
+    // (xem BranchContext.jsx) — nhân viên thường không set nên không gửi header.
+    const selectedBranchId = localStorage.getItem('admin_selected_branch_id');
+    if (selectedBranchId) {
+      config.headers['X-Branch-Id'] = selectedBranchId;
+    }
     return config;
   },
   (error) => Promise.reject(error)

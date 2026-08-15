@@ -17,11 +17,6 @@ module.exports = (sequelize) => {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
       },
-      stockQuantity: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0,
-        field: "stock_quantity",
-      },
       lowStockThreshold: {
         type: DataTypes.INTEGER,
         defaultValue: 5,

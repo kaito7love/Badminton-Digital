@@ -1,0 +1,180 @@
+const { Op } = require('sequelize');
+const { ExtraStock, StockMovement, Extra, sequelize } = require('../models');
+const { getPagination, getPagingData } = require('../utils/pagination');
+const AuditService = require('./AuditService');
+
+const ADJUSTMENT_TYPES = ['adjustment_in', 'adjustment_out', 'damaged', 'lost'];
+
+class InventoryService {
+  /**
+   * Duy nhất entry point thay đổi tồn kho. Không service nào khác được
+   * UPDATE extra_stocks.quantity trực tiếp — mọi thay đổi phải tạo kèm
+   * một dòng stock_movements trong cùng transaction với nghiệp vụ gốc.
+   */
+  static async postMovement({ branchId, extraId, type, quantity, unitCost = null, note = null, referenceType = null, referenceId = null, actor = null, transaction }) {
+    if (!transaction) {
+      throw new Error('InventoryService.postMovement requires an active transaction');
+    }
+    if (!branchId) {
+      const error = new Error('Không xác định được chi nhánh để ghi nhận tồn kho');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!StockMovement.MOVEMENT_TYPES.includes(type)) {
+      const error = new Error(`Loại giao dịch kho không hợp lệ: ${type}`);
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      const error = new Error('Số lượng phải là số nguyên dương');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const stock = await InventoryService._getLockedStock(extraId, branchId, transaction);
+
+    const isIncoming = StockMovement.INCOMING_TYPES.includes(type);
+    const newQuantity = stock.quantity + (isIncoming ? quantity : -quantity);
+    if (newQuantity < 0) {
+      const error = new Error(`Không đủ tồn kho tại chi nhánh này. Hiện có: ${stock.quantity}`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    let averageCost = stock.averageCost !== null ? Number(stock.averageCost) : null;
+    if (type === 'purchase_receipt' && unitCost != null) {
+      averageCost = InventoryService.computeAverageCost(stock.quantity, averageCost, quantity, Number(unitCost));
+    }
+
+    await stock.update({ quantity: newQuantity, averageCost }, { transaction });
+
+    const movement = await StockMovement.create({
+      branchId,
+      extraId,
+      type,
+      quantity,
+      unitCost,
+      note,
+      referenceType,
+      referenceId,
+      actorUserId: actor?.id || null
+    }, { transaction });
+
+    return { movement, stock };
+  }
+
+  /** Giá vốn bình quân gia quyền sau khi nhập thêm `incomingQty` với đơn giá `incomingUnitCost`. */
+  static computeAverageCost(oldQty, oldAvg, incomingQty, incomingUnitCost) {
+    const totalQty = oldQty + incomingQty;
+    if (totalQty <= 0) return incomingUnitCost;
+    return ((oldQty * (oldAvg || 0)) + (incomingQty * incomingUnitCost)) / totalQty;
+  }
+
+  static async _getLockedStock(extraId, branchId, transaction) {
+    let stock = await ExtraStock.findOne({
+      where: { extraId, branchId },
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (stock) return stock;
+
+    try {
+      stock = await ExtraStock.create({ extraId, branchId, quantity: 0 }, { transaction });
+    } catch (err) {
+      // Có thể đã bị request đồng thời khác tạo trước — thử khoá lại lần nữa.
+      stock = await ExtraStock.findOne({
+        where: { extraId, branchId },
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+      if (!stock) throw err;
+    }
+    return stock;
+  }
+
+  /** Điều chỉnh kho thủ công (hỏng/mất/điều chỉnh tăng-giảm), luôn cần lý do. */
+  static async createManualAdjustment({ branchId, extraId, type, quantity, note, actor, requestId }) {
+    if (!ADJUSTMENT_TYPES.includes(type)) {
+      const error = new Error(`Loại điều chỉnh không hợp lệ: ${type}`);
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!note || !note.trim()) {
+      const error = new Error('Lý do điều chỉnh kho là bắt buộc');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const transaction = await sequelize.transaction();
+    try {
+      const { movement, stock } = await InventoryService.postMovement({
+        branchId, extraId, type, quantity, note, referenceType: 'manual', actor, transaction
+      });
+      await AuditService.record({
+        actor, branchId, action: 'stock_movement.adjusted', targetType: 'stock_movement',
+        targetId: movement.id, newValues: movement.toJSON(), requestId, transaction
+      });
+      await transaction.commit();
+      return { movement, stock };
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  }
+
+  static async listMovements(query, branchId) {
+    InventoryService._requireBranch(branchId);
+    const { page, limit, offset } = getPagination(query);
+    const where = { branchId };
+    if (query.extraId) where.extraId = query.extraId;
+    if (query.type) where.type = query.type;
+    if (query.from || query.to) {
+      where.createdAt = {};
+      if (query.from) where.createdAt[Op.gte] = new Date(`${query.from}T00:00:00`);
+      if (query.to) where.createdAt[Op.lte] = new Date(`${query.to}T23:59:59.999`);
+    }
+
+    const data = await StockMovement.findAndCountAll({
+      where,
+      limit,
+      offset,
+      order: [['id', 'DESC']],
+      include: [{ model: Extra, as: 'extra', attributes: ['id', 'name'] }]
+    });
+    return getPagingData(data, page, limit);
+  }
+
+  static async getStockLevels(query, branchId) {
+    InventoryService._requireBranch(branchId);
+    const { page, limit, offset } = getPagination(query);
+
+    const data = await ExtraStock.findAndCountAll({
+      where: { branchId },
+      limit,
+      offset,
+      order: [['id', 'ASC']],
+      include: [{ model: Extra, as: 'extra', attributes: ['id', 'name', 'price', 'lowStockThreshold'] }]
+    });
+    return getPagingData(data, page, limit);
+  }
+
+  /** Số sản phẩm dưới ngưỡng cảnh báo, tính riêng cho 1 chi nhánh. */
+  static async getLowStockCount(branchId) {
+    if (!branchId) return 0;
+    const stocks = await ExtraStock.findAll({
+      where: { branchId },
+      include: [{ model: Extra, as: 'extra', attributes: ['lowStockThreshold'] }]
+    });
+    return stocks.filter((s) => s.quantity <= (s.extra?.lowStockThreshold ?? 5)).length;
+  }
+
+  static _requireBranch(branchId) {
+    if (!branchId) {
+      const error = new Error('Không xác định được chi nhánh kho');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+}
+
+module.exports = InventoryService;

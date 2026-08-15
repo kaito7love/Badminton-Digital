@@ -10,7 +10,12 @@ const branchContextMiddleware = async (req, res, next) => {
     }
 
     const employeeBranchId = req.user?.employee?.branchId || null;
-    if (requestedBranchId && employeeBranchId && requestedBranchId !== employeeBranchId) {
+    const isAdmin = req.user?.role?.name === 'admin';
+
+    // Admin quản lý cả chuỗi nên được phép chuyển sang chi nhánh bất kỳ qua
+    // X-Branch-Id; nhân viên thường vẫn chỉ được thao tác đúng chi nhánh của
+    // mình — gửi header khác đi là chặn ngay, không âm thầm bỏ qua.
+    if (!isAdmin && requestedBranchId && employeeBranchId && requestedBranchId !== employeeBranchId) {
       return res.status(403).json({ success: false, data: null, message: 'Nhân viên không được phép thao tác tại chi nhánh này.', errors: null });
     }
 

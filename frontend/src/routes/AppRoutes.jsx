@@ -46,11 +46,11 @@ export default function AppRoutes() {
         <Route path="/my-bookings" element={<ProtectedRoute roles={['customer']}><MyBookingsPage /></ProtectedRoute>} />
 
         {/* Bàn làm việc của nhân viên & quản trị */}
-        {/* Dashboard đọc báo cáo — API chỉ mở cho admin, nên route cũng vậy */}
+        {/* Dashboard đọc báo cáo — API mở cho admin và branch_manager, route cũng vậy */}
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute roles={['admin']}>
+            <ProtectedRoute roles={['admin', 'branch_manager']}>
               <SidebarLayout><DashboardPage /></SidebarLayout>
             </ProtectedRoute>
           }
@@ -62,7 +62,7 @@ export default function AppRoutes() {
         <Route
           path="/employees"
           element={
-            <ProtectedRoute roles={['admin']}>
+            <ProtectedRoute roles={['admin', 'branch_manager']}>
               <SidebarLayout><EmployeesPage /></SidebarLayout>
             </ProtectedRoute>
           }
@@ -71,7 +71,7 @@ export default function AppRoutes() {
         <Route
           path="/reports"
           element={
-            <ProtectedRoute roles={['admin']}>
+            <ProtectedRoute roles={['admin', 'branch_manager']}>
               <SidebarLayout><ReportsPage /></SidebarLayout>
             </ProtectedRoute>
           }

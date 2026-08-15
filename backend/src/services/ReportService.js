@@ -1,6 +1,7 @@
 const { Invoice, Payment, CourtSession, Court, Customer, Extra, SessionExtra, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { startOfLocalDay, endOfLocalDay } = require('../utils/dateTime');
+const InventoryService = require('./InventoryService');
 
 // Dựng điều kiện lọc theo khoảng ngày (from/to dạng YYYY-MM-DD, cả hai đều optional)
 const buildDateRange = (column, from, to) => {
@@ -48,12 +49,8 @@ class ReportService {
     });
     const occupancyRate = operatingCourts > 0 ? Math.round((activeCourts / operatingCourts) * 100) : 0;
 
-    // Low stock items count
-    const lowStockCount = await Extra.count({
-      where: {
-        stockQuantity: { [Op.lte]: sequelize.col('low_stock_threshold') }
-      }
-    });
+    // Low stock items count (tính riêng theo chi nhánh)
+    const lowStockCount = await InventoryService.getLowStockCount(branchId);
 
     return {
       todayRevenue,

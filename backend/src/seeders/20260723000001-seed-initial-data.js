@@ -146,13 +146,12 @@ module.exports = {
       }
     ], {});
 
-    // 6. Extras
+    // 6. Extras (danh mục dùng chung mọi chi nhánh — tồn kho nằm riêng ở extra_stocks)
     await queryInterface.bulkInsert('extras', [
       {
         id: 1,
         name: 'Cầu lông Yonex King (Quả)',
         price: 25000.00,
-        stock_quantity: 100,
         low_stock_threshold: 10,
         created_at: now,
         updated_at: now
@@ -161,7 +160,6 @@ module.exports = {
         id: 2,
         name: 'Thuê Vợt Badminton Pro (Lượt)',
         price: 30000.00,
-        stock_quantity: 20,
         low_stock_threshold: 3,
         created_at: now,
         updated_at: now
@@ -170,7 +168,6 @@ module.exports = {
         id: 3,
         name: 'Nước suối Aquafina 500ml',
         price: 10000.00,
-        stock_quantity: 50,
         low_stock_threshold: 5,
         created_at: now,
         updated_at: now
@@ -179,11 +176,19 @@ module.exports = {
         id: 4,
         name: 'Nước điện giải Revive 500ml',
         price: 15000.00,
-        stock_quantity: 40,
         low_stock_threshold: 5,
         created_at: now,
         updated_at: now
       }
+    ], {});
+
+    // Tồn kho ban đầu cho chi nhánh chính (id=1) — dữ liệu demo, tương đương
+    // opening balance của từng sản phẩm.
+    await queryInterface.bulkInsert('extra_stocks', [
+      { extra_id: 1, branch_id: 1, quantity: 100, created_at: now, updated_at: now, version: 0 },
+      { extra_id: 2, branch_id: 1, quantity: 20, created_at: now, updated_at: now, version: 0 },
+      { extra_id: 3, branch_id: 1, quantity: 50, created_at: now, updated_at: now, version: 0 },
+      { extra_id: 4, branch_id: 1, quantity: 40, created_at: now, updated_at: now, version: 0 }
     ], {});
 
     // 7. Settings
@@ -207,6 +212,7 @@ module.exports = {
 
   async down(queryInterface, Sequelize) {
     await queryInterface.bulkDelete('settings', null, {});
+    await queryInterface.bulkDelete('extra_stocks', null, {});
     await queryInterface.bulkDelete('extras', null, {});
     await queryInterface.bulkDelete('courts', null, {});
     await queryInterface.bulkDelete('customers', null, {});

@@ -9,7 +9,7 @@ const {
   updateEmployeeRules
 } = require('../validations/employeeValidation');
 
-router.use(authMiddleware, branchContextMiddleware, roleMiddleware(['admin']));
+router.use(authMiddleware, branchContextMiddleware, roleMiddleware(['admin', 'branch_manager']));
 
 router.get('/', employeeController.getEmployees);
 router.get('/:id/activity-logs', employeeController.getActivityLogs);

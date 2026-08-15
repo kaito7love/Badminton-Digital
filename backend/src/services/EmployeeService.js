@@ -1,6 +1,8 @@
+const { Op } = require("sequelize");
 const { Employee, User, Role, ActivityLog, sequelize } = require("../models");
 const bcrypt = require("bcrypt");
 const { getPagination, getPagingData } = require("../utils/pagination");
+const { normalizePhone, isValidPhone } = require("../utils/phone");
 const AuditService = require('./AuditService');
 
 class EmployeeService {
@@ -16,7 +18,7 @@ class EmployeeService {
         {
           model: User,
           as: "user",
-          attributes: ["id", "fullName", "email"],
+          attributes: ["id", "fullName", "email", "phone"],
           include: [{ model: Role, as: "role", attributes: ["id", "name"] }],
         },
       ],
@@ -32,7 +34,7 @@ class EmployeeService {
         {
           model: User,
           as: "user",
-          attributes: ["id", "fullName", "email"],
+          attributes: ["id", "fullName", "email", "phone"],
           include: [{ model: Role, as: "role", attributes: ["id", "name"] }],
         },
       ],
@@ -65,6 +67,19 @@ class EmployeeService {
         throw error;
       }
 
+      const phone = normalizePhone(data.phone);
+      if (!isValidPhone(phone)) {
+        const error = new Error("Số điện thoại nhân viên không hợp lệ");
+        error.statusCode = 400;
+        throw error;
+      }
+      const existingPhone = await User.findOne({ where: { phone }, transaction });
+      if (existingPhone) {
+        const error = new Error("Số điện thoại này đã có tài khoản khác");
+        error.statusCode = 409;
+        throw error;
+      }
+
       const role = await Role.findOne({
         where: { name: "employee" },
         transaction,
@@ -81,6 +96,7 @@ class EmployeeService {
         {
           fullName: data.fullName || data.name || "Nhân viên mới",
           email: data.email,
+          phone,
           passwordHash,
           roleId,
         },
@@ -129,6 +145,24 @@ class EmployeeService {
         shift: data.shift !== undefined ? data.shift : employee.shift,
       }, { transaction });
       if (data.email && employee.user) await employee.user.update({ email: data.email }, { transaction });
+      if (data.phone !== undefined && employee.user) {
+        const phone = normalizePhone(data.phone);
+        if (!isValidPhone(phone)) {
+          const error = new Error("Số điện thoại nhân viên không hợp lệ");
+          error.statusCode = 400;
+          throw error;
+        }
+        const existingPhone = await User.findOne({
+          where: { phone, id: { [Op.ne]: employee.user.id } },
+          transaction,
+        });
+        if (existingPhone) {
+          const error = new Error("Số điện thoại này đã có tài khoản khác");
+          error.statusCode = 409;
+          throw error;
+        }
+        await employee.user.update({ phone }, { transaction });
+      }
       await AuditService.record({ actor: context.actor, branchId: employee.branchId, action: 'employee.updated', targetType: 'employee', targetId: employee.id, oldValues, newValues: employee.toJSON(), requestId: context.requestId, transaction });
       await transaction.commit();
       return await EmployeeService.getEmployeeById(id, context.branchId);

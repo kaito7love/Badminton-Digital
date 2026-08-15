@@ -11,7 +11,8 @@ const validate = (req, res, next) => {
   next();
 };
 
-// Tính duy nhất của SĐT trong một chi nhánh do chỉ mục (branch_id, phone) đảm nhiệm.
+// Tính duy nhất của SĐT do unique index (phone) toàn hệ thống đảm nhiệm — 1
+// khách hàng dùng chung 1 hồ sơ ở mọi chi nhánh.
 // Tạo hồ sơ có chủ đích từ màn Khách hàng thì SĐT là bắt buộc: đó là thứ duy
 // nhất nhận ra khách ở lần ghé sau, và cũng là danh tính để họ đăng nhập đặt
 // sân online. Khách vãng lai không chịu đưa số vẫn mở sân được bình thường —

@@ -10,9 +10,8 @@ class CustomerService {
    *
    * `totalSpent` và `loyaltyTier` cố tình nằm ngoài: chúng do PaymentService
    * cộng dồn sau mỗi lần thanh toán, sửa tay thì hạng thành viên và ưu đãi đi
-   * kèm không còn phản ánh khoản khách đã chi. `userId` và `branchId` cũng
-   * vậy — gắn hồ sơ vào tài khoản nào, thuộc chi nhánh nào, không phải việc
-   * của một form sửa thông tin.
+   * kèm không còn phản ánh khoản khách đã chi. `userId` cũng vậy — gắn hồ sơ
+   * vào tài khoản nào không phải việc của một form sửa thông tin.
    */
   static pickEditableFields(data = {}) {
     const editable = ['fullName', 'phone', 'email'];
@@ -22,12 +21,12 @@ class CustomerService {
     }, {});
   }
 
-  static async getAllCustomers(query, context = {}) {
+  /** Danh sách/tìm kiếm khách hàng dùng chung toàn chuỗi — 1 hồ sơ áp dụng ở mọi chi nhánh. */
+  static async getAllCustomers(query) {
     const { page, limit, offset } = getPagination(query);
     const { search } = query;
 
     const where = {};
-    if (context.branchId) where.branchId = context.branchId;
     if (search) {
       where[Op.or] = [
         { fullName: { [Op.like]: `%${search}%` } },
@@ -47,7 +46,7 @@ class CustomerService {
   }
 
   static async getCustomerById(id, context = {}) {
-    const customer = await Customer.findOne({ where: { id, ...(context.branchId ? { branchId: context.branchId } : {}) } });
+    const customer = await Customer.findByPk(id);
     if (!customer) {
       const error = new Error('Customer not found');
       error.statusCode = 404;
@@ -58,15 +57,10 @@ class CustomerService {
   }
 
   static async createCustomer(data, context) {
-    if (!context.branchId) {
-      const error = new Error('Không xác định được chi nhánh khách hàng');
-      error.statusCode = 400;
-      throw error;
-    }
     const phone = normalizePhone(data.phone);
     const email = data.email ? String(data.email).trim().toLowerCase() : null;
 
-    const existing = await Customer.findOne({ where: { phone, branchId: context.branchId } });
+    const existing = await Customer.findOne({ where: { phone } });
     if (existing) {
       const error = new Error('Số điện thoại này đã có hồ sơ khách hàng');
       error.statusCode = 400;
@@ -78,7 +72,6 @@ class CustomerService {
     if (!data.password) {
       return await Customer.create({
         ...CustomerService.pickEditableFields(data),
-        branchId: context.branchId,
         phone,
         email
       });
@@ -119,7 +112,6 @@ class CustomerService {
 
       const customer = await Customer.create({
         ...CustomerService.pickEditableFields(data),
-        branchId: context.branchId,
         userId: user.id,
         phone,
         email
@@ -136,13 +128,14 @@ class CustomerService {
   /**
    * Biến thông tin khách vãng lai (tên, có thể kèm SĐT) thành hồ sơ khách hàng.
    *
-   * Có SĐT thì gộp vào hồ sơ cũ trong cùng chi nhánh — nhờ vậy khách vãng lai hôm
-   * nay để lại số, mai quay lại sẽ nối liền lịch sử chi tiêu. Chỉ có tên thì mỗi
-   * lần là một hồ sơ mới, vì không có gì để định danh mà gộp.
+   * Có SĐT thì gộp vào hồ sơ cũ (dùng chung toàn chuỗi) — nhờ vậy khách vãng
+   * lai hôm nay để lại số ở chi nhánh này, mai quay lại chi nhánh khác vẫn nối
+   * liền lịch sử chi tiêu. Chỉ có tên thì mỗi lần là một hồ sơ mới, vì không
+   * có gì để định danh mà gộp.
    *
    * Trả về null nếu không có thông tin gì — phiên chơi/booking khi đó thực sự ẩn danh.
    */
-  static async resolveWalkIn({ branchId, fullName, phone, transaction = null }) {
+  static async resolveWalkIn({ fullName, phone, transaction = null }) {
     const name = (fullName || '').trim();
     const normalizedPhone = normalizePhone(phone);
 
@@ -150,21 +143,20 @@ class CustomerService {
 
     if (normalizedPhone) {
       const existing = await Customer.findOne({
-        where: { branchId, phone: normalizedPhone },
+        where: { phone: normalizedPhone },
         transaction
       });
       if (existing) return existing;
     }
 
     return await Customer.create({
-      branchId,
       fullName: name || 'Khách vãng lai',
       phone: normalizedPhone
     }, { transaction });
   }
 
   static async updateCustomer(id, data, context) {
-    const customer = await Customer.findOne({ where: { id, ...(context.branchId ? { branchId: context.branchId } : {}) } });
+    const customer = await Customer.findByPk(id);
     if (!customer) {
       const error = new Error('Customer not found');
       error.statusCode = 404;
@@ -176,7 +168,7 @@ class CustomerService {
     if ('phone' in payload) payload.phone = normalizePhone(payload.phone);
 
     if (payload.phone && payload.phone !== customer.phone) {
-      const existing = await Customer.findOne({ where: { phone: payload.phone, branchId: customer.branchId } });
+      const existing = await Customer.findOne({ where: { phone: payload.phone } });
       if (existing) {
         const error = new Error('Số điện thoại này đã thuộc về khách hàng khác');
         error.statusCode = 400;
@@ -199,8 +191,8 @@ class CustomerService {
     return await customer.update(payload);
   }
 
-  static async deleteCustomer(id, context) {
-    const customer = await Customer.findOne({ where: { id, ...(context.branchId ? { branchId: context.branchId } : {}) } });
+  static async deleteCustomer(id) {
+    const customer = await Customer.findByPk(id);
     if (!customer) {
       const error = new Error('Customer not found');
       error.statusCode = 404;
@@ -211,7 +203,7 @@ class CustomerService {
   }
 
   static async getCustomerHistory(id, context = {}) {
-    const customer = await Customer.findOne({ where: { id, ...(context.branchId ? { branchId: context.branchId } : {}) } });
+    const customer = await Customer.findByPk(id);
     if (!customer) {
       const error = new Error('Customer not found');
       error.statusCode = 404;

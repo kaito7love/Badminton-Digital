@@ -16,9 +16,9 @@ router.get('/', bookingController.getBookings);
 router.get('/availability', checkAvailabilityRules, bookingController.checkAvailability);
 router.get('/:id', bookingController.getBookingById);
 
-router.post('/', roleMiddleware(['admin', 'employee', 'customer']), createBookingRules, bookingController.createBooking);
-router.put('/:id', roleMiddleware(['admin', 'employee', 'customer']), updateBookingRules, bookingController.updateBooking);
-router.delete('/:id', roleMiddleware(['admin', 'employee', 'customer']), bookingController.cancelBooking);
-router.put('/:id/confirm', roleMiddleware(['admin', 'employee']), bookingController.confirmBooking);
+router.post('/', roleMiddleware(['admin', 'branch_manager', 'employee', 'customer']), createBookingRules, bookingController.createBooking);
+router.put('/:id', roleMiddleware(['admin', 'branch_manager', 'employee', 'customer']), updateBookingRules, bookingController.updateBooking);
+router.delete('/:id', roleMiddleware(['admin', 'branch_manager', 'employee', 'customer']), bookingController.cancelBooking);
+router.put('/:id/confirm', roleMiddleware(['admin', 'branch_manager', 'employee']), bookingController.confirmBooking);
 
 module.exports = router;

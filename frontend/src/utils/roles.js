@@ -2,8 +2,8 @@
 // nhập không bao giờ nói khác nhau. Trước đây mọi vai trò đều bị đẩy về
 // /dashboard, nên khách hàng đăng nhập xong rơi thẳng vào màn hình 403.
 
-export const STAFF_ROLES = ['admin', 'employee'];
-export const ALL_ROLES = ['admin', 'employee', 'customer'];
+export const STAFF_ROLES = ['admin', 'branch_manager', 'employee'];
+export const ALL_ROLES = ['admin', 'branch_manager', 'employee', 'customer'];
 
 /** Vai trò được rút từ user, chấp nhận cả dạng chuỗi lẫn dạng object của API. */
 export const roleOf = (user) =>
@@ -18,7 +18,7 @@ export const isStaff = (user) => STAFF_ROLES.includes(roleOf(user));
  */
 export const homePathForRole = (user) => {
   const role = roleOf(user);
-  if (role === 'admin') return '/dashboard';
+  if (role === 'admin' || role === 'branch_manager') return '/dashboard';
   if (role === 'employee') return '/courts';
   return '/my-bookings';
 };
