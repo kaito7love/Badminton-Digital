@@ -10,20 +10,38 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     ports:
-      - "3306:3306"
+      # Chỉ bind vào 127.0.0.1 — vẫn debug được từ máy host (MySQL
+      # Workbench/DBeaver trỏ localhost:3306), nhưng không mở ra mạng ngoài
+      # như trước (0.0.0.0:3306).
+      - "127.0.0.1:3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build:
       context: ../backend
+      dockerfile: ../docker/backend.Dockerfile
+    restart: unless-stopped
     env_file: ../backend/.env
+    environment:
+      # .env gốc để DB_HOST=localhost cho lúc chạy npm run dev ngoài Docker —
+      # trong mạng compose phải trỏ đúng tên service "mysql", ghi đè riêng
+      # biến này, các biến khác (JWT secret, mail...) vẫn lấy từ env_file.
+      DB_HOST: mysql
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     ports:
       - "5000:5000"
 
   frontend:
     build:
       context: ../frontend
+      dockerfile: ../docker/frontend.Dockerfile
+    restart: unless-stopped
     depends_on:
       - backend
     ports:
