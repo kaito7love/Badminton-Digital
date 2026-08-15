@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import apiClient from "../services/apiClient";
+import { onAuthExpired } from "../services/authEvents";
 
 const AuthContext = createContext(null);
 
@@ -35,6 +36,14 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     checkAuth();
+  }, []);
+
+  // apiClient tự xoá localStorage khi refresh token thật sự hết hiệu lực —
+  // đồng bộ lại state ở đây để UI phản ứng ngay (ProtectedRoute chuyển về
+  // /login) thay vì tiếp tục hiển thị như đang đăng nhập.
+  useEffect(() => {
+    const unsubscribe = onAuthExpired(() => setUser(null));
+    return unsubscribe;
   }, []);
 
   // `identifier` nhận cả số điện thoại lẫn email — backend tự phân biệt.
