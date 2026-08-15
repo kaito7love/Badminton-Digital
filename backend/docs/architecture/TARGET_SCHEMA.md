@@ -34,6 +34,20 @@ See [MIGRATION_ROADMAP.md](./MIGRATION_ROADMAP.md) for how to get there from the
 | `user_branch_assignments` | Which branches a staff user may access |
 | `employees`, `customers` | Staff and CRM profiles |
 
+> **Shipped so far:** a `branch_manager` role landed in `roles`
+> (`20260815300002-add-branch-manager-role.js`) as a fourth hardcoded role name
+> checked in `roleMiddleware([...])` arrays — `permissions`/`role_permissions`
+> do not exist yet, so this is still name-based authorization, not the
+> permission-code RBAC this section targets. There is no
+> `user_branch_assignments` table either; branch access for staff is still a
+> single `employees.branch_id` (one branch per employee), with `admin` alone
+> able to view any branch at request time via `X-Branch-Id`
+> (`branchContextMiddleware.js`) rather than an explicit assignment table.
+> Separately, `customers` became chain-wide — `branch_id` was dropped from it
+> (`20260815300001-unify-customers-chain-wide.js`) so one customer profile is
+> shared across all branches; only `bookings`/`court_sessions`/`invoices`/
+> `payments` still carry `branch_id` to record where a transaction happened.
+
 ### Court & booking
 
 | Table | Purpose |
@@ -56,7 +70,7 @@ See [MIGRATION_ROADMAP.md](./MIGRATION_ROADMAP.md) for how to get there from the
 | `product_barcodes`, `product_images` | POS scan & storefront |
 | `sales_orders`, `sales_order_lines` | POS / session / online carts |
 
-**Legacy:** `extras`, `session_extras` — retired after M2 backfill (keep read-only during dual-write).
+**Legacy:** `extras`, `session_extras` — target was to retire these after the M2 backfill, but as of the M4 inventory work landing, this has not happened: `extras`/`session_extras` remains the only live sales path (`products`/`product_variants`/`sales_orders` have no application code), and M4's stock ledger was built on `extras`, not `product_variants`. See `MIGRATION_ROADMAP.md`.
 
 ### Inventory & procurement (M4+)
 
@@ -66,6 +80,17 @@ See [MIGRATION_ROADMAP.md](./MIGRATION_ROADMAP.md) for how to get there from the
 | `stock_levels` | On-hand and reserved per variant |
 | `stock_movements`, `stock_movement_lines` | Audit trail (sale, receipt, adjust, …) |
 | `suppliers`, `purchase_orders`, `goods_receipts` | Restock shuttlecocks |
+
+> **Shipped vs. targeted (M4, `20260815000002-inventory-foundation.js`):** the real
+> tables are `suppliers`, `extra_stocks` (not `stock_levels`/`warehouses` — one row
+> per `(extra_id, branch_id)`, no warehouse/location concept), `stock_movements`
+> (matches; no `stock_movement_lines` split), and `goods_receipts` /
+> `goods_receipt_items` (matches `goods_receipts`, but there is no
+> `purchase_orders` table — a receipt is created directly, not against a PO).
+> Crucially, stock keys off `extra_id` (the legacy flat catalog), not
+> `product_variant_id` — the `products`/`product_variants` catalog below was
+> never adopted at the app layer, so M4 was built on what actually exists. See
+> `MIGRATION_ROADMAP.md` for the full comparison.
 
 ### Billing
 

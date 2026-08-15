@@ -3,9 +3,8 @@
 Hệ thống quản lý sân cầu lông full-stack — React, Node.js/Express, MySQL/Sequelize.
 
 ## Cấu trúc dự án
-- `frontend/` — React SPA
-- `backend/` — Node.js/Express REST API
-- `database/` — Migrations, seeders, ERD
+- `frontend/` — React SPA (giao diện quản trị/nhân viên + đặt sân khách hàng) — xem [`frontend/README.md`](frontend/README.md)
+- `backend/` — Node.js/Express REST API (đa chi nhánh, kho hàng, đặt sân, thanh toán) — xem [`backend/README.md`](backend/README.md); migrations/seeders nằm ở `backend/src/migrations/` và `backend/src/seeders/`
 - `docs/` — SRS, Use Case, Database Design, API Design, Architecture, Test Plan, Deployment Guide
 - `postman/` — Postman collection kiểm thử API
 - `k6/` — Kịch bản load testing

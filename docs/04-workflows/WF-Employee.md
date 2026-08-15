@@ -3,6 +3,14 @@
 **Actor:** Nhân viên (Employee)  
 **Quyền hạn:** Vận hành quầy lễ tân — mở/đóng sân, booking, checkout, quản lý khách
 
+> File này mô tả đúng vai trò `employee`. Vai trò `branch_manager` (thêm gần
+> đây) làm được TẤT CẢ những gì `employee` làm được ở đây, CỘNG THÊM một số
+> quyền quản lý chi nhánh mà `employee` không có: CRUD định nghĩa sân
+> (`flows/WF-02-CourtOperations.md` §Ghi chú vai trò), quản lý nhân viên
+> (`flows/WF-06-EmployeeManagement.md`), và xem Dashboard/Báo cáo
+> (`flows/WF-08-ReportsSettings.md`). Cả hai vai trò đều bị khoá cứng vào
+> đúng 1 chi nhánh — không có bộ chuyển chi nhánh như Admin (`WF-Admin.md` §7).
+
 ---
 
 ## 🔐 1. Xác thực tài khoản
@@ -10,10 +18,13 @@
 ```
 [Truy cập hệ thống]
        ↓
-  Nhập email + mật khẩu
+  Nhập SĐT hoặc email (1 ô "identifier") + mật khẩu
        ↓
   Hệ thống xác thực → Vào giao diện Nhân viên (Court Monitor)
 ```
+
+Chi tiết đầy đủ (chuẩn hoá SĐT, thông báo lỗi, refresh token) xem
+`flows/WF-01-Login.md`.
 
 Use Cases: UC-01, UC-04
 
@@ -31,7 +42,12 @@ Use Cases: UC-01, UC-04
   ┌──────────────────────────────────────┐
   │ Gán khách hàng? (optional)           │
   │  ├─→ Có: Tìm kiếm theo SĐT / tên   │
-  │  └─→ Không: Khách vãng lai          │
+  │  │       (danh sách khách toàn chuỗi, │
+  │  │        không riêng chi nhánh này) │
+  │  └─→ Không: Khách vãng lai — có SĐT  │
+  │       thì tự gộp vào hồ sơ cũ nếu    │
+  │       khách đã từng chơi ở chi nhánh │
+  │       KHÁC                           │
   └──────────────────────────────────────┘
        ↓
   Xác nhận → Hệ thống tạo CourtSession
@@ -39,24 +55,29 @@ Use Cases: UC-01, UC-04
               Sân → trạng thái "Đang chơi"
 ```
 
+Chi tiết luồng gộp/tạo hồ sơ khách vãng lai xem `flows/WF-02-CourtOperations.md` §A.
+
 Use Cases: UC-06
 
 ---
 
-## 🏸 3. Gọi thêm phụ kiện vào sân đang chơi
+## 🏸 3. Gọi thêm phụ kiện & quản lý kho hàng
 
 ```
 [Màn hình sân đang chơi]
        ↓
-  Chọn "Gọi thêm" (nước uống / phụ kiện)
+  Chọn "Gọi thêm" (nước uống / phụ kiện) → chọn sản phẩm + số lượng
        ↓
-  Chọn loại phụ kiện + số lượng
-       ↓
-  Hệ thống kiểm tra tồn kho
-       ↓ Đủ hàng           ↓ Không đủ
-  Ghi vào SessionExtra   Cảnh báo thiếu hàng
-  Trừ kho tự động
+  Hệ thống trừ tồn kho CỦA CHI NHÁNH ĐANG LÀM VIỆC, ghi SessionExtra
+       ↓ Đủ hàng                    ↓ Không đủ
+  Ghi nhận thành công          400 "Không đủ tồn kho tại chi nhánh
+                                    này. Hiện có: {N}"
 ```
+
+Nhân viên cũng tạo được **phiếu nhập kho** và **điều chỉnh kho thủ công**
+(không chỉ Admin) — toàn bộ mô hình tồn kho theo chi nhánh, giá vốn bình quân
+gia quyền, các loại giao dịch kho, và trả lại phụ kiện chưa dùng xem đầy đủ ở
+`flows/WF-07-Accessories.md`.
 
 Use Cases: UC-17
 
@@ -116,14 +137,20 @@ Use Cases: UC-07
     └─→ Không: Bỏ qua
        ↓
   Chọn phương thức thanh toán:
-    ├─→ Tiền mặt → Nhận tiền → Xác nhận
-    └─→ Chuyển khoản → Hiển thị mã VietQR → Xác nhận đã nhận tiền
+    ├─→ Tiền mặt → Nhận tiền → Gọi checkout → Payment 'paid' NGAY
+    │      → Cập nhật total_spent + hạng hội viên của khách ngay lúc này
+    └─→ Chuyển khoản → Gọi checkout → hiển thị mã VietQR → Payment tạm
+           ở trạng thái 'pending' cho tới khi ngân hàng xác nhận qua webhook
+           (không có nút "nhân viên xác nhận đã nhận tiền" thủ công —
+            total_spent/hạng hội viên chỉ cộng khi webhook về)
        ↓
-  Hệ thống tạo Invoice + Payment
-  Cập nhật total_spent của khách (nếu có tài khoản)
+  Hệ thống tạo/cập nhật Invoice
        ↓
   In hóa đơn / Xuất PDF
 ```
+
+Chi tiết đầy đủ (idempotency key, cấu trúc VietQR, webhook) xem
+`flows/WF-04-Payment.md`.
 
 Use Cases: UC-18
 
@@ -158,10 +185,15 @@ Use Cases: UC-10, UC-11, UC-12, UC-13
 ```
 [Trang Khách hàng]
        ↓
-  ├─→ Tìm kiếm theo tên / SĐT
+  ├─→ Tìm kiếm theo tên / SĐT — TOÀN CHUỖI, không riêng chi nhánh này
+  │       (Customer là hồ sơ dùng chung mọi chi nhánh)
   ├─→ Thêm khách hàng mới (tên, SĐT, email)
   ├─→ Sửa thông tin khách hàng
-  └─→ Xem lịch sử chơi & tổng tiền tích lũy
+  └─→ Xem lịch sử chơi & tổng tiền tích lũy — gộp mọi chi nhánh khách
+        từng chơi, không chỉ chi nhánh đang làm việc
 ```
+
+Nhân viên KHÔNG xóa được khách hàng (`DELETE` chỉ dành cho `admin`). Chi tiết
+đầy đủ xem `flows/WF-05-CustomerManagement.md`.
 
 Use Cases: UC-14, UC-15

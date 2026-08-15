@@ -26,14 +26,24 @@
 
 ## 3. Chiến lược kiểm thử (Test Levels)
 
+**Hiện trạng (đã triển khai, chạy trong CI):**
+
 | Cấp độ | Công cụ | Phạm vi |
 |---|---|---|
-| Unit Test | Jest (Backend), React Testing Library (Frontend) | Service functions (tính tiền, kiểm tra trùng lịch), component logic |
-| Integration Test | Jest + Supertest | API endpoint kết hợp DB (dùng DB test riêng/SQLite in-memory hoặc MySQL test container) |
-| API/Manual Test | Postman (Collection + Newman CLI) | Toàn bộ endpoint theo `APIDesign.md`, gồm case thành công và lỗi |
-| Load/Performance Test | K6 | Endpoint tần suất cao: `/courts/:id/open`, `/courts/:id/close`, `/bookings`, `/payments/checkout` |
+| Unit Test | Jest (Backend) | Service/logic thuần, không phụ thuộc DB: tính tiền theo khung giờ, kiểm tra trùng lịch, validate SĐT/thanh toán, logic tồn kho (`InventoryService`) — xem mục 9 cho danh sách file |
+| Unit Test | Vitest (Frontend) | Hàm/logic thuần phía frontend — hiện chỉ có `src/utils/roles.test.js` |
+| Build check | `vite build` | Đảm bảo frontend build production không lỗi (không phải test theo nghĩa assert hành vi) |
+
+**Kế hoạch (chưa triển khai — đề xuất, không có trong CI hiện tại):**
+
+| Cấp độ | Công cụ | Phạm vi |
+|---|---|---|
+| Integration Test | Jest + Supertest | API endpoint kết hợp DB (dùng DB test riêng/SQLite in-memory hoặc MySQL test container) — CI hiện chưa có service DB nên chưa chạy được loại test này |
+| API/Manual Test | Postman (Collection + Newman CLI) | Toàn bộ endpoint theo `APIDesign.md`, gồm case thành công và lỗi — thư mục `postman/` hiện chỉ có `.gitkeep`, chưa có collection thật |
+| Load/Performance Test | K6 | Endpoint tần suất cao: `/courts/:id/open`, `/courts/:id/close`, `/bookings`, `/payments/checkout` — thư mục `k6/` hiện chỉ có `.gitkeep`, chưa có script thật |
 | UI/E2E Test | (đề xuất) Cypress hoặc Playwright | Luồng chính: login → mở sân → checkout; tạo booking; xem báo cáo |
-| Security Checklist | Thủ công | Kiểm tra JWT, RBAC, input validation, SQL injection cơ bản |
+| Lint | ESLint | CI hiện không chạy bước lint riêng cho backend lẫn frontend |
+| Security Checklist | Thủ công | Kiểm tra JWT, RBAC, input validation, SQL injection cơ bản — chưa tự động hóa trong CI |
 
 ## 4. Môi trường kiểm thử
 | Môi trường | Mục đích |
@@ -107,10 +117,29 @@ Tiêu chí đạt: p95 response time < 2 giây, tỉ lệ lỗi (5xx) < 1% ở t
 
 ## 9. Công cụ & Quy trình
 
-- **Postman Collection**: đặt tại `postman/Badminton Digital Management.postman_collection.json`, tổ chức folder theo module giống `APIDesign.md`.
-- **Newman**: chạy Postman collection trong CI (GitHub Actions) để tự động hóa API test.
-- **K6 scripts**: đặt tại `k6/`, mỗi kịch bản một file (`k6/checkout-load-test.js`...).
-- **CI/CD**: GitHub Actions chạy `npm test` (unit/integration) + Newman ở mỗi Pull Request trước khi merge.
+### 9.1 Test file hiện có (backend — `backend/tests/*.test.js`, chạy bằng `npm test` → `jest`)
+- `priceCalculator.test.js`
+- `paymentValidation.test.js`
+- `courtService.test.js`
+- `dateTime.test.js`
+- `phone.test.js`
+- `inventoryService.test.js` — thêm cùng đợt merge hệ thống quản lý kho hàng (nhà cung cấp, phiếu nhập kho, tồn kho)
+
+Tất cả các file trên là unit test thuần logic, không kết nối DB thật (không có `NODE_ENV=test` + MySQL trong CI), phù hợp việc CI hiện tại không có service DB.
+
+### 9.2 Test file hiện có (frontend — `frontend/src/**/*.test.*`, chạy bằng `npm test` → `vitest`)
+- `src/utils/roles.test.js` — hiện là file test duy nhất ở frontend.
+
+### 9.3 Postman & K6 (chưa populated)
+- `postman/`: hiện chỉ có `.gitkeep`, **chưa có** collection Postman thật. Đường dẫn `postman/Badminton Digital Management.postman_collection.json` ở trên là dự kiến đặt tên khi tạo, không phải file đã tồn tại.
+- `k6/`: hiện chỉ có `.gitkeep`, **chưa có** script K6 thật (`k6/checkout-load-test.js` là ví dụ dự kiến, chưa tạo).
+
+### 9.4 CI/CD hiện tại (`.github/workflows/ci.yml`)
+Chạy trên `push`/`pull_request` vào `main` và `develop`, gồm 2 job độc lập, không phụ thuộc nhau:
+- `backend-test`: `npm ci` + `npm test` (Jest) trong thư mục `backend/` — không có service MySQL, không chạy migration, không lint.
+- `frontend-build`: `npm ci` + `npm run build` (Vite) trong thư mục `frontend/` — chỉ kiểm tra build production thành công, không chạy `vitest`.
+
+CI hiện **không** chạy: lint (ESLint), Postman/Newman, K6, hay bất kỳ bước nào cần kết nối DB (xem `.github/workflows/ci.yml`).
 
 ---
 

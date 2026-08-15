@@ -10,14 +10,24 @@
 ```
 [Truy cập hệ thống]
        ↓
-  Nhập email + mật khẩu
+  Nhập SĐT hoặc email (1 ô "identifier") + mật khẩu
        ↓
-  ┌─────────────────────────────┐
-  │ Hệ thống xác thực JWT       │
-  └─────────────────────────────┘
+  [POST /api/v1/auth/login] { identifier, password }
+  ┌───────────────────────────────────────────────┐
+  │ Có '@' → tra theo email                        │
+  │ Toàn số → chuẩn hoá SĐT rồi tra theo phone      │
+  │ bcrypt verify + kiểm tra isActive               │
+  │ Hệ thống xác thực JWT (Access 15p, Refresh 7n) │
+  └───────────────────────────────────────────────┘
        ↓ Thành công         ↓ Thất bại
-  Vào Dashboard Admin    Hiển thị lỗi / Thử lại
+  Vào Dashboard Admin    401 "Số điện thoại/email hoặc mật khẩu
+                          không chính xác" / Thử lại
 ```
+
+Sai định danh và sai mật khẩu trả về cùng 1 thông báo lỗi — không phân biệt
+"chưa có tài khoản" với "sai mật khẩu". Tài khoản `isActive = false` báo riêng:
+"Tài khoản bị khóa, vui lòng liên hệ Admin". Chi tiết đầy đủ (chuẩn hoá SĐT,
+quên mật khẩu, đổi mật khẩu, refresh token) xem `flows/WF-01-Login.md`.
 
 Use Cases: UC-01 (Đăng nhập), UC-03 (Quên mật khẩu), UC-04 (Đổi mật khẩu)
 
@@ -69,12 +79,28 @@ Use Cases: UC-16
 
 ```
 Dashboard
-  └─→ [Trang Phụ kiện]
-           ├─→ Xem danh sách (tên, giá, tồn kho, cảnh báo hàng thấp)
-           ├─→ [Thêm phụ kiện mới]
-           ├─→ [Sửa giá / cập nhật tồn kho]
-           └─→ [Xóa phụ kiện]
+  └─→ [Trang Dịch Vụ & Kho — 4 tab]
+           ├─→ [Sản phẩm] Danh mục dùng chung mọi chi nhánh (tên, giá,
+           │       ngưỡng cảnh báo) + tồn kho hiển thị là của chi nhánh
+           │       đang chọn (xem §7 — Chuyển chi nhánh)
+           │       ├─→ [Thêm / Sửa / Xóa phụ kiện] — chỉ đổi tên/giá/
+           │       │       ngưỡng, KHÔNG còn sửa tồn kho trực tiếp ở đây
+           │       └─→ Sản phẩm mới luôn khởi tạo tồn kho = 0
+           ├─→ [Nhập kho] Tạo phiếu nhập: chọn nhà cung cấp (tuỳ chọn) +
+           │       nhiều dòng (sản phẩm, số lượng, đơn giá) → hệ thống
+           │       cộng vào tồn kho chi nhánh và tính lại giá vốn bình
+           │       quân gia quyền, sinh mã phiếu GR-{chi nhánh}-000000xx
+           ├─→ [Lịch sử kho] Sổ nhật ký mọi biến động tồn kho (nhập,
+           │       bán ra khi gọi phụ kiện, trả hàng, điều chỉnh tăng/
+           │       giảm, hàng hỏng, thất lạc), lọc theo sản phẩm/loại/
+           │       khoảng ngày; có nút "Điều chỉnh kho" thủ công (bắt
+           │       buộc nhập lý do)
+           └─→ [Nhà cung cấp] — riêng cho Admin: CRUD nhà cung cấp dùng
+                   chung cho mọi chi nhánh khi tạo phiếu nhập kho
 ```
+
+Chi tiết đầy đủ luồng nhập kho, giá vốn bình quân, và các loại giao dịch kho
+xem `flows/WF-07-Accessories.md`.
 
 Use Cases: UC-17
 
@@ -116,3 +142,27 @@ Dashboard
 ```
 
 Use Cases: UC-21
+
+---
+
+## 🏢 7. Chuyển chi nhánh (Admin đa chi nhánh)
+
+```
+Admin đăng nhập
+  ├─→ [Bộ chuyển chi nhánh] (chỉ Admin thấy — BranchContext, gọi
+  │       GET /api/v1/branches, cũng chỉ role admin mới gọi được)
+  ├─→ Lần đầu vào: mặc định chọn đúng chi nhánh gốc của Admin
+  │       (user.employee.branchId), không đổi hành vi cũ
+  ├─→ Chọn 1 chi nhánh khác trong danh sách
+  │       └─→ Lưu localStorage (admin_selected_branch_id) → reload trang
+  └─→ Từ đó mọi request gắn header X-Branch-Id = chi nhánh đã chọn
+           └─→ branchContextMiddleware xác thực branch còn active,
+               gán req.branchId — mọi API branch-scoped (sân, đặt sân,
+               phụ kiện/tồn kho, báo cáo...) trả về đúng dữ liệu của
+               chi nhánh đó
+```
+
+Nhân viên (`employee`, `branch_manager`) không có bộ chuyển này — luôn bị
+khoá vào đúng chi nhánh của mình; nếu tự gửi `X-Branch-Id` khác, API chặn
+403 "Nhân viên không được phép thao tác tại chi nhánh này." Chỉ `admin` được
+gửi `X-Branch-Id` bất kỳ vì quản lý cả chuỗi.

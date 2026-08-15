@@ -1,6 +1,6 @@
 # 🏸 Badminton Digital Management — Frontend
 
-> **Giao diện quản trị** cho hệ thống quản lý sân cầu lông số hoá, xây dựng bằng **React + Vite + TailwindCSS**.
+> **Giao diện quản trị & đặt sân khách hàng** cho hệ thống quản lý sân cầu lông số hoá, xây dựng bằng **React + Vite + TailwindCSS**.
 
 ---
 
@@ -20,14 +20,15 @@
 
 ## Tổng quan
 
-Đây là SPA (Single Page Application) phục vụ quản trị viên và nhân viên sân cầu lông. Giao diện kết nối trực tiếp với [Backend API](../backend/README.md) thông qua Axios.
+Đây là SPA (Single Page Application) phục vụ cả bàn làm việc quản trị viên/nhân viên lẫn khách hàng tự đặt sân (trang chủ công khai, đăng ký, đặt sân, xem lịch sử của mình). Giao diện kết nối trực tiếp với [Backend API](../backend/README.md) thông qua Axios.
 
 Các tính năng chính:
 
-- 🔐 **Đăng nhập / Xác thực** — JWT với tự động refresh token
+- 🔐 **Đăng nhập / Xác thực** — đăng nhập bằng số điện thoại hoặc email (`identifier`), tự đăng ký tài khoản khách hàng, quên/đặt lại mật khẩu, JWT với tự động refresh token
+- 🏢 **Đa chi nhánh** — Admin chuyển đổi chi nhánh đang thao tác qua bộ chuyển chi nhánh (`BranchContext`)
 - 🏟️ **Quản lý sân** — Xem trạng thái, mở/đóng/chuyển sân
 - 📅 **Quản lý đặt sân** — Danh sách booking, xác nhận, huỷ
-- 🎒 **Phụ kiện** — Quản lý danh mục phụ kiện/thiết bị
+- 🎒 **Phụ kiện & Kho hàng** — Danh mục phụ kiện, nhà cung cấp, phiếu nhập kho, sổ nhật ký xuất/nhập, điều chỉnh tồn kho theo chi nhánh
 - 👥 **Khách hàng** — Danh sách, lịch sử đặt sân
 - 👨‍💼 **Nhân viên** — CRUD nhân viên, activity logs
 - 📊 **Báo cáo** — Dashboard doanh thu, biểu đồ thống kê (Recharts)
@@ -69,17 +70,24 @@ frontend/
     ├── constants/          # Hằng số dùng chung
     ├── contexts/
     │   ├── AuthContext.jsx     # Context xác thực: login, logout, user state
-    │   └── ThemeContext.jsx    # Context theme: dark/light toggle
+    │   ├── ThemeContext.jsx    # Context theme: dark/light toggle
+    │   └── BranchContext.jsx   # Context đa chi nhánh: danh sách + chi nhánh admin đang chọn
     ├── hooks/              # Custom React hooks
     ├── layouts/
     │   ├── SidebarLayout.jsx   # Layout chính: sidebar + main content
     │   └── icons.jsx           # SVG icon components
     ├── pages/
-    │   ├── Login/          # Trang đăng nhập
+    │   ├── Home/            # Trang chủ công khai (landing, danh sách sân)
+    │   ├── Login/
+    │   │   ├── LoginPage.jsx           # Đăng nhập (số điện thoại hoặc email)
+    │   │   ├── RegisterPage.jsx        # Khách hàng tự đăng ký
+    │   │   ├── ForgotPasswordPage.jsx  # Yêu cầu email đặt lại mật khẩu
+    │   │   └── ResetPasswordPage.jsx   # Đặt mật khẩu mới bằng token từ email
+    │   ├── MyBookings/      # Đặt sân & lịch sử của khách hàng
     │   ├── Dashboard/      # Tổng quan, thống kê
     │   ├── Courts/         # Quản lý sân
     │   ├── Bookings/       # Quản lý đặt sân
-    │   ├── Accessories/    # Quản lý phụ kiện
+    │   ├── Accessories/    # Danh mục phụ kiện, nhà cung cấp, nhập kho, lịch sử kho (nhiều tab)
     │   ├── Customers/      # Quản lý khách hàng
     │   ├── Employees/      # Quản lý nhân viên
     │   ├── Reports/        # Báo cáo & thống kê
@@ -87,28 +95,41 @@ frontend/
     │   └── Settings/       # Cài đặt hệ thống
     ├── routes/
     │   ├── AppRoutes.jsx       # Cấu hình tất cả routes
-    │   └── ProtectedRoute.jsx  # HOC bảo vệ route yêu cầu đăng nhập
+    │   └── ProtectedRoute.jsx  # Chặn theo đăng nhập, tuỳ chọn theo danh sách vai trò (`roles` prop)
     ├── services/
-    │   └── apiClient.js        # Axios instance: interceptor token, auto refresh
-    └── utils/              # Hàm tiện ích dùng chung
+    │   └── apiClient.js        # Axios instance: interceptor token, auto refresh, gắn header X-Branch-Id
+    └── utils/
+        └── roles.js         # Khai báo vai trò, trang chủ theo vai trò, điều hướng sau đăng nhập (nguồn xác thực duy nhất cho route/nav/login)
 ```
 
 ---
 
 ## Trang & Tính năng
 
-| Đường dẫn       | Trang          | Mô tả                                          | Auth |
-|-----------------|----------------|------------------------------------------------|------|
-| `/login`        | Login          | Form đăng nhập bằng email/password             | ❌    |
-| `/` `/dashboard`| Dashboard      | Tổng quan: KPIs, biểu đồ doanh thu, top sân   | ✅    |
-| `/courts`       | Courts         | Danh sách sân, trạng thái, mở/đóng/bảo trì    | ✅    |
-| `/bookings`     | Bookings       | Danh sách đặt sân, xác nhận, huỷ              | ✅    |
-| `/accessories`  | Accessories    | CRUD phụ kiện, vợt, cầu lông                  | ✅    |
-| `/customers`    | Customers      | Danh sách khách hàng, lịch sử đặt sân         | ✅    |
-| `/employees`    | Employees      | Quản lý nhân viên, activity logs               | ✅    |
-| `/reports`      | Reports        | Báo cáo doanh thu, top sân, top phụ kiện      | ✅    |
-| `/settings`     | Settings       | Giá, giờ hoạt động, thông tin thương hiệu     | ✅    |
-| `/*`            | —              | Redirect về `/` (catch-all)                    | —    |
+| Đường dẫn         | Trang          | Mô tả                                          | Vai trò |
+|-------------------|----------------|--------------------------------------------------|---------|
+| `/`               | Home           | Trang chủ công khai (danh sách sân, giới thiệu) | ❌ (public) |
+| `/login`          | Login          | Đăng nhập bằng `identifier` (số điện thoại hoặc email) + mật khẩu | ❌ |
+| `/register`       | Register       | Khách hàng tự đăng ký tài khoản                 | ❌ |
+| `/forgot-password`| ForgotPassword | Gửi email đặt lại mật khẩu                      | ❌ |
+| `/reset-password` | ResetPassword  | Đặt mật khẩu mới bằng token từ email            | ❌ |
+| `/my-bookings`    | MyBookings     | Đặt sân & xem lịch sử của bản thân              | `customer` |
+| `/dashboard`      | Dashboard      | Tổng quan: KPIs, biểu đồ doanh thu, top sân    | `admin`, `branch_manager` |
+| `/courts`         | Courts         | Danh sách sân, trạng thái, mở/đóng/bảo trì     | `admin`, `branch_manager`, `employee` |
+| `/bookings`       | Bookings       | Danh sách đặt sân, xác nhận, huỷ               | `admin`, `branch_manager`, `employee` |
+| `/accessories`    | Accessories    | Danh mục phụ kiện, nhà cung cấp, nhập kho, lịch sử/điều chỉnh kho | `admin`, `branch_manager`, `employee` |
+| `/customers`      | Customers      | Danh sách khách hàng, lịch sử đặt sân          | `admin`, `branch_manager`, `employee` |
+| `/history`        | History        | Lịch sử phiên chơi                              | `admin`, `branch_manager`, `employee` |
+| `/employees`      | Employees      | Quản lý nhân viên, activity logs                | `admin`, `branch_manager` |
+| `/reports`        | Reports        | Báo cáo doanh thu, top sân, top phụ kiện       | `admin`, `branch_manager` |
+| `/settings`       | Settings       | Giá, giờ hoạt động, thông tin thương hiệu      | `admin` |
+| `/*`              | —              | Redirect về `/` (catch-all)                      | —    |
+
+> Vai trò không đủ vào 1 route bị `ProtectedRoute` đưa thẳng về trang chủ đúng
+> vai trò của họ (`homePathForRole` trong `utils/roles.js`) thay vì render rồi
+> nhận 403 từ API. `/courts`, `/bookings`, `/accessories`, `/customers`,
+> `/history` dùng chung `StaffLayout` (bọc `roles={STAFF_ROLES}` = `['admin',
+> 'branch_manager', 'employee']`).
 
 ---
 
@@ -164,20 +185,28 @@ VITE_API_BASE_URL=http://localhost:5000/api/v1
 ### Luồng xác thực (Authentication Flow)
 
 ```
-[Login Page]
+[Login Page] — nhập identifier (số điện thoại hoặc email) + password
      │
      ▼
-AuthContext.login()
+AuthContext.login(identifier, password)
      │
-     ├─ POST /api/v1/auth/login
+     ├─ POST /api/v1/auth/login { identifier, password }
      │        │
      │        └─ Nhận accessToken + refreshToken + userInfo
      │
      ├─ Lưu vào localStorage:
      │     access_token, refresh_token, user_info
      │
-     └─ Redirect → /dashboard
+     └─ Redirect → redirectAfterLogin(user, from) [utils/roles.js]
+              về đúng trang đang dở việc (nếu hợp lệ với vai trò),
+              ngược lại về homePathForRole(user):
+                admin/branch_manager → /dashboard
+                employee             → /courts
+                customer             → /my-bookings
 ```
+
+Khách hàng có thể tự tạo tài khoản ở `/register` (`AuthContext.register`,
+gọi `POST /api/v1/auth/register`) thay vì được admin tạo qua `/employees`.
 
 ### Tự động làm mới token (Auto Refresh)
 
@@ -192,22 +221,33 @@ Khi API trả về `401 Unauthorized`, `apiClient` tự động:
 ```
 <ThemeProvider>
   <AuthProvider>
-    <AppRoutes>
-      <ProtectedRoute>
-        <SidebarLayout>
-          <Page />
-        </SidebarLayout>
-      </ProtectedRoute>
-    </AppRoutes>
+    <BranchProvider>
+      <AppRoutes>
+        <ProtectedRoute>
+          <SidebarLayout>
+            <Page />
+          </SidebarLayout>
+        </ProtectedRoute>
+      </AppRoutes>
+    </BranchProvider>
   </AuthProvider>
 </ThemeProvider>
 ```
+
+`BranchProvider` (`contexts/BranchContext.jsx`) chỉ tải danh sách chi nhánh
+khi `user` là `admin`; chi nhánh admin đang chọn được lưu ở
+`localStorage['admin_selected_branch_id']` và đổi chi nhánh sẽ reload toàn
+trang để mọi màn hình fetch lại dữ liệu đúng ngữ cảnh mới.
 
 ### API Client
 
 File `src/services/apiClient.js` tạo một Axios instance với:
 - **Base URL**: lấy từ `VITE_API_BASE_URL` hoặc fallback `/api/v1`
-- **Request interceptor**: tự động đính kèm `Authorization: Bearer <token>`
+- **Request interceptor**: tự động đính kèm `Authorization: Bearer <token>`;
+  nếu admin đã chọn chi nhánh (`localStorage['admin_selected_branch_id']`)
+  thì đính kèm thêm header `X-Branch-Id` — nhân viên/quản lý chi nhánh không
+  set giá trị này nên không gửi header, backend tự suy ra chi nhánh từ hồ sơ
+  nhân viên của họ
 - **Response interceptor**: xử lý 401, tự động refresh token
 
 ---
@@ -216,10 +256,16 @@ File `src/services/apiClient.js` tạo một Axios instance với:
 
 ### ProtectedRoute
 
-Component `ProtectedRoute` bảo vệ toàn bộ route yêu cầu đăng nhập:
+Component `ProtectedRoute` (`routes/ProtectedRoute.jsx`) nhận thêm prop tuỳ
+chọn `roles`:
 - Nếu đang kiểm tra auth (`loading = true`) → hiển thị màn hình chờ
-- Nếu chưa đăng nhập (`user = null`) → redirect về `/login`
-- Nếu đã đăng nhập → render `children`
+- Nếu chưa đăng nhập (`user = null`) → redirect về `/login`, giữ lại `from` để quay lại đúng trang sau khi đăng nhập
+- Nếu truyền `roles` và vai trò hiện tại không nằm trong đó → redirect về `homePathForRole(user)` (không render rồi mới lãnh 403 từ API)
+- Ngược lại → render `children`
+
+Vai trò và các quy tắc điều hướng liên quan (`STAFF_ROLES`, `roleOf`,
+`homePathForRole`, `redirectAfterLogin`) khai báo tập trung ở
+`utils/roles.js` để route, sidebar và trang đăng nhập không lệch nhau.
 
 ### Layout
 

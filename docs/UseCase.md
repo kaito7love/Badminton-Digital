@@ -1,8 +1,8 @@
 # Use Case Specification
 ## Dự án: Badminton Digital Management – Hệ thống quản lý sân cầu lông
 
-**Phiên bản:** 1.0
-**Ngày:** 19/07/2026
+**Phiên bản:** 1.1
+**Ngày:** 15/08/2026 (từ v1.0 ngày 19/07/2026)
 **Tài liệu tham chiếu:** `SRS.md`
 
 ---
@@ -11,9 +11,10 @@
 
 | Actor | Mô tả |
 |---|---|
-| **Admin** | Chủ sân / quản trị viên hệ thống — toàn quyền |
-| **Nhân viên (Employee)** | Vận hành quầy: mở/đóng sân, booking, checkout |
-| **Khách hàng (Customer)** | Người thuê sân — đặt lịch, xem lịch sử |
+| **Admin** | Chủ sân / quản trị viên hệ thống — toàn quyền, quản lý được mọi chi nhánh (chuyển đổi chi nhánh đang xem qua UC-23) |
+| **Quản lý chi nhánh (Branch Manager)** | Vai trò `branch_manager` — quyền vận hành rộng hơn Nhân viên (VD: thêm/sửa/xóa sân) nhưng chỉ trong phạm vi 1 chi nhánh, không chuyển được sang chi nhánh khác. Đã có role trong DB, route và tài khoản seed demo (`backend/src/migrations/20260815300002-add-branch-manager-role.js`) |
+| **Nhân viên (Employee)** | Vận hành quầy: mở/đóng sân, booking, checkout — luôn giới hạn trong chi nhánh mình làm việc |
+| **Khách hàng (Customer)** | Người thuê sân — đặt lịch, xem lịch sử, có thể tự đăng ký tài khoản (UC-22) |
 | **Hệ thống (System)** | Actor phụ — thực hiện tác vụ tự động (tính giờ, gửi nhắc lịch, gửi email) |
 
 ---
@@ -22,7 +23,7 @@
 
 | Nhóm | Mã UC | Tên Use Case | Actor chính |
 |---|---|---|---|
-| Auth | UC-01 | Đăng nhập | Admin, Nhân viên, Khách hàng |
+| Auth | UC-01 | Đăng nhập (bằng số điện thoại hoặc email) | Admin, Nhân viên, Khách hàng |
 | Auth | UC-02 | Đăng xuất | Admin, Nhân viên, Khách hàng |
 | Auth | UC-03 | Quên mật khẩu | Admin, Nhân viên, Khách hàng |
 | Auth | UC-04 | Đổi mật khẩu | Admin, Nhân viên, Khách hàng |
@@ -38,11 +39,13 @@
 | Customer | UC-14 | Quản lý khách hàng (CRUD) | Nhân viên, Admin |
 | Customer | UC-15 | Xem lịch sử & chi tiêu | Khách hàng, Nhân viên |
 | Employee | UC-16 | Quản lý nhân viên (CRUD + phân quyền) | Admin |
-| Accessories | UC-17 | Quản lý phụ kiện & tồn kho | Admin, Nhân viên |
+| Accessories | UC-17 | Quản lý phụ kiện & tồn kho (danh mục, nhập kho, nhà cung cấp, lịch sử/điều chỉnh kho) | Admin, Nhân viên |
 | Payment | UC-18 | Thanh toán & xuất hóa đơn | Nhân viên |
 | Report | UC-19 | Xem Dashboard thống kê | Admin |
 | Report | UC-20 | Xuất báo cáo (Excel/PDF) | Admin |
 | Settings | UC-21 | Cấu hình hệ thống (giá, giờ hoạt động, theme) | Admin |
+| Auth | UC-22 | Khách hàng tự đăng ký tài khoản | Khách hàng |
+| Multi-branch | UC-23 | Chuyển đổi chi nhánh đang xem/thao tác | Admin |
 
 ---
 
@@ -50,17 +53,57 @@
 
 ### UC-01: Đăng nhập
 - **Actor chính:** Admin, Nhân viên, Khách hàng
-- **Mô tả:** Người dùng đăng nhập vào hệ thống bằng email/username và mật khẩu.
-- **Tiền điều kiện:** Người dùng đã có tài khoản.
+- **Mô tả:** Người dùng đăng nhập bằng **một trường `identifier` duy nhất** —
+  chấp nhận cả số điện thoại lẫn email — kèm mật khẩu. Hệ thống tự nhận diện:
+  chuỗi có `@` tra theo email, chuỗi toàn số được chuẩn hoá (bỏ khoảng trắng,
+  dấu gạch, tiền tố `+84`) rồi tra theo phone.
+- **Tiền điều kiện:** Người dùng đã có tài khoản (`users.email` hoặc
+  `users.phone` không NULL — ràng buộc `chk_users_login_identity`).
 - **Luồng chính:**
-  1. Người dùng nhập email/username + password.
-  2. Hệ thống xác thực thông tin.
-  3. Hệ thống cấp Access Token (JWT) và Refresh Token.
-  4. Hệ thống điều hướng theo Role tương ứng.
+  1. Người dùng nhập số điện thoại hoặc email + password vào 1 ô `identifier`.
+  2. Hệ thống xác thực thông tin (bcrypt).
+  3. Hệ thống cấp Access Token (JWT, 15 phút) và Refresh Token (HttpOnly cookie, 7 ngày).
+  4. Hệ thống điều hướng theo Role tương ứng (admin/branch_manager/employee/customer).
 - **Luồng ngoại lệ:**
-  - 2a. Sai thông tin đăng nhập → hiển thị lỗi, không cấp token.
-  - 2b. Tài khoản bị khóa → thông báo liên hệ Admin.
+  - 2a. Sai thông tin đăng nhập → hiển thị lỗi, không cấp token (thông báo giống hệt nhau dù sai identifier hay sai mật khẩu, tránh lộ số nào đã có tài khoản).
+  - 2b. Tài khoản bị khóa (`is_active = false`) → thông báo liên hệ Admin.
 - **Hậu điều kiện:** Người dùng có phiên đăng nhập hợp lệ.
+
+---
+
+### UC-22: Khách hàng tự đăng ký tài khoản
+- **Actor chính:** Khách hàng (chưa có tài khoản)
+- **Mô tả:** Khách tự tạo tài khoản trên web bằng họ tên + số điện thoại +
+  mật khẩu (email không bắt buộc), không cần nhân viên can thiệp.
+- **Tiền điều kiện:** Số điện thoại chưa gắn với tài khoản đăng nhập nào.
+- **Luồng chính:**
+  1. Khách vào trang đăng ký, nhập họ tên, số điện thoại, mật khẩu.
+  2. Hệ thống chuẩn hoá số điện thoại, tạo `User` (role `customer`).
+  3. Nếu đã có hồ sơ `Customer` cùng số điện thoại này (khách từng chơi trực
+     tiếp tại quầy nhưng chưa có tài khoản) → gắn tài khoản mới vào hồ sơ đó,
+     giữ nguyên lịch sử chơi và tổng chi tiêu tích lũy. Ngược lại → tạo hồ sơ
+     `Customer` mới.
+  4. Hệ thống cấp token luôn — đăng ký xong coi như đã đăng nhập.
+- **Luồng ngoại lệ:**
+  - 1a. Số điện thoại đã có tài khoản → từ chối, gợi ý đăng nhập.
+- **Hậu điều kiện:** Có `User` (role customer) và `Customer` tương ứng; không có đường nào tự nâng quyền lên admin/employee qua endpoint này.
+
+---
+
+### UC-23: Chuyển đổi chi nhánh đang xem/thao tác
+- **Actor chính:** Admin
+- **Mô tả:** Admin quản lý nhiều chi nhánh chọn 1 chi nhánh cụ thể để xem/thao
+  tác dữ liệu (sân, đặt sân, kho, báo cáo...) — khác với Nhân viên/Quản lý chi
+  nhánh vốn bị khoá cứng vào 1 chi nhánh.
+- **Tiền điều kiện:** Đăng nhập với role `admin`.
+- **Luồng chính:**
+  1. Lần đầu vào hệ thống, mặc định chọn đúng chi nhánh gốc của Admin.
+  2. Admin mở bộ chuyển chi nhánh, chọn 1 chi nhánh khác trong danh sách (`GET /api/v1/branches`).
+  3. Lựa chọn được lưu lại (`localStorage`), mọi request tiếp theo gửi kèm header `X-Branch-Id`.
+  4. `branchContextMiddleware` xác thực chi nhánh còn hoạt động (`is_active`), gán `req.branchId` cho toàn bộ request.
+- **Luồng ngoại lệ:**
+  - 2a. Gửi `X-Branch-Id` của chi nhánh không tồn tại/đã ngưng hoạt động → `403`.
+- **Hậu điều kiện:** Mọi API branch-scoped (sân, đặt sân, phụ kiện/tồn kho, báo cáo...) trả về đúng dữ liệu của chi nhánh đã chọn. Nhân viên/Quản lý chi nhánh không có use case này — gửi `X-Branch-Id` khác chi nhánh của mình bị chặn `403`.
 
 ---
 
@@ -157,13 +200,24 @@
 | UC-10 Tạo booking | ✅ | ✅ | ✅ (chỉ cho chính mình) |
 | UC-14 Quản lý khách hàng | ✅ | ✅ | ❌ |
 | UC-16 Quản lý nhân viên | ✅ | ❌ | ❌ |
+| UC-17 Nhập kho / quản lý nhà cung cấp | ✅ | ✅ (chỉ nhập kho, không CRUD danh mục/nhà cung cấp) | ❌ |
 | UC-18 Thanh toán | ✅ | ✅ | ❌ |
 | UC-19 Dashboard | ✅ | ❌ | ❌ |
 | UC-20 Xuất báo cáo | ✅ | ❌ | ❌ |
 | UC-21 Cài đặt hệ thống | ✅ | ❌ | ❌ |
+| UC-22 Tự đăng ký tài khoản | ❌ | ❌ | ✅ |
+| UC-23 Chuyển đổi chi nhánh | ✅ | ❌ | ❌ |
+
+> **`branch_manager`** không có cột riêng trong ma trận trên (ma trận theo 3
+> vai trò tổng quan của `SRS.md`) — trong route thực tế, `branch_manager`
+> được cấp quyền tương đương/không thấp hơn `employee` trên hầu hết use case
+> vận hành (sân, booking, kho...), thêm một số quyền của `admin` bị thu hẹp
+> về đúng 1 chi nhánh (VD: thêm/sửa/xóa sân — xem `courtRoutes.js`). Không có
+> UC-23 (chuyển chi nhánh).
 
 ---
 
 ## 5. Ghi chú
 - Các use case còn lại (UC-02, 03, 04, 08, 09, 12, 13, 14, 15, 16, 17, 20, 21) áp dụng cấu trúc đặc tả tương tự các use case mẫu ở mục 3; có thể mở rộng chi tiết khi bước vào giai đoạn thiết kế API/Database.
 - Use case sẽ được đối chiếu lại với `DatabaseDesign.md` và `APIDesign.md` để đảm bảo tính nhất quán.
+- UC-22, UC-23 (bổ sung ở v1.1) đã được đặc tả chi tiết ở mục 3 do gắn với thay đổi mô hình dữ liệu quan trọng (đăng nhập bằng SĐT, đa chi nhánh) — không theo quy ước "chỉ đặc tả sơ lược" như các UC còn lại.

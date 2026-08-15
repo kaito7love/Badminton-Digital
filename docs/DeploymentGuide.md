@@ -42,16 +42,23 @@ JWT_ACCESS_SECRET=<random string dài>
 JWT_REFRESH_SECRET=<random string dài khác>
 JWT_ACCESS_EXPIRES=15m
 JWT_REFRESH_EXPIRES=7d
+JWT_RESET_EXPIRES=15m
+
+# URL frontend, dùng để dựng link đặt lại mật khẩu gửi qua email
+FRONTEND_URL=https://badmintondigitalmanagement.vn
 
 # Email (quên mật khẩu)
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
 MAIL_USER=<email gửi>
 MAIL_PASSWORD=<app password>
+MAIL_FROM=Badminton Digital <no-reply@badminton.com>
 
 # Upload
 UPLOAD_DIR=/app/uploads
 ```
+
+> Danh sách trên khớp với `backend/.env.example` (nguồn tham chiếu chính thức). Đăng nhập/đăng ký bằng số điện thoại, chuyển đổi chi nhánh (admin), và hệ thống kho hàng (nhà cung cấp/phiếu nhập kho/tồn kho) không cần thêm biến môi trường mới — đã kiểm tra qua `backend/src/config/config.js` và các `process.env.*` trong service/controller liên quan.
 
 ### 3.2 Frontend `.env`
 ```env
@@ -142,32 +149,47 @@ docker compose exec backend npx sequelize-cli db:seed:all
 
 ## 6. Quy trình CI/CD (GitHub Actions)
 
-### 6.1 Pipeline tổng quan (`.github/workflows/ci.yml`)
+### 6.1 Pipeline hiện tại (`.github/workflows/ci.yml`)
+Chạy trên `push`/`pull_request` vào `main` và `develop`. Gồm đúng 2 job độc lập
+(không có `needs` giữa chúng, không có job build/push image hay deploy):
+
 ```
-on: [push, pull_request]
+on:
+  push: [main, develop]
+  pull_request: [main, develop]
 
 jobs:
-  test:
-    - Checkout code
-    - Setup Node.js
-    - Install dependencies (backend & frontend)
-    - Chạy lint (ESLint)
-    - Chạy unit/integration test (Jest)
-    - Chạy Postman collection (Newman)
+  backend-test:
+    working-directory: backend
+    - actions/checkout@v4
+    - actions/setup-node@v4 (node 18)
+    - npm ci
+    - npm test        # jest — chỉ unit test, không có service MySQL/migration
 
-  build:
-    needs: test
-    - Build Docker images (backend, frontend)
-    - Push image lên Docker Hub / GitHub Container Registry (nếu deploy tự động)
-
-  deploy (optional, khi push vào nhánh main):
-    needs: build
-    - SSH vào server / gọi API của platform hosting (Render/Railway)
-    - Pull image mới nhất, restart container
+  frontend-build:
+    working-directory: frontend
+    - actions/checkout@v4
+    - actions/setup-node@v4 (node 18)
+    - npm ci
+    - npm run build   # vite build — chỉ kiểm tra build thành công, KHÔNG chạy vitest
 ```
 
-### 6.2 Điều kiện Merge
-- Toàn bộ test job phải pass trước khi cho phép merge vào `main`.
+CI hiện **không** có: bước lint (ESLint), Postman/Newman, K6, build/push Docker
+image, hay job deploy. Việc build Docker image và deploy (mục 7) hiện là thao
+tác thủ công ngoài CI.
+
+### 6.2 Kế hoạch (chưa triển khai)
+Các bước sau được đề xuất bổ sung vào pipeline nhưng **chưa có** trong
+`ci.yml` hiện tại — xem thêm `docs/TestPlan.md` mục 3/9:
+- Lint (ESLint) cho cả backend và frontend.
+- Chạy `vitest` cho frontend trong CI (hiện chỉ `vite build`).
+- Integration test (Jest + Supertest) với service MySQL trong CI.
+- Chạy Postman collection qua Newman.
+- Job `build`: build & push Docker image (Docker Hub/GHCR).
+- Job `deploy`: tự động deploy khi push vào `main`.
+
+### 6.3 Điều kiện Merge
+- 2 job hiện tại (`backend-test`, `frontend-build`) phải pass trước khi cho phép merge vào `main`.
 - Áp dụng branch protection rule trên GitHub.
 
 ---
@@ -186,7 +208,8 @@ jobs:
 2. Clone repo, cấu hình `.env` production.
 3. Cấu hình domain + SSL (Let's Encrypt qua Certbot hoặc Nginx Proxy Manager).
 4. `docker compose -f docker-compose.prod.yml up -d --build`.
-5. Chạy migration production: `docker compose exec backend npx sequelize-cli db:migrate`.
+5. **Backup DB trước khi migrate** (`mysqldump` — xem mục 8), rồi chạy migration production: `docker compose exec backend npx sequelize-cli db:migrate` (chạy `npm run migrate` tương đương ở mục "Commands" của `CLAUDE.md`).
+   > ⚠️ Một số migration gần đây thay đổi/xoá dữ liệu không thể hoàn tác qua `down`: `20260815300001-unify-customers-chain-wide.js` gộp các hồ sơ khách hàng trùng số điện thoại giữa các chi nhánh thành 1 hồ sơ duy nhất (ghi log quyết định gộp vào bảng mới `customer_merge_audit`, nhưng dữ liệu gốc bị gộp/xoá không phục hồi được từ `down`). Migration này chạy cùng đợt với `20260815000002-inventory-foundation.js` (khởi tạo lại tồn kho theo chi nhánh, xoá cột `extras.stock_quantity` cũ) và `20260815300002-add-branch-manager-role.js`. Bắt buộc backup đầy đủ trước khi chạy `db:migrate` trên dữ liệu production — không chỉ với 3 migration này mà với mọi migration M1–M3 nói chung (xem `CLAUDE.md`).
 6. Cấu hình reverse proxy (Nginx) trỏ domain → container frontend (80) và `/api` → container backend (5000).
 
 ### 7.3 Giám sát & Log
@@ -210,7 +233,7 @@ jobs:
 ---
 
 ## 10. Checklist trước khi Demo/Release
-- [ ] Toàn bộ test (unit, integration, Postman) pass trên CI.
+- [ ] 2 job CI hiện tại (`backend-test`, `frontend-build`) pass — xem mục 6.1. Integration test/Postman chưa có trong CI (mục 6.2), nên phần đó (nếu chạy) là thủ công ngoài CI.
 - [ ] Biến môi trường production đã cấu hình đúng, không dùng giá trị mặc định/dev.
 - [ ] Swagger UI truy cập được, phản ánh đúng API hiện tại.
 - [ ] Đã seed dữ liệu demo (vài sân, vài khách hàng, vài booking mẫu) để trình bày trực quan.

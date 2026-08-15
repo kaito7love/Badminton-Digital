@@ -6,7 +6,7 @@ The MVP could create duplicate bookings, sessions, inventory deductions and paym
 
 ## Solution
 
-- `branch_id` is read from `X-Branch-Id` or the authenticated employee profile; staff cannot select a different branch.
+- `branch_id` is read from `X-Branch-Id` or the authenticated employee profile. Staff (`employee`, `branch_manager`) cannot select a different branch; `admin` can switch to any active branch by sending `X-Branch-Id`.
 - Court, booking, session-extra and checkout write paths use database transactions and row locks.
 - Booking create/update serializes work through the court row and uses `SERIALIZABLE` isolation for overlap checks.
 - Invoices receive an atomic branch-scoped sequence number through `branch_document_sequences`.
@@ -19,7 +19,13 @@ The MVP could create duplicate bookings, sessions, inventory deductions and paym
 
 ### Branch context
 
-Staff requests may send `X-Branch-Id: <id>`. If absent, the branch assigned to the logged-in employee is used. Requests that require a branch fail instead of falling back to a hard-coded branch.
+Requests may send `X-Branch-Id: <id>`. If absent, the branch assigned to the logged-in employee is used. Requests that require a branch fail instead of falling back to a hard-coded branch.
+
+This resolves differently by role (`branchContextMiddleware.js`):
+- **`admin`** may send `X-Branch-Id` for any active branch to view/operate on it — admins have no `employees.branchId` of their own, so without the header no branch context is set at all (routes that don't require one, e.g. `GET /api/v1/branches`, still work; branch-scoped routes need the header).
+- **`employee` / `branch_manager`** are locked to the branch on their `Employee` profile: sending `X-Branch-Id` for a *different* branch than their own is rejected with 403 ("Nhân viên không được phép thao tác tại chi nhánh này."), not silently ignored.
+
+`GET /api/v1/branches` (admin-only) lists active branches for the branch switcher.
 
 ### Checkout
 

@@ -10,7 +10,7 @@
 ```
 [Truy cập Web / App]
        ↓
-  Đăng nhập bằng email + mật khẩu
+  Đăng nhập bằng SĐT hoặc email (1 ô "identifier") + mật khẩu
        ↓
   ┌──────────────────────────────────────┐
   │ Hệ thống xác thực JWT               │
@@ -25,7 +25,13 @@
                          Đặt mật khẩu mới
 ```
 
-Use Cases: UC-01, UC-03, UC-04
+Khách hàng cũng có thể **tự đăng ký** tài khoản mới (không cần nhân viên lập
+hộ) bằng SĐT hoặc email — nếu SĐT trùng với một hồ sơ khách vãng lai đã có
+sẵn (ví dụ đã từng chơi tại quầy), tài khoản mới được gắn vào đúng hồ sơ đó
+thay vì tạo hồ sơ trùng, giữ liền lịch sử chi tiêu cũ. Chi tiết đầy đủ (chuẩn
+hoá SĐT, thông báo lỗi, refresh token, luồng tự đăng ký) xem `flows/WF-01-Login.md`.
+
+Use Cases: UC-01 (Đăng nhập), UC-03 (Quên mật khẩu), UC-04 (Đổi mật khẩu)
 
 ---
 
@@ -87,7 +93,8 @@ Use Cases: UC-12
        ↓
   ┌──────────────────────────────────────────┐
   │ Lịch sử phiên chơi (CourtSessions)      │
-  │  - Ngày, Sân, Thời gian, Tiền sân       │
+  │  - Chi nhánh, Ngày, Sân, Thời gian,     │
+  │    Tiền sân                             │
   │  - Phụ kiện đã gọi                      │
   │  - Số tiền thanh toán                   │
   │                                          │
@@ -97,6 +104,10 @@ Use Cases: UC-12
   │  - Hạng hội viên (Normal / Gold / VIP)  │
   └──────────────────────────────────────────┘
 ```
+
+Vì hồ sơ Customer dùng chung toàn chuỗi (xem `flows/WF-05-CustomerManagement.md`),
+lịch sử này gộp phiên chơi/booking ở **mọi chi nhánh** khách từng ghé, không
+riêng 1 chi nhánh — hạng hội viên và tổng chi tiêu cũng cộng dồn toàn chuỗi.
 
 Use Cases: UC-15
 
@@ -120,10 +131,18 @@ Use Cases: UC-04
 
 ## 🏷️ Hệ thống Hạng Hội viên (Loyalty Tier)
 
-| Hạng | Điều kiện | Quyền lợi |
-|------|-----------|-----------|
-| Normal | Mặc định | Tiêu chuẩn |
-| Gold | Tổng chi tiêu ≥ 5.000.000đ | Ưu đãi đặc biệt |
-| VIP | Tổng chi tiêu ≥ 15.000.000đ | Ưu tiên đặt sân, giảm giá |
+| Hạng | Điều kiện (tổng chi tiêu toàn chuỗi) |
+|------|-----------|
+| Normal | Mặc định, &lt; 5.000.000đ |
+| Gold | ≥ 5.000.000đ |
+| VIP | ≥ 15.000.000đ |
 
-> Hạng được cập nhật tự động sau mỗi lần thanh toán thành công.
+Hạng được tính lại tự động ngay khi thanh toán tiền mặt hoàn tất, hoặc khi
+webhook xác nhận thanh toán chuyển khoản (`PaymentService.js`), dựa trên
+**tổng chi tiêu gộp toàn chuỗi** (Customer không còn phân theo chi nhánh).
+
+> ⚠️ **Hiện tại hạng KHÔNG mang quyền lợi gì** — không có giảm giá tự động,
+> không ưu tiên đặt sân, không thông báo/khuyến mãi riêng. Nơi duy nhất
+> hạng được dùng là hiển thị 1 badge màu trên bảng khách hàng
+> (`CustomersPage.jsx`). Chi tiết cơ chế hiện tại và các hướng phát triển
+> có thể cân nhắc: xem `docs/05-extra/LoyaltyTier.md`.

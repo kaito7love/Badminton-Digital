@@ -1,8 +1,8 @@
 # Software Requirement Specification (SRS)
 ## Dự án: Badminton Digital Management – Hệ thống quản lý sân cầu lông
 
-**Phiên bản:** 1.0
-**Ngày:** 19/07/2026
+**Phiên bản:** 1.1
+**Ngày:** 15/08/2026 (từ v1.0 ngày 19/07/2026)
 **Loại tài liệu:** Software Requirement Specification (SRS)
 
 ---
@@ -16,11 +16,13 @@ Tài liệu này mô tả chi tiết các yêu cầu chức năng và phi chức
 Badminton Digital Management là một ứng dụng web full-stack, hỗ trợ:
 - Quản lý sân, đặt lịch, thanh toán, hóa đơn
 - Quản lý khách hàng và nhân viên
-- Quản lý phụ kiện và tồn kho
+- Quản lý phụ kiện, nhà cung cấp và tồn kho (nhập kho, sổ nhật ký xuất/nhập, giá vốn bình quân gia quyền) theo từng chi nhánh
+- Quản lý đa chi nhánh (branch), Admin chuyển đổi chi nhánh đang xem/thao tác
 - Dashboard thống kê và báo cáo doanh thu
-- Phân quyền người dùng theo vai trò (Admin, Nhân viên, Khách hàng)
+- Phân quyền người dùng theo vai trò (Admin, Quản lý chi nhánh, Nhân viên, Khách hàng)
+- Đăng nhập bằng số điện thoại hoặc email, khách hàng tự đăng ký tài khoản
 
-Phạm vi **không bao gồm**: hệ thống thanh toán trực tuyến thực tế (cổng thanh toán), ứng dụng di động native (chỉ responsive web), và quản lý đa chi nhánh ở phiên bản đầu tiên (được để ngỏ cho khả năng mở rộng).
+Phạm vi **không bao gồm**: hệ thống thanh toán trực tuyến thực tế (cổng thanh toán), ứng dụng di động native (chỉ responsive web), và mô hình multi-tenant nhiều tổ chức độc lập (bảng `organizations` — vẫn để ngỏ cho khả năng mở rộng, xem `DatabaseDesign.md`).
 
 ### 1.3 Đối tượng sử dụng tài liệu
 - Lập trình viên Frontend/Backend
@@ -52,18 +54,20 @@ Hệ thống mô phỏng quy trình vận hành của một sân cầu lông th�
 4. Quản lý đặt lịch (Booking Management)
 5. Quản lý khách hàng
 6. Quản lý nhân viên
-7. Quản lý phụ kiện
+7. Quản lý phụ kiện & kho hàng (danh mục, nhà cung cấp, nhập kho, tồn kho theo chi nhánh)
 8. Thanh toán & Hóa đơn
 9. Báo cáo & Thống kê
 10. Cài đặt hệ thống
+11. Quản lý đa chi nhánh (Multi-branch)
 
 ### 2.3 Đối tượng người dùng (User Roles)
 
 | Vai trò | Mô tả | Quyền hạn chính |
 |---|---|---|
-| **Admin** | Chủ sân / quản trị hệ thống | Toàn quyền: quản lý sân, nhân viên, giá, báo cáo, cài đặt |
-| **Nhân viên (Employee)** | Nhân viên vận hành tại quầy | Mở/đóng sân, tạo booking, checkout, quản lý khách hàng, không cấu hình hệ thống |
-| **Khách hàng (Customer)** | Người thuê sân | Xem lịch trống, đặt lịch, xem lịch sử chơi và chi tiêu của bản thân |
+| **Admin** | Chủ sân / quản trị hệ thống | Toàn quyền trên mọi chi nhánh: quản lý sân, nhân viên, giá, kho hàng, báo cáo, cài đặt; chuyển đổi chi nhánh đang xem/thao tác |
+| **Quản lý chi nhánh (Branch Manager)** | Vai trò `branch_manager` — quản lý vận hành trong phạm vi 1 chi nhánh | Quyền rộng hơn Nhân viên (VD: thêm/sửa/xóa sân, CRUD nhà cung cấp) nhưng luôn giới hạn ở đúng chi nhánh của mình, không chuyển được chi nhánh |
+| **Nhân viên (Employee)** | Nhân viên vận hành tại quầy, giới hạn trong 1 chi nhánh | Mở/đóng sân, tạo booking, checkout, quản lý khách hàng, nhập kho/gọi phụ kiện, không cấu hình hệ thống |
+| **Khách hàng (Customer)** | Người thuê sân | Xem lịch trống, đặt lịch, xem lịch sử chơi và chi tiêu của bản thân (gộp trên mọi chi nhánh); có thể tự đăng ký tài khoản bằng số điện thoại |
 
 ### 2.4 Ràng buộc chung
 - Toàn bộ giao diện hỗ trợ tiếng Việt.
@@ -83,13 +87,14 @@ Hệ thống mô phỏng quy trình vận hành của một sân cầu lông th�
 ### 3.1 Authentication & Authorization
 | Mã | Yêu cầu | Mô tả |
 |---|---|---|
-| FR-AUTH-01 | Đăng nhập | Người dùng đăng nhập bằng email/username + password |
+| FR-AUTH-01 | Đăng nhập | Người dùng đăng nhập bằng **số điện thoại hoặc email** (1 trường `identifier` duy nhất, hệ thống tự nhận diện định dạng) + password |
 | FR-AUTH-02 | Đăng xuất | Hủy phiên đăng nhập hiện tại |
 | FR-AUTH-03 | JWT Access Token | Cấp access token có thời hạn ngắn sau đăng nhập |
 | FR-AUTH-04 | Refresh Token | Cấp lại access token khi hết hạn mà không cần đăng nhập lại |
 | FR-AUTH-05 | Quên mật khẩu | Gửi link/mã đặt lại mật khẩu qua email |
 | FR-AUTH-06 | Đổi mật khẩu | Người dùng đã đăng nhập có thể đổi mật khẩu |
-| FR-AUTH-07 | Phân quyền theo vai trò | Hệ thống giới hạn chức năng hiển thị/thao tác theo Role (RBAC) |
+| FR-AUTH-07 | Phân quyền theo vai trò | Hệ thống giới hạn chức năng hiển thị/thao tác theo Role (RBAC: admin/branch_manager/employee/customer) |
+| FR-AUTH-08 | Khách hàng tự đăng ký | Khách hàng tự tạo tài khoản bằng họ tên + SĐT + mật khẩu (email không bắt buộc); tự động gắn vào hồ sơ khách hàng cũ nếu trùng số điện thoại đã từng chơi tại quầy |
 
 ### 3.2 Dashboard
 | Mã | Yêu cầu |
@@ -142,13 +147,18 @@ Hệ thống mô phỏng quy trình vận hành của một sân cầu lông th�
 | FR-EMP-03 | Quản lý ca làm việc |
 | FR-EMP-04 | Theo dõi hoạt động nhân viên (activity log) |
 
-### 3.7 Quản lý phụ kiện
+### 3.7 Quản lý phụ kiện & kho hàng
 | Mã | Yêu cầu |
 |---|---|
-| FR-ACC-01 | Thêm/sửa/xóa phụ kiện |
-| FR-ACC-02 | Quản lý tồn kho, cảnh báo khi sắp hết hàng |
+| FR-ACC-01 | Thêm/sửa/xóa phụ kiện (danh mục dùng chung mọi chi nhánh — tên, giá, ngưỡng cảnh báo) |
+| FR-ACC-02 | Quản lý tồn kho theo từng chi nhánh, cảnh báo khi sắp hết hàng |
 | FR-ACC-03 | Cập nhật giá bán |
 | FR-ACC-04 | Thống kê số lượng bán ra theo kỳ |
+| FR-ACC-05 | Quản lý nhà cung cấp (CRUD, dùng chung mọi chi nhánh) |
+| FR-ACC-06 | Tạo phiếu nhập kho (chọn nhà cung cấp, nhiều dòng sản phẩm/số lượng/đơn giá); hệ thống tự sinh mã phiếu và cộng vào tồn kho đúng chi nhánh |
+| FR-ACC-07 | Tính giá vốn bình quân gia quyền, cập nhật lại mỗi lần nhập kho |
+| FR-ACC-08 | Xem sổ nhật ký xuất/nhập kho (8 loại giao dịch: nhập kho, bán ra, trả hàng, điều chỉnh tăng/giảm, hàng hỏng, thất lạc, số dư đầu kỳ), lọc theo sản phẩm/loại/thời gian |
+| FR-ACC-09 | Điều chỉnh kho thủ công (hỏng/mất/điều chỉnh tăng-giảm), bắt buộc nhập lý do |
 
 ### 3.8 Thanh toán & Hóa đơn
 | Mã | Yêu cầu |
@@ -181,6 +191,15 @@ Hệ thống mô phỏng quy trình vận hành của một sân cầu lông th�
 | FR-SET-05 | Upload logo |
 | FR-SET-06 | Cài đặt theme / Dark Mode |
 
+### 3.11 Quản lý đa chi nhánh (Multi-branch)
+| Mã | Yêu cầu |
+|---|---|
+| FR-BR-01 | Admin xem/chuyển đổi chi nhánh đang thao tác qua bộ chuyển chi nhánh (mặc định chi nhánh gốc của Admin) |
+| FR-BR-02 | Mọi request gắn header `X-Branch-Id`; hệ thống cách ly dữ liệu (sân, đặt sân, kho, báo cáo...) theo đúng chi nhánh đó |
+| FR-BR-03 | Nhân viên / Quản lý chi nhánh bị giới hạn cứng vào đúng chi nhánh của mình, không tự chuyển được sang chi nhánh khác |
+| FR-BR-04 | Khách hàng là danh tính dùng chung toàn chuỗi (không gắn theo chi nhánh) — lịch sử chơi, tổng chi tiêu, hạng thành viên được gộp trên mọi chi nhánh |
+| FR-BR-05 | Số hóa đơn và mã phiếu nhập kho sinh tuần tự riêng theo từng chi nhánh (không trùng giữa các chi nhánh, không nhảy cóc số khi có giao dịch đồng thời) |
+
 ---
 
 ## 4. Yêu cầu phi chức năng (Non-Functional Requirements)
@@ -208,7 +227,7 @@ Hệ thống mô phỏng quy trình vận hành của một sân cầu lông th�
 
 ### 4.5 Khả năng mở rộng (Scalability)
 - Dễ dàng thêm sân mới, phụ kiện mới mà không cần thay đổi code.
-- Kiến trúc cho phép mở rộng thêm chi nhánh (multi-branch) trong tương lai.
+- Multi-branch đã được triển khai (xem 3.11); mô hình multi-tenant nhiều tổ chức độc lập (bảng `organizations`) vẫn để ngỏ cho tương lai.
 - Dễ tích hợp cổng thanh toán thực tế (VNPay, Momo...) ở giai đoạn sau.
 
 ### 4.6 Khả năng bảo trì (Maintainability)

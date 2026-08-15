@@ -1,8 +1,8 @@
 # System Architecture
 ## Dự án: Badminton Digital Management – Hệ thống quản lý sân cầu lông
 
-**Phiên bản:** 1.0
-**Ngày:** 19/07/2026
+**Phiên bản:** 1.1
+**Ngày:** 15/08/2026 (từ v1.0 ngày 19/07/2026)
 **Tài liệu tham chiếu:** `SRS.md`, `UseCase.md`, `APIDesign.md`
 
 ---
@@ -46,7 +46,7 @@ Badminton Digital Management sử dụng kiến trúc **Client-Server 3 lớp (3
 ### 2.1 Nguyên tắc tổ chức
 - **Pages**: mỗi module nghiệp vụ (Dashboard, Courts, Bookings, Customers, Employees, History, Reports, Settings, Login) là một thư mục page độc lập.
 - **Components**: các thành phần UI dùng chung (Button, Modal, Table, Chart wrapper...).
-- **Contexts**: quản lý state toàn cục — `AuthContext` (user, token, role), `ThemeContext` (dark mode).
+- **Contexts**: quản lý state toàn cục — `AuthContext` (user, token, role), `ThemeContext` (dark mode), `BranchContext` (chi nhánh admin đang chọn để xem/thao tác, gửi kèm mọi request qua header `X-Branch-Id`).
 - **Hooks**: custom hooks tái sử dụng (`useAuth`, `useBooking`, `useDebounce`...).
 - **Services**: lớp gọi API (Axios instance có interceptor tự gắn token + tự refresh token khi 401).
 - **Routes**: định nghĩa route kèm bảo vệ theo Role (`PrivateRoute`, `RoleGuard`).
@@ -80,18 +80,23 @@ Nguyên tắc: **Controller không chứa business logic** — mọi tính toán
 ### 3.2 Middleware chính
 | Middleware | Chức năng |
 |---|---|
-| `authMiddleware` | Xác thực JWT, giải mã user từ token |
+| `authMiddleware` | Xác thực JWT, giải mã user từ token, eager-load `role`/`employee`/`customer` vào `req.user` |
 | `roleMiddleware(roles)` | Kiểm tra Role có quyền truy cập endpoint |
+| `branchContextMiddleware` | Đọc header `X-Branch-Id`, gán `req.branchId`/`req.branch`. `admin` được chuyển sang bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá cứng vào chi nhánh trong hồ sơ của mình (gửi header khác → `403`) |
+| `requestContextMiddleware` | Gán `req.requestId` (từ header `X-Request-Id` hoặc UUID mới), trả lại qua response header — dùng để trace xuyên suốt và ghi vào `activity_logs.request_id` |
 | `validationMiddleware` | Validate request body/query (Express Validator) |
-| `errorHandler` | Bắt lỗi tập trung, trả response chuẩn hóa |
+| `errorHandler` | Bắt lỗi tập trung, trả response chuẩn hóa — đăng ký cuối cùng trong `server.js` |
 | `uploadMiddleware` (Multer) | Xử lý upload logo, ảnh phụ kiện |
 
 ### 3.3 Modules/Services nghiệp vụ chính
-- `AuthService`: login, refresh token, reset password
-- `CourtService`: mở/đóng sân, tính tiền theo khung giờ, chuyển sân
+- `AuthService`: login (email hoặc số điện thoại qua 1 trường `identifier`), đăng ký tự phục vụ cho khách hàng, refresh token, reset password
+- `CourtService`: mở/đóng sân, tính tiền theo khung giờ, chuyển sân, chuyển trạng thái vòng đời sân (xem `CourtStateModel.md`)
 - `BookingService`: tạo booking, kiểm tra trùng lịch (UC-11)
 - `PaymentService`: tính tổng hóa đơn, áp dụng giảm giá, tạo Invoice
 - `ReportService`: tổng hợp số liệu Dashboard, doanh thu, export Excel/PDF
+- `InventoryService`: entry point duy nhất ghi `extra_stocks`/`stock_movements` — trừ/cộng tồn kho theo chi nhánh, tính giá vốn bình quân gia quyền, điều chỉnh kho thủ công
+- `GoodsReceiptService`: tạo phiếu nhập kho (sinh mã theo `BranchDocumentSequence`), gọi `InventoryService` cho từng dòng hàng
+- `SupplierService`: CRUD nhà cung cấp (dùng chung mọi chi nhánh)
 
 ---
 
@@ -99,9 +104,11 @@ Nguyên tắc: **Controller không chứa business logic** — mọi tính toán
 
 Bảng chi tiết và quan hệ được đặc tả đầy đủ trong `DatabaseDesign.md`. Ở mức kiến trúc, các nhóm bảng chính:
 
-- **Nhóm định danh & phân quyền**: Users, Roles, Employees, Customers
+- **Nhóm định danh & phân quyền**: Users, Roles, Employees, Customers (Customers dùng chung toàn chuỗi, không gắn `branch_id`; Employees gắn `branch_id`)
+- **Nhóm đa chi nhánh**: Branches, BranchDocumentSequences (sinh số chứng từ tuần tự theo từng chi nhánh — dùng chung cho cả `invoice_no` và mã phiếu nhập kho)
 - **Nhóm vận hành sân**: Courts, CourtSessions, Bookings
-- **Nhóm phụ kiện & thanh toán**: Extras, SessionExtras, Payments, Invoices
+- **Nhóm phụ kiện & kho hàng**: Extras (danh mục dùng chung), ExtraStocks (tồn kho theo chi nhánh), StockMovements (sổ nhật ký), Suppliers, GoodsReceipts, GoodsReceiptItems, SessionExtras
+- **Nhóm thanh toán**: Payments, Invoices
 - **Nhóm hệ thống**: Settings, ActivityLogs, Reports (denormalized/cache nếu cần)
 
 ---
@@ -132,8 +139,8 @@ Customer/Nhân viên tạo Booking (UC-10)
 
 ## 6. Kiến trúc bảo mật
 
-- **Authentication**: JWT access token (ngắn hạn) + refresh token (HttpOnly cookie, dài hạn).
-- **Authorization**: Role-based, kiểm tra ở middleware Backend (không tin tưởng việc ẩn UI ở Frontend).
+- **Authentication**: JWT access token (ngắn hạn) + refresh token (HttpOnly cookie, dài hạn). Đăng nhập nhận 1 trường `identifier` duy nhất — email hoặc số điện thoại (chuỗi có `@` tra theo email, chuỗi toàn số chuẩn hoá rồi tra theo phone); ràng buộc `chk_users_login_identity` ở tầng DB đảm bảo `users` luôn có ít nhất một trong hai. Khách hàng có thể tự đăng ký (`POST /auth/register`) — không có đường tự nâng quyền lên admin/employee.
+- **Authorization**: Role-based (`admin`/`employee`/`customer`/`branch_manager`), kiểm tra ở middleware Backend (không tin tưởng việc ẩn UI ở Frontend). Đi kèm **branch-scoping**: `branchContextMiddleware` giới hạn `employee`/`branch_manager` vào đúng chi nhánh của họ; chỉ `admin` được chuyển chi nhánh qua header `X-Branch-Id`.
 - **Password**: bcrypt hash, salt rounds ≥ 10.
 - **Input validation**: Express Validator ở mọi endpoint nhận input.
 - **SQL Injection**: phòng chống nhờ Sequelize (parameterized query), không dùng raw query nối chuỗi.
@@ -166,10 +173,10 @@ Customer/Nhân viên tạo Booking (UC-10)
 
 | Hướng mở rộng | Cách tiếp cận kiến trúc hỗ trợ |
 |---|---|
-| Thêm chi nhánh (multi-branch) | Thêm bảng `Branches`, mọi bảng Courts/Employees gắn `branch_id` |
+| Đa chi nhánh (multi-branch) | **Đã triển khai**: bảng `Branches` + `branch_id` trên hầu hết bảng nghiệp vụ (`Courts`, `Bookings`, `CourtSessions`, `Employees`, `Invoices`, `Payments`, `ActivityLogs`, `ExtraStocks`, `StockMovements`, `GoodsReceipts`); `branchContextMiddleware` cách ly dữ liệu theo `X-Branch-Id`. Còn ở dạng "1 tổ chức phẳng nhiều chi nhánh" — bảng `organizations` (multi-tenant thật, nhiều tổ chức độc lập) vẫn là feature tương lai, xem `DatabaseDesign.md` §3.11 |
 | Tích hợp cổng thanh toán thực tế | `PaymentService` thiết kế dạng interface, dễ thêm adapter (VNPay, Momo) |
 | Tăng tải người dùng | Tách Backend thành stateless service → dễ scale ngang sau Load Balancer |
-| Realtime cập nhật trạng thái sân | Có thể bổ sung WebSocket/Socket.IO ở phase sau mà không đổi kiến trúc tổng thể |
+| Realtime cập nhật trạng thái sân | Có thể bổ sung WebSocket/Socket.IO ở phase sau mà không đổi kiến trúc tổng thể — nguyên tắc thiết kế event đã chốt trước ở `CourtStateModel.md` (event chỉ mang tín hiệu vô hiệu hoá, không mang trạng thái) |
 
 ---
 

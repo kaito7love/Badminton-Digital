@@ -2,6 +2,11 @@
 
 Thư mục này mô tả chi tiết các luồng thao tác (**User Workflows**) mà từng vai trò người dùng có thể thực hiện trong hệ thống, dựa trên `UseCase.md`.
 
+Hệ thống hiện là đa chi nhánh (Branch/`X-Branch-Id`, Admin chuyển được chi
+nhánh xem/thao tác, nhân viên và `branch_manager` bị khoá vào chi nhánh của
+mình) và có thêm module quản lý kho hàng (nhà cung cấp, phiếu nhập kho, sổ
+nhật ký xuất/nhập) — xem `WF-Admin.md` §7 và `flows/WF-07-Accessories.md`.
+
 ---
 
 ## 📌 Cấu trúc thư mục
@@ -29,9 +34,10 @@ Thư mục này mô tả chi tiết các luồng thao tác (**User Workflows**) 
 
 | Actor | Workflows chính |
 |-------|----------------|
-| **Admin** | Quản lý sân, Nhân viên, Cài đặt, Dashboard, Báo cáo |
-| **Nhân viên (Employee)** | Mở/Đóng sân, Booking, Thanh toán, Quản lý khách hàng, Gọi phụ kiện |
-| **Khách hàng (Customer)** | Đặt lịch, Xem lịch sử, Đổi mật khẩu |
+| **Admin** | Quản lý sân, Nhân viên, Cài đặt, Dashboard, Báo cáo, Nhà cung cấp, chuyển đổi chi nhánh xem/thao tác |
+| **`branch_manager`** | Như Nhân viên, cộng thêm: CRUD sân, quản lý Nhân viên, xem Dashboard/Báo cáo — giới hạn trong chi nhánh của mình |
+| **Nhân viên (Employee)** | Mở/Đóng sân, Booking, Thanh toán, Quản lý khách hàng, Gọi phụ kiện, Nhập kho & điều chỉnh kho |
+| **Khách hàng (Customer)** | Đặt lịch, Xem lịch sử (toàn chuỗi), Đổi mật khẩu, Tự đăng ký |
 | **Hệ thống (System)** | Kiểm tra trùng lịch, Tính tiền tự động, VietQR |
 
 ---

@@ -1,7 +1,13 @@
 # WF-02 — Luồng Vận hành Sân (UC-06, UC-07, UC-08, UC-09)
 
-**Actors:** Nhân viên, Admin  
+**Actors:** Nhân viên, `branch_manager`, Admin  
 **Use Cases:** UC-06 (Mở sân), UC-07 (Đóng sân & tính tiền), UC-08 (Chuyển sân), UC-09 (Bảo trì)
+
+Tất cả API trong file này (`open`/`close`/`transfer`/`status`) đều branch-scoped:
+Admin thao tác trên chi nhánh đang chọn ở bộ chuyển chi nhánh (xem `WF-Admin.md`
+§7), nhân viên/`branch_manager` luôn bị khoá vào đúng chi nhánh của mình
+(`branchContextMiddleware`). Danh sách sân ở "Tổng quan sân" vì vậy chỉ hiện
+sân của đúng chi nhánh đang hoạt động, không phải toàn chuỗi.
 
 ---
 
@@ -19,12 +25,20 @@ Nhân viên
     ├─→ Chọn sân trạng thái "Trống"
     │
     ├─→ Nhấn "Mở sân"
-    │         ├─→ Gán khách hàng có sẵn (tìm theo SĐT/tên), hoặc
-    │         └─→ Nhập tên khách vãng lai → hệ thống tự tạo hồ sơ khách hàng
+    │         ├─→ Gán khách hàng có sẵn (tìm theo SĐT/tên — danh sách tìm
+    │         │       kiếm là TOÀN CHUỖI, không riêng chi nhánh hiện tại,
+    │         │       vì Customer dùng chung mọi chi nhánh, xem WF-05 §A),
+    │         │       hoặc
+    │         └─→ Nhập tên khách vãng lai (+ SĐT tuỳ chọn) → hệ thống tự
+    │                 tạo hồ sơ khách hàng
     │
     ├─→ [POST /api/v1/courts/:id/open]
-    │         │ DB Transaction:
-    │         ├─→ Khách vãng lai: tạo (hoặc gộp theo SĐT) bản ghi Customer
+    │         │ DB Transaction — CourtService.openCourt:
+    │         ├─→ Có SĐT: `CustomerService.resolveWalkIn` tìm hồ sơ đã có
+    │         │       theo SĐT ở BẤT KỲ chi nhánh nào trước, có thì gộp
+    │         │       vào (giữ liền lịch sử chi tiêu), không có mới tạo
+    │         │       Customer mới; chỉ có tên (không SĐT) → luôn tạo hồ
+    │         │       sơ mới, không gộp được
     │         └─→ Tạo CourtSession { courtId, customerId, employeeId, startTime = NOW() }
     │             (KHÔNG đụng tới Court.status — sân hiển thị "đang chơi" nhờ có
     │              phiên đang mở, không phải nhờ một cột trạng thái)
@@ -153,3 +167,15 @@ TRỤC B — chiếm dụng (suy ra từ court_sessions, KHÔNG lưu)
 GIAO DIỆN nhận `state` do backend gộp sẵn hai trục:
    MAINTENANCE > INACTIVE > PLAYING > AVAILABLE
 ```
+
+---
+
+## Ghi chú vai trò
+
+Bốn hành động trong file này (mở/đóng/chuyển sân, đổi trạng thái khai thác) đều
+khai báo `roleMiddleware(['admin', 'branch_manager', 'employee'])` trong
+`courtRoutes.js` — nhân viên thường làm được đầy đủ, không khác `branch_manager`.
+Điểm khác biệt duy nhất của `branch_manager` so với `employee` nằm ở CRUD định
+nghĩa sân (thêm/sửa/xóa sân — `POST`/`PUT`/`DELETE /api/v1/courts`), vốn chỉ
+cho `['admin', 'branch_manager']`: nhân viên vận hành được sân nhưng không được
+tạo/sửa/xóa sân trong danh mục.
