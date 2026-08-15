@@ -1,7 +1,21 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'badminton_jwt_access_secret_key_2026_super_secure';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'badminton_jwt_refresh_secret_key_2026_super_secure';
+// Không có giá trị dự phòng hardcode — thiếu hoặc yếu là lỗi cấu hình
+// nghiêm trọng (ai biết chuỗi mặc định có thể tự ký token admin giả), nên
+// server phải dừng ngay lúc khởi động thay vì chạy ngầm với secret yếu.
+const REQUIRED_SECRET_MIN_LENGTH = 32;
+const requireSecret = (envKey) => {
+  const value = process.env[envKey];
+  if (!value || value.length < REQUIRED_SECRET_MIN_LENGTH) {
+    throw new Error(
+      `Thiếu hoặc ${envKey} quá ngắn (cần tối thiểu ${REQUIRED_SECRET_MIN_LENGTH} ký tự) — kiểm tra lại file .env trước khi khởi động server.`
+    );
+  }
+  return value;
+};
+
+const JWT_ACCESS_SECRET = requireSecret('JWT_ACCESS_SECRET');
+const JWT_REFRESH_SECRET = requireSecret('JWT_REFRESH_SECRET');
 const JWT_ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES || '15m';
 const JWT_REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES || '7d';
 const JWT_RESET_EXPIRES = process.env.JWT_RESET_EXPIRES || '15m';
