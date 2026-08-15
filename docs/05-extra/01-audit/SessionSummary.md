@@ -21,14 +21,14 @@ DIGITAL` là dữ liệu demo, dùng chung cho **mọi chi nhánh**, không có 
 hình tài khoản thật ở đâu cả. **Nếu hệ thống đang thu tiền chuyển khoản
 thật, tiền đang không về đúng tài khoản nào** — đây là việc nghiêm trọng
 nhất trong toàn bộ đợt audit, mức độ kinh doanh chứ không chỉ kỹ thuật.
-→ Chi tiết: `docs/05-extra/ProjectGapsAndDirection.md`
+→ Chi tiết: `docs/05-extra/01-audit/ProjectGapsAndDirection.md`
 
 ### 2. JWT secret có giá trị dự phòng hardcode sẵn trong code
 `backend/src/utils/jwt.js:3-4` — nếu thiếu biến môi trường
 `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET`, server vẫn khởi động bình thường
 và âm thầm dùng 1 chuỗi cố định in sẵn trong mã nguồn. Ai đọc được code
 (hoặc biết chuỗi này) có thể tự tạo token admin giả mà không cần mật khẩu.
-→ Chi tiết: `docs/05-extra/SecurityAudit.md`
+→ Chi tiết: `docs/05-extra/01-audit/SecurityAudit.md`
 
 ### 3. Webhook xác nhận thanh toán không bắt buộc xác thực
 `backend/src/controllers/paymentController.js:50-53` — nếu thiếu biến môi
@@ -36,12 +36,12 @@ trường `PAYMENT_WEBHOOK_SECRET` (hiện còn chưa có cả trong
 `.env.example`), endpoint nhận xác nhận thanh toán không kiểm tra gì cả.
 Kết hợp mã hoá đơn dễ đoán (`BD-{branchId}-00000042`), có thể giả mạo báo
 "đã thanh toán" cho 1 hoá đơn bất kỳ.
-→ Chi tiết: `docs/05-extra/SecurityAudit.md`
+→ Chi tiết: `docs/05-extra/01-audit/SecurityAudit.md`
 
 ### 4. Không giới hạn số lần thử đăng nhập
 `POST /api/v1/auth/login` không có rate-limit — có thể dò mật khẩu bằng
 cách thử liên tục không giới hạn.
-→ Chi tiết: `docs/05-extra/SecurityAudit.md`
+→ Chi tiết: `docs/05-extra/01-audit/SecurityAudit.md`
 
 ### 5. `CustomerService.updateCustomer` thiếu transaction
 `backend/src/services/CustomerService.js:158-192` — ghi đồng thời vào
@@ -50,7 +50,7 @@ ngắt giữa chừng (crash, timeout, mất mạng), 2 bảng có thể lệch 
 đăng nhập và SĐT hồ sơ khách không còn khớp. Là chỗ **duy nhất** trong
 toàn bộ service layer thiếu transaction — mọi luồng chính khác (đặt sân,
 thanh toán, kho) đều làm đúng.
-→ Chi tiết: `docs/05-extra/StabilityAudit.md`
+→ Chi tiết: `docs/05-extra/01-audit/StabilityAudit.md`
 
 ---
 
@@ -94,11 +94,11 @@ thanh toán, kho) đều làm đúng.
 - Refresh token có thiết kế **1 tài khoản chỉ 1 phiên sống tại 1 thời
   điểm** — đăng nhập nơi khác sẽ đá phiên đang dùng ra sau tối đa 15 phút.
   Đã xác nhận đây là nguyên nhân bạn bị văng đăng nhập bất chợt. **Bạn
-  chọn chưa sửa lúc này** — chi tiết + hướng sửa: `docs/05-extra/SessionRefreshIssue.md`
+  chọn chưa sửa lúc này** — chi tiết + hướng sửa: `docs/05-extra/01-audit/SessionRefreshIssue.md`
 - Chưa cấu hình `pool` cho Sequelize (mặc định tối đa 5 kết nối DB đồng
   thời) — không sao ở tải hiện tại, nhưng là điểm cần lưu ý nếu sau này
   thêm polling hoặc tăng người dùng đồng thời.
-→ Chi tiết: `docs/05-extra/ProjectGapsAndDirection.md`, `docs/05-extra/StabilityAudit.md`, `docs/05-extra/SecurityAudit.md`
+→ Chi tiết: `docs/05-extra/01-audit/ProjectGapsAndDirection.md`, `docs/05-extra/01-audit/StabilityAudit.md`, `docs/05-extra/01-audit/SecurityAudit.md`
 
 ---
 
@@ -109,13 +109,13 @@ thanh toán, kho) đều làm đúng.
   bằng code, có kế hoạch khắc phục 3 phương án (Polling / SSE — đề xuất
   chính / WebSocket đầy đủ), kèm phân tích rủi ro cụ thể nếu triển khai
   (thứ tự sự kiện sai, mất kết nối không resync, emit trước khi commit...).
-  → Chi tiết: `docs/05-extra/RealtimeCourtSync.md`
+  → Chi tiết: `docs/05-extra/01-audit/RealtimeCourtSync.md`
 - Kế hoạch realtime cũ trong repo (`docs/BadmintonDigital_Realtime_Audit_Implementation_Plan.md`)
   tự nhận Phase 1 (chuẩn hoá model) đã "hoàn thành", nhưng đối chiếu code
   thật thì `CourtSession` **vẫn chưa tách được ai mở/ai đóng sân** như kế
   hoạch — tài liệu cũ ghi quá lên so với thực tế. `ProjectRoadmap.md` cũng
   đang ghi sai — Phase 5 (Frontend) vẫn ghi "PLANNED" dù đã xây xong từ lâu.
-  → Chi tiết: `docs/05-extra/PlansVsCurrentReality.md`
+  → Chi tiết: `docs/05-extra/01-audit/PlansVsCurrentReality.md`
 
 ---
 
@@ -126,7 +126,7 @@ thanh toán, kho) đều làm đúng.
   đặt sân, không lọc được theo hạng). Hệ thống mới làm xong bước *đo
   lường*, chưa có bước *tưởng thưởng*. Tài liệu cũ (`WF-Customer.md`) từng
   ghi sai là đã có ưu đãi — đã sửa lại.
-  → Chi tiết: `docs/05-extra/LoyaltyTier.md`
+  → Chi tiết: `docs/05-extra/01-audit/LoyaltyTier.md`
 - Câu chuyện realtime (Socket.IO) vẫn đang ở dạng kế hoạch bị gác lại, chưa
   quyết định có làm tiếp hay bỏ hẳn.
 - Mô hình chain-wide (Customer) vs branch-scoped (Booking/Invoice/Payment/
