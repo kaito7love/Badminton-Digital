@@ -22,6 +22,7 @@ db.CourtSession = require('./CourtSession')(sequelize);
 db.Extra = require('./Extra')(sequelize);
 db.SessionExtra = require('./SessionExtra')(sequelize);
 db.Invoice = require('./Invoice')(sequelize);
+db.InvoiceLine = require('./InvoiceLine')(sequelize);
 db.Payment = require('./Payment')(sequelize);
 db.Setting = require('./Setting')(sequelize);
 db.ActivityLog = require('./ActivityLog')(sequelize);
@@ -104,6 +105,10 @@ db.Invoice.belongsTo(db.CourtSession, { foreignKey: 'sessionId', as: 'session' }
 // Invoice <-> Payment (1-1)
 db.Invoice.hasOne(db.Payment, { foreignKey: 'invoiceId', as: 'payment' });
 db.Payment.belongsTo(db.Invoice, { foreignKey: 'invoiceId', as: 'invoice' });
+
+// Invoice <-> InvoiceLine (1-n) — dòng chi tiết hoá đơn (tiền sân/sản phẩm/giảm giá...)
+db.Invoice.hasMany(db.InvoiceLine, { foreignKey: 'invoiceId', as: 'lines', onDelete: 'CASCADE' });
+db.InvoiceLine.belongsTo(db.Invoice, { foreignKey: 'invoiceId', as: 'invoice' });
 
 // Employee <-> Payment
 db.Employee.hasMany(db.Payment, { foreignKey: 'employeeId', as: 'payments' });

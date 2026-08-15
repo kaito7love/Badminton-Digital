@@ -22,7 +22,7 @@ kèm đề xuất.
 - Dòng 125: có 1 `setInterval` — nhưng chỉ để tăng biến `now` mỗi giây, phục
   vụ hiển thị đồng hồ đếm giờ chơi trên UI, **không** gọi lại API.
 - Grep toàn repo (`socket.io`, `WebSocket`, `EventSource`) chỉ có kết quả
-  trong 3 file tài liệu kế hoạch (`docs/05-extra/ProjectGapsAndDirection.md`,
+  trong 3 file tài liệu kế hoạch (`docs/05-extra/01-audit/ProjectGapsAndDirection.md`,
   `docs/BadmintonDigital_Realtime_Audit_Implementation_Plan.md`,
   `docs/BadmintonDigital_Audit_Report.md`) — **không có trong code thật**,
   cả backend lẫn frontend đều không cài `socket.io`/`ws`.
@@ -77,7 +77,7 @@ sự có gì đổi (không cần client tự hỏi lại theo chu kỳ).
 
 Đây chính là hướng đã được lên kế hoạch từ trước trong
 `docs/BadmintonDigital_Realtime_Audit_Implementation_Plan.md` (đã xác nhận
-ở `docs/05-extra/ProjectGapsAndDirection.md` là kế hoạch này **đang bị gác lại**,
+ở `docs/05-extra/01-audit/ProjectGapsAndDirection.md` là kế hoạch này **đang bị gác lại**,
 chưa triển khai).
 
 - **Ưu điểm:** 2 chiều thật sự, mở rộng được cho các tính năng realtime
@@ -208,7 +208,7 @@ giữa các tiến trình (ví dụ Redis pub/sub) chứ không giữ nguyên
 
 **f) Chưa có test tự động cho luồng này.** Đây là code hoàn toàn mới, chưa
 có hạ tầng test nào cho SSE/WebSocket trong repo — kết hợp với việc độ phủ
-test toàn hệ thống vốn đã thấp (đã ghi trong `docs/05-extra/StabilityAudit.md`),
+test toàn hệ thống vốn đã thấp (đã ghi trong `docs/05-extra/01-audit/StabilityAudit.md`),
 rủi ro là lỗi ở luồng này (đặc biệt 3 lỗi (a)(b)(c) ở trên) sẽ không được
 phát hiện tự động trước khi lên production — nên kiểm thử thủ công kỹ
 bằng 2 thiết bị/2 tab thật trước khi coi là xong, không chỉ dựa vào "chạy

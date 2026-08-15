@@ -260,7 +260,7 @@ So sánh: `createBooking`/`updateBooking` (cùng file, dòng 124 & 195) làm đ�
 trực tiếp API qua curl, không chỉ đọc code) — bao gồm loại trừ khả năng do
 nhiều request đồng thời (5 request refresh song song đều thành công), xác
 nhận nguyên nhân duy nhất là bị đăng nhập nơi khác ghi đè. Chi tiết đầy đủ
-kèm bằng chứng: `docs/05-extra/SessionRefreshIssue.md`.
+kèm bằng chứng: `docs/05-extra/01-audit/SessionRefreshIssue.md`.
 
 ---
 
@@ -329,7 +329,7 @@ cáo/dashboard).
 chi nhánh có thể ở múi giờ khác nhau), nhưng `dateTime.js` hiện tính "hôm
 nay bắt đầu/kết thúc lúc nào" dựa theo **giờ của máy chủ chạy backend**,
 không hề đọc `branch.timezone` — cùng 1 kiểu "ghi mà không đọc" như
-`loyaltyTier` (`docs/05-extra/LoyaltyTier.md`), nhưng khác ở chỗ đây có
+`loyaltyTier` (`docs/05-extra/01-audit/LoyaltyTier.md`), nhưng khác ở chỗ đây có
 nguy cơ trở thành lỗi thật, không chỉ lãng phí.
 
 **Khi nào thật sự gây lỗi:** hiện tại toàn bộ chi nhánh đều ở

@@ -145,4 +145,4 @@ webhook xác nhận thanh toán chuyển khoản (`PaymentService.js`), dựa tr
 > không ưu tiên đặt sân, không thông báo/khuyến mãi riêng. Nơi duy nhất
 > hạng được dùng là hiển thị 1 badge màu trên bảng khách hàng
 > (`CustomersPage.jsx`). Chi tiết cơ chế hiện tại và các hướng phát triển
-> có thể cân nhắc: xem `docs/05-extra/LoyaltyTier.md`.
+> có thể cân nhắc: xem `docs/05-extra/01-audit/LoyaltyTier.md`.

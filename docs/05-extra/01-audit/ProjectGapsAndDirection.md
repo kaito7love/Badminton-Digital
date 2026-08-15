@@ -3,7 +3,7 @@
 ## Mục đích tài liệu
 
 Đây **không phải** danh sách lỗi hay lỗ hổng bảo mật (hai việc đó nằm ở
-`docs/05-extra/SecurityAudit.md` và `docs/05-extra/StabilityAudit.md`). Tài liệu này chỉ trả lời
+`docs/05-extra/01-audit/SecurityAudit.md` và `docs/05-extra/01-audit/StabilityAudit.md`). Tài liệu này chỉ trả lời
 một câu hỏi: **những chỗ nào trong hệ thống đã viết code nhưng chưa thực sự
 "xong" về mặt sản phẩm** — nghĩa là dữ liệu được lưu nhưng không ai dùng, hai
 chỗ trong code nói hai điều khác nhau về cùng một vai trò, hoặc một tính năng
@@ -17,13 +17,13 @@ rõ mình đang đứng ở đâu** trước khi quyết định làm tiếp cá
 
 ## Mục 1 — Tính năng "đo mà không dùng"
 
-Đây là mẫu hình đã phát hiện với hạng hội viên (`docs/05-extra/LoyaltyTier.md`):
+Đây là mẫu hình đã phát hiện với hạng hội viên (`docs/05-extra/01-audit/LoyaltyTier.md`):
 trường dữ liệu được tính toán, lưu vào DB, cập nhật đều đặn — nhưng **không
 có chỗ nào trong hệ thống đọc lại nó để ra quyết định gì**. Rà lại toàn bộ
 codebase thấy thêm mấy trường hợp cùng dạng, có một trường hợp thậm chí lớn
 hơn cả loyalty tier.
 
-### 1.1. `Customer.loyaltyTier` (đã ghi trong `docs/05-extra/LoyaltyTier.md`)
+### 1.1. `Customer.loyaltyTier` (đã ghi trong `docs/05-extra/01-audit/LoyaltyTier.md`)
 Tính theo `totalSpent` toàn chuỗi, cập nhật ở `PaymentService.checkout`
 (`backend/src/services/PaymentService.js:131-141`) và
 `PaymentService.processWebhook` (dòng 271), hiển thị trên trang khách hàng —

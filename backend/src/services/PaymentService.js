@@ -1,4 +1,4 @@
-const { Invoice, Payment, CourtSession, SessionExtra, Extra, Customer, Court, Employee, sequelize } = require('../models');
+const { Invoice, InvoiceLine, Payment, CourtSession, SessionExtra, Extra, Customer, Court, Employee, sequelize } = require('../models');
 const { calculateCourtFee, calculateInvoiceTotals } = require('../utils/priceCalculator');
 const { generateVietQRUrl } = require('../utils/vietqr');
 const { nextInvoiceNumber } = require('../utils/documentNumber');
@@ -101,7 +101,47 @@ class PaymentService {
           discountAmount: totals.discountAmount,
           totalAmount: totals.totalAmount
         }, { transaction });
+        // Re-checkout (idempotency retry/resume) — xoá dòng cũ trước khi dựng
+        // lại từ đầu, tránh nhân đôi/lệch dữ liệu với tổng vừa cập nhật ở trên.
+        await InvoiceLine.destroy({ where: { invoiceId: invoice.id }, transaction });
       }
+
+      // Dòng chi tiết hoá đơn — nguồn dữ liệu itemized cho báo cáo sau này,
+      // độc lập với các cột tổng hợp ở trên (giữ nguyên để không phá dashboard/
+      // export hiện tại). Tổng amount các dòng luôn bằng totals.totalAmount.
+      const invoiceLines = [
+        {
+          invoiceId: invoice.id,
+          lineKind: 'court_time',
+          description: 'Tiền sân',
+          quantity: 1,
+          unitPrice: totals.courtFee,
+          amount: totals.courtFee,
+          referenceType: 'court_session',
+          referenceId: session.id
+        },
+        ...session.sessionExtras.map((se) => ({
+          invoiceId: invoice.id,
+          lineKind: 'product',
+          description: se.extra?.name || `Phụ kiện #${se.extraId}`,
+          quantity: se.quantity,
+          unitPrice: se.unitPrice,
+          amount: se.subtotal,
+          referenceType: 'session_extra',
+          referenceId: se.id
+        }))
+      ];
+      if (totals.discountAmount > 0) {
+        invoiceLines.push({
+          invoiceId: invoice.id,
+          lineKind: 'discount',
+          description: 'Giảm giá',
+          quantity: 1,
+          unitPrice: -totals.discountAmount,
+          amount: -totals.discountAmount
+        });
+      }
+      await InvoiceLine.bulkCreate(invoiceLines, { transaction });
 
       // Create Payment
       let payment = await Payment.findOne({ where: { invoiceId: invoice.id }, transaction, lock: transaction.LOCK.UPDATE });

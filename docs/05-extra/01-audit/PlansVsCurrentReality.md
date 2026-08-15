@@ -17,7 +17,7 @@ nên tải hệ thống hiện đang ở mức thấp nhất có thể. Đây th
 trải nghiệm (dữ liệu không tự cập nhật), không phải vấn đề tải hệ thống.
 
 **Rủi ro chỉ xuất hiện nếu chọn sai cách sửa** — cụ thể là Phương án A
-(Polling) trong `docs/05-extra/RealtimeCourtSync.md`, và nó liên quan trực tiếp tới
+(Polling) trong `docs/05-extra/01-audit/RealtimeCourtSync.md`, và nó liên quan trực tiếp tới
 1 phát hiện đã ghi trong `StabilityAudit.md`:
 
 - `backend/src/config/config.js` **không cấu hình `pool`** cho Sequelize
@@ -115,7 +115,7 @@ không phải `⏳ PLANNED`.
 ký) — sửa đè sẽ xoá mất bối cảnh "lúc đó đã nghĩ gì, quyết định gì", vốn có
 giá trị tham khảo riêng. Tài liệu đối chiếu này đóng vai trò phần chú
 thích cập nhật đi kèm, không thay thế bản gốc — giống cách
-`docs/05-extra/LoyaltyTier.md`/`docs/05-extra/ProjectGapsAndDirection.md` đã làm cho các chủ
+`docs/05-extra/01-audit/LoyaltyTier.md`/`docs/05-extra/01-audit/ProjectGapsAndDirection.md` đã làm cho các chủ
 đề khác.
 
 ---
