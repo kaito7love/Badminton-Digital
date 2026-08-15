@@ -44,6 +44,20 @@ const rangeLabel = ({ from, to }) => {
 const customerLabel = (session) =>
   session.customer?.fullName || 'Khách vãng lai';
 
+// Chống "formula injection": nếu chuỗi do người dùng nhập (tên khách tự
+// đăng ký, tên sân, tên phụ kiện...) bắt đầu bằng =, +, -, @ thì Excel có
+// thể hiểu nhầm thành công thức khi mở file — thêm dấu ' phía trước để
+// Excel luôn hiển thị nguyên văn. Chỉ áp dụng cho ô Excel, không dùng cho
+// PDF (PDFKit không có lớp lỗi này).
+const FORMULA_TRIGGER_CHARS = ['=', '+', '-', '@', '\t', '\r'];
+const sanitizeForSpreadsheet = (value) => {
+  const str = String(value ?? '');
+  if (str.length > 0 && FORMULA_TRIGGER_CHARS.includes(str[0])) {
+    return `'${str}`;
+  }
+  return str;
+};
+
 /* ────────────────────────────── EXCEL ────────────────────────────── */
 
 const styleHeaderRow = (row) => {
@@ -119,7 +133,7 @@ const buildRevenueSheet = (workbook, data) => {
 
   data.topCourts.forEach((court) => {
     sheet.addRow([
-      court.court?.name || `Sân #${court.courtId}`,
+      sanitizeForSpreadsheet(court.court?.name || `Sân #${court.courtId}`),
       num(court.totalSessions),
       formatDuration(court.totalDurationSeconds)
     ]);
@@ -151,9 +165,9 @@ const buildSessionsSheet = (workbook, data) => {
     const invoice = session.invoice;
     const row = sheet.addRow({
       id: session.id,
-      court: session.court?.name || '—',
-      customer: customerLabel(session),
-      phone: session.customer?.phone || '—',
+      court: sanitizeForSpreadsheet(session.court?.name || '—'),
+      customer: sanitizeForSpreadsheet(customerLabel(session)),
+      phone: sanitizeForSpreadsheet(session.customer?.phone || '—'),
       start: formatDateTime(session.startTime),
       end: formatDateTime(session.endTime),
       duration: formatDuration(session.durationSeconds),
@@ -188,7 +202,7 @@ const buildAccessoriesSheet = (workbook, data) => {
 
   data.topAccessories.forEach((item) => {
     const row = sheet.addRow({
-      name: item.extra?.name || `Phụ kiện #${item.extraId}`,
+      name: sanitizeForSpreadsheet(item.extra?.name || `Phụ kiện #${item.extraId}`),
       price: num(item.extra?.price),
       quantity: num(item.totalQuantitySold),
       revenue: num(item.totalRevenue)
