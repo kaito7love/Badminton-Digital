@@ -251,6 +251,51 @@ lời) ở `04-ke-hoach-invoice-reporting.md`.
   duyệt: cả 2 tab mới hiển thị đúng dữ liệu khớp API, tab Tổng quan cũ
   không hồi quy, không lỗi console. `npm test` 38/38 pass xuyên suốt.
 
+**Bổ sung theo yêu cầu chủ dự án — dữ liệu mẫu + dashboard dùng dữ liệu
+thật:**
+
+- Seeder mới `20260816300001-seed-sample-sales-history.js` — 14 giao dịch
+  bán lẻ trải dài 7 ngày qua, cả 3 chi nhánh (bao gồm seed tồn kho ban đầu
+  cho chi nhánh 2/3 vốn chưa có), vài đơn có giảm giá — ghi trực tiếp bằng
+  SQL tính tay trong 1 transaction (dùng `LAST_INSERT_ID()` để lấy id vừa
+  tạo, không tra lại bằng `created_at` vì Date object qua replacements bị
+  lệch múi giờ so với giá trị mysql2 tự serialize lúc INSERT — phát hiện
+  lỗi này ngay lần chạy đầu, đã dọn dữ liệu dở dang và sửa lại bằng
+  transaction trước khi chạy lại thành công). Kiểm tra lại: `revenue-breakdown`
+  giờ có 23 dòng trải 3 chi nhánh, 5 dòng giảm giá; `inventory-reconciliation`
+  có 15 sản phẩm phát sinh.
+- **`DashboardPage.jsx` viết lại hoàn toàn — bỏ 100% dữ liệu hardcode**,
+  phát hiện lúc rà lại code cũ (không phải chỉ theo yêu cầu suông):
+  - "Trạng Thái Sân Hôm Nay" trước đó là mảng tên sân **giả** cứng trong
+    code (`'Sân 01 - BWF Arena'`...), không khớp tên sân thật, luôn hiện
+    "Sẵn sàng" — thay bằng `courtService.getAllCourts()` (đã có sẵn field
+    `state` tính từ phiên đang mở, dùng luôn, không cần API mới).
+  - "Cảnh Báo Kho Thiết Bị" trước đó là 3 dòng text **giả** cứng
+    ("Pocari/RedBull còn 12 chai"...) — sản phẩm còn không tồn tại trong dữ
+    liệu thật — thay bằng dữ liệu tồn kho thấp thật (gộp cả phụ kiện sân +
+    bán lẻ).
+  - **Bug thật phát hiện lúc sửa:** `stats.map()` không bao giờ chạy vì
+    code cũ kiểm tra `dashboardRes.success` (luôn `undefined` — cờ `success`
+    nằm ở `dashboardRes.data.success`, không phải cấp ngoài của response
+    axios) — nghĩa là khối thẻ số liệu đầu trang **chưa từng hiển thị**
+    trong thực tế dùng, kể cả trước khi tôi đụng vào. Biểu đồ doanh thu
+    cũng luôn rỗng — code đọc `dataKey="name"` nhưng API trả về field
+    `date`, không có field nào tên `name`. Cả 2 đã sửa.
+  - **Bug thật thứ 3, phát hiện lúc test bằng browser:** `InventoryService.getLowStockCount`
+    đếm nhầm cả phụ kiện đã bị xoá mềm (soft-delete) là "sắp hết hàng" —
+    include không giới hạn `paranoid` khiến các dòng `extra_stocks` trỏ tới
+    phụ kiện đã xoá trả về `extra: null`, và `?? 5` biến `null` thành
+    "dưới ngưỡng 5" một cách vô tình. Dashboard hiện "10 cảnh báo tồn kho
+    thấp" trong khi thực tế là 0 — toàn bộ 10 dòng đều là rác test cũ
+    ("Retest Khăn Lau" x8, đã xoá từ 2026-08-14). Đã sửa `getLowStockCount`
+    lẫn `getLowStockCountForProducts` (lỗi tương tự), và gộp cả 2 vào
+    `getDashboardSummary.lowStockCount` (trước đó chỉ tính phụ kiện sân,
+    bỏ sót tồn kho bán lẻ thấp).
+  - Test qua trình duyệt: đăng nhập admin thật, xác nhận cả 4 thẻ số liệu +
+    biểu đồ + trạng thái sân (tên thật) + cảnh báo kho (đúng "không có sản
+    phẩm nào sắp hết" sau khi sửa bug) đều hiển thị đúng, không lỗi console.
+    `npm test` 38/38 pass.
+
 **Chưa commit, chưa merge** — chờ chủ dự án xem lại.
 
 ---

@@ -60,8 +60,13 @@ class ReportService {
     });
     const occupancyRate = operatingCourts > 0 ? Math.round((activeCourts / operatingCourts) * 100) : 0;
 
-    // Low stock items count (tính riêng theo chi nhánh)
-    const lowStockCount = await InventoryService.getLowStockCount(branchId);
+    // Low stock items count (tính riêng theo chi nhánh) — gộp cả phụ kiện
+    // trong sân lẫn sản phẩm bán lẻ, 2 ledger tồn kho tách biệt.
+    const [lowStockExtras, lowStockProducts] = await Promise.all([
+      InventoryService.getLowStockCount(branchId),
+      InventoryService.getLowStockCountForProducts(branchId)
+    ]);
+    const lowStockCount = lowStockExtras + lowStockProducts;
 
     return {
       todayRevenue,

@@ -214,14 +214,20 @@ class InventoryService {
     return getPagingData(data, page, limit);
   }
 
-  /** Số sản phẩm dưới ngưỡng cảnh báo, tính riêng cho 1 chi nhánh. */
+  /**
+   * Số sản phẩm dưới ngưỡng cảnh báo, tính riêng cho 1 chi nhánh. Bỏ qua
+   * dòng tồn kho của phụ kiện đã bị xoá mềm (soft-delete) — include không
+   * `where` trả `extra: null` cho các dòng này (đúng hành vi Sequelize với
+   * model paranoid), `?? 5` trước đây vô tình biến chúng thành "sắp hết
+   * hàng" dù sản phẩm không còn tồn tại để mà cảnh báo.
+   */
   static async getLowStockCount(branchId) {
     if (!branchId) return 0;
     const stocks = await ExtraStock.findAll({
       where: { branchId },
       include: [{ model: Extra, as: 'extra', attributes: ['lowStockThreshold'] }]
     });
-    return stocks.filter((s) => s.quantity <= (s.extra?.lowStockThreshold ?? 5)).length;
+    return stocks.filter((s) => s.extra && s.quantity <= s.extra.lowStockThreshold).length;
   }
 
   /** Tương đương getLowStockCount nhưng cho sản phẩm bán lẻ. */
@@ -231,7 +237,7 @@ class InventoryService {
       where: { branchId },
       include: [{ model: ProductVariant, as: 'variant', attributes: ['lowStockThreshold'] }]
     });
-    return stocks.filter((s) => s.quantity <= (s.variant?.lowStockThreshold ?? 5)).length;
+    return stocks.filter((s) => s.variant && s.quantity <= s.variant.lowStockThreshold).length;
   }
 
   static _requireBranch(branchId) {
