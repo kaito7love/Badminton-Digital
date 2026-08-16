@@ -1,7 +1,8 @@
-# Plan: `perf/frontend-code-splitting` (ĐÃ CODE + TEST XONG — chờ duyệt merge)
+# Plan: `perf/frontend-code-splitting` (ĐÃ MERGE VÀO `main`)
 
-**Trạng thái:** đã code + test thật xong trên nhánh `perf/frontend-code-splitting`,
-chưa merge vào `main`. Xem tổng kết ở `00-tien-do.md`.
+**Trạng thái:** đã code + test thật xong, đã merge vào `main` tại `c617844`
+(merge thường, conflict duy nhất ở `00-tien-do.md` do 2 nhánh song song cùng
+sửa file này — đã gộp tay). Xem tổng kết ở `00-tien-do.md`.
 
 ## Vấn đề
 

@@ -1,7 +1,7 @@
-# Plan: `fix/branch-timezone` (ĐÃ CODE + TEST XONG — chờ duyệt merge)
+# Plan: `fix/branch-timezone` (ĐÃ MERGE VÀO `main`)
 
-**Trạng thái:** đã code + test thật xong trên nhánh `fix/branch-timezone`,
-chưa merge vào `main`. Xem tổng kết ở `00-tien-do.md`.
+**Trạng thái:** đã code + test thật xong, đã merge vào `main` tại `3ce672d`
+(fast-forward). Xem tổng kết ở `00-tien-do.md`.
 
 ## Vấn đề
 

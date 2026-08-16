@@ -297,9 +297,7 @@ liệu mẫu + Dashboard dùng dữ liệu thật). Merge vào `main` bằng fas
 (không conflict) — `8423f2b` chính là commit đầu `main` sau khi merge.
 `main` vẫn **chưa push lên `origin`**, giống mọi nhánh trước.
 
-## Đã code + test xong, **chưa merge** — chờ duyệt
-
-### 8. `fix/branch-timezone` (nhánh riêng, chưa commit)
+### 8. `fix/branch-timezone` (merge tại `3ce672d`, fast-forward)
 Nguồn: `02-ke-hoach-branch-timezone.md` — `dateTime.js` luôn tính "hôm
 nay"/"giờ hiện tại" theo giờ máy chạy server, bỏ qua cột `branch.timezone`
 đã có sẵn trong schema nhưng chưa nơi nào đọc tới.
@@ -331,9 +329,10 @@ nay"/"giờ hiện tại" theo giờ máy chạy server, bỏ qua cột `branch.
   `branch.timezone`, không lỗi, chặn đúng vì còn 3 lịch đặt sắp tới (logic
   nghiệp vụ giữ nguyên).
 
-**Chưa commit, chưa merge — chờ chủ dự án xem lại.**
+Merge vào `main` bằng fast-forward (không conflict) — `3ce672d` chính là
+commit đầu `main` sau khi merge.
 
-### 9. `perf/frontend-code-splitting` (nhánh riêng, chưa commit)
+### 9. `perf/frontend-code-splitting` (merge tại `c617844`)
 Nguồn: `03-ke-hoach-frontend-code-splitting.md` — `AppRoutes.jsx` import tĩnh
 toàn bộ 14 trang vào 1 bundle JS ban đầu (~853KB theo audit
 `../01-audit/StabilityAudit.md`), khách chỉ vào trang chủ đặt sân vẫn phải
@@ -367,7 +366,13 @@ tải cả code `SettingsPage`/`ReportsPage` mà không có quyền vào.
   (Courts/Bookings/Accessories/Customers/Employees/History) bị tải thừa;
   không lỗi console xuyên suốt.
 
-**Chưa commit, chưa merge — chờ chủ dự án xem lại.**
+Nhánh này và `fix/branch-timezone` (mục 8) đều tách từ cùng 1 điểm trên
+`main` (2 vấn đề độc lập, không gộp chung nhánh theo yêu cầu chủ dự án) nên
+merge nhánh này **không fast-forward được** — có 1 commit merge thật
+(`c617844`), conflict duy nhất ở chính file `00-tien-do.md` này (cả 2 nhánh
+cùng thêm mục mới), gộp tay giữ lại đầy đủ nội dung mục 8 lẫn mục 9. Sau khi
+merge: `npm test` backend 38/38 pass, `npm test` frontend 8/8 pass (chạy lại
+trên trạng thái đã gộp cả 2 nhánh, không chỉ test riêng từng nhánh).
 
 ---
 
