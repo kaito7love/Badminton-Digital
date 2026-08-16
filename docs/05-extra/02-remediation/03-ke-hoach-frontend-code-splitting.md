@@ -1,7 +1,7 @@
-# Plan: `perf/frontend-code-splitting` (CHƯA LÀM)
+# Plan: `perf/frontend-code-splitting` (ĐÃ CODE + TEST XONG — chờ duyệt merge)
 
-**Trạng thái:** chưa tạo nhánh, chưa code. Đây là plan để duyệt trước khi
-"code đi".
+**Trạng thái:** đã code + test thật xong trên nhánh `perf/frontend-code-splitting`,
+chưa merge vào `main`. Xem tổng kết ở `00-tien-do.md`.
 
 ## Vấn đề
 
