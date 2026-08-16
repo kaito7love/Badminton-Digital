@@ -40,3 +40,10 @@ riêng (hạn chế code thẳng trên `main`). Đọc `00-tien-do.md` trước 
   dùng dữ liệu `invoice_lines` (phụ thuộc nhánh invoice line items đã xong).
 - `05-backlog-nhom-b.md` — 4 việc cần chủ dự án quyết định chính sách kinh
   doanh trước khi viết plan chi tiết (chưa làm, chưa lên plan).
+- `06-kiem-tra-lai-2026-08-16.md` — kiểm tra lại toàn bộ 5 việc đã "xong" ở
+  trên bằng test thật (server thật, API thật, DB thật, riêng mục docker còn
+  dựng cả cụm container thật) — xác nhận không có hồi quy, kèm 2 ghi chú phụ.
+- `07-ke-hoach-ban-le-phu-kien.md` — plan module bán lẻ dụng cụ cầu lông
+  (vợt/áo/quần/cầu) + kho hợp nhất, trụ cột 2+3 trong định hướng hệ thống
+  (chưa làm, chờ duyệt). Đính chính lại phần trong `01-ke-hoach-dead-code-cleanup.md`
+  từng đề xuất xoá nhầm 5 bảng catalog/sales-order coi là dead code.
