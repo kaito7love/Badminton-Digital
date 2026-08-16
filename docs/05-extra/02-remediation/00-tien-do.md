@@ -222,7 +222,7 @@ merge. `main` vẫn **chưa push lên `origin`**, giống mọi nhánh trước.
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
 | `dateTime.js` hiện dùng giờ server, không theo `branch.timezone` | `02-ke-hoach-branch-timezone.md` | Nhóm A |
 | Bundle frontend ~800KB, chưa code-split theo route | `03-ke-hoach-frontend-code-splitting.md` | Nhóm A |
-| Báo cáo doanh thu chi tiết + tổng kết nhập-tồn kho dùng `invoice_lines` | `04-ke-hoach-invoice-reporting.md` | Nền tảng dữ liệu (mục 5, `invoice_lines`) đã merge từ lâu — **không còn bị chặn**, có thể lên plan bất cứ lúc nào, chỉ đang chờ 4 câu hỏi thiết kế trong chính file plan đó |
+| Báo cáo doanh thu chi tiết + tổng kết nhập-tồn kho dùng `invoice_lines`/`stock_movements` | `04-ke-hoach-invoice-reporting.md` | Đã lên plan chi tiết đầy đủ (4 câu hỏi thiết kế đã trả lời) — sẵn sàng duyệt "code đi" |
 | 4 việc cần quyết định chính sách kinh doanh trước (discount guardrail, onboarding branch_manager, luồng hoàn tiền/void, cấu hình tài khoản ngân hàng) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
 
 ## Cố ý bỏ qua / đã hoãn — không tự ý làm lại nếu chưa hỏi lại chủ dự án
