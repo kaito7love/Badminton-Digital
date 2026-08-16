@@ -297,8 +297,6 @@ liệu mẫu + Dashboard dùng dữ liệu thật). Merge vào `main` bằng fas
 (không conflict) — `8423f2b` chính là commit đầu `main` sau khi merge.
 `main` vẫn **chưa push lên `origin`**, giống mọi nhánh trước.
 
----
-
 ## Đã code + test xong, **chưa merge** — chờ duyệt
 
 ### 8. `fix/branch-timezone` (nhánh riêng, chưa commit)
@@ -335,6 +333,42 @@ nay"/"giờ hiện tại" theo giờ máy chạy server, bỏ qua cột `branch.
 
 **Chưa commit, chưa merge — chờ chủ dự án xem lại.**
 
+### 9. `perf/frontend-code-splitting` (nhánh riêng, chưa commit)
+Nguồn: `03-ke-hoach-frontend-code-splitting.md` — `AppRoutes.jsx` import tĩnh
+toàn bộ 14 trang vào 1 bundle JS ban đầu (~853KB theo audit
+`../01-audit/StabilityAudit.md`), khách chỉ vào trang chủ đặt sân vẫn phải
+tải cả code `SettingsPage`/`ReportsPage` mà không có quyền vào.
+
+- `frontend/src/routes/AppRoutes.jsx` — 12/14 trang chuyển sang
+  `React.lazy(() => import(...))`: `RegisterPage`, `ForgotPasswordPage`,
+  `ResetPasswordPage`, `DashboardPage`, `CourtsPage`, `BookingsPage`,
+  `AccessoriesPage`, `RetailPage`, `CustomersPage`, `EmployeesPage`,
+  `ReportsPage`, `SettingsPage`, `HistoryPage`, `MyBookingsPage`. Giữ static
+  import `HomePage` + `LoginPage` (2 điểm vào phổ biến nhất). Bọc `<Routes>`
+  trong `<Suspense fallback={<RouteFallback />}>` — fallback tái dùng đúng
+  khuôn mẫu "⏳ Đang tải..." đã có sẵn khắp các trang, không thêm thư viện
+  mới. `ErrorBoundary` có sẵn từ `chore/frontend-resilience` đã bọc ngoài
+  `<AppRoutes />`, bắt được cả lỗi tải chunk thất bại, không cần thêm boundary
+  riêng.
+- Không đụng `vite.config.js` — Vite tự tách chunk theo `import()` động, không
+  cần `manualChunks`.
+- **Bằng chứng test thật:** `npm run build` — bundle chính giảm từ **853.07 kB
+  → 272.95 kB** (gzip 226.65 kB → 86.19 kB), hết cảnh báo ">500kB sau khi
+  minify"; `dist/assets/` có 13 chunk riêng theo từng trang (3.87–32.75 kB) +
+  1 chunk dùng chung `chartColors`/recharts (372.79 kB, chỉ tải khi vào
+  Dashboard/Reports). `npm test` (Vitest) 8/8 pass. Test qua trình duyệt thật
+  trên **production build** (`npm run preview`, không phải dev server — dev
+  server không phản ánh đúng hành vi chunk): đăng nhập admin thật, dùng
+  `performance.getEntriesByType('resource')` xác nhận trang chủ/login chỉ tải
+  đúng 1 file `index-*.js`; vào lần lượt Dashboard → Cài Đặt → Báo Cáo → Bán
+  Lẻ, mỗi lần chuyển trang chỉ thêm đúng chunk của trang đó (`DashboardPage`+
+  `chartColors`, rồi `SettingsPage`, rồi `ReportsPage`+`UIComponents`, rồi
+  `RetailPage`) — không chunk nào của các trang chưa ghé thăm
+  (Courts/Bookings/Accessories/Customers/Employees/History) bị tải thừa;
+  không lỗi console xuyên suốt.
+
+**Chưa commit, chưa merge — chờ chủ dự án xem lại.**
+
 ---
 
 ## Chưa làm — xem plan riêng từng phần
@@ -342,7 +376,6 @@ nay"/"giờ hiện tại" theo giờ máy chạy server, bỏ qua cột `branch.
 | Việc | File plan | Ưu tiên gốc |
 |---|---|---|
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
-| Bundle frontend ~800KB, chưa code-split theo route | `03-ke-hoach-frontend-code-splitting.md` | Nhóm A |
 | 4 việc cần quyết định chính sách kinh doanh trước (discount guardrail, onboarding branch_manager, luồng hoàn tiền/void, cấu hình tài khoản ngân hàng) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
 
 ## Cố ý bỏ qua / đã hoãn — không tự ý làm lại nếu chưa hỏi lại chủ dự án
