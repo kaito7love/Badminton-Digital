@@ -213,11 +213,7 @@ Commit thành 2 phần: `08af2e9` (đính chính docs) + `124f108` (toàn bộ b
 merge riêng, không conflict) — `124f108` chính là commit đầu `main` sau khi
 merge. `main` vẫn **chưa push lên `origin`**, giống mọi nhánh trước.
 
----
-
-## Đã code + test xong, **chưa merge** — chờ duyệt
-
-### 7. `feat/invoice-reporting` (nhánh riêng, chưa commit)
+### 7. `feat/invoice-reporting` (merge tại `8423f2b`, fast-forward)
 Nguồn: đích cuối của `feat/invoice-line-items` (mục 5) — báo cáo doanh thu
 chi tiết + đối chiếu nhập-tồn kho. Plan đầy đủ (4 câu hỏi thiết kế đã trả
 lời) ở `04-ke-hoach-invoice-reporting.md`.
@@ -296,7 +292,10 @@ thật:**
     phẩm nào sắp hết" sau khi sửa bug) đều hiển thị đúng, không lỗi console.
     `npm test` 38/38 pass.
 
-**Chưa commit, chưa merge** — chờ chủ dự án xem lại.
+Commit thành 2 phần: `e39650e` (2 báo cáo mới + frontend) + `8423f2b` (dữ
+liệu mẫu + Dashboard dùng dữ liệu thật). Merge vào `main` bằng fast-forward
+(không conflict) — `8423f2b` chính là commit đầu `main` sau khi merge.
+`main` vẫn **chưa push lên `origin`**, giống mọi nhánh trước.
 
 ---
 
