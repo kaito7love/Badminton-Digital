@@ -30,7 +30,7 @@ module.exports = (sequelize) => {
       },
       sessionId: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
         unique: true,
         field: "session_id",
       },

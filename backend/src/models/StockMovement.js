@@ -27,8 +27,13 @@ module.exports = (sequelize) => {
       },
       extraId: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
         field: "extra_id",
+      },
+      productVariantId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: "product_variant_id",
       },
       type: {
         type: DataTypes.ENUM(...MOVEMENT_TYPES),

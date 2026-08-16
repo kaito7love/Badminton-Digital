@@ -114,17 +114,114 @@ làm UI xem hoá đơn ở frontend — chỉ xây nền tảng ghi dữ liệu 
 **Việc còn lại:** báo cáo doanh thu/tồn kho tiêu thụ `invoice_lines` chưa
 làm — xem `04-ke-hoach-invoice-reporting.md`.
 
+### 6. `feat/retail-catalog-inventory` — backend xong, **frontend chưa làm** (nhánh riêng, chưa commit)
+Nguồn: định hướng hệ thống của chủ dự án — 3 trụ cột (thuê sân / bán lẻ dụng
+cụ cầu lông / quản lý kho cho bán lẻ). Plan đầy đủ ở
+`07-ke-hoach-ban-le-phu-kien.md`. Sửa lại schema catalog M2 (từng suýt bị xoá
+nhầm coi là dead code — xem đính chính ở `01-ke-hoach-dead-code-cleanup.md`)
+để dùng thật, và tổng quát hoá ledger kho M4 để dùng chung cho cả 2 trụ.
+
+Quyết định đã chốt qua trao đổi: kho dùng chung ledger (không tách riêng),
+biến thể sản phẩm đầy đủ size+màu, cần POS checkout thật ngay đợt đầu,
+catalog dùng chung toàn chuỗi nhưng tồn kho tách theo từng chi nhánh, nhập
+kho hỗ trợ sản phẩm bán lẻ ngay từ đầu.
+
+- Migration `20260816100001-retail-catalog-inventory.js`: xoá data snapshot
+  chết của M2 (2026-08-05), bỏ `branch_id` khỏi `products`/`product_categories`
+  (catalog dùng chung toàn chuỗi), bỏ `product_variants.stock_quantity` (thiếu
+  chiều chi nhánh — lỗi thiết kế M2 gốc), thêm `size`/`color`, bảng mới
+  `product_stocks` (tồn kho theo chi nhánh, cùng mẫu `extra_stocks`), tổng
+  quát hoá `stock_movements`/`goods_receipt_items` nhận cả `extra_id` lẫn
+  `product_variant_id` (CHECK đúng 1 trong 2), `invoices.session_id` cho phép
+  NULL + CHECK loại trừ lẫn nhau với `sales_order_id` (bán lẻ không gắn phiên
+  sân). Đã test `db:migrate`/`db:migrate:undo` sạch trên DB dev thật.
+- Model mới: `Product`, `ProductVariant`, `ProductCategory`, `ProductStock`,
+  `SalesOrder`, `SalesOrderLine` + associations trong `models/index.js`.
+  `Invoice.salesOrderId` (từng coi là cột mồ côi) nay dùng thật, trỏ đơn bán
+  lẻ khi checkout.
+- `InventoryService.postMovement` tổng quát hoá nhận `extraId` HOẶC
+  `productVariantId` (đúng 1 trong 2) — giữ nguyên 100% hành vi cũ cho
+  `extraId`, có test hồi quy trước/sau khi sửa. `GoodsReceiptService` tổng
+  quát hoá tương tự.
+- `SalesOrderService` mới: tạo đơn (channel `pos`) → thêm/xoá dòng (trừ/hoàn
+  kho ngay, giống mẫu `AccessoryService.addSessionExtra`) → checkout (tạo
+  `Invoice`+`Payment`+`invoice_lines`, tái dùng hạ tầng từ
+  `feat/invoice-line-items`, không tạo cơ chế hoá đơn riêng).
+- Route mới `/api/v1/product-categories`, `/api/v1/products`,
+  `/api/v1/sales-orders`, `/api/v1/inventory/product-stock-levels`.
+- **Bằng chứng test thật** (server thật, API thật, DB dev thật): tạo danh
+  mục → sản phẩm 2 biến thể (size M/L) → nhập kho (goods receipt) → tồn kho
+  đúng theo chi nhánh → tạo đơn bán lẻ → thêm 2 dòng → tồn kho trừ đúng →
+  checkout (giảm giá 100.000đ) → `invoice_lines` đúng 3 dòng, `SUM(amount)`
+  khớp `totalAmount` (650.000), `invoice.sessionId = NULL`,
+  `invoice.salesOrderId` đúng đơn; test lại idempotency checkout (gọi lại
+  cùng key → cùng invoice, không tạo trùng); test xoá dòng → hoàn kho đúng;
+  test bán vượt tồn kho → bị chặn đúng lỗi 400. **Hồi quy trụ 1**: goods
+  receipt cho `extraId` vẫn cộng kho đúng sau khi generalize; mở sân walk-in
+  → checkout qua `PaymentService.checkout` vẫn tạo hoá đơn đúng (CHECK
+  constraint mới không chặn nhầm luồng cũ). `npm test` 38/38 pass trong suốt
+  quá trình. Đã dọn sạch toàn bộ dữ liệu test khỏi DB dev sau khi xong.
+- **2 lỗi phát hiện lúc test, đã sửa ngay:** model `GoodsReceiptItem`/
+  `StockMovement` quên cập nhật `extraId` sang nullable sau migration (gây lỗi
+  `notNull Violation` khi nhập kho sản phẩm bán lẻ); model `SalesOrder` khai
+  `version: true` nhưng migration quên thêm cột — đã vá migration + model,
+  test lại xác nhận đúng.
+
+**Frontend (2026-08-16, cùng ngày):** đã xong, test qua UI thật trên trình
+duyệt (không chỉ đọc code).
+
+- Trang mới `/retail` ("Bán Lẻ" trên sidebar/mobile nav), 3 tab: **Bán hàng**
+  (POS — chọn sản phẩm theo danh mục, giỏ hàng, giảm giá, thanh toán, huỷ
+  giỏ hoàn kho), **Kho bán lẻ** (grid tồn kho theo chi nhánh + form nhập
+  kho), **Danh mục sản phẩm** (CRUD category/product/variant — chỉ
+  admin/branch_manager thấy tab này, POS + kho mọi nhân viên đều dùng được).
+- `apiServices.js` thêm `productCategoryService`, `productService`,
+  `salesOrderService`, mở rộng `inventoryService.getProductStockLevels`.
+- Thêm seeder `20260816200001-seed-retail-sample-products.js` — 4 danh mục,
+  7 sản phẩm, 11 biến thể mẫu (vợt, áo 2 màu × 2 size, quần, quấn cán, túi
+  vợt, băng cổ tay), có tồn kho ban đầu qua phiếu nhập kho thật — dùng để
+  demo/test tay, theo đúng mẫu seeder inventory trước đó (tra id bằng khoá
+  tự nhiên, guard chống chạy đè lên dữ liệu thật).
+- **Test thật qua Browser** (đăng nhập admin thật, không giả lập): vào
+  `/retail` → tab Bán hàng, bấm thêm "Quấn Cán Vợt Yonex" vào giỏ (network
+  log xác nhận `POST /sales-orders` + `POST .../lines` đều `201`) → bấm
+  Thanh toán (`POST .../checkout` → `201`, banner "Thanh toán thành công —
+  Hoá đơn BD-1-00000025" hiện đúng) → sang tab Kho bán lẻ, gọi API tồn kho
+  xác nhận số dư giảm đúng 60→59 → tab Danh mục sản phẩm hiển thị đúng 7 sản
+  phẩm/4 danh mục, modal "Thêm Danh Mục" mở đúng. Không có lỗi console.
+  `npm test` 38/38 pass sau cùng. Đã dọn sạch đơn/hoá đơn test tạo qua UI,
+  khôi phục lại tồn kho.
+
+**Lịch sử đơn bán lẻ (cùng ngày, theo yêu cầu bổ sung):** thêm tab "🛍️ Bán
+Lẻ" vào trang `/history` sẵn có (cùng chỗ xem lịch sử phiên chơi/đặt sân) —
+lọc theo ngày/trạng thái, bảng hiển thị hoá đơn/thời gian/khách hàng/nhân
+viên bán/sản phẩm/tổng tiền/trạng thái thanh toán, cùng khuôn mẫu tab
+"Phiên Chơi" đã có.
+
+- `SalesOrderService.listOrders` mới (phân trang, lọc `status`/`from`/`to`,
+  include đủ `lines`+`variant`+`product`, `customer`, `cashier`→`user`,
+  `invoice`→`payment`) + route `GET /api/v1/sales-orders`.
+- Test thật qua trình duyệt: tab hiện đúng "2 đơn hàng" thật đang có trong DB
+  dev (1 đơn đã thanh toán hoá đơn `BD-1-00000026` hiển thị đúng tên sản
+  phẩm/số lượng/tổng tiền/badge "Đã thanh toán", 1 đơn đang mở chưa
+  checkout). Không lỗi console. `npm test` 38/38 pass.
+
+Nhánh `feat/retail-catalog-inventory` **chưa commit, chưa merge** — toàn bộ
+backend + frontend + seeder đã sẵn sàng, chờ chủ dự án xem lại trước khi
+duyệt commit/merge.
+
 ---
 
 ## Chưa làm — xem plan riêng từng phần
 
 | Việc | File plan | Ưu tiên gốc |
 |---|---|---|
-| Xoá 5 bảng DB thật sự chết (`product_categories`, `products`, `product_variants`, `sales_orders`, `sales_order_lines`) + `Invoice.salesOrderId`, dọn 3 hàm API mồ côi ở frontend | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
+| Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
 | `dateTime.js` hiện dùng giờ server, không theo `branch.timezone` | `02-ke-hoach-branch-timezone.md` | Nhóm A |
 | Bundle frontend ~800KB, chưa code-split theo route | `03-ke-hoach-frontend-code-splitting.md` | Nhóm A |
 | Báo cáo doanh thu chi tiết + tổng kết nhập-tồn kho dùng `invoice_lines` | `04-ke-hoach-invoice-reporting.md` | Phụ thuộc mục 5 ở trên, làm sau khi có đủ dữ liệu itemized |
 | 4 việc cần quyết định chính sách kinh doanh trước (discount guardrail, onboarding branch_manager, luồng hoàn tiền/void, cấu hình tài khoản ngân hàng) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
+| Frontend cho bán lẻ (trang danh mục sản phẩm, POS, mở rộng trang tồn kho) — backend đã xong, xem mục 6 ở trên | `07-ke-hoach-ban-le-phu-kien.md` | Việc mới, chủ dự án ưu tiên |
 
 ## Cố ý bỏ qua / đã hoãn — không tự ý làm lại nếu chưa hỏi lại chủ dự án
 

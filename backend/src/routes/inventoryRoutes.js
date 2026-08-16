@@ -9,6 +9,7 @@ const { createAdjustmentRules } = require('../validations/inventoryValidation');
 router.use(authMiddleware, branchContextMiddleware, roleMiddleware(['admin', 'branch_manager', 'employee']));
 
 router.get('/stock-levels', inventoryController.getStockLevels);
+router.get('/product-stock-levels', inventoryController.getProductStockLevels);
 router.get('/movements', inventoryController.getMovements);
 router.post('/adjustments', createAdjustmentRules, inventoryController.createAdjustment);
 

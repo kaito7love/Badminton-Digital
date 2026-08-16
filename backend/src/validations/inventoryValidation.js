@@ -11,7 +11,8 @@ const validate = (req, res, next) => {
 };
 
 const createAdjustmentRules = [
-  body('extraId').isInt().withMessage('extraId is required'),
+  body('extraId').optional({ nullable: true }).isInt(),
+  body('productVariantId').optional({ nullable: true }).isInt(),
   body('type').isIn(['adjustment_in', 'adjustment_out', 'damaged', 'lost']).withMessage('Invalid adjustment type'),
   body('quantity').isInt({ min: 1 }).withMessage('quantity must be at least 1'),
   body('note').trim().notEmpty().withMessage('note (lý do điều chỉnh) is required'),

@@ -33,6 +33,12 @@ db.ExtraStock = require('./ExtraStock')(sequelize);
 db.StockMovement = require('./StockMovement')(sequelize);
 db.GoodsReceipt = require('./GoodsReceipt')(sequelize);
 db.GoodsReceiptItem = require('./GoodsReceiptItem')(sequelize);
+db.ProductCategory = require('./ProductCategory')(sequelize);
+db.Product = require('./Product')(sequelize);
+db.ProductVariant = require('./ProductVariant')(sequelize);
+db.ProductStock = require('./ProductStock')(sequelize);
+db.SalesOrder = require('./SalesOrder')(sequelize);
+db.SalesOrderLine = require('./SalesOrderLine')(sequelize);
 
 // Associations
 // Role <-> User
@@ -140,6 +146,40 @@ db.GoodsReceipt.hasMany(db.GoodsReceiptItem, { foreignKey: 'goodsReceiptId', as:
 db.GoodsReceiptItem.belongsTo(db.GoodsReceipt, { foreignKey: 'goodsReceiptId', as: 'goodsReceipt' });
 db.Extra.hasMany(db.GoodsReceiptItem, { foreignKey: 'extraId', as: 'goodsReceiptItems' });
 db.GoodsReceiptItem.belongsTo(db.Extra, { foreignKey: 'extraId', as: 'extra' });
+
+// Catalog bán lẻ — dùng chung toàn chuỗi (không có branch_id)
+db.ProductCategory.hasMany(db.Product, { foreignKey: 'categoryId', as: 'products' });
+db.Product.belongsTo(db.ProductCategory, { foreignKey: 'categoryId', as: 'category' });
+db.Product.hasMany(db.ProductVariant, { foreignKey: 'productId', as: 'variants' });
+db.ProductVariant.belongsTo(db.Product, { foreignKey: 'productId', as: 'product' });
+
+// Tồn kho sản phẩm bán lẻ — theo từng chi nhánh (khác catalog dùng chung)
+db.Branch.hasMany(db.ProductStock, { foreignKey: 'branchId', as: 'productStocks' });
+db.ProductStock.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
+db.ProductVariant.hasMany(db.ProductStock, { foreignKey: 'productVariantId', as: 'stocks' });
+db.ProductStock.belongsTo(db.ProductVariant, { foreignKey: 'productVariantId', as: 'variant' });
+
+// Ledger kho dùng chung (stock_movements/goods_receipt_items) — nhánh product_variant
+db.ProductVariant.hasMany(db.StockMovement, { foreignKey: 'productVariantId', as: 'stockMovements' });
+db.StockMovement.belongsTo(db.ProductVariant, { foreignKey: 'productVariantId', as: 'variant' });
+db.ProductVariant.hasMany(db.GoodsReceiptItem, { foreignKey: 'productVariantId', as: 'goodsReceiptItems' });
+db.GoodsReceiptItem.belongsTo(db.ProductVariant, { foreignKey: 'productVariantId', as: 'variant' });
+
+// Đơn bán lẻ (sales_orders) — kênh POS, độc lập luồng sân
+db.Branch.hasMany(db.SalesOrder, { foreignKey: 'branchId', as: 'salesOrders' });
+db.SalesOrder.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'branch' });
+db.Customer.hasMany(db.SalesOrder, { foreignKey: 'customerId', as: 'salesOrders' });
+db.SalesOrder.belongsTo(db.Customer, { foreignKey: 'customerId', as: 'customer' });
+db.Employee.hasMany(db.SalesOrder, { foreignKey: 'cashierEmployeeId', as: 'salesOrders' });
+db.SalesOrder.belongsTo(db.Employee, { foreignKey: 'cashierEmployeeId', as: 'cashier' });
+db.SalesOrder.hasMany(db.SalesOrderLine, { foreignKey: 'salesOrderId', as: 'lines', onDelete: 'CASCADE' });
+db.SalesOrderLine.belongsTo(db.SalesOrder, { foreignKey: 'salesOrderId', as: 'salesOrder' });
+db.ProductVariant.hasMany(db.SalesOrderLine, { foreignKey: 'variantId', as: 'salesOrderLines' });
+db.SalesOrderLine.belongsTo(db.ProductVariant, { foreignKey: 'variantId', as: 'variant' });
+
+// Invoice <-> SalesOrder (checkout bán lẻ, độc lập checkout sân)
+db.SalesOrder.hasOne(db.Invoice, { foreignKey: 'salesOrderId', as: 'invoice' });
+db.Invoice.belongsTo(db.SalesOrder, { foreignKey: 'salesOrderId', as: 'salesOrder' });
 
 // Employee <-> ActivityLog
 db.Employee.hasMany(db.ActivityLog, { foreignKey: 'employeeId', as: 'activityLogs' });

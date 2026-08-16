@@ -1,49 +1,50 @@
 const { DataTypes } = require("sequelize");
 
 module.exports = (sequelize) => {
-  const GoodsReceiptItem = sequelize.define(
-    "GoodsReceiptItem",
+  const SalesOrderLine = sequelize.define(
+    "SalesOrderLine",
     {
       id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
       },
-      goodsReceiptId: {
+      salesOrderId: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        field: "goods_receipt_id",
+        field: "sales_order_id",
       },
-      extraId: {
+      variantId: {
         type: DataTypes.INTEGER,
-        allowNull: true,
-        field: "extra_id",
-      },
-      productVariantId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        field: "product_variant_id",
+        allowNull: false,
+        field: "variant_id",
       },
       quantity: {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      unitCost: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        field: "unit_cost",
-      },
-      subtotal: {
+      unitPrice: {
         type: DataTypes.DECIMAL(12, 2),
         allowNull: false,
+        field: "unit_price",
+      },
+      lineTotal: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        field: "line_total",
+      },
+      legacySessionExtraId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: "legacy_session_extra_id",
       },
     },
     {
-      tableName: "goods_receipt_items",
+      tableName: "sales_order_lines",
       timestamps: true,
       underscored: true,
     },
   );
 
-  return GoodsReceiptItem;
+  return SalesOrderLine;
 };

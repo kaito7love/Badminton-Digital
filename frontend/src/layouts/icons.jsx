@@ -13,3 +13,4 @@ export const Cog6ToothIcon = ({ className }) => <Icon className={className}>⚙�
 export const MoonIcon = ({ className }) => <Icon className={className}>🌙</Icon>;
 export const SunIcon = ({ className }) => <Icon className={className}>☀️</Icon>;
 export const HistoryIcon = ({ className }) => <Icon className={className}>🕐</Icon>;
+export const ShoppingBagIcon = ({ className }) => <Icon className={className}>🛍️</Icon>;

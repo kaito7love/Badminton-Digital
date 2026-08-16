@@ -1,4 +1,4 @@
-const { GoodsReceipt, GoodsReceiptItem, Extra, Supplier, User, sequelize } = require('../models');
+const { GoodsReceipt, GoodsReceiptItem, Extra, ProductVariant, Supplier, User, sequelize } = require('../models');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const { nextGoodsReceiptCode } = require('../utils/documentNumber');
 const InventoryService = require('./InventoryService');
@@ -7,10 +7,18 @@ const AuditService = require('./AuditService');
 const detailIncludes = [
   { model: Supplier, as: 'supplier', attributes: ['id', 'name', 'phone'] },
   { model: User, as: 'receivedBy', attributes: ['id', 'fullName'] },
-  { model: GoodsReceiptItem, as: 'items', include: [{ model: Extra, as: 'extra', attributes: ['id', 'name'] }] }
+  {
+    model: GoodsReceiptItem,
+    as: 'items',
+    include: [
+      { model: Extra, as: 'extra', attributes: ['id', 'name'] },
+      { model: ProductVariant, as: 'variant', attributes: ['id', 'sku', 'size', 'color'] }
+    ]
+  }
 ];
 
 class GoodsReceiptService {
+  /** Mỗi dòng phải có đúng 1 trong 2: extraId (phụ kiện sân) hoặc productVariantId (sản phẩm bán lẻ). */
   static async createGoodsReceipt({ branchId, supplierId, items, note }, context = {}) {
     if (!branchId) {
       const error = new Error('Không xác định được chi nhánh nhập kho');
@@ -36,7 +44,18 @@ class GoodsReceiptService {
         error.statusCode = 400;
         throw error;
       }
-      return { extraId: item.extraId, quantity, unitCost, subtotal: quantity * unitCost };
+      if (!item.extraId === !item.productVariantId) {
+        const error = new Error('Mỗi dòng hàng phải chỉ định đúng 1 trong 2: extraId hoặc productVariantId');
+        error.statusCode = 400;
+        throw error;
+      }
+      return {
+        extraId: item.extraId || null,
+        productVariantId: item.productVariantId || null,
+        quantity,
+        unitCost,
+        subtotal: quantity * unitCost
+      };
     });
     const totalCost = preparedItems.reduce((sum, item) => sum + item.subtotal, 0);
 
@@ -58,6 +77,7 @@ class GoodsReceiptService {
         await InventoryService.postMovement({
           branchId,
           extraId: item.extraId,
+          productVariantId: item.productVariantId,
           type: 'purchase_receipt',
           quantity: item.quantity,
           unitCost: item.unitCost,

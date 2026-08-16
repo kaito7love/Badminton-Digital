@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { ExtraStock, StockMovement, Extra, sequelize } = require('../models');
+const { ExtraStock, ProductStock, StockMovement, Extra, ProductVariant, Product, sequelize } = require('../models');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const AuditService = require('./AuditService');
 
@@ -7,16 +7,24 @@ const ADJUSTMENT_TYPES = ['adjustment_in', 'adjustment_out', 'damaged', 'lost'];
 
 class InventoryService {
   /**
-   * Duy nhất entry point thay đổi tồn kho. Không service nào khác được
-   * UPDATE extra_stocks.quantity trực tiếp — mọi thay đổi phải tạo kèm
-   * một dòng stock_movements trong cùng transaction với nghiệp vụ gốc.
+   * Duy nhất entry point thay đổi tồn kho — dùng chung cho phụ kiện trong
+   * sân (extraId, extra_stocks) lẫn sản phẩm bán lẻ (productVariantId,
+   * product_stocks). Đúng 1 trong 2 phải được truyền, không cả hai/không cái
+   * nào. Không service nào khác được UPDATE trực tiếp *_stocks.quantity —
+   * mọi thay đổi phải tạo kèm một dòng stock_movements trong cùng
+   * transaction với nghiệp vụ gốc.
    */
-  static async postMovement({ branchId, extraId, type, quantity, unitCost = null, note = null, referenceType = null, referenceId = null, actor = null, transaction }) {
+  static async postMovement({ branchId, extraId = null, productVariantId = null, type, quantity, unitCost = null, note = null, referenceType = null, referenceId = null, actor = null, transaction }) {
     if (!transaction) {
       throw new Error('InventoryService.postMovement requires an active transaction');
     }
     if (!branchId) {
       const error = new Error('Không xác định được chi nhánh để ghi nhận tồn kho');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!extraId === !productVariantId) {
+      const error = new Error('Phải chỉ định đúng 1 trong 2: extraId hoặc productVariantId');
       error.statusCode = 400;
       throw error;
     }
@@ -31,7 +39,9 @@ class InventoryService {
       throw error;
     }
 
-    const stock = await InventoryService._getLockedStock(extraId, branchId, transaction);
+    const stock = extraId
+      ? await InventoryService._getLockedExtraStock(extraId, branchId, transaction)
+      : await InventoryService._getLockedProductStock(productVariantId, branchId, transaction);
 
     const isIncoming = StockMovement.INCOMING_TYPES.includes(type);
     const newQuantity = stock.quantity + (isIncoming ? quantity : -quantity);
@@ -51,6 +61,7 @@ class InventoryService {
     const movement = await StockMovement.create({
       branchId,
       extraId,
+      productVariantId,
       type,
       quantity,
       unitCost,
@@ -70,7 +81,7 @@ class InventoryService {
     return ((oldQty * (oldAvg || 0)) + (incomingQty * incomingUnitCost)) / totalQty;
   }
 
-  static async _getLockedStock(extraId, branchId, transaction) {
+  static async _getLockedExtraStock(extraId, branchId, transaction) {
     let stock = await ExtraStock.findOne({
       where: { extraId, branchId },
       transaction,
@@ -92,8 +103,29 @@ class InventoryService {
     return stock;
   }
 
+  static async _getLockedProductStock(productVariantId, branchId, transaction) {
+    let stock = await ProductStock.findOne({
+      where: { productVariantId, branchId },
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (stock) return stock;
+
+    try {
+      stock = await ProductStock.create({ productVariantId, branchId, quantity: 0 }, { transaction });
+    } catch (err) {
+      stock = await ProductStock.findOne({
+        where: { productVariantId, branchId },
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+      if (!stock) throw err;
+    }
+    return stock;
+  }
+
   /** Điều chỉnh kho thủ công (hỏng/mất/điều chỉnh tăng-giảm), luôn cần lý do. */
-  static async createManualAdjustment({ branchId, extraId, type, quantity, note, actor, requestId }) {
+  static async createManualAdjustment({ branchId, extraId, productVariantId, type, quantity, note, actor, requestId }) {
     if (!ADJUSTMENT_TYPES.includes(type)) {
       const error = new Error(`Loại điều chỉnh không hợp lệ: ${type}`);
       error.statusCode = 400;
@@ -108,7 +140,7 @@ class InventoryService {
     const transaction = await sequelize.transaction();
     try {
       const { movement, stock } = await InventoryService.postMovement({
-        branchId, extraId, type, quantity, note, referenceType: 'manual', actor, transaction
+        branchId, extraId, productVariantId, type, quantity, note, referenceType: 'manual', actor, transaction
       });
       await AuditService.record({
         actor, branchId, action: 'stock_movement.adjusted', targetType: 'stock_movement',
@@ -127,6 +159,7 @@ class InventoryService {
     const { page, limit, offset } = getPagination(query);
     const where = { branchId };
     if (query.extraId) where.extraId = query.extraId;
+    if (query.productVariantId) where.productVariantId = query.productVariantId;
     if (query.type) where.type = query.type;
     if (query.from || query.to) {
       where.createdAt = {};
@@ -139,7 +172,10 @@ class InventoryService {
       limit,
       offset,
       order: [['id', 'DESC']],
-      include: [{ model: Extra, as: 'extra', attributes: ['id', 'name'] }]
+      include: [
+        { model: Extra, as: 'extra', attributes: ['id', 'name'] },
+        { model: ProductVariant, as: 'variant', attributes: ['id', 'sku', 'size', 'color'] }
+      ]
     });
     return getPagingData(data, page, limit);
   }
@@ -158,6 +194,26 @@ class InventoryService {
     return getPagingData(data, page, limit);
   }
 
+  /** Tồn kho sản phẩm bán lẻ theo chi nhánh — song song với getStockLevels (extras). */
+  static async getProductStockLevels(query, branchId) {
+    InventoryService._requireBranch(branchId);
+    const { page, limit, offset } = getPagination(query);
+
+    const data = await ProductStock.findAndCountAll({
+      where: { branchId },
+      limit,
+      offset,
+      order: [['id', 'ASC']],
+      include: [{
+        model: ProductVariant,
+        as: 'variant',
+        attributes: ['id', 'sku', 'size', 'color', 'listPrice', 'lowStockThreshold'],
+        include: [{ model: Product, as: 'product', attributes: ['id', 'name'] }]
+      }]
+    });
+    return getPagingData(data, page, limit);
+  }
+
   /** Số sản phẩm dưới ngưỡng cảnh báo, tính riêng cho 1 chi nhánh. */
   static async getLowStockCount(branchId) {
     if (!branchId) return 0;
@@ -166,6 +222,16 @@ class InventoryService {
       include: [{ model: Extra, as: 'extra', attributes: ['lowStockThreshold'] }]
     });
     return stocks.filter((s) => s.quantity <= (s.extra?.lowStockThreshold ?? 5)).length;
+  }
+
+  /** Tương đương getLowStockCount nhưng cho sản phẩm bán lẻ. */
+  static async getLowStockCountForProducts(branchId) {
+    if (!branchId) return 0;
+    const stocks = await ProductStock.findAll({
+      where: { branchId },
+      include: [{ model: ProductVariant, as: 'variant', attributes: ['lowStockThreshold'] }]
+    });
+    return stocks.filter((s) => s.quantity <= (s.variant?.lowStockThreshold ?? 5)).length;
   }
 
   static _requireBranch(branchId) {

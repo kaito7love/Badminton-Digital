@@ -81,8 +81,43 @@ export const goodsReceiptService = {
 // ─── Inventory (Tồn kho / Lịch sử kho / Điều chỉnh kho) ─────────
 export const inventoryService = {
   getStockLevels: (params) => apiClient.get('/inventory/stock-levels', { params }),
+  getProductStockLevels: (params) => apiClient.get('/inventory/product-stock-levels', { params }),
   getMovements: (params) => apiClient.get('/inventory/movements', { params }),
   createAdjustment: (data) => apiClient.post('/inventory/adjustments', data),
+};
+
+// ─── Product Categories (Danh mục bán lẻ — dùng chung toàn chuỗi) ─
+export const productCategoryService = {
+  getAll: (params) => apiClient.get('/product-categories', { params }),
+  create: (data) => apiClient.post('/product-categories', data),
+  update: (id, data) => apiClient.put(`/product-categories/${id}`, data),
+  delete: (id) => apiClient.delete(`/product-categories/${id}`),
+};
+
+// ─── Products & Variants (Catalog bán lẻ) ────────────────────────
+export const productService = {
+  getAll: (params) => apiClient.get('/products', { params }),
+  getById: (id) => apiClient.get(`/products/${id}`),
+  create: (data) => apiClient.post('/products', data),
+  update: (id, data) => apiClient.put(`/products/${id}`, data),
+  addVariant: (id, data) => apiClient.post(`/products/${id}/variants`, data),
+  updateVariant: (variantId, data) => apiClient.put(`/products/variants/${variantId}`, data),
+};
+
+// ─── Sales Orders (Bán lẻ tại quầy — POS, độc lập luồng sân) ─────
+export const salesOrderService = {
+  getAll: (params) => apiClient.get('/sales-orders', { params }),
+  create: (data) => apiClient.post('/sales-orders', data),
+  getById: (id) => apiClient.get(`/sales-orders/${id}`),
+  addLine: (id, data) => apiClient.post(`/sales-orders/${id}/lines`, data),
+  removeLine: (id, lineId) => apiClient.delete(`/sales-orders/${id}/lines/${lineId}`),
+  checkout: (id, data) => {
+    const { idempotencyKey, ...payload } = data;
+    const requestKey = idempotencyKey || crypto.randomUUID();
+    return apiClient.post(`/sales-orders/${id}/checkout`, payload, {
+      headers: { 'Idempotency-Key': requestKey }
+    });
+  },
 };
 
 // ─── Customers ───────────────────────────────────────────────────

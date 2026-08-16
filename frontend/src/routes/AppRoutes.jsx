@@ -11,6 +11,7 @@ import DashboardPage from '../pages/Dashboard/DashboardPage';
 import CourtsPage from '../pages/Courts/CourtsPage';
 import BookingsPage from '../pages/Bookings/BookingsPage';
 import AccessoriesPage from '../pages/Accessories/AccessoriesPage';
+import RetailPage from '../pages/Retail/RetailPage';
 import CustomersPage from '../pages/Customers/CustomersPage';
 import EmployeesPage from '../pages/Employees/EmployeesPage';
 import ReportsPage from '../pages/Reports/ReportsPage';
@@ -58,6 +59,7 @@ export default function AppRoutes() {
         <Route path="/courts" element={<StaffLayout><CourtsPage /></StaffLayout>} />
         <Route path="/bookings" element={<StaffLayout><BookingsPage /></StaffLayout>} />
         <Route path="/accessories" element={<StaffLayout><AccessoriesPage /></StaffLayout>} />
+        <Route path="/retail" element={<StaffLayout><RetailPage /></StaffLayout>} />
         <Route path="/customers" element={<StaffLayout><CustomersPage /></StaffLayout>} />
         <Route
           path="/employees"

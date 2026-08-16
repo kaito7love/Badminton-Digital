@@ -25,7 +25,7 @@ export const homePathForRole = (user) => {
 
 /** Các đường dẫn thuộc bàn làm việc của nhân viên — khách hàng vào là bị chặn. */
 const STAFF_PATHS = [
-  '/dashboard', '/courts', '/bookings', '/accessories',
+  '/dashboard', '/courts', '/bookings', '/accessories', '/retail',
   '/customers', '/employees', '/history', '/reports', '/settings'
 ];
 

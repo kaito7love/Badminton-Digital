@@ -14,7 +14,8 @@ const createGoodsReceiptRules = [
   body('supplierId').optional({ nullable: true }).isInt().withMessage('Supplier ID must be an integer'),
   body('note').optional().trim(),
   body('items').isArray({ min: 1 }).withMessage('Goods receipt must have at least 1 line item'),
-  body('items.*.extraId').isInt().withMessage('extraId is required for each line'),
+  body('items.*.extraId').optional({ nullable: true }).isInt().withMessage('extraId must be an integer'),
+  body('items.*.productVariantId').optional({ nullable: true }).isInt().withMessage('productVariantId must be an integer'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('quantity must be at least 1'),
   body('items.*.unitCost').isFloat({ min: 0 }).withMessage('unitCost must be a non-negative number'),
   validate
