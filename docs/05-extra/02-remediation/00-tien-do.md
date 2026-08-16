@@ -107,8 +107,8 @@ làm UI xem hoá đơn ở frontend — chỉ xây nền tảng ghi dữ liệu 
   trước nhánh này không có dòng mới nào (đúng quyết định không backfill).
   `npm test` 38/38 pass.
 
-**Việc còn lại:** báo cáo doanh thu/tồn kho tiêu thụ `invoice_lines` chưa
-làm — xem `04-ke-hoach-invoice-reporting.md`.
+**Việc còn lại:** báo cáo doanh thu/tồn kho tiêu thụ `invoice_lines` — đã
+code + test xong, xem mục 7 bên dưới (`feat/invoice-reporting`).
 
 ### 6. `feat/retail-catalog-inventory` (merge tại `124f108`, fast-forward)
 Nguồn: định hướng hệ thống của chủ dự án — 3 trụ cột (thuê sân / bán lẻ dụng
@@ -215,6 +215,46 @@ merge. `main` vẫn **chưa push lên `origin`**, giống mọi nhánh trước.
 
 ---
 
+## Đã code + test xong, **chưa merge** — chờ duyệt
+
+### 7. `feat/invoice-reporting` (nhánh riêng, chưa commit)
+Nguồn: đích cuối của `feat/invoice-line-items` (mục 5) — báo cáo doanh thu
+chi tiết + đối chiếu nhập-tồn kho. Plan đầy đủ (4 câu hỏi thiết kế đã trả
+lời) ở `04-ke-hoach-invoice-reporting.md`.
+
+- `GET /reports/revenue-breakdown` — doanh thu theo kỳ, tách 4 nguồn (tiền
+  sân / phụ kiện trong sân / bán lẻ quầy / giảm giá) qua `line_kind` +
+  `reference_type` của `invoice_lines`; `compareBranches=true` (chỉ admin)
+  group theo từng chi nhánh; kèm danh sách chi tiết từng dòng giảm giá
+  (hoá đơn + tên nhân viên, **không có** trường lý do — dữ liệu chưa được
+  lưu, đây là giới hạn có chủ đích, không phải thiếu sót).
+- `GET /reports/inventory-reconciliation` — dùng `stock_movements` làm
+  nguồn chính (đầy đủ từ 2026-08-15, không bị giới hạn "chưa backfill" như
+  `invoice_lines`): nhập/bán(sổ kho)/trả lại/điều chỉnh theo item × chi
+  nhánh, đối chiếu với bán theo hoá đơn (chỉ từ 2026-08-16) — chênh lệch là
+  tín hiệu "đã trừ kho nhưng chưa từng thanh toán" (giỏ hàng/phiên bỏ dở),
+  không phải lỗi sổ kho nội bộ.
+- Frontend: 2 tab mới trong `Reports` ("Doanh thu chi tiết", "Đối chiếu
+  kho"), tách `ReportsPage.jsx` cũ thành `OverviewTab.jsx` (nội dung gốc,
+  không đổi hành vi) + 2 tab mới, dùng chung khuôn mẫu tab đã có ở
+  Accessories/Retail/History.
+- **Bằng chứng test thật** (server thật, API thật, DB dev thật, trình
+  duyệt thật): gọi `revenue-breakdown` xác nhận đúng 4 nhóm nguồn + chi
+  tiết giảm giá kèm tên nhân viên; `compareBranches=true` trả đúng
+  `branchId` trên mọi dòng. Test đối chiếu kho phát hiện đúng 2 lệch thật
+  đang có trong DB dev (dữ liệu lịch sử trước mốc backfill) — **phát hiện
+  và vá ngay 1 bug lúc test**: công thức lệch ban đầu không trừ số đã trả
+  lại (`qtyReturned`), khiến 1 sản phẩm thêm-giỏ-rồi-xoá bị báo nhầm lệch
+  10 dù tồn kho ròng không đổi — sửa xong, test lại đúng 0. Test cố ý tạo
+  lệch thật (mở giỏ hàng, thêm 4 sản phẩm, **không checkout**) → báo cáo
+  phát hiện đúng chênh lệch = 4, dọn sạch sau khi xác nhận. Test qua trình
+  duyệt: cả 2 tab mới hiển thị đúng dữ liệu khớp API, tab Tổng quan cũ
+  không hồi quy, không lỗi console. `npm test` 38/38 pass xuyên suốt.
+
+**Chưa commit, chưa merge** — chờ chủ dự án xem lại.
+
+---
+
 ## Chưa làm — xem plan riêng từng phần
 
 | Việc | File plan | Ưu tiên gốc |
@@ -222,7 +262,6 @@ merge. `main` vẫn **chưa push lên `origin`**, giống mọi nhánh trước.
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
 | `dateTime.js` hiện dùng giờ server, không theo `branch.timezone` | `02-ke-hoach-branch-timezone.md` | Nhóm A |
 | Bundle frontend ~800KB, chưa code-split theo route | `03-ke-hoach-frontend-code-splitting.md` | Nhóm A |
-| Báo cáo doanh thu chi tiết + tổng kết nhập-tồn kho dùng `invoice_lines`/`stock_movements` | `04-ke-hoach-invoice-reporting.md` | Đã lên plan chi tiết đầy đủ (4 câu hỏi thiết kế đã trả lời) — sẵn sàng duyệt "code đi" |
 | 4 việc cần quyết định chính sách kinh doanh trước (discount guardrail, onboarding branch_manager, luồng hoàn tiền/void, cấu hình tài khoản ngân hàng) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
 
 ## Cố ý bỏ qua / đã hoãn — không tự ý làm lại nếu chưa hỏi lại chủ dự án

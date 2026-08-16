@@ -53,6 +53,36 @@ const getTopAccessories = async (req, res, next) => {
   }
 };
 
+const getRevenueBreakdown = async (req, res, next) => {
+  try {
+    const isAdmin = req.user?.role?.name === 'admin';
+    const compareBranches = req.query.compareBranches === 'true' && isAdmin;
+    const result = await ReportService.getRevenueBreakdown({
+      branchId: req.branchId,
+      compareBranches,
+      period: req.query.period || 'daily',
+      from: req.query.from || null,
+      to: req.query.to || null
+    });
+    return successResponse(res, result, 'Revenue breakdown retrieved');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getInventoryReconciliation = async (req, res, next) => {
+  try {
+    const result = await ReportService.getInventoryReconciliation({
+      branchId: req.branchId,
+      from: req.query.from || null,
+      to: req.query.to || null
+    });
+    return successResponse(res, result, 'Inventory reconciliation retrieved');
+  } catch (err) {
+    next(err);
+  }
+};
+
 const exportExcel = async (req, res, next) => {
   try {
     const data = await collectExportData(req);
@@ -88,6 +118,8 @@ module.exports = {
   getRevenue,
   getTopCourts,
   getTopAccessories,
+  getRevenueBreakdown,
+  getInventoryReconciliation,
   exportExcel,
   exportPdf
 };

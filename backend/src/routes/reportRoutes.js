@@ -11,6 +11,8 @@ router.get('/dashboard', reportController.getDashboard);
 router.get('/revenue', reportController.getRevenue);
 router.get('/top-courts', reportController.getTopCourts);
 router.get('/top-accessories', reportController.getTopAccessories);
+router.get('/revenue-breakdown', reportController.getRevenueBreakdown);
+router.get('/inventory-reconciliation', reportController.getInventoryReconciliation);
 router.get('/export-excel', reportController.exportExcel);
 router.get('/export-pdf', reportController.exportPdf);
 

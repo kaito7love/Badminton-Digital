@@ -1,7 +1,8 @@
-# Plan: báo cáo doanh thu chi tiết + tổng kết nhập-tồn kho (CHƯA LÀM)
+# Plan: báo cáo doanh thu chi tiết + tổng kết nhập-tồn kho
 
-**Trạng thái:** chưa tạo nhánh, chưa code. Đây là plan để duyệt trước khi
-"code đi", theo đúng quy trình ở `00-tien-do.md`.
+**Trạng thái (2026-08-16):** đã duyệt "code đi", đã code + test thật xong
+trên nhánh `feat/invoice-reporting`. Xem `00-tien-do.md` để biết bằng chứng
+test và trạng thái merge.
 
 ## Bối cảnh
 
