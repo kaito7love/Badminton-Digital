@@ -83,7 +83,34 @@ Nguồn: phần "xử lý lỗi/observability còn sơ khai" trong
   thay vì HTML mặc định của Express; lỗi 500 không phải operational error chỉ
   hiện message thật khi `NODE_ENV !== 'production'`.
 
-### 5. `feat/retail-catalog-inventory` (merge tại `124f108`, fast-forward)
+### 5. `feat/invoice-line-items` (merge tại `2aed2bf`)
+Nguồn: yêu cầu trực tiếp của chủ dự án — hoá đơn hiện chỉ có 4 cột tổng hợp,
+thiếu dữ liệu chi tiết từng dòng để sau này làm báo cáo doanh thu và tổng
+kết nhập-tồn kho. Bảng `invoice_lines` đã có sẵn trong schema từ migration M3
+nhưng chưa từng có model, chưa từng được ghi dữ liệu — nhánh này nối nó vào.
+
+Phạm vi đã chốt với chủ dự án (4 câu hỏi khi lập plan): **không** thêm
+thuế/VAT, **không** backfill hoá đơn cũ, **không** làm báo cáo mới, **không**
+làm UI xem hoá đơn ở frontend — chỉ xây nền tảng ghi dữ liệu itemized.
+
+- Model mới `backend/src/models/InvoiceLine.js`, đăng ký + quan hệ
+  `Invoice.hasMany(InvoiceLine, {as:'lines'})` trong `models/index.js`.
+- `PaymentService.checkout` ghi dòng chi tiết trong cùng transaction lúc
+  thanh toán: 1 dòng `court_time`, N dòng `product` (từ `sessionExtras`),
+  1 dòng `discount` (amount âm) nếu có giảm giá. Re-checkout (idempotency
+  retry) xoá dòng cũ rồi dựng lại, không nhân đôi.
+- **Bằng chứng test thật:** checkout thật qua API (mở sân → gọi 2 phụ kiện →
+  giảm giá 10.000đ) → đúng 4 dòng, `SUM(amount)` khớp chính xác
+  `invoices.total_amount` (70.000 = 70.000); test riêng nhánh re-checkout
+  (xoá Payment giả lập retry, checkout lại với idempotency key khác) → hoá
+  đơn được tái sử dụng, `invoice_lines` không nhân đôi; xác nhận hoá đơn tạo
+  trước nhánh này không có dòng mới nào (đúng quyết định không backfill).
+  `npm test` 38/38 pass.
+
+**Việc còn lại:** báo cáo doanh thu/tồn kho tiêu thụ `invoice_lines` chưa
+làm — xem `04-ke-hoach-invoice-reporting.md`.
+
+### 6. `feat/retail-catalog-inventory` (merge tại `124f108`, fast-forward)
 Nguồn: định hướng hệ thống của chủ dự án — 3 trụ cột (thuê sân / bán lẻ dụng
 cụ cầu lông / quản lý kho cho bán lẻ). Plan đầy đủ ở
 `07-ke-hoach-ban-le-phu-kien.md`. Sửa lại schema catalog M2 (từng suýt bị xoá
@@ -174,41 +201,17 @@ Chơi" đã có.
   phẩm/số lượng/tổng tiền/badge "Đã thanh toán", 1 đơn đang mở chưa
   checkout). Không lỗi console. `npm test` 38/38 pass.
 
+**Đính chính thứ tự (2026-08-16):** bản trước của file này để
+`feat/invoice-line-items` (mục 5) ở mục "chưa merge — chờ duyệt", **sai** —
+tra lại `git log` xác nhận nhánh đó đã merge vào `main` tại `2aed2bf`
+**trước khi có phiên làm việc dựng nhánh `feat/retail-catalog-inventory`**
+(mục này). Đây là lý do `SalesOrderService.checkout` ở mục này có sẵn
+`InvoiceLine` để tái dùng ngay — không phải trùng hợp.
+
 Commit thành 2 phần: `08af2e9` (đính chính docs) + `124f108` (toàn bộ backend
 + frontend + seeder). Merge vào `main` bằng fast-forward (không có commit
 merge riêng, không conflict) — `124f108` chính là commit đầu `main` sau khi
 merge. `main` vẫn **chưa push lên `origin`**, giống mọi nhánh trước.
-
----
-
-## Đã code + test xong, **chưa merge** — chờ duyệt
-
-### 6. `feat/invoice-line-items` (commit `49177ff` trên nhánh riêng)
-Nguồn: yêu cầu trực tiếp của chủ dự án — hoá đơn hiện chỉ có 4 cột tổng hợp,
-thiếu dữ liệu chi tiết từng dòng để sau này làm báo cáo doanh thu và tổng
-kết nhập-tồn kho. Bảng `invoice_lines` đã có sẵn trong schema từ migration M3
-nhưng chưa từng có model, chưa từng được ghi dữ liệu — nhánh này nối nó vào.
-
-Phạm vi đã chốt với chủ dự án (4 câu hỏi khi lập plan): **không** thêm
-thuế/VAT, **không** backfill hoá đơn cũ, **không** làm báo cáo mới, **không**
-làm UI xem hoá đơn ở frontend — chỉ xây nền tảng ghi dữ liệu itemized.
-
-- Model mới `backend/src/models/InvoiceLine.js`, đăng ký + quan hệ
-  `Invoice.hasMany(InvoiceLine, {as:'lines'})` trong `models/index.js`.
-- `PaymentService.checkout` ghi dòng chi tiết trong cùng transaction lúc
-  thanh toán: 1 dòng `court_time`, N dòng `product` (từ `sessionExtras`),
-  1 dòng `discount` (amount âm) nếu có giảm giá. Re-checkout (idempotency
-  retry) xoá dòng cũ rồi dựng lại, không nhân đôi.
-- **Bằng chứng test thật:** checkout thật qua API (mở sân → gọi 2 phụ kiện →
-  giảm giá 10.000đ) → đúng 4 dòng, `SUM(amount)` khớp chính xác
-  `invoices.total_amount` (70.000 = 70.000); test riêng nhánh re-checkout
-  (xoá Payment giả lập retry, checkout lại với idempotency key khác) → hoá
-  đơn được tái sử dụng, `invoice_lines` không nhân đôi; xác nhận hoá đơn tạo
-  trước nhánh này không có dòng mới nào (đúng quyết định không backfill).
-  `npm test` 38/38 pass.
-
-**Việc còn lại:** báo cáo doanh thu/tồn kho tiêu thụ `invoice_lines` chưa
-làm — xem `04-ke-hoach-invoice-reporting.md`.
 
 ---
 
@@ -219,7 +222,7 @@ làm — xem `04-ke-hoach-invoice-reporting.md`.
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
 | `dateTime.js` hiện dùng giờ server, không theo `branch.timezone` | `02-ke-hoach-branch-timezone.md` | Nhóm A |
 | Bundle frontend ~800KB, chưa code-split theo route | `03-ke-hoach-frontend-code-splitting.md` | Nhóm A |
-| Báo cáo doanh thu chi tiết + tổng kết nhập-tồn kho dùng `invoice_lines` | `04-ke-hoach-invoice-reporting.md` | Phụ thuộc mục 6 ở trên, làm sau khi có đủ dữ liệu itemized |
+| Báo cáo doanh thu chi tiết + tổng kết nhập-tồn kho dùng `invoice_lines` | `04-ke-hoach-invoice-reporting.md` | Nền tảng dữ liệu (mục 5, `invoice_lines`) đã merge từ lâu — **không còn bị chặn**, có thể lên plan bất cứ lúc nào, chỉ đang chờ 4 câu hỏi thiết kế trong chính file plan đó |
 | 4 việc cần quyết định chính sách kinh doanh trước (discount guardrail, onboarding branch_manager, luồng hoàn tiền/void, cấu hình tài khoản ngân hàng) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
 
 ## Cố ý bỏ qua / đã hoãn — không tự ý làm lại nếu chưa hỏi lại chủ dự án
