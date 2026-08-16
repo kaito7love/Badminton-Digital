@@ -1,4 +1,4 @@
-const { Invoice, Payment, CourtSession, Court, Customer, Extra, SessionExtra, InvoiceLine, ExtraStock, ProductStock, ProductVariant, Product, Employee, User, sequelize } = require('../models');
+const { Invoice, Payment, CourtSession, Court, Customer, Extra, SessionExtra, InvoiceLine, ExtraStock, ProductStock, ProductVariant, Product, Employee, User, Branch, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { startOfLocalDay, endOfLocalDay } = require('../utils/dateTime');
 const InventoryService = require('./InventoryService');
@@ -26,6 +26,7 @@ const buildDateRange = (column, from, to) => {
 class ReportService {
   static async getDashboardSummary(branchId) {
     ReportService.requireBranch(branchId);
+    const branch = await Branch.findByPk(branchId);
     // "Hôm nay" phải là ngày theo giờ quán, không phải theo UTC: mốc 00:00Z ứng
     // với 07:00 sáng giờ Việt Nam, nên doanh thu ca sáng sớm sẽ bị đẩy sang ngày
     // hôm trước còn khách chơi qua nửa đêm lại bị đếm nhầm vào hôm nay.
@@ -34,8 +35,8 @@ class ReportService {
         branchId,
         status: 'paid',
         paidAt: {
-          [Op.gte]: startOfLocalDay(),
-          [Op.lte]: endOfLocalDay()
+          [Op.gte]: startOfLocalDay(new Date(), branch?.timezone),
+          [Op.lte]: endOfLocalDay(new Date(), branch?.timezone)
         }
       },
       include: [{ model: Invoice, as: 'invoice' }]

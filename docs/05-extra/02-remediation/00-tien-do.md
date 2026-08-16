@@ -299,12 +299,49 @@ liệu mẫu + Dashboard dùng dữ liệu thật). Merge vào `main` bằng fas
 
 ---
 
+## Đã code + test xong, **chưa merge** — chờ duyệt
+
+### 8. `fix/branch-timezone` (nhánh riêng, chưa commit)
+Nguồn: `02-ke-hoach-branch-timezone.md` — `dateTime.js` luôn tính "hôm
+nay"/"giờ hiện tại" theo giờ máy chạy server, bỏ qua cột `branch.timezone`
+đã có sẵn trong schema nhưng chưa nơi nào đọc tới.
+
+- `backend/src/utils/dateTime.js` — `localDateString`/`localTimeString`/
+  `startOfLocalDay`/`endOfLocalDay` nay nhận thêm tham số `timezone` (mặc
+  định `Asia/Ho_Chi_Minh` nếu không truyền, không phá chỗ gọi cũ), dùng
+  `Intl.DateTimeFormat` để lấy đúng năm/tháng/ngày/giờ theo múi giờ chỉ định
+  thay vì `date.getFullYear()`/`getHours()` (luôn đọc theo múi giờ hệ điều
+  hành). `startOfLocalDay`/`endOfLocalDay` dùng thêm kỹ thuật "đoán rồi hiệu
+  chỉnh" (`zonedTimeToUtc`) để tính đúng mốc UTC thật ứng với nửa đêm địa
+  phương, kể cả múi giờ có DST.
+- `CourtService.updateCourtStatus` — include thêm `branch` khi lấy `court`,
+  truyền `court.branch.timezone` vào `localDateString`/`localTimeString` khi
+  đếm lịch đặt sắp tới.
+- `ReportService.getDashboardSummary` — query thêm `Branch.findByPk(branchId)`,
+  truyền `branch.timezone` vào `startOfLocalDay`/`endOfLocalDay` khi lọc
+  doanh thu "hôm nay".
+- **Bằng chứng test thật:** `npm test` 38/38 pass (bao gồm `dateTime.test.js`
+  cũ, không gãy do tham số mới có default). Test tay bằng script Node nối
+  thẳng DB dev thật: đổi tạm `timezone` chi nhánh 1 sang `Pacific/Kiritimati`
+  (UTC+14, chọn múi giờ lệch xa để thấy khác biệt ngay tại thời điểm test mà
+  không cần đợi tới khung giờ 00:00-07:00 giờ VN), xác nhận `startOfLocalDay`/
+  `localDateString` trả đúng ngày/mốc UTC theo múi giờ mới, rồi trả lại
+  `Asia/Ho_Chi_Minh` như cũ. Gọi API thật qua server đang chạy: `GET
+  /reports/dashboard` với chi nhánh mặc định (giờ VN) vẫn trả `todayRevenue`
+  đúng như trước (hồi quy không đổi hành vi phổ biến nhất); `PUT
+  /courts/4/status` (chuyển `maintenance`) chạy qua đúng nhánh code mới có
+  `branch.timezone`, không lỗi, chặn đúng vì còn 3 lịch đặt sắp tới (logic
+  nghiệp vụ giữ nguyên).
+
+**Chưa commit, chưa merge — chờ chủ dự án xem lại.**
+
+---
+
 ## Chưa làm — xem plan riêng từng phần
 
 | Việc | File plan | Ưu tiên gốc |
 |---|---|---|
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
-| `dateTime.js` hiện dùng giờ server, không theo `branch.timezone` | `02-ke-hoach-branch-timezone.md` | Nhóm A |
 | Bundle frontend ~800KB, chưa code-split theo route | `03-ke-hoach-frontend-code-splitting.md` | Nhóm A |
 | 4 việc cần quyết định chính sách kinh doanh trước (discount guardrail, onboarding branch_manager, luồng hoàn tiền/void, cấu hình tài khoản ngân hàng) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
 

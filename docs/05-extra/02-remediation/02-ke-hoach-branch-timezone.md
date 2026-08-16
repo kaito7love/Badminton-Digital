@@ -1,7 +1,7 @@
-# Plan: `fix/branch-timezone` (CHƯA LÀM)
+# Plan: `fix/branch-timezone` (ĐÃ CODE + TEST XONG — chờ duyệt merge)
 
-**Trạng thái:** chưa tạo nhánh, chưa code. Đây là plan để duyệt trước khi
-"code đi".
+**Trạng thái:** đã code + test thật xong trên nhánh `fix/branch-timezone`,
+chưa merge vào `main`. Xem tổng kết ở `00-tien-do.md`.
 
 ## Vấn đề
 

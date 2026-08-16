@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Court, CourtSession, Customer, Booking, Employee, sequelize } = require('../models');
+const { Court, CourtSession, Customer, Booking, Employee, Branch, sequelize } = require('../models');
 const { calculateCourtFee } = require('../utils/priceCalculator');
 const AuditService = require('./AuditService');
 const SettingService = require('./SettingService');
@@ -404,7 +404,12 @@ class CourtService {
 
     const transaction = await sequelize.transaction();
     try {
-      const court = await Court.findOne({ where: { id: courtId, ...(context.branchId ? { branchId: context.branchId } : {}) }, transaction, lock: transaction.LOCK.UPDATE });
+      const court = await Court.findOne({
+        where: { id: courtId, ...(context.branchId ? { branchId: context.branchId } : {}) },
+        include: [{ model: Branch, as: 'branch' }],
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
       if (!court) {
         const error = new Error('Court not found');
         error.statusCode = 404;
@@ -439,16 +444,17 @@ class CourtService {
         // lịch 08:00 sáng nay đã chơi xong lúc 4 giờ chiều thì không còn là lời
         // hứa nào cả. Nếu chỉ so ngày, sân sẽ bị khoá tới tận nửa đêm.
         const now = new Date();
+        const timezone = court.branch?.timezone;
         const upcoming = await Booking.count({
           where: {
             courtId,
             branchId: court.branchId,
             status: { [Op.in]: ['pending', 'confirmed'] },
             [Op.or]: [
-              { bookingDate: { [Op.gt]: localDateString(now) } },
+              { bookingDate: { [Op.gt]: localDateString(now, timezone) } },
               {
-                bookingDate: localDateString(now),
-                endTime: { [Op.gt]: localTimeString(now) }
+                bookingDate: localDateString(now, timezone),
+                endTime: { [Op.gt]: localTimeString(now, timezone) }
               }
             ]
           },
