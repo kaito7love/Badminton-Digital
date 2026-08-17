@@ -18,6 +18,17 @@ const addHours = (hhmm, hours) => {
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
+// Một danh sách dùng cho cả thanh desktop lẫn menu mobile. Trước đây hai chỗ
+// khai báo riêng nên đã lệch nhau (mobile có FAQ, desktop thì không).
+const SECTION_LINKS = [
+  { id: "courts", label: "Courts", icon: "🏟️" },
+  { id: "availability", label: "Schedule", icon: "🗓️" },
+  { id: "facilities", label: "Features", icon: "⭐" },
+  { id: "pricing", label: "Pricing", icon: "💰" },
+  { id: "services", label: "Gear", icon: "🎽" },
+  { id: "faq", label: "FAQ", icon: "❓", mobileOnly: true },
+];
+
 export default function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -287,57 +298,23 @@ export default function HomePage() {
             </div>
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-8 font-kinetic font-bold text-xs uppercase tracking-widest text-slate-300">
-            <button
-              type="button"
-              onClick={() => scrollToSection("courts")}
-              className="hover:text-emerald-400 transition-colors bg-transparent border-0 cursor-pointer"
-            >
-              Courts
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection("availability")}
-              className="hover:text-emerald-400 transition-colors bg-transparent border-0 cursor-pointer"
-            >
-              Schedule
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection("facilities")}
-              className="hover:text-emerald-400 transition-colors bg-transparent border-0 cursor-pointer"
-            >
-              Features
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection("pricing")}
-              className="hover:text-emerald-400 transition-colors bg-transparent border-0 cursor-pointer"
-            >
-              Pricing
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection("services")}
-              className="hover:text-emerald-400 transition-colors bg-transparent border-0 cursor-pointer"
-            >
-              Gear
-            </button>
-            <Link to="/shop" className="hover:text-emerald-400 transition-colors">
+          <nav className="hidden lg:flex items-center gap-6 font-kinetic font-bold text-xs uppercase tracking-widest text-slate-300">
+            {SECTION_LINKS.filter((link) => !link.mobileOnly).map((link) => (
+              <button
+                key={link.id}
+                type="button"
+                onClick={() => scrollToSection(link.id)}
+                className="flex items-center gap-2 hover:text-emerald-400 transition-colors bg-transparent border-0 cursor-pointer"
+              >
+                <span aria-hidden="true" className="text-sm">{link.icon}</span>
+                {link.label}
+              </button>
+            ))}
+            <Link to="/shop" className="flex items-center gap-2 hover:text-emerald-400 transition-colors">
+              <span aria-hidden="true" className="text-sm">🛍️</span>
               Shop
             </Link>
           </nav>
-
-          <button
-            type="button"
-            className="lg:hidden text-white border border-white/20 rounded-lg px-3 py-2"
-            onClick={() => setMobileMenuOpen((open) => !open)}
-            aria-expanded={mobileMenuOpen}
-            aria-controls="mobile-navigation"
-            aria-label="Toggle navigation menu"
-          >
-            Menu
-          </button>
 
           <div className="flex items-center gap-3 sm:gap-4">
             {/* Giỏ hàng phải có mặt ở đây: khách bỏ hàng vào giỏ rồi quay về
@@ -355,13 +332,20 @@ export default function HomePage() {
               )}
             </Link>
 
-            {/* Nhãn phải nói đúng nơi nút dẫn tới: khách đã đăng nhập bấm
-                "Sign In" lần nữa là quay lại chỗ họ vừa rời đi. */}
+            {/* Cùng khuôn với nút giỏ hàng. Nhãn phải nói đúng nơi nút dẫn
+                tới: khách đã đăng nhập bấm "Sign In" lần nữa là quay lại chỗ
+                họ vừa rời đi. */}
             <Link
               to={user ? (isStaff(user) ? homePathForRole(user) : "/account") : "/login"}
-              className="hidden sm:inline-block font-kinetic font-extrabold text-xs uppercase tracking-wider text-slate-300 hover:text-white px-4 py-2 transition-colors"
+              aria-label={user ? (isStaff(user) ? "Bàn làm việc" : "Tài khoản") : "Đăng nhập"}
+              className="hidden h-11 items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-3 font-kinetic text-xs font-extrabold uppercase tracking-wider text-slate-300 transition hover:border-emerald-400/50 hover:bg-white/10 hover:text-white sm:flex lg:px-4"
             >
-              {user ? (isStaff(user) ? "Bàn làm việc" : "Tài khoản") : "Đăng nhập"}
+              <span aria-hidden="true" className="text-lg">
+                {user ? (isStaff(user) ? "🗂️" : "👤") : "🔑"}
+              </span>
+              <span className="hidden lg:inline">
+                {user ? (isStaff(user) ? "Bàn làm việc" : "Tài khoản") : "Đăng nhập"}
+              </span>
             </Link>
             {/* Trên điện thoại nhường chỗ cho logo/giỏ/menu — hero ngay bên
                 dưới đã có nút "RESERVE COURT NOW" to đùng. Bọc span để ẩn được:
@@ -375,6 +359,19 @@ export default function HomePage() {
                 Instant Book ⚡
               </button>
             </span>
+
+            {/* Hamburger đứng cuối cùng, cùng khuôn với nút giỏ — đúng thứ tự
+                quen thuộc: nội dung trái, hành động phải, menu ngoài cùng. */}
+            <button
+              type="button"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/5 text-lg text-white transition hover:border-emerald-400/50 hover:bg-white/10 lg:hidden"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation"
+              aria-label="Mở menu điều hướng"
+            >
+              ☰
+            </button>
           </div>
         </div>
         {mobileMenuOpen && (
@@ -383,67 +380,39 @@ export default function HomePage() {
             className="lg:hidden bg-slate-950/95 border-t border-white/10 px-6 py-4 grid grid-cols-2 gap-3 font-kinetic font-bold text-xs uppercase tracking-widest text-slate-300"
             aria-label="Mobile navigation"
           >
-            <button
-              type="button"
-              onClick={() => scrollToSection("courts")}
-              className="text-left bg-transparent border-0 cursor-pointer hover:text-emerald-400 transition-colors"
-            >
-              Courts
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection("availability")}
-              className="text-left bg-transparent border-0 cursor-pointer hover:text-emerald-400 transition-colors"
-            >
-              Schedule
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection("facilities")}
-              className="text-left bg-transparent border-0 cursor-pointer hover:text-emerald-400 transition-colors"
-            >
-              Features
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection("pricing")}
-              className="text-left bg-transparent border-0 cursor-pointer hover:text-emerald-400 transition-colors"
-            >
-              Pricing
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection("services")}
-              className="text-left bg-transparent border-0 cursor-pointer hover:text-emerald-400 transition-colors"
-            >
-              Gear
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection("faq")}
-              className="text-left bg-transparent border-0 cursor-pointer hover:text-emerald-400 transition-colors"
-            >
-              FAQ
-            </button>
+            {SECTION_LINKS.map((link) => (
+              <button
+                key={link.id}
+                type="button"
+                onClick={() => scrollToSection(link.id)}
+                className="flex items-center gap-2 text-left bg-transparent border-0 cursor-pointer hover:text-emerald-400 transition-colors"
+              >
+                <span aria-hidden="true">{link.icon}</span>
+                {link.label}
+              </button>
+            ))}
             <Link
               to="/shop"
-              className="text-left hover:text-emerald-400 transition-colors"
+              className="flex items-center gap-2 text-left hover:text-emerald-400 transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
+              <span aria-hidden="true">🛍️</span>
               Shop
             </Link>
             <Link
               to="/cart"
-              className="text-left hover:text-emerald-400 transition-colors"
+              className="flex items-center gap-2 text-left hover:text-emerald-400 transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              🛒 Giỏ hàng{cartQuantity > 0 ? ` (${cartQuantity})` : ""}
+              <span aria-hidden="true">🛒</span>
+              Giỏ hàng{cartQuantity > 0 ? ` (${cartQuantity})` : ""}
             </Link>
             <Link
               to={user ? (isStaff(user) ? homePathForRole(user) : "/account") : "/login"}
-              className="text-left hover:text-emerald-400 transition-colors"
+              className="flex items-center gap-2 text-left hover:text-emerald-400 transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
+              <span aria-hidden="true">{user ? (isStaff(user) ? "🗂️" : "👤") : "🔑"}</span>
               {user ? (isStaff(user) ? "Bàn làm việc" : "Tài khoản") : "Đăng nhập"}
             </Link>
           </nav>
