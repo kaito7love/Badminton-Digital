@@ -27,6 +27,15 @@ router.get('/courts', [branchRule, validate], async (req, res, next) => {
   }
 });
 
+router.get('/products', [branchRule, validate], async (req, res, next) => {
+  try {
+    const data = await PublicCatalogService.getProducts(req.query.branchId || null);
+    return successResponse(res, data, 'Danh mục phụ kiện & trang phục');
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get(
   '/availability',
   [

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import "./HomePage.css";
 import { publicService, bookingService } from "../../services/apiServices";
 import { useAuth } from "../../contexts/AuthContext";
-import { roleOf } from "../../utils/roles";
+import { roleOf, isStaff, homePathForRole } from "../../utils/roles";
 
 // Lựa chọn của khách được giữ lại khi họ phải rẽ qua trang đăng nhập, để quay
 // về là đặt tiếp chứ không phải chọn lại từ đầu.
@@ -239,7 +239,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="home-page-wrapper nike-grid-bg">
+    <div className="kinetic-surface nike-grid-bg">
       {/* KINETIC HEADER / NAVBAR */}
       <header
         className={`fixed top-0 left-0 right-0 h-24 z-50 transition-all duration-300 ${scrolled ? "h-20 bg-slate-950/90 backdrop-blur-2xl border-b border-white/10 shadow-2xl" : ""}`}
@@ -321,6 +321,9 @@ export default function HomePage() {
             >
               Gear
             </button>
+            <Link to="/shop" className="hover:text-emerald-400 transition-colors">
+              Shop
+            </Link>
           </nav>
 
           <button
@@ -335,11 +338,13 @@ export default function HomePage() {
           </button>
 
           <div className="flex items-center gap-4">
+            {/* Nhãn phải nói đúng nơi nút dẫn tới: khách đã đăng nhập bấm
+                "Sign In" lần nữa là quay lại chỗ họ vừa rời đi. */}
             <Link
-              to="/login"
+              to={user ? (isStaff(user) ? homePathForRole(user) : "/account") : "/login"}
               className="hidden sm:inline-block font-kinetic font-extrabold text-xs uppercase tracking-wider text-slate-300 hover:text-white px-4 py-2 transition-colors"
             >
-              Staff Sign In
+              {user ? (isStaff(user) ? "Bàn làm việc" : "Tài khoản") : "Đăng nhập"}
             </Link>
             <button
               type="button"
@@ -398,6 +403,20 @@ export default function HomePage() {
             >
               FAQ
             </button>
+            <Link
+              to="/shop"
+              className="text-left hover:text-emerald-400 transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Shop
+            </Link>
+            <Link
+              to={user ? (isStaff(user) ? homePathForRole(user) : "/account") : "/login"}
+              className="text-left hover:text-emerald-400 transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {user ? (isStaff(user) ? "Bàn làm việc" : "Tài khoản") : "Đăng nhập"}
+            </Link>
           </nav>
         )}
       </header>
@@ -1031,6 +1050,20 @@ export default function HomePage() {
                 <p className="text-slate-400 mt-3">{description}</p>
               </div>
             ))}
+          </div>
+
+          <div className="nike-card mt-6 flex flex-col items-center justify-between gap-5 p-8 md:flex-row md:text-left text-center">
+            <div>
+              <h3 className="font-kinetic text-2xl font-black text-white uppercase">
+                Cửa hàng phụ kiện & trang phục
+              </h3>
+              <p className="text-slate-400 mt-2">
+                Vợt, áo, quần, túi và phụ kiện chính hãng bán tại quầy — xem giá và size màu còn hàng trước khi tới.
+              </p>
+            </div>
+            <Link to="/shop" className="btn-nike-bolt text-xs shrink-0">
+              Xem cửa hàng 🛍️
+            </Link>
           </div>
         </div>
       </section>

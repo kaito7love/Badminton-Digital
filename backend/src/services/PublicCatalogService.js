@@ -1,5 +1,12 @@
 const { Op } = require('sequelize');
-const { Branch, Court } = require('../models');
+const {
+  Branch,
+  Court,
+  Product,
+  ProductCategory,
+  ProductVariant,
+  ProductStock
+} = require('../models');
 const BookingService = require('./BookingService');
 const SettingService = require('./SettingService');
 
@@ -64,6 +71,80 @@ class PublicCatalogService {
 
     // Không trả conflictBookingId ra ngoài: người lạ không cần biết mã lịch của khách khác.
     return { available: result.available, message: result.message };
+  }
+
+  /**
+   * Rút một sản phẩm về đúng những gì tấm nhãn treo trên kệ nói: tên, phân
+   * loại, size/màu, giá niêm yết, còn hay hết. Giá vốn và số tồn chính xác là
+   * chuyện nội bộ — biết quán còn đúng 2 cái vợt không giúp khách mua hàng,
+   * nhưng giúp đối thủ định giá.
+   */
+  static toPublicProduct(product) {
+    const variants = (product.variants || []).map((variant) => {
+      const quantity = (variant.stocks || []).reduce((sum, stock) => sum + Number(stock.quantity || 0), 0);
+      return {
+        id: variant.id,
+        sku: variant.sku,
+        size: variant.size,
+        color: variant.color,
+        price: Number(variant.listPrice),
+        // Hàng không đếm kho (đặt riêng, dịch vụ) luôn nhận được — chỉ hàng có
+        // theo dõi tồn mới có khái niệm "hết".
+        inStock: !variant.trackInventory || quantity > 0
+      };
+    });
+
+    const prices = variants.map((v) => v.price);
+    return {
+      id: product.id,
+      name: product.name,
+      category: product.category ? { id: product.category.id, name: product.category.name } : null,
+      variants,
+      priceFrom: prices.length ? Math.min(...prices) : null,
+      priceTo: prices.length ? Math.max(...prices) : null,
+      inStock: variants.some((v) => v.inStock)
+    };
+  }
+
+  /**
+   * Kệ hàng phụ kiện/trang phục bày cho khách xem trước khi tới quán.
+   *
+   * Chỉ hàng bán lẻ (`retail`) và đang mở bán: đồ cho thuê, vật tư tiêu hao và
+   * dịch vụ là chuyện của quầy, không phải hàng trên kệ. Còn/hết tính theo tồn
+   * của đúng chi nhánh khách đang xem — hàng nằm ở chi nhánh khác thì khách
+   * đến đây vẫn không mua được.
+   */
+  static async getProducts(branchId = null) {
+    const branch = await PublicCatalogService.resolveBranch(branchId);
+
+    const products = await Product.findAll({
+      where: { isActive: true, productType: 'retail' },
+      order: [['id', 'DESC']],
+      include: [
+        { model: ProductCategory, as: 'category', attributes: ['id', 'name'] },
+        {
+          model: ProductVariant,
+          as: 'variants',
+          include: [{
+            model: ProductStock,
+            as: 'stocks',
+            where: { branchId: branch.id },
+            required: false,
+            attributes: ['quantity']
+          }]
+        }
+      ]
+    });
+
+    const categories = await ProductCategory.findAll({
+      order: [['sortOrder', 'ASC'], ['id', 'ASC']]
+    });
+
+    return {
+      branch: { id: branch.id, name: branch.name },
+      categories: categories.map((category) => ({ id: category.id, name: category.name })),
+      products: products.map(PublicCatalogService.toPublicProduct)
+    };
   }
 }
 

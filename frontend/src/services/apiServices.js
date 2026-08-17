@@ -15,6 +15,7 @@ export const authService = {
 export const publicService = {
   getCourts: (params) => apiClient.get('/public/courts', { params }),
   checkAvailability: (params) => apiClient.get('/public/availability', { params }),
+  getProducts: (params) => apiClient.get('/public/products', { params }),
 };
 
 // ─── Branches (chỉ admin — bộ chuyển chi nhánh) ─────────────────
