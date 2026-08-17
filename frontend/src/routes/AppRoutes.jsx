@@ -26,6 +26,11 @@ const HistoryPage = lazy(() => import('../pages/History/HistoryPage'));
 const MyBookingsPage = lazy(() => import('../pages/MyBookings/MyBookingsPage'));
 const AccountPage = lazy(() => import('../pages/Account/AccountPage'));
 const ShopPage = lazy(() => import('../pages/Shop/ShopPage'));
+const ProductDetailPage = lazy(() => import('../pages/Shop/ProductDetailPage'));
+const CartPage = lazy(() => import('../pages/Cart/CartPage'));
+const CheckoutPage = lazy(() => import('../pages/Cart/CheckoutPage'));
+const OrdersPage = lazy(() => import('../pages/Orders/OrdersPage'));
+const OrderDetailPage = lazy(() => import('../pages/Orders/OrderDetailPage'));
 
 const RouteFallback = () => (
   <div className="flex min-h-[60vh] items-center justify-center text-slate-500 dark:text-slate-400">
@@ -50,8 +55,12 @@ export default function AppRoutes() {
         <Routes>
           {/* Public Homepage Landing Page for Badminton Digital */}
           <Route path="/" element={<HomePage />} />
-          {/* Kệ hàng phụ kiện mở cho cả khách chưa đăng nhập — xem giá trước khi tới quán */}
+          {/* Kệ hàng phụ kiện mở cho cả khách chưa đăng nhập — xem giá trước khi tới quán.
+              Giỏ hàng cũng công khai: chặn đăng nhập ở bước đặt đơn là đủ, bắt đăng nhập
+              từ lúc bỏ hàng vào giỏ chỉ tổ đuổi khách đi. */}
           <Route path="/shop" element={<ShopPage />} />
+          <Route path="/shop/:id" element={<ProductDetailPage />} />
+          <Route path="/cart" element={<CartPage />} />
 
           {/* Auth Route */}
           <Route path="/login" element={<LoginPage />} />
@@ -62,6 +71,9 @@ export default function AppRoutes() {
           {/* Trang của khách hàng */}
           <Route path="/my-bookings" element={<ProtectedRoute roles={['customer']}><MyBookingsPage /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute roles={['customer']}><AccountPage /></ProtectedRoute>} />
+          <Route path="/checkout" element={<ProtectedRoute roles={['customer']}><CheckoutPage /></ProtectedRoute>} />
+          <Route path="/orders" element={<ProtectedRoute roles={['customer']}><OrdersPage /></ProtectedRoute>} />
+          <Route path="/orders/:id" element={<ProtectedRoute roles={['customer']}><OrderDetailPage /></ProtectedRoute>} />
 
           {/* Bàn làm việc của nhân viên & quản trị */}
           {/* Dashboard đọc báo cáo — API mở cho admin và branch_manager, route cũng vậy */}

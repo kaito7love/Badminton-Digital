@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { query, validationResult } = require('express-validator');
+const { param, query, validationResult } = require('express-validator');
 const PublicCatalogService = require('../services/PublicCatalogService');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
@@ -17,6 +17,16 @@ const validate = (req, res, next) => {
 };
 
 const branchRule = query('branchId').optional().isInt({ min: 1 }).withMessage('branchId phải là số nguyên dương');
+const productIdRule = param('id').isInt({ min: 1 }).withMessage('Mã sản phẩm không hợp lệ');
+
+router.get('/branches', async (req, res, next) => {
+  try {
+    const data = await PublicCatalogService.getBranches();
+    return successResponse(res, data, 'Danh sách chi nhánh');
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.get('/courts', [branchRule, validate], async (req, res, next) => {
   try {
@@ -31,6 +41,15 @@ router.get('/products', [branchRule, validate], async (req, res, next) => {
   try {
     const data = await PublicCatalogService.getProducts(req.query.branchId || null);
     return successResponse(res, data, 'Danh mục phụ kiện & trang phục');
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/products/:id', [productIdRule, branchRule, validate], async (req, res, next) => {
+  try {
+    const data = await PublicCatalogService.getProductById(req.params.id, req.query.branchId || null);
+    return successResponse(res, data, 'Chi tiết sản phẩm');
   } catch (err) {
     next(err);
   }

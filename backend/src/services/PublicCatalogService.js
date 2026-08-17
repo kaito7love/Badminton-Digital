@@ -146,6 +146,89 @@ class PublicCatalogService {
       products: products.map(PublicCatalogService.toPublicProduct)
     };
   }
+
+  /**
+   * Một sản phẩm cho trang chi tiết, kèm vài món cùng danh mục để khách xem
+   * tiếp. Đường dẫn /shop/:id phải mở được từ link chia sẻ, nên không thể bắt
+   * khách đi qua danh sách mới xem được hàng.
+   */
+  static async getProductById(id, branchId = null) {
+    const branch = await PublicCatalogService.resolveBranch(branchId);
+
+    const product = await Product.findOne({
+      where: { id, isActive: true, productType: 'retail' },
+      include: [
+        { model: ProductCategory, as: 'category', attributes: ['id', 'name'] },
+        {
+          model: ProductVariant,
+          as: 'variants',
+          include: [{
+            model: ProductStock,
+            as: 'stocks',
+            where: { branchId: branch.id },
+            required: false,
+            attributes: ['quantity']
+          }]
+        }
+      ]
+    });
+
+    if (!product) {
+      const error = new Error('Sản phẩm không tồn tại hoặc đã ngừng bán');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const related = product.categoryId
+      ? await Product.findAll({
+        where: {
+          isActive: true,
+          productType: 'retail',
+          categoryId: product.categoryId,
+          id: { [Op.ne]: product.id }
+        },
+        limit: 4,
+        order: [['id', 'DESC']],
+        include: [
+          { model: ProductCategory, as: 'category', attributes: ['id', 'name'] },
+          {
+            model: ProductVariant,
+            as: 'variants',
+            include: [{
+              model: ProductStock,
+              as: 'stocks',
+              where: { branchId: branch.id },
+              required: false,
+              attributes: ['quantity']
+            }]
+          }
+        ]
+      })
+      : [];
+
+    return {
+      branch: { id: branch.id, name: branch.name },
+      product: PublicCatalogService.toPublicProduct(product),
+      related: related.map(PublicCatalogService.toPublicProduct)
+    };
+  }
+
+  /**
+   * Danh sách cửa hàng để khách chọn nơi mua/nhận hàng. Tồn kho và giá đã theo
+   * chi nhánh, nên khách phải chọn được chi nhánh chứ không thể mặc định mãi
+   * một nơi rồi tới lấy hàng ở chỗ không có hàng.
+   */
+  static async getBranches() {
+    const branches = await Branch.findAll({
+      where: { isActive: true },
+      order: [['id', 'ASC']]
+    });
+    return branches.map((branch) => ({
+      id: branch.id,
+      name: branch.name,
+      address: branch.address
+    }));
+  }
 }
 
 module.exports = PublicCatalogService;

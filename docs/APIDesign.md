@@ -505,7 +505,91 @@ route riêng trong `settingRoutes.js` — giá phụ kiện được sửa qua
 
 ---
 
-## 12. Xử lý lỗi đặc thù theo nghiệp vụ
+## 12. Storefront khách hàng (public catalog & đơn đặt online)
+
+Mặt tiền hướng ra khách gồm hai nhóm: nhóm `/public/*` không cần đăng nhập
+(chỉ-đọc, chỉ chứa thông tin quán sẵn sàng dán ngoài cửa) và nhóm `/my-orders`
+dành riêng cho vai trò `customer`.
+
+### 12.1 Public catalog
+
+Không đi qua `authMiddleware`. Giá và tồn kho tính theo chi nhánh trong query
+`branchId`; bỏ trống thì lấy chi nhánh đang hoạt động đầu tiên.
+
+| Method | Endpoint | Role | Mô tả |
+|---|---|---|---|
+| GET | `/public/branches` | Public | Danh sách chi nhánh đang hoạt động (id, tên, địa chỉ) |
+| GET | `/public/courts` | Public | Danh mục sân + bảng giá + khung giờ cao điểm |
+| GET | `/public/availability` | Public | Kiểm tra một khung giờ còn trống không |
+| GET | `/public/products` | Public | Catalog bán lẻ đang mở bán (`isActive`, `productType = 'retail'`) |
+| GET | `/public/products/:id` | Public | Chi tiết một sản phẩm + tối đa 4 sản phẩm cùng danh mục |
+
+Biến thể trả ra chỉ gồm `id, sku, size, color, price, inStock` — **không** lộ
+giá vốn (`averageCost`) hay số tồn chính xác. `inStock` là `true` khi biến thể
+không theo dõi tồn kho, hoặc còn tồn tại chi nhánh đang xem.
+
+```json
+// GET /public/products/3?branchId=1
+{
+  "branch": { "id": 1, "name": "Chi nhánh Quận 1" },
+  "product": {
+    "id": 3, "name": "Áo Yonex Thi Đấu Nam",
+    "category": { "id": 2, "name": "Áo thi đấu" },
+    "priceFrom": 250000, "priceTo": 280000, "inStock": true,
+    "variants": [
+      { "id": 3, "sku": "YNX-SHIRT-M-RED", "size": "M", "color": "Đỏ", "price": 250000, "inStock": true }
+    ]
+  },
+  "related": []
+}
+```
+
+### 12.2 Đơn đặt online của khách (`/my-orders`)
+
+Đơn khách tự đặt trên web dùng chung bảng `sales_orders` với đơn POS tại quầy,
+phân biệt bằng `channel = 'online'` (POS là `'pos'`). Route chỉ mở cho vai trò
+`customer` và **không** qua `branchContextMiddleware`: chi nhánh nhận hàng do
+khách chọn trong payload, không phải chi nhánh công tác của nhân viên.
+
+| Method | Endpoint | Role | Mô tả |
+|---|---|---|---|
+| GET | `/my-orders` | Customer | Đơn của chính mình (lọc `?status=open\|paid\|cancelled`) |
+| POST | `/my-orders` | Customer | Đặt đơn mới — trừ kho ngay để giữ hàng |
+| GET | `/my-orders/:id` | Customer | Chi tiết một đơn của chính mình |
+| POST | `/my-orders/:id/cancel` | Customer | Huỷ đơn khi còn `status = 'open'` — hoàn kho |
+
+```json
+// POST /my-orders
+{
+  "branchId": 1,
+  "items": [{ "variantId": 3, "quantity": 2 }],
+  "contactName": "Nguyễn Minh Khôi",
+  "contactPhone": "0912345678",
+  "customerNote": "Chiều 18h mình qua lấy."
+}
+```
+
+Quy ước nghiệp vụ:
+
+- **Giá chốt tại thời điểm đặt**, lấy từ `product_variants.listPrice` phía
+  server — giá client gửi lên bị bỏ qua.
+- **Trừ kho ngay khi đặt** (`stock_movements` type `sale`), hoàn kho khi huỷ
+  (`sale_return`). Không đủ tồn thì cả đơn rollback với HTTP 400.
+- **Không có thanh toán online.** Đơn `open` nghĩa là hàng đang được giữ tại
+  quầy; khách trả tiền khi tới lấy và nhân viên chốt bằng luồng POS sẵn có
+  (`POST /sales-orders/:id/checkout`), lúc đó đơn chuyển `paid`.
+- `contact_name` / `contact_phone` / `customer_note` thêm ở migration
+  `20260817100001-online-order-contact-fields.js`, chỉ dùng cho đơn online.
+- Mọi truy vấn đều lọc kèm `customerId` — đoán đúng mã đơn của người khác vẫn
+  trả 404.
+
+Trạng thái đơn nhìn từ phía khách: `open` = "Chờ nhận hàng", `paid` =
+"Hoàn thành", `cancelled` = "Đã huỷ". Không có bước vận chuyển nào vì đây là
+luồng nhận hàng tại quầy.
+
+---
+
+## 13. Xử lý lỗi đặc thù theo nghiệp vụ
 
 | Trường hợp | HTTP Code | Message mẫu |
 |---|---|---|
@@ -519,7 +603,7 @@ route riêng trong `settingRoutes.js` — giá phụ kiện được sửa qua
 
 ---
 
-## 13. Ghi chú triển khai
+## 14. Ghi chú triển khai
 - Toàn bộ endpoint (trừ nhóm Auth/Public/`payments/webhook`) đều yêu cầu middleware xác thực JWT + middleware kiểm tra Role.
 - Tài liệu này sẽ được đồng bộ thành file `swagger.yaml`/`openapi.json` ở giai đoạn Backend (Phase 3) để sinh Swagger UI tự động.
 - Endpoint `checkout`, `open/close` court, nhập kho (`goods-receipts`) và điều chỉnh tồn kho (`inventory/adjustments`) đều dùng Sequelize transaction + row lock để tránh lệch dữ liệu khi có nhiều request đồng thời.

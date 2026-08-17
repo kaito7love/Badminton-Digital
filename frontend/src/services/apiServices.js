@@ -16,6 +16,16 @@ export const publicService = {
   getCourts: (params) => apiClient.get('/public/courts', { params }),
   checkAvailability: (params) => apiClient.get('/public/availability', { params }),
   getProducts: (params) => apiClient.get('/public/products', { params }),
+  getProductById: (id, params) => apiClient.get(`/public/products/${id}`, { params }),
+  getBranches: () => apiClient.get('/public/branches'),
+};
+
+// ─── Đơn hàng của khách (đặt online, nhận tại quầy) ─────────────
+export const myOrderService = {
+  getAll: (params) => apiClient.get('/my-orders', { params }),
+  getById: (id) => apiClient.get(`/my-orders/${id}`),
+  place: (data) => apiClient.post('/my-orders', data),
+  cancel: (id) => apiClient.post(`/my-orders/${id}/cancel`),
 };
 
 // ─── Branches (chỉ admin — bộ chuyển chi nhánh) ─────────────────

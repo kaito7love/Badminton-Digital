@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 import { roleOf, isStaff, homePathForRole } from '../utils/roles';
 
 /**
@@ -14,6 +15,8 @@ import { roleOf, isStaff, homePathForRole } from '../utils/roles';
 const NAV_ITEMS = [
   { path: '/', label: 'Trang chủ', icon: '🏠', public: true },
   { path: '/shop', label: 'Cửa hàng', icon: '🛍️', public: true },
+  { path: '/cart', label: 'Giỏ hàng', icon: '🛒', public: true },
+  { path: '/orders', label: 'Đơn mua', icon: '📦', public: false },
   { path: '/my-bookings', label: 'Lịch đặt', icon: '🎟️', public: false },
   { path: '/account', label: 'Tài khoản', icon: '👤', public: false }
 ];
@@ -33,11 +36,14 @@ const Logo = () => (
 export default function CustomerLayout({ eyebrow, title, subtitle, action, children }) {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { totalQuantity } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isCustomer = roleOf(user) === 'customer';
   const visibleNav = NAV_ITEMS.filter((item) => item.public || isCustomer);
   const isActive = (path) => (path === '/' ? location.pathname === '/' : location.pathname.startsWith(path));
+  // Số hàng trong giỏ chỉ gắn lên đúng mục giỏ hàng, và chỉ khi có hàng.
+  const badgeFor = (path) => (path === '/cart' && totalQuantity > 0 ? totalQuantity : null);
 
   return (
     <div className="kinetic-surface nike-grid-bg flex flex-col">
@@ -45,7 +51,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-5 sm:px-6">
           <Link to="/" className="group flex items-center gap-3">
             <Logo />
-            <div className="font-kinetic text-lg font-black uppercase tracking-tighter text-white sm:text-xl">
+            <div className="whitespace-nowrap font-kinetic text-base font-black uppercase tracking-tighter text-white sm:text-xl">
               BADMINTON <span className="text-gradient-nike">DIGITAL</span>
             </div>
           </Link>
@@ -58,6 +64,11 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
                 className={`transition-colors ${isActive(item.path) ? 'text-emerald-400' : 'text-slate-300 hover:text-emerald-400'}`}
               >
                 {item.label}
+                {badgeFor(item.path) && (
+                  <span className="ml-1.5 rounded-full bg-emerald-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
+                    {badgeFor(item.path)}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>
@@ -79,7 +90,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
                 <button
                   type="button"
                   onClick={logout}
-                  className="rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 transition hover:bg-slate-700"
+                  className="whitespace-nowrap rounded-xl bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 transition hover:bg-slate-700 sm:px-4"
                 >
                   Đăng xuất
                 </button>
@@ -129,6 +140,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
                 className={`transition-colors ${isActive(item.path) ? 'text-emerald-400' : 'text-slate-300 hover:text-emerald-400'}`}
               >
                 {item.icon} {item.label}
+                {badgeFor(item.path) ? ` (${badgeFor(item.path)})` : ''}
               </Link>
             ))}
           </nav>
@@ -159,15 +171,20 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
         aria-label="Điều hướng nhanh"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 backdrop-blur-xl lg:hidden"
       >
-        <div className="mx-auto flex max-w-md items-center justify-around px-4 py-2.5">
-          {visibleNav.map((item) => (
+        <div className="mx-auto flex max-w-md items-center justify-around px-3 py-2.5">
+          {visibleNav.slice(0, 5).map((item) => (
             <Link key={item.path} to={item.path} className="flex flex-col items-center gap-1 text-center">
               <span
-                className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-base ${
+                className={`relative inline-flex h-9 w-9 items-center justify-center rounded-xl text-base ${
                   isActive(item.path) ? 'bg-emerald-500' : 'bg-slate-900'
                 }`}
               >
                 {item.icon}
+                {badgeFor(item.path) && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white">
+                    {badgeFor(item.path)}
+                  </span>
+                )}
               </span>
               <span
                 className={`text-[10px] font-bold ${isActive(item.path) ? 'text-emerald-400' : 'text-slate-500'}`}
