@@ -22,6 +22,17 @@ export default function ProductDetailPage() {
   const navigate = useNavigate();
   const { addItem, branchId: cartBranchId, items } = useCart();
 
+  /**
+   * Chi nhánh dùng để nạp trang, chốt một lần lúc vào trang.
+   *
+   * Không bám theo `cartBranchId` đang chạy: giỏ trống thì nó là null, và ngay
+   * khi khách thêm món đầu tiên nó nhảy sang chi nhánh của món đó. Nếu để
+   * effect nạp lại theo giá trị đó, cả danh sách biến thể được dựng lại và
+   * khách bị ném về mẫu mặc định đúng vào giây họ vừa chọn xong màu với size.
+   * Đổi chi nhánh là việc của trang cửa hàng, không xảy ra ở đây.
+   */
+  const [viewBranchId] = useState(() => cartBranchId || null);
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -35,7 +46,7 @@ export default function ProductDetailPage() {
     let cancelled = false;
     setLoading(true);
     publicService
-      .getProductById(id, cartBranchId ? { branchId: cartBranchId } : undefined)
+      .getProductById(id, viewBranchId ? { branchId: viewBranchId } : undefined)
       .then((res) => {
         if (cancelled) return;
         setData(res.data?.data || null);
@@ -50,7 +61,7 @@ export default function ProductDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, cartBranchId]);
+  }, [id, viewBranchId]);
 
   const product = data?.product || null;
   const variants = useMemo(() => product?.variants || [], [product]);
@@ -337,9 +348,17 @@ export default function ProductDetailPage() {
         </section>
       )}
 
+      {/* Thêm xong phải chỉ luôn đường đi tiếp — báo "đã thêm" rồi để khách tự
+          mò xem giỏ nằm ở đâu là bỏ rơi họ giữa chừng. */}
       {toast && (
-        <div className="fixed bottom-24 right-6 z-50 rounded-full bg-emerald-400 px-7 py-4 font-kinetic text-sm font-black text-slate-950 shadow-2xl lg:bottom-8">
-          {toast}
+        <div className="fixed bottom-24 right-6 z-50 flex items-center gap-4 rounded-2xl bg-emerald-400 px-6 py-4 font-kinetic text-sm font-black text-slate-950 shadow-2xl lg:bottom-8">
+          <span>{toast}</span>
+          <Link
+            to="/cart"
+            className="whitespace-nowrap rounded-full bg-slate-950 px-4 py-2 text-xs font-black uppercase tracking-widest text-emerald-400"
+          >
+            Xem giỏ 🛒
+          </Link>
         </div>
       )}
     </CustomerLayout>

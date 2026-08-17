@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import "./HomePage.css";
 import { publicService, bookingService } from "../../services/apiServices";
 import { useAuth } from "../../contexts/AuthContext";
+import { useCart } from "../../contexts/CartContext";
 import { roleOf, isStaff, homePathForRole } from "../../utils/roles";
 
 // Lựa chọn của khách được giữ lại khi họ phải rẽ qua trang đăng nhập, để quay
@@ -20,6 +21,7 @@ const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 export default function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { totalQuantity: cartQuantity } = useCart();
   const [scrolled, setScrolled] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [courts, setCourts] = useState([]);
@@ -280,7 +282,7 @@ export default function HomePage() {
                 </svg>
               </div>
             </div>
-            <div className="font-kinetic font-black text-2xl tracking-tighter text-white uppercase">
+            <div className="font-kinetic font-black text-lg sm:text-2xl tracking-tighter text-white uppercase whitespace-nowrap">
               BADMINTON <span className="text-gradient-nike">DIGITAL</span>
             </div>
           </Link>
@@ -337,7 +339,22 @@ export default function HomePage() {
             Menu
           </button>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Giỏ hàng phải có mặt ở đây: khách bỏ hàng vào giỏ rồi quay về
+                trang chủ mà không thấy giỏ đâu thì coi như mất luôn đơn. */}
+            <Link
+              to="/cart"
+              aria-label={cartQuantity > 0 ? `Giỏ hàng, ${cartQuantity} sản phẩm` : "Giỏ hàng"}
+              className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/5 text-lg transition hover:border-emerald-400/50 hover:bg-white/10"
+            >
+              🛒
+              {cartQuantity > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-emerald-400 px-1 font-kinetic text-[10px] font-black text-slate-950">
+                  {cartQuantity}
+                </span>
+              )}
+            </Link>
+
             {/* Nhãn phải nói đúng nơi nút dẫn tới: khách đã đăng nhập bấm
                 "Sign In" lần nữa là quay lại chỗ họ vừa rời đi. */}
             <Link
@@ -346,13 +363,18 @@ export default function HomePage() {
             >
               {user ? (isStaff(user) ? "Bàn làm việc" : "Tài khoản") : "Đăng nhập"}
             </Link>
-            <button
-              type="button"
-              onClick={() => scrollToSection("booking-widget")}
-              className="btn-nike-bolt text-xs py-3.5 px-7 border-0 cursor-pointer"
-            >
-              Instant Book ⚡
-            </button>
+            {/* Trên điện thoại nhường chỗ cho logo/giỏ/menu — hero ngay bên
+                dưới đã có nút "RESERVE COURT NOW" to đùng. Bọc span để ẩn được:
+                .btn-nike-bolt nạp sau Tailwind nên tự đặt display. */}
+            <span className="hidden sm:inline-block">
+              <button
+                type="button"
+                onClick={() => scrollToSection("booking-widget")}
+                className="btn-nike-bolt text-xs py-3.5 px-7 border-0 cursor-pointer"
+              >
+                Instant Book ⚡
+              </button>
+            </span>
           </div>
         </div>
         {mobileMenuOpen && (
@@ -409,6 +431,13 @@ export default function HomePage() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Shop
+            </Link>
+            <Link
+              to="/cart"
+              className="text-left hover:text-emerald-400 transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              🛒 Giỏ hàng{cartQuantity > 0 ? ` (${cartQuantity})` : ""}
             </Link>
             <Link
               to={user ? (isStaff(user) ? homePathForRole(user) : "/account") : "/login"}
