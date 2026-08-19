@@ -84,6 +84,25 @@ describe('placeOrderRules', () => {
       .send({ ...validPayload(), customerNote: 'a'.repeat(501) });
     expect(response.status).toBe(400);
   });
+
+  it('không có paymentMethod thì vẫn hợp lệ — mặc định tiền mặt ở tầng service', async () => {
+    const response = await request(createApp()).post('/my-orders').send(validPayload());
+    expect(response.status).toBe(201);
+  });
+
+  it('chấp nhận paymentMethod là transfer', async () => {
+    const response = await request(createApp())
+      .post('/my-orders')
+      .send({ ...validPayload(), paymentMethod: 'transfer' });
+    expect(response.status).toBe(201);
+  });
+
+  it('từ chối paymentMethod không thuộc cash/transfer', async () => {
+    const response = await request(createApp())
+      .post('/my-orders')
+      .send({ ...validPayload(), paymentMethod: 'momo' });
+    expect(response.status).toBe(400);
+  });
 });
 
 describe('orderIdRules', () => {

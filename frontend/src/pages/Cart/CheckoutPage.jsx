@@ -10,9 +10,11 @@ import { CART_SELECTION_KEY } from './CartPage';
 /**
  * Bước xác nhận đơn: ai nhận, nhận ở đâu, trả bao nhiêu.
  *
- * Không có thanh toán online — hệ thống chỉ có quầy thu ngân, nên đơn đặt trên
- * web là đơn giữ hàng: backend trừ kho ngay để hàng không bị bán mất, khách
- * tới quầy trả tiền và nhân viên chốt đơn bằng đúng luồng POS sẵn có.
+ * Hai lựa chọn thanh toán, hai số phận khác nhau sau khi bấm "Đặt hàng":
+ * - Tiền mặt: hàng được giữ, khách trả tiền khi tới quầy, nhân viên chốt đơn.
+ * - Chuyển khoản: backend tạo hoá đơn ngay, trang chi tiết đơn hiện mã QR để
+ *   khách trả trước — không cần nhân viên đứng đó xác nhận, webhook tự lo.
+ *   Không chuyển khoản trong 30 phút thì đơn tự huỷ, hàng trả về kệ.
  */
 
 export default function CheckoutPage() {
@@ -24,7 +26,8 @@ export default function CheckoutPage() {
   const [form, setForm] = useState({
     contactName: user?.fullName || '',
     contactPhone: user?.phone || '',
-    customerNote: ''
+    customerNote: '',
+    paymentMethod: 'cash'
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -72,7 +75,8 @@ export default function CheckoutPage() {
         items: orderedItems.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
         contactName: form.contactName.trim(),
         contactPhone: form.contactPhone.trim(),
-        customerNote: form.customerNote.trim() || undefined
+        customerNote: form.customerNote.trim() || undefined,
+        paymentMethod: form.paymentMethod
       });
 
       // Chỉ bỏ khỏi giỏ những món đã đặt thành công — món chưa chọn vẫn nằm lại.
@@ -197,16 +201,54 @@ export default function CheckoutPage() {
             <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">
               💳 Phương thức thanh toán
             </h2>
-            {/* Một lựa chọn duy nhất vì hệ thống chỉ có quầy thu ngân — bày ra
-                "thanh toán online" rồi không có gì phía sau là nói dối khách. */}
-            <div className="mt-4 flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
-              <span className="mt-0.5 text-emerald-400">●</span>
-              <div>
-                <p className="text-sm font-bold text-white">Thanh toán khi nhận hàng tại quầy</p>
-                <p className="mt-1 text-xs text-slate-400">
-                  Tiền mặt hoặc chuyển khoản. Nhân viên xuất hoá đơn ngay lúc bạn lấy hàng.
-                </p>
-              </div>
+            <div className="mt-4 space-y-3">
+              <label
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                  form.paymentMethod === 'cash'
+                    ? 'border-emerald-500/40 bg-emerald-500/5'
+                    : 'border-white/10 bg-slate-950/40 hover:border-white/20'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="cash"
+                  checked={form.paymentMethod === 'cash'}
+                  onChange={() => setForm({ ...form, paymentMethod: 'cash' })}
+                  className="mt-1 h-4 w-4 accent-emerald-400"
+                />
+                <div>
+                  <p className="text-sm font-bold text-white">💵 Tiền mặt tại quầy</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Hàng được giữ, bạn trả tiền khi tới lấy — nhân viên xuất hoá đơn ngay lúc đó.
+                  </p>
+                </div>
+              </label>
+
+              <label
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                  form.paymentMethod === 'transfer'
+                    ? 'border-emerald-500/40 bg-emerald-500/5'
+                    : 'border-white/10 bg-slate-950/40 hover:border-white/20'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="transfer"
+                  checked={form.paymentMethod === 'transfer'}
+                  onChange={() => setForm({ ...form, paymentMethod: 'transfer' })}
+                  className="mt-1 h-4 w-4 accent-emerald-400"
+                />
+                <div>
+                  <p className="text-sm font-bold text-white">🏦 Chuyển khoản trước</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Đặt xong hiện mã QR để quét trả ngay — không cần chờ nhân viên. Quét trong{' '}
+                    <span className="font-bold text-amber-300">30 phút</span>, quá giờ đơn tự huỷ và hàng trả
+                    về kệ.
+                  </p>
+                </div>
+              </label>
             </div>
           </section>
         </div>

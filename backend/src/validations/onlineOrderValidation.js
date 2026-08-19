@@ -24,6 +24,7 @@ const placeOrderRules = [
     return true;
   }),
   body('customerNote').optional({ nullable: true }).isLength({ max: 500 }).withMessage('Ghi chú tối đa 500 ký tự'),
+  body('paymentMethod').optional().isIn(['cash', 'transfer']).withMessage('Phương thức thanh toán không hợp lệ'),
   validate
 ];
 

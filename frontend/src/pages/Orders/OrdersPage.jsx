@@ -112,11 +112,18 @@ export default function OrdersPage() {
                       {formatDateTime(order.createdAt)} • 🏬 {order.branch?.name || 'Chi nhánh'}
                     </p>
                   </div>
-                  <span
-                    className={`rounded-full border px-3 py-1 font-kinetic text-[10px] font-black uppercase tracking-widest ${meta.cls}`}
-                  >
-                    {meta.label}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {order.qrCodeUrl && (
+                      <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-3 py-1 font-kinetic text-[10px] font-black uppercase tracking-widest text-amber-300">
+                        📲 Chờ chuyển khoản
+                      </span>
+                    )}
+                    <span
+                      className={`rounded-full border px-3 py-1 font-kinetic text-[10px] font-black uppercase tracking-widest ${meta.cls}`}
+                    >
+                      {meta.label}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="mt-4 space-y-2">

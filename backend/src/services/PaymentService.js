@@ -1,4 +1,4 @@
-const { Invoice, InvoiceLine, Payment, CourtSession, SessionExtra, Extra, Customer, Court, Employee, sequelize } = require('../models');
+const { Invoice, InvoiceLine, Payment, CourtSession, SessionExtra, Extra, Customer, Court, Employee, SalesOrder, sequelize } = require('../models');
 const { calculateCourtFee, calculateInvoiceTotals } = require('../utils/priceCalculator');
 const { generateVietQRUrl } = require('../utils/vietqr');
 const { nextInvoiceNumber } = require('../utils/documentNumber');
@@ -303,9 +303,30 @@ class PaymentService {
       const oldValues = payment.toJSON();
       await payment.update({ status: 'paid', provider, providerReference, paidAt: new Date(), confirmedAt: new Date(), webhookPayload: payload }, { transaction });
       await invoice.update({ status: 'paid' }, { transaction });
-      const session = await CourtSession.findByPk(invoice.sessionId, { transaction, lock: transaction.LOCK.UPDATE });
-      if (session?.customerId) {
-        const customer = await Customer.findByPk(session.customerId, { transaction, lock: transaction.LOCK.UPDATE });
+
+      // Invoice của một buổi chơi hay của một đơn bán lẻ (POS/online) là hai
+      // nhánh loại trừ nhau (sessionId với salesOrderId không bao giờ cùng có
+      // giá trị) — tách rõ if/else thay vì dựa vào optional chaining lặng lẽ
+      // bỏ qua, để nhánh đơn bán lẻ không bị quên như trước đây.
+      let customerId = null;
+      if (invoice.salesOrderId) {
+        const order = await SalesOrder.findByPk(invoice.salesOrderId, { transaction, lock: transaction.LOCK.UPDATE });
+        if (order) {
+          // Đơn đã bị khách tự huỷ (hết hạn/huỷ tay) trong lúc chờ webhook thì
+          // không hồi lại 'paid' nữa — tiền vẫn cần xử lý hoàn trả thủ công,
+          // nhưng đó là việc của quầy, không phải nơi webhook tự quyết.
+          if (order.status === 'open') {
+            await order.update({ status: 'paid', paymentDeadlineAt: null }, { transaction });
+            customerId = order.customerId;
+          }
+        }
+      } else if (invoice.sessionId) {
+        const session = await CourtSession.findByPk(invoice.sessionId, { transaction, lock: transaction.LOCK.UPDATE });
+        customerId = session?.customerId || null;
+      }
+
+      if (customerId) {
+        const customer = await Customer.findByPk(customerId, { transaction, lock: transaction.LOCK.UPDATE });
         if (customer) {
           const totalSpent = Number(customer.totalSpent) + Number(invoice.totalAmount);
           await customer.update({ totalSpent, loyaltyTier: totalSpent >= 15000000 ? 'vip' : totalSpent >= 5000000 ? 'gold' : 'normal' }, { transaction });

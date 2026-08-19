@@ -16,6 +16,74 @@ const formatDateTime = (value) =>
     })
     : '—';
 
+const formatCountdown = (ms) => {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
+
+/** Đếm ngược tới một mốc thời gian ISO — tự cập nhật mỗi giây, dừng khi không còn mốc. */
+function useCountdown(deadlineIso) {
+  const [remainingMs, setRemainingMs] = useState(() => (deadlineIso ? new Date(deadlineIso) - new Date() : 0));
+
+  useEffect(() => {
+    if (!deadlineIso) return undefined;
+    const tick = () => setRemainingMs(new Date(deadlineIso) - new Date());
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [deadlineIso]);
+
+  return Math.max(0, remainingMs);
+}
+
+/**
+ * Mã QR chuyển khoản + đồng hồ đếm ngược 30 phút. Chỉ hiện khi backend còn trả
+ * `qrCodeUrl` — tự null khi đã thanh toán, đã huỷ, hoặc chọn tiền mặt, nên
+ * component này không cần tự đoán điều kiện, chỉ cần tin field đó.
+ */
+function PaymentQrCard({ order }) {
+  const remainingMs = useCountdown(order.paymentDeadlineAt);
+  if (!order.qrCodeUrl) return null;
+
+  const runningOut = remainingMs > 0 && remainingMs < 5 * 60 * 1000;
+
+  return (
+    <section className="nike-card-static border-amber-500/30 p-7">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">
+          📲 Quét mã để thanh toán
+        </h2>
+        {order.paymentDeadlineAt && (
+          <span className={`font-mono text-sm font-black ${runningOut ? 'text-rose-400' : 'text-amber-300'}`}>
+            Còn {formatCountdown(remainingMs)}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-5 flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+        <img
+          src={order.qrCodeUrl}
+          alt="Mã QR chuyển khoản"
+          className="h-44 w-44 shrink-0 rounded-xl border border-white/10 bg-white p-2"
+        />
+        <div className="text-sm text-slate-300">
+          <p>
+            Mở app ngân hàng, quét mã và xác nhận đúng số tiền{' '}
+            <span className="font-bold text-white">{formatVnd(order.invoice?.totalAmount)}</span>.
+          </p>
+          <p className="mt-3 rounded-xl border border-white/10 bg-slate-950/60 p-3 text-xs leading-relaxed text-slate-400">
+            Trang này tự làm mới khi tiền về, không cần bấm gì thêm. Quá {' '}
+            <span className="font-bold text-amber-300">30 phút</span> chưa chuyển khoản, đơn tự huỷ và hàng trả
+            về kệ — bạn đặt lại là được.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /**
  * Chi tiết một đơn: mốc trạng thái, nơi nhận, người nhận, danh sách hàng và
  * nút huỷ khi đơn còn đang chờ.
@@ -47,6 +115,25 @@ export default function OrderDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  // Đơn đang chờ chuyển khoản thì tự làm mới — khách không phải bấm F5 để
+  // biết webhook đã nhận tiền hay chưa. Dừng ngay khi đơn rời khỏi trạng thái
+  // chờ (đã trả, đã huỷ) hoặc không còn là đơn chuyển khoản.
+  useEffect(() => {
+    if (!order || order.status !== 'open' || order.paymentMethod !== 'transfer') return undefined;
+    const interval = setInterval(() => {
+      myOrderService
+        .getById(id)
+        .then((res) => {
+          if (res.data?.data) setOrder(res.data.data);
+        })
+        .catch(() => {
+          // Bỏ qua lỗi mạng thoáng qua — lần quét kế tiếp thử lại, không phá
+          // trải nghiệm khách đang chờ bằng một thông báo lỗi giữa chừng.
+        });
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [id, order?.status, order?.paymentMethod]);
 
   const handleCancel = async () => {
     if (!window.confirm('Huỷ đơn hàng này? Hàng sẽ được trả lại kệ.')) return;
@@ -85,6 +172,10 @@ export default function OrderDetailPage() {
   const meta = statusOf(order.status);
   const total = orderTotal(order);
   const canCancel = order.status === 'open';
+  const statusHint =
+    order.status === 'open' && order.paymentMethod === 'transfer'
+      ? 'Quét mã QR bên dưới để chuyển khoản trước, hoặc trả tiền mặt khi bạn tới lấy hàng.'
+      : meta.hint;
 
   return (
     <CustomerLayout
@@ -126,7 +217,7 @@ export default function OrderDetailPage() {
               </div>
               <p className="text-xs text-slate-500">Đặt lúc {formatDateTime(order.createdAt)}</p>
             </div>
-            <p className="mt-3 text-sm text-slate-400">{meta.hint}</p>
+            <p className="mt-3 text-sm text-slate-400">{statusHint}</p>
 
             {order.invoice && (
               <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/60 p-4 text-sm">
@@ -136,10 +227,12 @@ export default function OrderDetailPage() {
                 </div>
                 {order.invoice.payment && (
                   <div className="mt-2 flex justify-between text-slate-400">
-                    <span>Thanh toán</span>
+                    <span>Giao dịch</span>
                     <span className="font-bold text-white">
                       {order.invoice.payment.method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'} •{' '}
-                      {formatDateTime(order.invoice.payment.paidAt)}
+                      {order.invoice.payment.status === 'paid'
+                        ? `đã nhận lúc ${formatDateTime(order.invoice.payment.paidAt)}`
+                        : 'đang chờ thanh toán'}
                     </span>
                   </div>
                 )}
@@ -157,6 +250,8 @@ export default function OrderDetailPage() {
               </button>
             )}
           </section>
+
+          <PaymentQrCard order={order} />
 
           <section className="nike-card-static p-7">
             <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">📦 Sản phẩm</h2>
@@ -218,6 +313,12 @@ export default function OrderDetailPage() {
             <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">🧾 Thanh toán</h2>
             <div className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between text-slate-400">
+                <span>Phương thức</span>
+                <span className="font-bold text-white">
+                  {order.paymentMethod === 'transfer' ? '🏦 Chuyển khoản' : '💵 Tiền mặt tại quầy'}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-400">
                 <span>Tiền hàng ({orderQuantity(order)} sản phẩm)</span>
                 <span>{formatVnd(total)}</span>
               </div>
@@ -230,8 +331,10 @@ export default function OrderDetailPage() {
             </div>
             <p className="mt-4 text-xs leading-relaxed text-slate-500">
               {order.status === 'paid'
-                ? 'Đơn đã thanh toán tại quầy.'
-                : 'Thanh toán tiền mặt hoặc chuyển khoản khi bạn tới lấy hàng.'}
+                ? 'Đơn đã thanh toán.'
+                : order.paymentMethod === 'transfer'
+                  ? 'Quét mã QR ở trên để chuyển khoản trước, hoặc trả tiền mặt khi tới quầy.'
+                  : 'Thanh toán tiền mặt hoặc chuyển khoản khi bạn tới lấy hàng.'}
             </p>
           </section>
         </aside>

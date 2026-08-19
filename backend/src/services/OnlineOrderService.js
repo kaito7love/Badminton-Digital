@@ -8,10 +8,18 @@ const {
   SalesOrderLine,
   sequelize
 } = require('../models');
+const { Op } = require('sequelize');
 const InventoryService = require('./InventoryService');
 const AuditService = require('./AuditService');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const { normalizePhone } = require('../utils/phone');
+const { generateVietQRUrl } = require('../utils/vietqr');
+const { nextInvoiceNumber } = require('../utils/documentNumber');
+
+// Khách chọn "chuyển khoản" thì có đúng 30 phút để quét mã trước khi hệ thống
+// tự huỷ và trả hàng về kệ — đủ để lái xe tới ATM/mở app ngân hàng, ngắn đủ để
+// hàng không bị giam vô thời hạn vì một đơn không ai quay lại trả tiền.
+const PAYMENT_WINDOW_MS = 30 * 60 * 1000;
 
 const orderIncludes = [
   {
@@ -67,6 +75,37 @@ class OnlineOrderService {
     return lines.reduce((sum, line) => sum + Number(line.lineTotal), 0);
   }
 
+  /** Mốc 30 phút kể từ lúc đặt — tách hàm để test không phải giả lập Date.now toàn cục. */
+  static paymentDeadlineFrom(now = new Date()) {
+    return new Date(now.getTime() + PAYMENT_WINDOW_MS);
+  }
+
+  /** Đơn đang chờ chuyển khoản mà đã quá mốc `paymentDeadlineAt` chưa. */
+  static isPaymentExpired(order, now = new Date()) {
+    if (!order?.paymentDeadlineAt) return false;
+    return new Date(order.paymentDeadlineAt).getTime() < now.getTime();
+  }
+
+  /**
+   * QR chuyển khoản cho một đơn — `addInfo` gắn mã đơn để quầy dò tay khi đối
+   * chiếu sao kê (webhook đối soát tự động cho đơn thật sự tích hợp cổng
+   * thanh toán ngân hàng; addInfo là lưới đỡ khi webhook không tới hoặc quầy
+   * cần tra thủ công).
+   */
+  static buildQrCodeUrl(orderId, amount) {
+    return generateVietQRUrl({ amount, addInfo: `DH${orderId}` });
+  }
+
+  /**
+   * QR để hiển thị cho khách ngay bây giờ — null nếu không còn gì để trả:
+   * chọn tiền mặt, đã thanh toán, hoặc đơn đã huỷ/hết hạn.
+   */
+  static qrCodeFor(order) {
+    if (order.paymentMethod !== 'transfer' || order.status !== 'open') return null;
+    const amount = order.invoice?.totalAmount ?? OnlineOrderService.totalOf(order.lines || []);
+    return OnlineOrderService.buildQrCodeUrl(order.id, amount);
+  }
+
   /**
    * Gộp các dòng trùng biến thể trước khi đặt: giỏ hàng phía client có thể gửi
    * cùng một SKU làm hai dòng, để nguyên thì đơn có hai dòng y hệt nhau và
@@ -82,7 +121,7 @@ class OnlineOrderService {
     return [...merged.entries()].map(([variantId, quantity]) => ({ variantId, quantity }));
   }
 
-  static async placeOrder({ branchId, items, contactName, contactPhone, customerNote }, context = {}) {
+  static async placeOrder({ branchId, items, contactName, contactPhone, customerNote, paymentMethod = 'cash' }, context = {}) {
     const customerId = context.actor?.customer?.id;
     if (!customerId) {
       const error = new Error('Tài khoản chưa gắn hồ sơ khách hàng, không đặt hàng được');
@@ -115,6 +154,7 @@ class OnlineOrderService {
       });
 
       const lines = OnlineOrderService.computeLines(variants, mergedItems);
+      const isTransfer = paymentMethod === 'transfer';
 
       const order = await SalesOrder.create({
         branchId: branch.id,
@@ -124,7 +164,12 @@ class OnlineOrderService {
         cashierEmployeeId: null,
         contactName: (contactName || context.actor?.fullName || '').trim() || null,
         contactPhone: normalizePhone(contactPhone) || context.actor?.phone || null,
-        customerNote: customerNote ? String(customerNote).trim().slice(0, 500) : null
+        customerNote: customerNote ? String(customerNote).trim().slice(0, 500) : null,
+        paymentMethod,
+        // Đặt mốc hạn ngay khi tạo đơn, cùng transaction: đơn không sống được
+        // nếu bước tồn kho bên dưới rollback, nên không sợ đặt hạn cho một đơn
+        // rồi sau đó lại không có đơn nào tồn tại để mà hết hạn.
+        paymentDeadlineAt: isTransfer ? OnlineOrderService.paymentDeadlineFrom() : null
       }, { transaction });
 
       for (const line of lines) {
@@ -141,6 +186,34 @@ class OnlineOrderService {
           actor: context.actor,
           transaction
         });
+      }
+
+      // Chọn chuyển khoản thì tạo hoá đơn + giao dịch ngay — không chờ nhân
+      // viên như đơn tiền mặt. Payment.status ở 'pending' cho tới khi webhook
+      // xác nhận (PaymentService.processWebhook) hoặc tác vụ quét nền huỷ đơn
+      // vì quá hạn (`expireStalePendingOrders`).
+      if (isTransfer) {
+        const totalAmount = OnlineOrderService.totalOf(lines);
+        const invoice = await Invoice.create({
+          branchId: branch.id,
+          invoiceNo: await nextInvoiceNumber(branch.id, transaction),
+          status: 'issued',
+          salesOrderId: order.id,
+          courtFee: 0,
+          extrasFee: totalAmount,
+          discountAmount: 0,
+          totalAmount
+        }, { transaction });
+
+        await Payment.create({
+          branchId: branch.id,
+          invoiceId: invoice.id,
+          method: 'transfer',
+          status: 'pending',
+          amount: totalAmount,
+          employeeId: null,
+          idempotencyKey: `online-order-${order.id}`
+        }, { transaction });
       }
 
       await AuditService.record({
@@ -175,7 +248,13 @@ class OnlineOrderService {
       order: [['id', 'DESC']],
       include: orderIncludes
     });
-    return getPagingData(data, page, limit);
+    const paged = getPagingData(data, page, limit);
+    return { ...paged, rows: paged.rows.map(OnlineOrderService.serialize) };
+  }
+
+  /** Gắn thêm `qrCodeUrl` tính sẵn — trang chi tiết/danh sách không phải tự dựng URL QR. */
+  static serialize(order) {
+    return { ...order.toJSON(), qrCodeUrl: OnlineOrderService.qrCodeFor(order) };
   }
 
   /**
@@ -193,7 +272,39 @@ class OnlineOrderService {
       error.statusCode = 404;
       throw error;
     }
-    return order;
+    return OnlineOrderService.serialize(order);
+  }
+
+  /**
+   * Trả hàng về kệ + void hoá đơn/giao dịch đang chờ (nếu có), trên MỘT đơn đã
+   * khoá (`lock: UPDATE`) sẵn trong transaction đang chạy. Dùng chung cho huỷ
+   * tay (cancelOrder) và tự huỷ vì quá hạn (expireStalePendingOrders) — hai
+   * nơi khác nhau về ai gọi và log gì, nhưng phần "trả lại trạng thái ban đầu"
+   * thì giống hệt nhau.
+   */
+  static async _releaseOrder(order, transaction, context = {}) {
+    for (const line of order.lines) {
+      await InventoryService.postMovement({
+        branchId: order.branchId,
+        productVariantId: line.variantId,
+        type: 'sale_return',
+        quantity: line.quantity,
+        referenceType: 'sales_order_line',
+        referenceId: line.id,
+        actor: context.actor,
+        transaction
+      });
+    }
+
+    // Chỉ đơn chọn chuyển khoản mới có hoá đơn ở giai đoạn này (tạo ngay lúc
+    // đặt, xem placeOrder) — đơn tiền mặt chưa có gì để void.
+    const invoice = await Invoice.findOne({ where: { salesOrderId: order.id }, transaction, lock: transaction.LOCK.UPDATE });
+    if (invoice) {
+      await invoice.update({ status: 'void' }, { transaction });
+      await Payment.update({ status: 'cancelled' }, { where: { invoiceId: invoice.id }, transaction });
+    }
+
+    await order.update({ status: 'cancelled', paymentDeadlineAt: null }, { transaction });
   }
 
   static async cancelOrder(id, context = {}) {
@@ -221,22 +332,7 @@ class OnlineOrderService {
         throw error;
       }
 
-      // Hàng đã giữ chỗ lúc đặt phải trả lại kệ, nếu không đơn bị huỷ vẫn giam
-      // hàng và người sau không mua được.
-      for (const line of order.lines) {
-        await InventoryService.postMovement({
-          branchId: order.branchId,
-          productVariantId: line.variantId,
-          type: 'sale_return',
-          quantity: line.quantity,
-          referenceType: 'sales_order_line',
-          referenceId: line.id,
-          actor: context.actor,
-          transaction
-        });
-      }
-
-      await order.update({ status: 'cancelled' }, { transaction });
+      await OnlineOrderService._releaseOrder(order, transaction, context);
       await AuditService.record({
         actor: context.actor,
         branchId: order.branchId,
@@ -255,6 +351,56 @@ class OnlineOrderService {
       await transaction.rollback();
       throw error;
     }
+  }
+
+  /**
+   * Quét nền: huỷ các đơn chọn chuyển khoản đã quá 30 phút chưa thanh toán,
+   * trả hàng về kệ. Mỗi đơn xử lý trong transaction riêng — một đơn lỗi không
+   * kéo những đơn khác theo. Gọi định kỳ từ server.js (`setInterval`), không
+   * phải từ một request nào của khách.
+   */
+  static async expireStalePendingOrders(now = new Date()) {
+    const candidates = await SalesOrder.findAll({
+      where: { channel: 'online', status: 'open', paymentDeadlineAt: { [Op.lt]: now } },
+      attributes: ['id']
+    });
+
+    let expired = 0;
+    for (const { id } of candidates) {
+      const transaction = await sequelize.transaction();
+      try {
+        const order = await SalesOrder.findOne({
+          where: { id },
+          include: [{ model: SalesOrderLine, as: 'lines' }],
+          transaction,
+          lock: transaction.LOCK.UPDATE
+        });
+        // Khoá xong mới kiểm tra lại: đơn có thể vừa được thanh toán (webhook)
+        // hoặc khách vừa tự huỷ ngay giữa lúc liệt kê và lúc khoá được dòng.
+        if (!order || order.status !== 'open' || !OnlineOrderService.isPaymentExpired(order, now)) {
+          await transaction.commit();
+          continue;
+        }
+
+        await OnlineOrderService._releaseOrder(order, transaction);
+        await AuditService.record({
+          branchId: order.branchId,
+          action: 'sales_order.expired_unpaid',
+          targetType: 'sales_order',
+          targetId: order.id,
+          oldValues: { status: 'open' },
+          newValues: { status: 'cancelled' },
+          transaction
+        });
+
+        await transaction.commit();
+        expired += 1;
+      } catch (error) {
+        await transaction.rollback();
+        console.error(`[OnlineOrderService] Lỗi khi tự huỷ đơn #${id} quá hạn thanh toán:`, error.message);
+      }
+    }
+    return { expired, checked: candidates.length };
   }
 }
 

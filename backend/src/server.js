@@ -5,6 +5,7 @@ const { sequelize } = require('./models');
 const authRoutes = require('./routes/authRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const requestContextMiddleware = require('./middleware/requestContextMiddleware');
+const OnlineOrderService = require('./services/OnlineOrderService');
 
 const app = express();
 
@@ -76,5 +77,15 @@ sequelize.authenticate()
 app.listen(PORT, () => {
   console.log(`🚀 Badminton Digital Management API running at http://localhost:${PORT}`);
 });
+
+// Đơn online chọn chuyển khoản mà quá 30 phút không thanh toán thì tự huỷ,
+// trả hàng về kệ — quét mỗi 5 phút là đủ nhặt kịp (khách chờ tối đa ~35 phút,
+// không cần chính xác tới giây). Không chạy khi test require trực tiếp từng
+// service/route — chỉ chạy khi chính server.js này được khởi động.
+setInterval(() => {
+  OnlineOrderService.expireStalePendingOrders().catch((err) => {
+    console.error('❌ Lỗi khi quét đơn online quá hạn thanh toán:', err.message);
+  });
+}, 5 * 60 * 1000);
 
 module.exports = app;

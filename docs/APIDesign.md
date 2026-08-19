@@ -565,7 +565,8 @@ khách chọn trong payload, không phải chi nhánh công tác của nhân vi�
   "items": [{ "variantId": 3, "quantity": 2 }],
   "contactName": "Nguyễn Minh Khôi",
   "contactPhone": "0912345678",
-  "customerNote": "Chiều 18h mình qua lấy."
+  "customerNote": "Chiều 18h mình qua lấy.",
+  "paymentMethod": "transfer"
 }
 ```
 
@@ -575,17 +576,51 @@ Quy ước nghiệp vụ:
   server — giá client gửi lên bị bỏ qua.
 - **Trừ kho ngay khi đặt** (`stock_movements` type `sale`), hoàn kho khi huỷ
   (`sale_return`). Không đủ tồn thì cả đơn rollback với HTTP 400.
-- **Không có thanh toán online.** Đơn `open` nghĩa là hàng đang được giữ tại
-  quầy; khách trả tiền khi tới lấy và nhân viên chốt bằng luồng POS sẵn có
-  (`POST /sales-orders/:id/checkout`), lúc đó đơn chuyển `paid`.
+- `paymentMethod` là `'cash'` (mặc định) hoặc `'transfer'` — xem §12.3 để biết
+  hai đường khác nhau thế nào.
 - `contact_name` / `contact_phone` / `customer_note` thêm ở migration
   `20260817100001-online-order-contact-fields.js`, chỉ dùng cho đơn online.
 - Mọi truy vấn đều lọc kèm `customerId` — đoán đúng mã đơn của người khác vẫn
   trả 404.
 
-Trạng thái đơn nhìn từ phía khách: `open` = "Chờ nhận hàng", `paid` =
-"Hoàn thành", `cancelled` = "Đã huỷ". Không có bước vận chuyển nào vì đây là
-luồng nhận hàng tại quầy.
+Trạng thái đơn nhìn từ phía khách: `open` = "Chờ nhận hàng"/"Chờ thanh toán",
+`paid` = "Hoàn thành", `cancelled` = "Đã huỷ". Không có bước vận chuyển nào vì
+đây là luồng nhận hàng tại quầy.
+
+### 12.3 Thanh toán cho đơn online — tiền mặt vs chuyển khoản
+
+Hai đường khác hẳn nhau kể từ migration `20260818100001-online-order-payment.js`:
+
+**`paymentMethod: 'cash'`** (mặc định) — giữ nguyên hành vi cũ: đơn `open`
+không có invoice, khách trả tiền mặt khi tới quầy, nhân viên chốt bằng
+`POST /sales-orders/:id/checkout` như trước giờ.
+
+**`paymentMethod: 'transfer'`** — thanh toán online thật, không cần nhân viên:
+1. `placeOrder` tạo luôn `Invoice(status='issued')` + `Payment(status='pending',
+   method='transfer', employeeId=null)` trong cùng transaction với đơn, và đặt
+   `sales_orders.payment_deadline_at` = lúc đặt + 30 phút.
+2. Response kèm `qrCodeUrl` (ảnh VietQR, `addInfo` gắn `DH{orderId}` để quầy
+   dò tay khi cần đối chiếu sao kê) — cũng có sẵn ở `GET /my-orders` và
+   `GET /my-orders/:id` (null nếu không còn gì để trả: cash, đã `paid`, hoặc
+   đã `cancelled`).
+3. `POST /payments/webhook` (đã sửa để nhận diện `invoice.salesOrderId`, trước
+   đây chỉ xử lý invoice của phiên sân) xác nhận thanh toán → `Payment` và
+   `Invoice` chuyển `paid`, `SalesOrder.status` tự chuyển `paid`,
+   `Customer.totalSpent` được cộng — **không cần nhân viên thao tác gì**.
+4. Không thanh toán trong 30 phút → tác vụ nền `OnlineOrderService
+   .expireStalePendingOrders()` (server.js gọi mỗi 5 phút qua `setInterval`)
+   tự chuyển đơn `cancelled`, void `Invoice`/`Payment`, hoàn kho — giống hệt
+   hành vi khi khách tự bấm huỷ (`POST /my-orders/:id/cancel`), chỉ khác
+   người/thứ gọi.
+5. Khách vẫn huỷ tay được trong lúc đang chờ chuyển khoản; ngược lại, đơn đã
+   `paid` hoặc `cancelled` thì không huỷ được nữa (đã có sẵn từ trước).
+
+**Rủi ro đã biết, chưa xử lý ở giai đoạn này**: nếu đơn bị tự huỷ (hết hạn hoặc
+khách tự huỷ) đúng lúc webhook báo tiền đã về, hệ thống vẫn đánh dấu
+`Payment`/`Invoice` là `paid` (tiền là sự thật) nhưng **không** hồi `SalesOrder`
+về `paid` (hàng đã trả về kệ, có thể đã bán cho người khác) — trường hợp này
+cần quầy tự đối chiếu và hoàn tiền thủ công, hệ thống chưa có cảnh báo tự động
+cho ca này.
 
 ---
 

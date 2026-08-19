@@ -65,3 +65,73 @@ describe('OnlineOrderService.totalOf', () => {
     expect(OnlineOrderService.totalOf([])).toBe(0);
   });
 });
+
+describe('OnlineOrderService.paymentDeadlineFrom', () => {
+  test('mốc hạn là đúng 30 phút sau thời điểm truyền vào', () => {
+    const now = new Date('2026-08-18T10:00:00.000Z');
+    const deadline = OnlineOrderService.paymentDeadlineFrom(now);
+
+    expect(deadline.toISOString()).toBe('2026-08-18T10:30:00.000Z');
+  });
+});
+
+describe('OnlineOrderService.isPaymentExpired', () => {
+  test('chưa tới hạn thì chưa hết hạn', () => {
+    const order = { paymentDeadlineAt: '2026-08-18T10:30:00.000Z' };
+    expect(OnlineOrderService.isPaymentExpired(order, new Date('2026-08-18T10:29:59.000Z'))).toBe(false);
+  });
+
+  test('qua đúng mốc hạn thì coi là hết hạn', () => {
+    const order = { paymentDeadlineAt: '2026-08-18T10:30:00.000Z' };
+    expect(OnlineOrderService.isPaymentExpired(order, new Date('2026-08-18T10:30:01.000Z'))).toBe(true);
+  });
+
+  test('đơn tiền mặt không có paymentDeadlineAt thì không bao giờ hết hạn', () => {
+    expect(OnlineOrderService.isPaymentExpired({ paymentDeadlineAt: null })).toBe(false);
+  });
+});
+
+describe('OnlineOrderService.buildQrCodeUrl', () => {
+  test('addInfo gắn mã đơn để quầy dò tay khi đối chiếu sao kê', () => {
+    const url = OnlineOrderService.buildQrCodeUrl(1042, 585000);
+
+    expect(url).toContain('amount=585000');
+    expect(url).toContain(encodeURIComponent('DH1042'));
+  });
+});
+
+describe('OnlineOrderService.qrCodeFor', () => {
+  test('không có QR khi thanh toán bằng tiền mặt', () => {
+    expect(OnlineOrderService.qrCodeFor({ id: 1, paymentMethod: 'cash', status: 'open' })).toBeNull();
+  });
+
+  test('không có QR khi đơn đã thanh toán xong', () => {
+    const order = { id: 1, paymentMethod: 'transfer', status: 'paid', invoice: { totalAmount: 100000 } };
+    expect(OnlineOrderService.qrCodeFor(order)).toBeNull();
+  });
+
+  test('không có QR khi đơn đã huỷ — hàng đã trả về kệ, không còn gì để trả', () => {
+    const order = { id: 1, paymentMethod: 'transfer', status: 'cancelled', invoice: { totalAmount: 100000 } };
+    expect(OnlineOrderService.qrCodeFor(order)).toBeNull();
+  });
+
+  test('đơn đang chờ chuyển khoản thì có QR đúng số tiền hoá đơn', () => {
+    const order = { id: 7, paymentMethod: 'transfer', status: 'open', invoice: { totalAmount: 650000 } };
+    const url = OnlineOrderService.qrCodeFor(order);
+
+    expect(url).toContain('amount=650000');
+    expect(url).toContain(encodeURIComponent('DH7'));
+  });
+
+  test('chưa kịp có invoice thì tính tạm theo tổng các dòng hàng', () => {
+    const order = {
+      id: 9,
+      paymentMethod: 'transfer',
+      status: 'open',
+      invoice: null,
+      lines: [{ lineTotal: '250000.00' }, { lineTotal: '25000.00' }]
+    };
+
+    expect(OnlineOrderService.qrCodeFor(order)).toContain('amount=275000');
+  });
+});

@@ -32,9 +32,11 @@ module.exports = (sequelize) => {
       allowNull: true,
       field: 'paid_at'
     },
+    // NULL cho giao dịch xác nhận qua webhook (đơn online tự chuyển khoản) —
+    // không có nhân viên nào đứng quầy xử lý những giao dịch đó.
     employeeId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       field: 'employee_id'
     },
     idempotencyKey: {

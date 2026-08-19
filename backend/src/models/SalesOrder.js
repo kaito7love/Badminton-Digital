@@ -54,6 +54,21 @@ module.exports = (sequelize) => {
         allowNull: true,
         field: "customer_note",
       },
+      // Cũng chỉ đơn 'online' dùng. paymentMethod NULL nghĩa là khách chưa
+      // chọn hoặc đơn thuộc POS (nhân viên chọn thẳng lúc checkout, không lưu
+      // trước). paymentDeadlineAt chỉ có giá trị khi paymentMethod='transfer'
+      // và đơn đang chờ chuyển khoản — quá mốc này mà chưa trả tiền thì tác vụ
+      // quét nền tự huỷ, trả hàng về kệ.
+      paymentMethod: {
+        type: DataTypes.ENUM("cash", "transfer"),
+        allowNull: true,
+        field: "payment_method",
+      },
+      paymentDeadlineAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: "payment_deadline_at",
+      },
       status: {
         type: DataTypes.ENUM(...STATUSES),
         allowNull: false,
