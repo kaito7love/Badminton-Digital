@@ -11,6 +11,7 @@ const {
 const { Op } = require('sequelize');
 const InventoryService = require('./InventoryService');
 const AuditService = require('./AuditService');
+const VoucherService = require('./VoucherService');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const { normalizePhone } = require('../utils/phone');
 const { generateVietQRUrl } = require('../utils/vietqr');
@@ -121,7 +122,7 @@ class OnlineOrderService {
     return [...merged.entries()].map(([variantId, quantity]) => ({ variantId, quantity }));
   }
 
-  static async placeOrder({ branchId, items, contactName, contactPhone, customerNote, paymentMethod = 'cash' }, context = {}) {
+  static async placeOrder({ branchId, items, contactName, contactPhone, customerNote, paymentMethod = 'cash', voucherCode }, context = {}) {
     const customerId = context.actor?.customer?.id;
     if (!customerId) {
       const error = new Error('Tài khoản chưa gắn hồ sơ khách hàng, không đặt hàng được');
@@ -155,6 +156,21 @@ class OnlineOrderService {
 
       const lines = OnlineOrderService.computeLines(variants, mergedItems);
       const isTransfer = paymentMethod === 'transfer';
+      const subtotal = OnlineOrderService.totalOf(lines);
+
+      // Xác thực + khoá dòng voucher trong CHÍNH transaction đang tạo đơn: hai
+      // khách cùng giành lượt cuối cùng của một mã thì người khoá được dòng
+      // voucher trước mới qua được, người sau đọc lại COUNT đã tính luôn cả
+      // đơn vừa insert (SalesOrderService POS cũng khoá kiểu này khi áp mã).
+      let voucherResult = null;
+      if (voucherCode) {
+        voucherResult = await VoucherService.validateAndCompute({
+          code: voucherCode,
+          customerId,
+          orderAmount: subtotal,
+          transaction
+        });
+      }
 
       const order = await SalesOrder.create({
         branchId: branch.id,
@@ -166,6 +182,9 @@ class OnlineOrderService {
         contactPhone: normalizePhone(contactPhone) || context.actor?.phone || null,
         customerNote: customerNote ? String(customerNote).trim().slice(0, 500) : null,
         paymentMethod,
+        voucherId: voucherResult?.voucher.id ?? null,
+        voucherCode: voucherResult ? voucherResult.voucher.code : null,
+        voucherDiscountAmount: voucherResult ? voucherResult.discountAmount : null,
         // Đặt mốc hạn ngay khi tạo đơn, cùng transaction: đơn không sống được
         // nếu bước tồn kho bên dưới rollback, nên không sợ đặt hạn cho một đơn
         // rồi sau đó lại không có đơn nào tồn tại để mà hết hạn.
@@ -193,15 +212,16 @@ class OnlineOrderService {
       // xác nhận (PaymentService.processWebhook) hoặc tác vụ quét nền huỷ đơn
       // vì quá hạn (`expireStalePendingOrders`).
       if (isTransfer) {
-        const totalAmount = OnlineOrderService.totalOf(lines);
+        const discountAmount = voucherResult?.discountAmount || 0;
+        const totalAmount = subtotal - discountAmount;
         const invoice = await Invoice.create({
           branchId: branch.id,
           invoiceNo: await nextInvoiceNumber(branch.id, transaction),
           status: 'issued',
           salesOrderId: order.id,
           courtFee: 0,
-          extrasFee: totalAmount,
-          discountAmount: 0,
+          extrasFee: subtotal,
+          discountAmount,
           totalAmount
         }, { transaction });
 

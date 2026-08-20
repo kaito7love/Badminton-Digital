@@ -103,6 +103,25 @@ describe('placeOrderRules', () => {
       .send({ ...validPayload(), paymentMethod: 'momo' });
     expect(response.status).toBe(400);
   });
+
+  it('không có voucherCode thì vẫn hợp lệ — trường tuỳ chọn', async () => {
+    const response = await request(createApp()).post('/my-orders').send(validPayload());
+    expect(response.status).toBe(201);
+  });
+
+  it('chấp nhận voucherCode hợp lệ', async () => {
+    const response = await request(createApp())
+      .post('/my-orders')
+      .send({ ...validPayload(), voucherCode: 'SALE10' });
+    expect(response.status).toBe(201);
+  });
+
+  it('từ chối voucherCode quá dài', async () => {
+    const response = await request(createApp())
+      .post('/my-orders')
+      .send({ ...validPayload(), voucherCode: 'A'.repeat(33) });
+    expect(response.status).toBe(400);
+  });
 });
 
 describe('orderIdRules', () => {

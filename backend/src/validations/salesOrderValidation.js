@@ -28,6 +28,12 @@ const removeLineRules = [
   validate
 ];
 
+const applyVoucherRules = [
+  param('id').isInt().withMessage('Sales order ID must be an integer'),
+  body('voucherCode').optional({ nullable: true }).trim().isLength({ max: 32 }).withMessage('Mã giảm giá không hợp lệ'),
+  validate
+];
+
 const checkoutRules = [
   param('id').isInt().withMessage('Sales order ID must be an integer'),
   body('paymentMethod').optional().isIn(['cash', 'transfer']),
@@ -39,5 +45,6 @@ module.exports = {
   createOrderRules,
   addLineRules,
   removeLineRules,
+  applyVoucherRules,
   checkoutRules
 };

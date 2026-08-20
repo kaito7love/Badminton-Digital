@@ -122,6 +122,7 @@ export const salesOrderService = {
   getById: (id) => apiClient.get(`/sales-orders/${id}`),
   addLine: (id, data) => apiClient.post(`/sales-orders/${id}/lines`, data),
   removeLine: (id, lineId) => apiClient.delete(`/sales-orders/${id}/lines/${lineId}`),
+  applyVoucher: (id, voucherCode) => apiClient.post(`/sales-orders/${id}/voucher`, { voucherCode }),
   checkout: (id, data) => {
     const { idempotencyKey, ...payload } = data;
     const requestKey = idempotencyKey || crypto.randomUUID();
@@ -129,6 +130,16 @@ export const salesOrderService = {
       headers: { 'Idempotency-Key': requestKey }
     });
   },
+};
+
+// ─── Vouchers (Mã giảm giá — dùng chung online + POS) ────────────
+export const voucherService = {
+  getAll: (params) => apiClient.get('/vouchers', { params }),
+  getById: (id) => apiClient.get(`/vouchers/${id}`),
+  create: (data) => apiClient.post('/vouchers', data),
+  update: (id, data) => apiClient.put(`/vouchers/${id}`, data),
+  deactivate: (id) => apiClient.post(`/vouchers/${id}/deactivate`),
+  preview: (code, orderAmount) => apiClient.post('/vouchers/preview', { code, orderAmount }),
 };
 
 // ─── Customers ───────────────────────────────────────────────────

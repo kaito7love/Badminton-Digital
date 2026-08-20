@@ -39,6 +39,7 @@ db.ProductVariant = require('./ProductVariant')(sequelize);
 db.ProductStock = require('./ProductStock')(sequelize);
 db.SalesOrder = require('./SalesOrder')(sequelize);
 db.SalesOrderLine = require('./SalesOrderLine')(sequelize);
+db.Voucher = require('./Voucher')(sequelize);
 
 // Associations
 // Role <-> User
@@ -174,6 +175,12 @@ db.Employee.hasMany(db.SalesOrder, { foreignKey: 'cashierEmployeeId', as: 'sales
 db.SalesOrder.belongsTo(db.Employee, { foreignKey: 'cashierEmployeeId', as: 'cashier' });
 db.SalesOrder.hasMany(db.SalesOrderLine, { foreignKey: 'salesOrderId', as: 'lines', onDelete: 'CASCADE' });
 db.SalesOrderLine.belongsTo(db.SalesOrder, { foreignKey: 'salesOrderId', as: 'salesOrder' });
+
+// Voucher <-> SalesOrder — 1 voucher áp cho nhiều đơn, mỗi đơn tối đa 1 voucher.
+// Số lượt đã dùng đếm trực tiếp bằng COUNT trên sales_orders.voucher_id (bỏ
+// đơn cancelled), không có bảng redemption riêng.
+db.Voucher.hasMany(db.SalesOrder, { foreignKey: 'voucherId', as: 'salesOrders' });
+db.SalesOrder.belongsTo(db.Voucher, { foreignKey: 'voucherId', as: 'voucher' });
 db.ProductVariant.hasMany(db.SalesOrderLine, { foreignKey: 'variantId', as: 'salesOrderLines' });
 db.SalesOrderLine.belongsTo(db.ProductVariant, { foreignKey: 'variantId', as: 'variant' });
 

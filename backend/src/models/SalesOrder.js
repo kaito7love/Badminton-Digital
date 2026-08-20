@@ -69,6 +69,24 @@ module.exports = (sequelize) => {
         allowNull: true,
         field: "payment_deadline_at",
       },
+      // Mã giảm giá đã áp cho đơn này — voucherCode là snapshot tại thời điểm
+      // áp (voucher gốc có thể bị sửa/xoá sau, đơn cũ vẫn phải hiện đúng mã đã
+      // dùng lúc đó). discountAmount cũng chốt sẵn, không tính lại mỗi lần đọc.
+      voucherId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: "voucher_id",
+      },
+      voucherCode: {
+        type: DataTypes.STRING(32),
+        allowNull: true,
+        field: "voucher_code",
+      },
+      voucherDiscountAmount: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: true,
+        field: "voucher_discount_amount",
+      },
       status: {
         type: DataTypes.ENUM(...STATUSES),
         allowNull: false,

@@ -53,6 +53,17 @@ const removeLine = async (req, res, next) => {
   }
 };
 
+const applyVoucher = async (req, res, next) => {
+  try {
+    const order = await SalesOrderService.applyVoucher(req.params.id, {
+      voucherCode: req.body.voucherCode || null
+    }, { actor: req.user, branchId: req.branchId, requestId: req.requestId });
+    return successResponse(res, order, req.body.voucherCode ? 'Đã áp mã giảm giá' : 'Đã gỡ mã giảm giá');
+  } catch (err) {
+    next(err);
+  }
+};
+
 const checkout = async (req, res, next) => {
   try {
     const result = await SalesOrderService.checkout({
@@ -77,5 +88,6 @@ module.exports = {
   getOrderById,
   addLine,
   removeLine,
+  applyVoucher,
   checkout
 };

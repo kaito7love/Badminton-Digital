@@ -322,6 +322,12 @@ export default function OrderDetailPage() {
                 <span>Tiền hàng ({orderQuantity(order)} sản phẩm)</span>
                 <span>{formatVnd(total)}</span>
               </div>
+              {Number(order.voucherDiscountAmount) > 0 && (
+                <div className="flex justify-between text-emerald-400">
+                  <span>Mã {order.voucherCode}</span>
+                  <span>-{formatVnd(order.voucherDiscountAmount)}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between border-t border-white/10 pt-3">
                 <span className="font-kinetic text-sm font-black uppercase text-white">Tổng cộng</span>
                 <span className="font-kinetic text-2xl font-black text-emerald-400">

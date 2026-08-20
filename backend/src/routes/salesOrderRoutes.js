@@ -8,6 +8,7 @@ const {
   createOrderRules,
   addLineRules,
   removeLineRules,
+  applyVoucherRules,
   checkoutRules
 } = require('../validations/salesOrderValidation');
 
@@ -18,6 +19,7 @@ router.post('/', createOrderRules, salesOrderController.createOrder);
 router.get('/:id', salesOrderController.getOrderById);
 router.post('/:id/lines', addLineRules, salesOrderController.addLine);
 router.delete('/:id/lines/:lineId', removeLineRules, salesOrderController.removeLine);
+router.post('/:id/voucher', applyVoucherRules, salesOrderController.applyVoucher);
 router.post('/:id/checkout', checkoutRules, salesOrderController.checkout);
 
 module.exports = router;

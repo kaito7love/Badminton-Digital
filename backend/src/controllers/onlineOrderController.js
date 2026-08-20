@@ -5,9 +5,9 @@ const buildContext = (req) => ({ actor: req.user, requestId: req.requestId });
 
 const placeOrder = async (req, res, next) => {
   try {
-    const { branchId, items, contactName, contactPhone, customerNote, paymentMethod } = req.body;
+    const { branchId, items, contactName, contactPhone, customerNote, paymentMethod, voucherCode } = req.body;
     const order = await OnlineOrderService.placeOrder(
-      { branchId, items, contactName, contactPhone, customerNote, paymentMethod },
+      { branchId, items, contactName, contactPhone, customerNote, paymentMethod, voucherCode },
       buildContext(req)
     );
     return successResponse(res, order, 'Đặt hàng thành công', 201);

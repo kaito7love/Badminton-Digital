@@ -36,6 +36,7 @@ app.use('/api/v1/goods-receipts', require('./routes/goodsReceiptRoutes'));
 app.use('/api/v1/inventory', require('./routes/inventoryRoutes'));
 app.use('/api/v1/product-categories', require('./routes/productCategoryRoutes'));
 app.use('/api/v1/products', require('./routes/productRoutes'));
+app.use('/api/v1/vouchers', require('./routes/voucherRoutes'));
 app.use('/api/v1/sales-orders', require('./routes/salesOrderRoutes'));
 // Đơn khách tự đặt trên web — cùng bảng sales_orders, khác đường vào và khác quyền
 app.use('/api/v1/my-orders', require('./routes/myOrderRoutes'));

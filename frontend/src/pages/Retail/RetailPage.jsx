@@ -4,11 +4,13 @@ import { roleOf } from '../../utils/roles';
 import CatalogTab from './CatalogTab';
 import RetailStockTab from './RetailStockTab';
 import PosTab from './PosTab';
+import VoucherTab from './VoucherTab';
 
 const TABS = [
   { key: 'pos', label: 'Bán hàng' },
   { key: 'stock', label: 'Kho bán lẻ' },
   { key: 'catalog', label: 'Danh mục sản phẩm', adminOnly: true },
+  { key: 'vouchers', label: 'Mã giảm giá', adminOnly: true },
 ];
 
 export default function RetailPage() {
@@ -56,6 +58,7 @@ export default function RetailPage() {
       {activeTab === 'pos' && <PosTab />}
       {activeTab === 'stock' && <RetailStockTab />}
       {activeTab === 'catalog' && canManageCatalog && <CatalogTab />}
+      {activeTab === 'vouchers' && canManageCatalog && <VoucherTab />}
     </div>
   );
 }

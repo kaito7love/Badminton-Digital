@@ -16,6 +16,10 @@ export default function PosTab() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState(null);
 
+  const [voucherInput, setVoucherInput] = useState('');
+  const [voucherBusy, setVoucherBusy] = useState(false);
+  const [voucherError, setVoucherError] = useState(null);
+
   useEffect(() => {
     const init = async () => {
       setLoading(true);
@@ -80,7 +84,39 @@ export default function PosTab() {
   };
 
   const cartTotal = (order?.lines || []).reduce((sum, l) => sum + Number(l.lineTotal), 0);
-  const grandTotal = Math.max(0, cartTotal - (Number(discountAmount) || 0));
+  const voucherDiscount = Number(order?.voucherDiscountAmount) || 0;
+  const grandTotal = Math.max(0, cartTotal - (Number(discountAmount) || 0) - voucherDiscount);
+
+  const applyVoucher = async () => {
+    const code = voucherInput.trim();
+    if (!code) return;
+    setVoucherBusy(true);
+    setVoucherError(null);
+    try {
+      const currentOrder = await ensureOrder();
+      const res = await salesOrderService.applyVoucher(currentOrder.id, code);
+      setOrder(res.data.data);
+    } catch (err) {
+      setVoucherError(err.response?.data?.errors?.[0]?.message || err.response?.data?.message || 'Mã giảm giá không hợp lệ');
+    } finally {
+      setVoucherBusy(false);
+    }
+  };
+
+  const removeVoucher = async () => {
+    if (!order) return;
+    setVoucherBusy(true);
+    try {
+      const res = await salesOrderService.applyVoucher(order.id, null);
+      setOrder(res.data.data);
+      setVoucherInput('');
+      setVoucherError(null);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Lỗi gỡ mã giảm giá');
+    } finally {
+      setVoucherBusy(false);
+    }
+  };
 
   const handleCheckout = async () => {
     if (!order || !order.lines.length) return;
@@ -94,6 +130,8 @@ export default function PosTab() {
       setOrder(null);
       setDiscountAmount(0);
       setPaymentMethod('cash');
+      setVoucherInput('');
+      setVoucherError(null);
     } catch (err) {
       alert(err.response?.data?.message || 'Lỗi thanh toán');
     } finally {
@@ -185,7 +223,27 @@ export default function PosTab() {
 
         <div className="space-y-3 border-t border-slate-200 dark:border-slate-800 pt-4">
           <div>
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Giảm giá (đ)</label>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Mã giảm giá</label>
+            {order?.voucherCode ? (
+              <div className="flex items-center justify-between rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs">
+                <span className="font-semibold text-emerald-700 dark:text-emerald-300">{order.voucherCode} (-{formatMoney(voucherDiscount)})</span>
+                <button onClick={removeVoucher} disabled={voucherBusy} className="text-rose-600 dark:text-rose-400 hover:text-rose-800 disabled:opacity-50">Gỡ ✕</button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)}
+                  placeholder="Nhập mã"
+                  className="flex-1 rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 px-3 py-2 text-sm uppercase focus:border-emerald-500 focus:outline-none" />
+                <button onClick={applyVoucher} disabled={voucherBusy || !voucherInput.trim() || !order?.lines?.length}
+                  className="shrink-0 rounded-xl bg-slate-900 dark:bg-slate-100 px-4 text-xs font-semibold text-white dark:text-slate-900 disabled:opacity-50">
+                  {voucherBusy ? '...' : 'Áp dụng'}
+                </button>
+              </div>
+            )}
+            {voucherError && <p className="mt-1 text-xs font-semibold text-rose-600 dark:text-rose-400">{voucherError}</p>}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Giảm giá thêm (đ)</label>
             <input type="number" min={0} value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none" />
           </div>
@@ -217,7 +275,10 @@ export default function PosTab() {
         <div className="lg:col-span-3 rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-6 flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">✅ Thanh toán thành công — Hoá đơn {checkoutResult.invoiceNo}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Tổng tiền: {formatMoney(checkoutResult.totalAmount)}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Tổng tiền: {formatMoney(checkoutResult.totalAmount)}
+              {checkoutResult.voucherCode && ` (đã áp mã ${checkoutResult.voucherCode} -${formatMoney(checkoutResult.voucherDiscountAmount)})`}
+            </p>
           </div>
           <button onClick={() => setCheckoutResult(null)} className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:underline">Đóng</button>
         </div>

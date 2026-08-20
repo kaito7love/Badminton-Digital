@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import CustomerLayout from '../../layouts/CustomerLayout';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { myOrderService, publicService } from '../../services/apiServices';
+import { myOrderService, publicService, voucherService } from '../../services/apiServices';
 import { formatVnd, lookFor, variantLabel } from '../../utils/shop';
 import { CART_SELECTION_KEY } from './CartPage';
 
@@ -32,6 +32,11 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
+  const [voucherInput, setVoucherInput] = useState('');
+  const [voucherChecking, setVoucherChecking] = useState(false);
+  const [voucherError, setVoucherError] = useState(null);
+  const [voucher, setVoucher] = useState(null); // { code, discountAmount, description }
+
   const orderedItems = useMemo(() => {
     let selectedIds;
     try {
@@ -46,6 +51,8 @@ export default function CheckoutPage() {
 
   const total = orderedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalQuantity = orderedItems.reduce((sum, item) => sum + item.quantity, 0);
+  const discountAmount = voucher?.discountAmount || 0;
+  const grandTotal = Math.max(0, total - discountAmount);
 
   useEffect(() => {
     publicService
@@ -56,6 +63,32 @@ export default function CheckoutPage() {
       })
       .catch(() => setBranch(null));
   }, [branchId]);
+
+  const handleApplyVoucher = async () => {
+    const code = voucherInput.trim();
+    if (!code) return;
+    setVoucherChecking(true);
+    setVoucherError(null);
+    try {
+      const res = await voucherService.preview(code, total);
+      setVoucher({ code: code.toUpperCase(), discountAmount: res.data?.data?.discountAmount || 0, description: res.data?.data?.description });
+    } catch (err) {
+      setVoucher(null);
+      setVoucherError(
+        err.response?.data?.errors?.[0]?.message ||
+        err.response?.data?.message ||
+        'Mã giảm giá không hợp lệ.'
+      );
+    } finally {
+      setVoucherChecking(false);
+    }
+  };
+
+  const handleRemoveVoucher = () => {
+    setVoucher(null);
+    setVoucherInput('');
+    setVoucherError(null);
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -76,7 +109,8 @@ export default function CheckoutPage() {
         contactName: form.contactName.trim(),
         contactPhone: form.contactPhone.trim(),
         customerNote: form.customerNote.trim() || undefined,
-        paymentMethod: form.paymentMethod
+        paymentMethod: form.paymentMethod,
+        voucherCode: voucher?.code || undefined
       });
 
       // Chỉ bỏ khỏi giỏ những món đã đặt thành công — món chưa chọn vẫn nằm lại.
@@ -251,6 +285,45 @@ export default function CheckoutPage() {
               </label>
             </div>
           </section>
+
+          <section className="nike-card-static p-7">
+            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">🎟️ Mã giảm giá</h2>
+            {voucher ? (
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4">
+                <div className="min-w-0">
+                  <p className="font-kinetic text-sm font-black uppercase text-emerald-300">{voucher.code}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {voucher.description || `Giảm ${formatVnd(voucher.discountAmount)}`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveVoucher}
+                  className="shrink-0 text-xs font-bold text-slate-400 transition hover:text-rose-400"
+                >
+                  Gỡ mã ✕
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 flex gap-2">
+                <input
+                  value={voucherInput}
+                  onChange={(event) => setVoucherInput(event.target.value)}
+                  placeholder="Nhập mã giảm giá"
+                  className="booking-input flex-1 uppercase"
+                />
+                <button
+                  type="button"
+                  disabled={voucherChecking || !voucherInput.trim()}
+                  onClick={handleApplyVoucher}
+                  className="btn-nike-dark shrink-0 px-5 text-xs disabled:opacity-60"
+                >
+                  {voucherChecking ? 'Đang kiểm tra...' : 'Áp dụng'}
+                </button>
+              </div>
+            )}
+            {voucherError && <p className="mt-3 text-xs font-bold text-rose-400">{voucherError}</p>}
+          </section>
         </div>
 
         <aside className="nike-card-static p-7 lg:sticky lg:top-24">
@@ -285,9 +358,15 @@ export default function CheckoutPage() {
               <span>Tạm tính ({totalQuantity} sản phẩm)</span>
               <span>{formatVnd(total)}</span>
             </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-emerald-400">
+                <span>Mã {voucher.code}</span>
+                <span>-{formatVnd(discountAmount)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between border-t border-white/10 pt-3">
               <span className="font-kinetic text-sm font-black uppercase text-white">Tổng cộng</span>
-              <span className="font-kinetic text-2xl font-black text-emerald-400">{formatVnd(total)}</span>
+              <span className="font-kinetic text-2xl font-black text-emerald-400">{formatVnd(grandTotal)}</span>
             </div>
           </div>
 

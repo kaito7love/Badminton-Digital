@@ -5,6 +5,7 @@ const { nextInvoiceNumber } = require('../utils/documentNumber');
 const { generateVietQRUrl } = require('../utils/vietqr');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const AuditService = require('./AuditService');
+const VoucherService = require('./VoucherService');
 
 const orderIncludes = [
   {
@@ -185,6 +186,76 @@ class SalesOrderService {
     }
   }
 
+  /**
+   * Áp (hoặc gỡ, khi `voucherCode` rỗng) mã giảm giá cho đơn tại quầy, trước
+   * lúc checkout — cùng cơ chế khoá dòng voucher trong transaction như
+   * OnlineOrderService.placeOrder, để hai quầy/hai khách không giành cùng một
+   * lượt cuối cùng của một mã. Chốt sẵn `voucherDiscountAmount` ở đây, không
+   * tính lại lúc checkout — checkout chỉ cộng nó vào cùng discountAmount thủ
+   * công (nếu thu ngân còn giảm tay thêm nữa).
+   */
+  static async applyVoucher(orderId, { voucherCode }, context = {}) {
+    const transaction = await sequelize.transaction();
+    try {
+      const order = await SalesOrder.findOne({
+        where: { id: orderId, ...(context.branchId ? { branchId: context.branchId } : {}) },
+        include: [{ model: SalesOrderLine, as: 'lines' }],
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+      if (!order) {
+        const error = new Error('Sales order not found');
+        error.statusCode = 404;
+        throw error;
+      }
+      if (order.status !== 'open') {
+        const error = new Error(`Đơn hàng ở trạng thái '${order.status}', không thể áp mã giảm giá`);
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const oldValues = {
+        voucherId: order.voucherId,
+        voucherCode: order.voucherCode,
+        voucherDiscountAmount: order.voucherDiscountAmount
+      };
+
+      if (!voucherCode) {
+        await order.update({ voucherId: null, voucherCode: null, voucherDiscountAmount: null }, { transaction });
+      } else {
+        const subtotal = order.lines.reduce((sum, line) => sum + Number(line.lineTotal), 0);
+        const { voucher, discountAmount } = await VoucherService.validateAndCompute({
+          code: voucherCode,
+          customerId: order.customerId,
+          orderAmount: subtotal,
+          transaction
+        });
+        await order.update(
+          { voucherId: voucher.id, voucherCode: voucher.code, voucherDiscountAmount: discountAmount },
+          { transaction }
+        );
+      }
+
+      await AuditService.record({
+        actor: context.actor,
+        branchId: order.branchId,
+        action: voucherCode ? 'sales_order.voucher_applied' : 'sales_order.voucher_removed',
+        targetType: 'sales_order',
+        targetId: order.id,
+        oldValues,
+        newValues: { voucherId: order.voucherId, voucherCode: order.voucherCode, voucherDiscountAmount: order.voucherDiscountAmount },
+        requestId: context.requestId,
+        transaction
+      });
+
+      await transaction.commit();
+      return SalesOrderService.getOrderById(order.id, order.branchId);
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
   static async checkout({ orderId, paymentMethod = 'cash', discountAmount = 0, employeeId, branchId, actor, requestId, idempotencyKey }) {
     if (!branchId || !employeeId) {
       const error = new Error('Không xác định được nhân viên hoặc chi nhánh thanh toán');
@@ -238,7 +309,10 @@ class SalesOrderService {
       }
 
       const extrasFee = order.lines.reduce((sum, line) => sum + Number(line.lineTotal), 0);
-      const totalAmount = Math.max(0, extrasFee - Number(discountAmount || 0));
+      const manualDiscount = Number(discountAmount || 0);
+      const voucherDiscount = Number(order.voucherDiscountAmount || 0);
+      const totalDiscountAmount = manualDiscount + voucherDiscount;
+      const totalAmount = Math.max(0, extrasFee - totalDiscountAmount);
 
       let invoice = await Invoice.findOne({ where: { salesOrderId: order.id }, transaction, lock: transaction.LOCK.UPDATE });
       if (!invoice) {
@@ -249,11 +323,11 @@ class SalesOrderService {
           salesOrderId: order.id,
           courtFee: 0,
           extrasFee,
-          discountAmount,
+          discountAmount: totalDiscountAmount,
           totalAmount
         }, { transaction });
       } else {
-        await invoice.update({ courtFee: 0, extrasFee, discountAmount, totalAmount }, { transaction });
+        await invoice.update({ courtFee: 0, extrasFee, discountAmount: totalDiscountAmount, totalAmount }, { transaction });
         await InvoiceLine.destroy({ where: { invoiceId: invoice.id }, transaction });
       }
 
@@ -267,14 +341,24 @@ class SalesOrderService {
         referenceType: 'sales_order_line',
         referenceId: line.id
       }));
-      if (Number(discountAmount) > 0) {
+      if (voucherDiscount > 0) {
+        invoiceLines.push({
+          invoiceId: invoice.id,
+          lineKind: 'discount',
+          description: `Mã giảm giá ${order.voucherCode}`,
+          quantity: 1,
+          unitPrice: -voucherDiscount,
+          amount: -voucherDiscount
+        });
+      }
+      if (manualDiscount > 0) {
         invoiceLines.push({
           invoiceId: invoice.id,
           lineKind: 'discount',
           description: 'Giảm giá',
           quantity: 1,
-          unitPrice: -Number(discountAmount),
-          amount: -Number(discountAmount)
+          unitPrice: -manualDiscount,
+          amount: -manualDiscount
         });
       }
       await InvoiceLine.bulkCreate(invoiceLines, { transaction });
@@ -326,7 +410,9 @@ class SalesOrderService {
         invoiceNo: invoice.invoiceNo,
         salesOrderId: order.id,
         extrasFee,
-        discountAmount: Number(discountAmount),
+        discountAmount: totalDiscountAmount,
+        voucherCode: order.voucherCode,
+        voucherDiscountAmount: voucherDiscount,
         totalAmount,
         paymentMethod,
         paymentStatus: payment.status,
