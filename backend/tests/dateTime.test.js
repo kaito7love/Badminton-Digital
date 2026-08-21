@@ -1,4 +1,4 @@
-const { localDateString, localTimeString, startOfLocalDay, endOfLocalDay, DEFAULT_TIMEZONE } = require('../src/utils/dateTime');
+const { localDateString, localTimeString, startOfLocalDay, endOfLocalDay, getStorageOffsetMinutes, DEFAULT_TIMEZONE } = require('../src/utils/dateTime');
 
 /**
  * Các hàm trong dateTime.js làm việc theo MÚI GIỜ TRUYỀN VÀO (mặc định
@@ -58,5 +58,41 @@ describe('dateTime — mốc thời gian theo giờ địa phương', () => {
     expect(localDateString(d, DEFAULT_TIMEZONE)).toBe('2026-08-16');
     expect(localDateString(d, 'America/New_York')).toBe('2026-08-15');
     expect(localTimeString(d, 'America/New_York')).toBe('16:00:00');
+  });
+});
+
+/**
+ * `getStorageOffsetMinutes` dùng để dịch cột DATETIME sang giờ chi nhánh khi
+ * GROUP BY báo cáo. Cột đó lưu theo giờ LOCAL của tiến trình Node (Sequelize
+ * không được đặt `timezone` trong config), nên độ lệch đúng là
+ * "giờ chi nhánh − giờ tiến trình", không phải "giờ chi nhánh − UTC".
+ *
+ * Các ca dưới đây viết sao cho không phụ thuộc múi giờ máy chạy test.
+ */
+describe('dateTime.getStorageOffsetMinutes', () => {
+  const d = new Date(Date.UTC(2026, 7, 20, 13, 0, 0));
+
+  test('chi nhánh cùng múi giờ với server thì không dịch gì cả', () => {
+    // Đây chính là ca từng sai: server chạy giờ VN, cột đã là giờ VN rồi mà
+    // vẫn cộng thêm 7 tiếng thì giao dịch 20:00 bị đẩy sang ngày hôm sau.
+    const processTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    expect(getStorageOffsetMinutes(d, processTz)).toBe(0);
+  });
+
+  test('hiệu giữa hai chi nhánh đúng bằng chênh lệch múi giờ của chúng', () => {
+    // Phần "giờ tiến trình" triệt tiêu khi lấy hiệu, nên khẳng định này đúng
+    // trên mọi máy: VN (+07) hơn New York (-04) đúng 11 tiếng = 660 phút.
+    const vn = getStorageOffsetMinutes(d, 'Asia/Ho_Chi_Minh');
+    const ny = getStorageOffsetMinutes(d, 'America/New_York');
+    expect(vn - ny).toBe(660);
+  });
+
+  test('cộng độ lệch vào giờ tiến trình thì ra đúng giờ chi nhánh', () => {
+    // Mô phỏng đúng việc SQL làm: DATE_ADD(cột, INTERVAL offset MINUTE).
+    // Cột lưu giờ local của tiến trình, cộng offset phải ra giờ VN.
+    const nhuTrongCot = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    const sauKhiDich = new Date(nhuTrongCot.getTime() + getStorageOffsetMinutes(d, DEFAULT_TIMEZONE) * 60000);
+    const gioVn = sauKhiDich.toISOString().slice(11, 19);
+    expect(gioVn).toBe(localTimeString(d, DEFAULT_TIMEZONE));
   });
 });

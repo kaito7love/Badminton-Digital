@@ -1,19 +1,25 @@
 const { Invoice, Payment, CourtSession, Court, Customer, Extra, SessionExtra, InvoiceLine, ExtraStock, ProductStock, ProductVariant, Product, Employee, User, Branch, sequelize } = require('../models');
 const { Op } = require('sequelize');
-const { startOfLocalDay, endOfLocalDay, getUtcOffsetMinutes, DEFAULT_TIMEZONE } = require('../utils/dateTime');
+const { startOfLocalDay, endOfLocalDay, getStorageOffsetMinutes, DEFAULT_TIMEZONE } = require('../utils/dateTime');
 const InventoryService = require('./InventoryService');
 
-// Cột DATETIME lưu theo UTC (xem config.js) — GROUP BY theo ngày/tháng/năm
-// phải dịch sang giờ địa phương trước khi DATE_FORMAT, nếu không giao dịch
-// từ 00:00–07:00 giờ VN sẽ bị tính nhầm sang ngày hôm trước (cùng lớp bug đã
-// từng fix cho Dashboard "hôm nay" — xem `startOfLocalDay`/`endOfLocalDay`
-// ở trên — nhưng chưa áp dụng cho các báo cáo GROUP BY theo kỳ này).
+// GROUP BY theo ngày/tháng/năm phải dịch cột DATETIME sang giờ địa phương
+// trước khi DATE_FORMAT, nếu không giao dịch từ 00:00–07:00 giờ VN sẽ bị tính
+// nhầm sang ngày hôm trước (cùng lớp bug đã từng fix cho Dashboard "hôm nay"
+// — xem `startOfLocalDay`/`endOfLocalDay` — nhưng chưa áp cho báo cáo theo kỳ).
+//
+// Độ lệch lấy từ `getStorageOffsetMinutes`, KHÔNG phải độ lệch so với UTC:
+// cột DATETIME đang được lưu theo giờ local của tiến trình Node (config.js
+// không đặt `timezone` cho Sequelize), nên server chạy đúng giờ VN thì không
+// cần dịch gì cả — dịch thêm là sai 7 tiếng về phía tương lai. Xem ghi chú
+// chi tiết kèm số đo thực nghiệm ở `utils/dateTime.js`.
+//
 // So sánh nhiều chi nhánh (`compareBranches`) dùng chung 1 offset mặc định
 // vì cả chuỗi hiện tại chỉ vận hành ở 1 múi giờ (`DEFAULT_TIMEZONE`); nếu
 // sau này có chi nhánh khác múi giờ thật, chỗ này cần tách offset theo từng
 // `branch_id` thay vì 1 hằng số chung.
 const localDateFormatExpr = (column, groupByFormat, timezone = DEFAULT_TIMEZONE) => {
-  const offsetMinutes = getUtcOffsetMinutes(new Date(), timezone);
+  const offsetMinutes = getStorageOffsetMinutes(new Date(), timezone);
   const shifted = sequelize.fn('DATE_ADD', column, sequelize.literal(`INTERVAL ${offsetMinutes} MINUTE`));
   return sequelize.fn('DATE_FORMAT', shifted, groupByFormat);
 };
