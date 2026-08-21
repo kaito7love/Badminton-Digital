@@ -1,6 +1,6 @@
 # Báo cáo: thanh toán online (VietQR) + mã giảm giá — đã làm gì, kiểm chứng ra sao
 
-**Cập nhật:** 21/08/2026
+**Cập nhật:** 21/08/2026 (tối — mục 5.2 đã vá cả 3, xem 5.3 cho phần bổ sung QR ở POS)
 **Nhánh:** `claude/customer-badminton-accessories-pages-nsz9k5`
 **Tài liệu kiểm thử đi kèm:** `../../TestCases-ThanhToanOnline-Voucher.md`
 
@@ -240,13 +240,56 @@ tài liệu test). Có thêm ca F7 để chắc chắn **không vá quá tay** �
   lại đúng nguyên mốc; cùng một phiên chơi cho giá cao điểm ở chi nhánh VN và
   thấp điểm ở chi nhánh Mỹ. 121 test backend PASS ở UTC, VN và New York.
 
-### 5.2. Còn tồn tại — mới báo cáo, chưa sửa
+### 5.2. Còn tồn tại — mới báo cáo, chưa sửa ~~→ ✅ cả 3 đã vá 21/08/2026 (tối)~~
 
-1. `POST /auth/login` trả **500** khi cùng tài khoản đăng nhập đồng thời
-   (`OptimisticLockError` không được bắt).
-3. Đơn online chuyển khoản tạo hoá đơn nhưng **không tạo dòng hoá đơn** — xem chi tiết
-   hoá đơn của đơn online sẽ trống, trong khi đơn POS thì có đủ.
-4. `countUsage` tính cả đơn `open` → đơn quầy bỏ dở giữ một lượt mã vĩnh viễn.
+Ghi chú lúc phát hiện (21/08, giữa buổi) vẫn giữ nguyên bên dưới để đối chiếu; đã kiểm
+chứng lại trên **DB chính (dữ liệu thật)** sau khi vá, `npm test` 121/121 PASS.
+
+1. ~~`POST /auth/login` trả **500** khi cùng tài khoản đăng nhập đồng thời
+   (`OptimisticLockError` không được bắt).~~
+   **✅ Đã vá.** `AuthService.login` cập nhật `refreshToken` bằng `User.update()` trực tiếp
+   thay vì `user.save()` (vốn kiểm `version` — optimistic locking — nên request thứ hai
+   ném lỗi không bắt). Không có lý do nghiệp vụ để coi 2 lần đăng nhập cùng tài khoản là
+   xung đột cần chặn. Kiểm trên DB chính: bắn 2 request login đồng thời cùng tài khoản —
+   cả hai đều 200, không còn 500.
+2. ~~Đơn online chuyển khoản tạo hoá đơn nhưng **không tạo dòng hoá đơn** — xem chi tiết
+   hoá đơn của đơn online sẽ trống, trong khi đơn POS thì có đủ.~~
+   **✅ Đã vá.** `OnlineOrderService.placeOrder` giờ `InvoiceLine.bulkCreate` ngay sau khi
+   tạo `Invoice` trong nhánh `isTransfer`, mirror đúng khuôn `SalesOrderService.checkout`
+   đang dùng cho đơn POS (kèm dòng giảm giá nếu có áp mã). Kiểm trên DB chính: đặt đơn
+   online chuyển khoản — hoá đơn tạo ra có đúng số dòng khớp giỏ hàng (trước khi vá: 0
+   dòng).
+3. ~~`countUsage` tính cả đơn `open` → đơn quầy bỏ dở giữ một lượt mã vĩnh viễn.~~
+   **✅ Đã vá.** Đổi điều kiện đếm từ "khác `cancelled`" sang "đúng `paid`" — chỉ đơn đã
+   thanh toán thật mới tính là một lượt dùng mã, khớp đúng nguyên tắc "huỷ/bỏ dở thì trả
+   lại" đã ghi ở đầu `VoucherService.js`. Kiểm trên DB chính: đơn A áp mã `usageLimit=1`
+   rồi bỏ dở (không thanh toán, không huỷ) — đơn B vẫn áp được cùng mã (trước khi vá bị từ
+   chối "đã hết lượt sử dụng").
+   > Đánh đổi cần biết: đơn **online chuyển khoản đang chờ thanh toán** (trạng thái `open`,
+   > trong cửa sổ 30 phút) giờ cũng không giữ chỗ lượt mã nữa — về lý thuyết 2 khách có
+   > thể cùng "đặt được" mã `usageLimit=1` trong lúc cả hai đơn đều chưa thanh toán. Không
+   > phải lỗi mới (đây là đánh đổi giữa 2 kịch bản), khe hở hẹp (tối đa 30 phút, cần trùng
+   > đúng 1 mã hiếm) và chưa được báo cáo ở đâu — ghi lại để theo dõi, chưa xử lý thêm.
+
+### 5.3. Bổ sung khi review (không phải lỗi — tính năng còn thiếu, cùng chủ đề thanh toán)
+
+**QR chuyển khoản ở POS bán lẻ.** Backend `SalesOrderService.checkout` vốn **đã** trả sẵn
+`qrCodeUrl` khi chọn `paymentMethod: 'transfer'` (dùng chung `generateVietQRUrl` với luồng
+khách tự đặt online) — nhưng frontend `PosTab.jsx` chưa từng hiển thị nó, chỉ báo "Thanh
+toán thành công" bất kể phương thức, kể cả khi tiền chưa thực sự về. Đã bổ sung:
+- `SalesOrderService.getOrderById` thêm include `Invoice`/`Payment` (trước chỉ có dòng
+  hàng) để trang POS đọc lại được `paymentStatus`.
+- `PosTab.jsx`: khi `paymentMethod === 'transfer'` và chưa `paid`, hiện banner "⏳ Chờ
+  khách chuyển khoản" kèm ảnh QR + nút "Kiểm tra đã thanh toán chưa" (gọi lại
+  `GET /sales-orders/:id`, không tự động polling). Không cần dựng thêm endpoint xác nhận
+  tay — webhook `POST /payments/webhook` sẵn dùng chung cho cả hoá đơn online lẫn POS.
+
+Kiểm chứng trực tiếp trên trình duyệt thật: thêm hàng vào giỏ POS, chọn "Chuyển khoản",
+bấm Thanh toán — hiện đúng ảnh QR VietQR thật kèm banner chờ; gọi webhook mô phỏng ngân
+hàng báo có tiền rồi bấm "Kiểm tra" — banner tự đổi sang "✅ Thanh toán thành công".
+
+Xem thêm mục "biểu đồ doanh thu theo Quý" (một bổ sung khác cùng đợt, không liên quan chủ
+đề tài liệu này) ở [09-loi-phat-hien-kiem-thu-hoi-quy.md, mục 4](09-loi-phat-hien-kiem-thu-hoi-quy.md#4).
 
 ---
 

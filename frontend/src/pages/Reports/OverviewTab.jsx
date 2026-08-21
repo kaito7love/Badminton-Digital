@@ -59,16 +59,17 @@ export default function OverviewTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [exporting, setExporting] = useState(null);
+  const [period, setPeriod] = useState('daily');
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [period]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const [revenueRes, courtsRes, accessoriesRes, dashboardRes] = await Promise.all([
-        reportService.getRevenueReport({ period: 'daily' }),
+        reportService.getRevenueReport({ period }),
         reportService.getTopCourts(),
         reportService.getTopAccessories(),
         reportService.getDashboard()
@@ -149,7 +150,17 @@ export default function OverviewTab() {
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-6 shadow-xl shadow-slate-200/40 dark:shadow-slate-950/20">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-6">Biểu đồ doanh thu 7 kỳ gần nhất</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Biểu đồ doanh thu 7 kỳ gần nhất</h3>
+          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-slate-900/60 px-4 py-2">
+            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Kỳ</span>
+            <select value={period} onChange={(e) => setPeriod(e.target.value)} className="bg-transparent text-sm text-slate-900 dark:text-slate-200 outline-none cursor-pointer">
+              <option value="daily" className="bg-white dark:bg-slate-900">Ngày</option>
+              <option value="monthly" className="bg-white dark:bg-slate-900">Tháng</option>
+              <option value="quarterly" className="bg-white dark:bg-slate-900">Quý</option>
+            </select>
+          </div>
+        </div>
         <div className="h-80 w-full">
           {chartData.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-slate-500">

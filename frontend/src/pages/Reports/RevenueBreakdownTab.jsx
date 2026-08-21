@@ -72,6 +72,7 @@ export default function RevenueBreakdownTab() {
           <select value={period} onChange={(e) => setPeriod(e.target.value)} className="bg-transparent text-sm text-slate-900 dark:text-slate-200 outline-none cursor-pointer">
             <option value="daily" className="bg-white dark:bg-slate-900">Ngày</option>
             <option value="monthly" className="bg-white dark:bg-slate-900">Tháng</option>
+            <option value="quarterly" className="bg-white dark:bg-slate-900">Quý</option>
             <option value="yearly" className="bg-white dark:bg-slate-900">Năm</option>
           </select>
         </div>

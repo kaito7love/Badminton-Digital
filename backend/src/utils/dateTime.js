@@ -91,11 +91,36 @@ const getUtcOffsetMinutes = (date = new Date(), timezone = DEFAULT_TIMEZONE) => 
   return Math.round((asIfUtc - date.getTime()) / 60000);
 };
 
+/**
+ * "H:mm" | "HH:mm:ss" -> số phút từ 00:00. Dùng để so hai giờ bằng số thay
+ * vì so chuỗi — so chuỗi sai với giờ 1 chữ số ("9:00" >= "10:00" là true
+ * theo thứ tự từ điển, dù 9:00 sớm hơn 10:00 thật).
+ */
+const toMinutes = (t) => {
+  const [h, m] = String(t).split(':');
+  return Number(h) * 60 + Number(m);
+};
+
+/**
+ * Múi giờ có giờ mùa hè (DST) không — so lệch UTC tại 1/1 và 1/7 của một
+ * năm cố định, khác nhau nghĩa là có DST. Dùng để chặn báo cáo theo kỳ
+ * (`ReportService.shiftToLocal`) áp một offset cố định cho chi nhánh ở
+ * vùng DST — offset đó chỉ đúng nửa năm, sai nửa năm còn lại, và sai lệch
+ * âm thầm ra số liệu chứ không báo lỗi.
+ */
+const hasDst = (timezone = DEFAULT_TIMEZONE) => {
+  const jan = getUtcOffsetMinutes(new Date(Date.UTC(2026, 0, 1, 12)), timezone);
+  const jul = getUtcOffsetMinutes(new Date(Date.UTC(2026, 6, 1, 12)), timezone);
+  return jan !== jul;
+};
+
 module.exports = {
   localDateString,
   localTimeString,
   startOfLocalDay,
   endOfLocalDay,
   getUtcOffsetMinutes,
+  toMinutes,
+  hasDst,
   DEFAULT_TIMEZONE
 };

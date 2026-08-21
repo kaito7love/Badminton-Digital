@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
-const { ExtraStock, ProductStock, StockMovement, Extra, ProductVariant, Product, sequelize } = require('../models');
+const { ExtraStock, ProductStock, StockMovement, Extra, ProductVariant, Product, Branch, sequelize } = require('../models');
 const { getPagination, getPagingData } = require('../utils/pagination');
+const { startOfLocalDay, endOfLocalDay } = require('../utils/dateTime');
 const AuditService = require('./AuditService');
 
 const ADJUSTMENT_TYPES = ['adjustment_in', 'adjustment_out', 'damaged', 'lost'];
@@ -162,9 +163,12 @@ class InventoryService {
     if (query.productVariantId) where.productVariantId = query.productVariantId;
     if (query.type) where.type = query.type;
     if (query.from || query.to) {
+      const branch = await Branch.findByPk(branchId, { attributes: ['timezone'] });
       where.createdAt = {};
-      if (query.from) where.createdAt[Op.gte] = new Date(`${query.from}T00:00:00`);
-      if (query.to) where.createdAt[Op.lte] = new Date(`${query.to}T23:59:59.999`);
+      // Neo bằng 12:00Z rồi cắt theo giờ chi nhánh — không phụ thuộc múi giờ
+      // máy chủ (xem cùng lớp lỗi đã sửa ở SessionService.getSessionHistory).
+      if (query.from) where.createdAt[Op.gte] = startOfLocalDay(new Date(`${query.from}T12:00:00Z`), branch?.timezone);
+      if (query.to) where.createdAt[Op.lte] = endOfLocalDay(new Date(`${query.to}T12:00:00Z`), branch?.timezone);
     }
 
     const data = await StockMovement.findAndCountAll({

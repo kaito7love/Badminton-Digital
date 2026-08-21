@@ -15,6 +15,7 @@ export default function PosTab() {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [checkingOut, setCheckingOut] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
 
   const [voucherInput, setVoucherInput] = useState('');
   const [voucherBusy, setVoucherBusy] = useState(false);
@@ -136,6 +137,26 @@ export default function PosTab() {
       alert(err.response?.data?.message || 'Lỗi thanh toán');
     } finally {
       setCheckingOut(false);
+    }
+  };
+
+  // Đọc lại trạng thái thanh toán của đơn transfer đang chờ — webhook ngân
+  // hàng (POST /payments/webhook) cập nhật payment.status ở phía server,
+  // trang này chỉ chủ động hỏi lại khi thu ngân bấm "Kiểm tra", không tự
+  // polling (đơn giản, đủ dùng khi nhân viên đứng quầy theo dõi trực tiếp).
+  const handleCheckPaymentStatus = async () => {
+    if (!checkoutResult?.salesOrderId) return;
+    setCheckingStatus(true);
+    try {
+      const res = await salesOrderService.getById(checkoutResult.salesOrderId);
+      const paymentStatus = res.data?.data?.invoice?.payment?.status;
+      if (paymentStatus) {
+        setCheckoutResult((prev) => (prev ? { ...prev, paymentStatus } : prev));
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Không kiểm tra được trạng thái thanh toán');
+    } finally {
+      setCheckingStatus(false);
     }
   };
 
@@ -271,7 +292,37 @@ export default function PosTab() {
         </div>
       </div>
 
-      {checkoutResult && (
+      {checkoutResult && checkoutResult.paymentMethod === 'transfer' && checkoutResult.paymentStatus !== 'paid' && (
+        <div className="lg:col-span-3 rounded-3xl border border-amber-500/30 bg-amber-500/10 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">⏳ Chờ khách chuyển khoản — Hoá đơn {checkoutResult.invoiceNo}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Số tiền cần chuyển: {formatMoney(checkoutResult.totalAmount)}
+                {checkoutResult.voucherCode && ` (đã áp mã ${checkoutResult.voucherCode} -${formatMoney(checkoutResult.voucherDiscountAmount)})`}
+              </p>
+            </div>
+            <button onClick={() => setCheckoutResult(null)} className="text-xs font-semibold text-amber-700 dark:text-amber-300 hover:underline">Đóng</button>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-5">
+            {checkoutResult.qrCodeUrl && (
+              <img src={checkoutResult.qrCodeUrl} alt="Mã QR chuyển khoản" className="h-40 w-40 shrink-0 rounded-xl border border-slate-200 bg-white p-2" />
+            )}
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400">Đưa mã cho khách quét bằng app ngân hàng. Hệ thống tự nhận tiền qua webhook ngân hàng.</p>
+              <button
+                onClick={handleCheckPaymentStatus}
+                disabled={checkingStatus}
+                className="self-start rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-amber-400 disabled:opacity-60"
+              >
+                {checkingStatus ? 'Đang kiểm tra...' : '🔄 Kiểm tra đã thanh toán chưa'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {checkoutResult && (checkoutResult.paymentMethod !== 'transfer' || checkoutResult.paymentStatus === 'paid') && (
         <div className="lg:col-span-3 rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-6 flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">✅ Thanh toán thành công — Hoá đơn {checkoutResult.invoiceNo}</p>

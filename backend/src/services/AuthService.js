@@ -60,8 +60,14 @@ class AuthService {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
+    // Update trực tiếp, không qua `user.save()`: model có `version: true`
+    // (optimistic locking), nên hai lần đăng nhập cùng tài khoản chạy song
+    // song (2 tab, 2 thiết bị) sẽ khiến request thứ hai ném OptimisticLockError
+    // không được bắt -> lọt ra HTTP 500. Không có lý do nghiệp vụ để coi đăng
+    // nhập đồng thời là xung đột cần chặn — "ai lưu sau thắng" là đúng cho
+    // refresh token.
+    await User.update({ refreshToken }, { where: { id: user.id } });
     user.refreshToken = refreshToken;
-    await user.save();
 
     const userData = {
       id: user.id,

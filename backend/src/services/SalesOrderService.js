@@ -1,9 +1,10 @@
 const { Op } = require('sequelize');
-const { SalesOrder, SalesOrderLine, ProductVariant, Product, Invoice, InvoiceLine, Payment, Customer, Employee, User, sequelize } = require('../models');
+const { SalesOrder, SalesOrderLine, ProductVariant, Product, Invoice, InvoiceLine, Payment, Customer, Employee, User, Branch, sequelize } = require('../models');
 const InventoryService = require('./InventoryService');
 const { nextInvoiceNumber } = require('../utils/documentNumber');
 const { generateVietQRUrl } = require('../utils/vietqr');
 const { getPagination, getPagingData } = require('../utils/pagination');
+const { startOfLocalDay, endOfLocalDay } = require('../utils/dateTime');
 const AuditService = require('./AuditService');
 const VoucherService = require('./VoucherService');
 
@@ -33,9 +34,12 @@ class SalesOrderService {
     const where = { branchId };
     if (query.status) where.status = query.status;
     if (query.from || query.to) {
+      const branch = await Branch.findByPk(branchId, { attributes: ['timezone'] });
       where.createdAt = {};
-      if (query.from) where.createdAt[Op.gte] = new Date(`${query.from}T00:00:00`);
-      if (query.to) where.createdAt[Op.lte] = new Date(`${query.to}T23:59:59.999`);
+      // Neo bằng 12:00Z rồi cắt theo giờ chi nhánh — không phụ thuộc múi giờ
+      // máy chủ (xem cùng lớp lỗi đã sửa ở SessionService.getSessionHistory).
+      if (query.from) where.createdAt[Op.gte] = startOfLocalDay(new Date(`${query.from}T12:00:00Z`), branch?.timezone);
+      if (query.to) where.createdAt[Op.lte] = endOfLocalDay(new Date(`${query.to}T12:00:00Z`), branch?.timezone);
     }
 
     const data = await SalesOrder.findAndCountAll({
@@ -73,7 +77,12 @@ class SalesOrderService {
 
   static async getOrderById(id, branchId) {
     const where = branchId ? { id, branchId } : { id };
-    const order = await SalesOrder.findOne({ where, include: orderIncludes });
+    // Thêm Invoice/Payment (trước đây chỉ có `orderIncludes` = lines) — trang
+    // POS cần đọc lại được `paymentStatus` khi refresh đơn transfer đang chờ.
+    const order = await SalesOrder.findOne({
+      where,
+      include: [...orderIncludes, { model: Invoice, as: 'invoice', include: [{ model: Payment, as: 'payment' }] }]
+    });
     if (!order) {
       const error = new Error('Sales order not found');
       error.statusCode = 404;
@@ -136,7 +145,12 @@ class SalesOrderService {
       await transaction.commit();
       return SalesOrderService.getOrderById(order.id, order.branchId);
     } catch (error) {
-      await transaction.rollback();
+      // Chỉ rollback khi transaction chưa tự kết thúc (VD: MySQL đã huỷ do
+      // deadlock) — gọi rollback() trên transaction đã chết ném lỗi mới,
+      // che mất lỗi gốc và lọt ra client dưới dạng HTTP 500 khó hiểu.
+      if (!transaction.finished) {
+        await transaction.rollback().catch(() => {});
+      }
       throw error;
     }
   }
@@ -181,7 +195,12 @@ class SalesOrderService {
       await transaction.commit();
       return SalesOrderService.getOrderById(order.id, order.branchId);
     } catch (error) {
-      await transaction.rollback();
+      // Chỉ rollback khi transaction chưa tự kết thúc (VD: MySQL đã huỷ do
+      // deadlock) — gọi rollback() trên transaction đã chết ném lỗi mới,
+      // che mất lỗi gốc và lọt ra client dưới dạng HTTP 500 khó hiểu.
+      if (!transaction.finished) {
+        await transaction.rollback().catch(() => {});
+      }
       throw error;
     }
   }
@@ -252,7 +271,12 @@ class SalesOrderService {
       await transaction.commit();
       return SalesOrderService.getOrderById(order.id, order.branchId);
     } catch (error) {
-      await transaction.rollback();
+      // Chỉ rollback khi transaction chưa tự kết thúc (VD: MySQL đã huỷ do
+      // deadlock) — gọi rollback() trên transaction đã chết ném lỗi mới,
+      // che mất lỗi gốc và lọt ra client dưới dạng HTTP 500 khó hiểu.
+      if (!transaction.finished) {
+        await transaction.rollback().catch(() => {});
+      }
       throw error;
     }
   }
@@ -267,22 +291,14 @@ class SalesOrderService {
     const transaction = await sequelize.transaction();
 
     try {
-      const existingPayment = await Payment.findOne({
-        where: { idempotencyKey: resolvedIdempotencyKey },
-        include: [{ model: Invoice, as: 'invoice', attributes: ['id', 'salesOrderId'] }],
-        transaction,
-        lock: transaction.LOCK.UPDATE
-      });
-      if (existingPayment) {
-        if (existingPayment.invoice?.salesOrderId !== Number(orderId)) {
-          const error = new Error('Idempotency key đã được dùng cho một đơn hàng khác');
-          error.statusCode = 409;
-          throw error;
-        }
-        await transaction.commit();
-        return SalesOrderService.getCheckoutResult(existingPayment.invoiceId);
-      }
-
+      // Khoá `sales_orders` TRƯỚC `payments` — thống nhất thứ tự khoá với
+      // addLine/removeLine/applyVoucher (đều khoá sales_orders trước). Trước
+      // đây hàm này khoá payments trước (gap lock trên uk_payments_idempotency_key
+      // của Payment.findOne({lock: UPDATE}) khi chưa có dòng nào khớp) rồi
+      // mới khoá sales_orders — hai luồng checkout song song trên cùng một
+      // đơn khoá 2 tài nguyên theo thứ tự ngược nhau, MySQL phát hiện
+      // deadlock và giết một transaction, lộ ra HTTP 500 kèm thông báo nội
+      // bộ thay vì 409 rõ ràng.
       const order = await SalesOrder.findOne({
         where: { id: orderId, branchId },
         include: [{
@@ -303,6 +319,40 @@ class SalesOrderService {
         error.statusCode = 400;
         throw error;
       }
+
+      // Đơn đã khoá được rồi mới kiểm đã có hoá đơn/giao dịch chưa — luồng
+      // thua trong cặp request song song đợi tới đây mới đọc lại được trạng
+      // thái mới nhất (do luồng thắng đã commit hoặc đang giữ khoá).
+      const existingInvoice = await Invoice.findOne({ where: { salesOrderId: order.id }, transaction });
+      if (existingInvoice) {
+        const existingPayment = await Payment.findOne({ where: { invoiceId: existingInvoice.id }, transaction });
+        if (existingPayment) {
+          if (existingPayment.idempotencyKey === resolvedIdempotencyKey) {
+            // Đúng là request retry của chính lượt thanh toán này (client gọi
+            // lại do timeout/mất mạng) — trả lại nguyên kết quả cũ, không tạo
+            // giao dịch mới.
+            await transaction.commit();
+            return SalesOrderService.getCheckoutResult(existingInvoice.id);
+          }
+          const error = new Error('Đơn hàng này đã có yêu cầu thanh toán');
+          error.statusCode = 409;
+          throw error;
+        }
+      }
+
+      // Idempotency key trùng nhưng gắn với đơn khác — lỗi dùng sai của
+      // client (tái dùng key cũ), không phải giao dịch trùng thật.
+      const keyUsedElsewhere = await Payment.findOne({
+        where: { idempotencyKey: resolvedIdempotencyKey },
+        include: [{ model: Invoice, as: 'invoice', attributes: ['id', 'salesOrderId'] }],
+        transaction
+      });
+      if (keyUsedElsewhere && keyUsedElsewhere.invoice?.salesOrderId !== Number(orderId)) {
+        const error = new Error('Idempotency key đã được dùng cho một đơn hàng khác');
+        error.statusCode = 409;
+        throw error;
+      }
+
       if (!order.lines.length) {
         const error = new Error('Đơn hàng chưa có sản phẩm nào');
         error.statusCode = 400;
@@ -446,7 +496,9 @@ class SalesOrderService {
         qrCodeUrl
       };
     } catch (err) {
-      await transaction.rollback();
+      if (!transaction.finished) {
+        await transaction.rollback().catch(() => {});
+      }
       throw err;
     }
   }

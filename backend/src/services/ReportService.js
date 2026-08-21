@@ -1,9 +1,9 @@
 const { Invoice, Payment, CourtSession, Court, Customer, Extra, SessionExtra, InvoiceLine, ExtraStock, ProductStock, ProductVariant, Product, Employee, User, Branch, sequelize } = require('../models');
 const { Op } = require('sequelize');
-const { startOfLocalDay, endOfLocalDay, getUtcOffsetMinutes, DEFAULT_TIMEZONE } = require('../utils/dateTime');
+const { startOfLocalDay, endOfLocalDay, getUtcOffsetMinutes, hasDst, DEFAULT_TIMEZONE } = require('../utils/dateTime');
 const InventoryService = require('./InventoryService');
 
-// GROUP BY theo ngày/tháng/năm phải dịch cột DATETIME sang giờ địa phương
+// GROUP BY theo ngày/tháng/quý/năm phải dịch cột DATETIME sang giờ địa phương
 // trước khi DATE_FORMAT, nếu không giao dịch từ 00:00–07:00 giờ VN sẽ bị tính
 // nhầm sang ngày hôm trước (cùng lớp bug đã từng fix cho Dashboard "hôm nay"
 // — xem `startOfLocalDay`/`endOfLocalDay` — nhưng chưa áp cho báo cáo theo kỳ).
@@ -12,15 +12,57 @@ const InventoryService = require('./InventoryService');
 // đã đổi ở migration 20260821400001), nên độ lệch cần cộng chính là độ lệch
 // của múi giờ chi nhánh so với UTC. Không phụ thuộc múi giờ máy chủ.
 //
-// So sánh nhiều chi nhánh (`compareBranches`) dùng chung 1 offset mặc định
-// vì cả chuỗi hiện tại chỉ vận hành ở 1 múi giờ (`DEFAULT_TIMEZONE`); nếu
-// sau này có chi nhánh khác múi giờ thật, chỗ này cần tách offset theo từng
-// `branch_id` thay vì 1 hằng số chung.
-const localDateFormatExpr = (column, groupByFormat, timezone = DEFAULT_TIMEZONE) => {
+// Offset chỉ tính MỘT LẦN tại thời điểm chạy báo cáo rồi áp cho MỌI dòng dữ
+// liệu, kể cả dữ liệu quá khứ — đúng với múi giờ không có giờ mùa hè (DST,
+// ví dụ Việt Nam) vì offset không đổi quanh năm, nhưng SAI với múi giờ có
+// DST (offset đổi giữa năm). Chặn ở đây thay vì để âm thầm ra số sai: nếu
+// thật sự cần mở chi nhánh ở vùng DST, phải nâng cấp sang `CONVERT_TZ` +
+// nạp bảng múi giờ MySQL (xem tài liệu 09 mục 5, hướng (a)).
+const shiftToLocal = (column, timezone = DEFAULT_TIMEZONE) => {
+  if (hasDst(timezone)) {
+    const error = new Error(`Chi nhánh dùng múi giờ ${timezone} có giờ mùa hè (DST) — báo cáo theo kỳ hiện chưa hỗ trợ, cần nâng cấp sang CONVERT_TZ`);
+    error.statusCode = 422;
+    throw error;
+  }
   const offsetMinutes = getUtcOffsetMinutes(new Date(), timezone);
-  const shifted = sequelize.fn('DATE_ADD', column, sequelize.literal(`INTERVAL ${offsetMinutes} MINUTE`));
-  return sequelize.fn('DATE_FORMAT', shifted, groupByFormat);
+  return sequelize.fn('DATE_ADD', column, sequelize.literal(`INTERVAL ${offsetMinutes} MINUTE`));
 };
+
+const localDateFormatExpr = (column, groupByFormat, timezone = DEFAULT_TIMEZONE) =>
+  sequelize.fn('DATE_FORMAT', shiftToLocal(column, timezone), groupByFormat);
+
+// MySQL không có specifier quý cho DATE_FORMAT — dựng "YYYY-Qn" bằng YEAR()/QUARTER().
+const localQuarterExpr = (column, timezone = DEFAULT_TIMEZONE) => {
+  const shifted = shiftToLocal(column, timezone);
+  return sequelize.fn('CONCAT', sequelize.fn('YEAR', shifted), '-Q', sequelize.fn('QUARTER', shifted));
+};
+
+// So sánh nhiều chi nhánh: mỗi chi nhánh có thể ở múi giờ khác nhau, nên
+// không thể dùng MỘT offset chung cho cả câu truy vấn (đó chính là mục 6 —
+// trước đây dùng offset mặc định, ra số sai cho chi nhánh không cùng múi
+// giờ). Dựng CASE tra offset theo `invoice.branch_id` — offset tính JS-side
+// một lần rồi nhúng thành hằng số trong SQL, an toàn vì mọi chi nhánh liên
+// quan đã được `hasDst` xác nhận không có DST (offset không đổi quanh năm).
+const shiftToLocalPerBranch = (column, branches) => {
+  branches.forEach((b) => {
+    if (hasDst(b.timezone)) {
+      const error = new Error(`Chi nhánh dùng múi giờ ${b.timezone} có giờ mùa hè (DST) — báo cáo so sánh chi nhánh hiện chưa hỗ trợ, cần nâng cấp sang CONVERT_TZ`);
+      error.statusCode = 422;
+      throw error;
+    }
+  });
+  const cases = branches.map((b) => `WHEN ${Number(b.id)} THEN ${getUtcOffsetMinutes(new Date(), b.timezone)}`).join(' ');
+  const defaultOffset = getUtcOffsetMinutes(new Date(), DEFAULT_TIMEZONE);
+  const offsetExpr = `(CASE \`invoice\`.\`branch_id\` ${cases} ELSE ${defaultOffset} END)`;
+  return sequelize.fn('DATE_ADD', column, sequelize.literal(`INTERVAL ${offsetExpr} MINUTE`));
+};
+
+// Áp DATE_FORMAT hoặc gộp quý lên một cột đã dịch múi giờ sẵn — dùng chung
+// cho cả trường hợp 1 chi nhánh (`shiftToLocal`) lẫn so sánh nhiều chi nhánh
+// (`shiftToLocalPerBranch`), tránh lặp lại logic chọn format theo `period`.
+const bucketFormat = (shiftedColumn, period) => period === 'quarterly'
+  ? sequelize.fn('CONCAT', sequelize.fn('YEAR', shiftedColumn), '-Q', sequelize.fn('QUARTER', shiftedColumn))
+  : sequelize.fn('DATE_FORMAT', shiftedColumn, period === 'monthly' ? '%Y-%m' : period === 'yearly' ? '%Y' : '%Y-%m-%d');
 
 // Phân loại từng dòng invoice_lines về 1 trong 4 nhóm nguồn doanh thu.
 // reference_type phân biệt "phụ kiện dùng trong sân" (session_extra) với
@@ -33,12 +75,15 @@ const REVENUE_SOURCE_CASE = `CASE
   ELSE 'other'
 END`;
 
-// Dựng điều kiện lọc theo khoảng ngày (from/to dạng YYYY-MM-DD, cả hai đều optional)
-const buildDateRange = (column, from, to) => {
+// Dựng điều kiện lọc theo khoảng ngày (from/to dạng YYYY-MM-DD, cả hai đều
+// optional). Neo bằng 12:00Z (giữa trưa UTC, mọi múi giờ trên thế giới đều
+// đang cùng ngày lịch đó) rồi cắt đúng theo múi giờ chi nhánh — không phụ
+// thuộc múi giờ máy chủ như cách dựng `new Date(`${from}T00:00:00`)` cũ.
+const buildDateRange = (column, from, to, timezone = DEFAULT_TIMEZONE) => {
   if (!from && !to) return null;
   const range = {};
-  if (from) range[Op.gte] = new Date(`${from}T00:00:00`);
-  if (to) range[Op.lte] = new Date(`${to}T23:59:59.999`);
+  if (from) range[Op.gte] = startOfLocalDay(new Date(`${from}T12:00:00Z`), timezone);
+  if (to) range[Op.lte] = endOfLocalDay(new Date(`${to}T12:00:00Z`), timezone);
   return { [column]: range };
 };
 
@@ -100,18 +145,19 @@ class ReportService {
 
   static async getRevenueReport(period = 'daily', branchId, { from = null, to = null } = {}) {
     ReportService.requireBranch(branchId);
-    let groupByFormat;
-    if (period === 'monthly') {
-      groupByFormat = '%Y-%m';
-    } else if (period === 'yearly') {
-      groupByFormat = '%Y';
-    } else {
-      groupByFormat = '%Y-%m-%d';
-    }
-
-    const paidAtRange = buildDateRange('paidAt', from, to);
     const branch = await Branch.findByPk(branchId);
-    const dateExpr = localDateFormatExpr(sequelize.col('paid_at'), groupByFormat, branch?.timezone);
+    const paidAtRange = buildDateRange('paidAt', from, to, branch?.timezone);
+
+    let dateExpr;
+    if (period === 'quarterly') {
+      dateExpr = localQuarterExpr(sequelize.col('paid_at'), branch?.timezone);
+    } else {
+      let groupByFormat;
+      if (period === 'monthly') groupByFormat = '%Y-%m';
+      else if (period === 'yearly') groupByFormat = '%Y';
+      else groupByFormat = '%Y-%m-%d';
+      dateExpr = localDateFormatExpr(sequelize.col('paid_at'), groupByFormat, branch?.timezone);
+    }
 
     const revenueData = await Payment.findAll({
       attributes: [
@@ -166,7 +212,8 @@ class ReportService {
   /** Danh sách phiên chơi đã đóng, dùng cho sheet "Phiên chơi" khi xuất báo cáo */
   static async getSessionDetails({ branchId, from = null, to = null, limit = 5000 }) {
     ReportService.requireBranch(branchId);
-    const startTimeRange = buildDateRange('startTime', from, to);
+    const branch = await Branch.findByPk(branchId, { attributes: ['timezone'] });
+    const startTimeRange = buildDateRange('startTime', from, to, branch?.timezone);
 
     return await CourtSession.findAll({
       where: { branchId, status: 'closed', ...(startTimeRange || {}) },
@@ -229,18 +276,22 @@ class ReportService {
   static async getRevenueBreakdown({ branchId, compareBranches = false, period = 'daily', from = null, to = null }) {
     if (!compareBranches) ReportService.requireBranch(branchId);
 
-    let groupByFormat;
-    if (period === 'monthly') groupByFormat = '%Y-%m';
-    else if (period === 'yearly') groupByFormat = '%Y';
-    else groupByFormat = '%Y-%m-%d';
-
-    const createdAtRange = buildDateRange('createdAt', from, to);
     const invoiceWhere = compareBranches ? {} : { branchId };
-    // compareBranches gộp nhiều chi nhánh trong 1 query nên dùng offset mặc
-    // định (xem ghi chú ở `localDateFormatExpr`); trường hợp 1 chi nhánh thì
-    // lấy đúng timezone của chi nhánh đó.
-    const branch = compareBranches ? null : await Branch.findByPk(branchId);
-    const bucketExpr = localDateFormatExpr(sequelize.col('InvoiceLine.created_at'), groupByFormat, branch?.timezone);
+    // compareBranches gộp nhiều chi nhánh trong 1 query — mỗi chi nhánh dịch
+    // theo ĐÚNG múi giờ của chính nó (CASE theo branch_id), không còn dùng
+    // 1 offset mặc định chung như trước (mục 6). Trường hợp 1 chi nhánh thì
+    // lấy đúng timezone của chi nhánh đó như cũ.
+    let bucketExpr;
+    let branch = null;
+    if (compareBranches) {
+      const branches = await Branch.findAll({ attributes: ['id', 'timezone'] });
+      const shifted = shiftToLocalPerBranch(sequelize.col('InvoiceLine.created_at'), branches);
+      bucketExpr = bucketFormat(shifted, period);
+    } else {
+      branch = await Branch.findByPk(branchId, { attributes: ['timezone'] });
+      bucketExpr = bucketFormat(shiftToLocal(sequelize.col('InvoiceLine.created_at'), branch?.timezone), period);
+    }
+    const createdAtRange = buildDateRange('createdAt', from, to, branch?.timezone);
 
     const groupCols = [
       bucketExpr,

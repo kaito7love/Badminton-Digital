@@ -1,7 +1,10 @@
 const { Op } = require('sequelize');
 const { Voucher, SalesOrder, sequelize } = require('../models');
 const { getPagination, getPagingData } = require('../utils/pagination');
+const { startOfLocalDay, endOfLocalDay, DEFAULT_TIMEZONE } = require('../utils/dateTime');
 const AuditService = require('./AuditService');
+
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Mã giảm giá dùng chung cho cả hai luồng bán hàng (POS tại quầy và đơn khách
@@ -10,9 +13,10 @@ const AuditService = require('./AuditService');
  * vào đơn, không có state hay bảng "lượt đã dùng" nào tách riêng ở đây.
  *
  * Số lượt đã dùng đếm trực tiếp bằng COUNT trên `sales_orders.voucher_id`,
- * bỏ qua đơn `cancelled` — cùng nguyên tắc "huỷ thì trả lại" đã dùng cho tồn
- * kho (InventoryService.postMovement type sale/sale_return). Nhờ vậy huỷ một
- * đơn cũng tự động nhả lại đúng 1 lượt dùng mã, không cần dọn dẹp gì thêm.
+ * chỉ tính đơn `paid` — cùng nguyên tắc "huỷ/bỏ dở thì trả lại" đã dùng cho
+ * tồn kho (InventoryService.postMovement type sale/sale_return). Nhờ vậy huỷ
+ * hoặc bỏ dở không thanh toán một đơn cũng tự động nhả lại đúng 1 lượt dùng
+ * mã, không cần dọn dẹp gì thêm.
  */
 class VoucherService {
   static normalizeCode(code) {
@@ -61,16 +65,22 @@ class VoucherService {
    * kiểm tra lại mã lúc checkout một đơn ĐÃ mang voucher_id: nếu không loại
    * ra thì đơn tự đếm chính mình là một lượt đã dùng và mã usageLimit=1 sẽ
    * báo "hết lượt" ngay trên đơn hợp lệ của nó.
+   *
+   * Chỉ đếm đơn `paid` — trước đây đếm "khác cancelled" (tức tính cả `open`),
+   * nên một đơn quầy áp mã rồi bỏ dở, không thanh toán cũng chẳng huỷ, giữ
+   * một lượt dùng mã vĩnh viễn dù chưa hề "dùng" thật. Đúng nguyên tắc "huỷ
+   * thì trả lại" ghi ở đầu file: chỉ đơn đã thanh toán mới là một lượt dùng
+   * thật sự cần trừ.
    */
   static async countUsage(voucherId, customerId, transaction, excludeOrderId = null) {
     const notSelf = excludeOrderId ? { id: { [Op.ne]: excludeOrderId } } : {};
     const total = await SalesOrder.count({
-      where: { voucherId, status: { [Op.ne]: 'cancelled' }, ...notSelf },
+      where: { voucherId, status: 'paid', ...notSelf },
       transaction
     });
     const byCustomer = customerId
       ? await SalesOrder.count({
-        where: { voucherId, customerId, status: { [Op.ne]: 'cancelled' }, ...notSelf },
+        where: { voucherId, customerId, status: 'paid', ...notSelf },
         transaction
       })
       : 0;
@@ -179,6 +189,23 @@ class VoucherService {
    * `percent > 100`, nên sửa một mã 10% thành 150% qua PUT là lọt, và mã đó
    * giảm trọn vẹn giá trị đơn (đơn về 0đ).
    */
+  /**
+   * `<input type="date">` gửi lên chuỗi ngày trơn "YYYY-MM-DD". Theo chuẩn
+   * ECMAScript, chuỗi CHỈ CÓ NGÀY được hiểu là nửa đêm UTC — ở giờ Việt Nam
+   * đó là 07:00 SÁNG, nên mã "áp dụng đến hết hôm nay" chết ngay từ 7 giờ
+   * sáng chứ không phải cuối ngày. Diễn giải lại theo giờ chi nhánh mặc định:
+   * ngày bắt đầu -> 00:00:00 giờ chi nhánh, ngày kết thúc -> 23:59:59.999 giờ
+   * chi nhánh ("đến hết ngày" phải hiểu vậy, không phải nửa đêm đầu ngày đó).
+   * Chuỗi đã có giờ (ISO đầy đủ) giữ nguyên — mọi client gọi API trực tiếp
+   * cũng được diễn giải nhất quán, không chỉ web.
+   */
+  static normalizeDateBoundary(value, boundary) {
+    if (typeof value !== 'string' || !DATE_ONLY_RE.test(value)) return value;
+    const anchor = new Date(`${value}T12:00:00Z`);
+    const fn = boundary === 'end' ? endOfLocalDay : startOfLocalDay;
+    return fn(anchor, DEFAULT_TIMEZONE).toISOString();
+  }
+
   static assertConsistent({ discountType, discountValue, startsAt, endsAt }) {
     if (discountType === 'percent' && Number(discountValue) > 100) {
       const error = new Error('Giảm theo % không thể vượt quá 100');
@@ -200,7 +227,9 @@ class VoucherService {
       error.statusCode = 400;
       throw error;
     }
-    VoucherService.assertConsistent(data);
+    const startsAt = VoucherService.normalizeDateBoundary(data.startsAt, 'start');
+    const endsAt = VoucherService.normalizeDateBoundary(data.endsAt, 'end');
+    VoucherService.assertConsistent({ ...data, startsAt, endsAt });
 
     const voucher = await Voucher.create({
       code,
@@ -209,8 +238,8 @@ class VoucherService {
       discountValue: data.discountValue,
       maxDiscountAmount: data.discountType === 'percent' ? (data.maxDiscountAmount ?? null) : null,
       minOrderAmount: data.minOrderAmount || 0,
-      startsAt: data.startsAt || null,
-      endsAt: data.endsAt || null,
+      startsAt: startsAt || null,
+      endsAt: endsAt || null,
       usageLimit: data.usageLimit ?? null,
       perCustomerLimit: data.perCustomerLimit ?? null,
       isActive: data.isActive !== false
@@ -242,6 +271,13 @@ class VoucherService {
         throw error;
       }
       data = { ...data, code: nextCode };
+    }
+
+    if (data.startsAt !== undefined) {
+      data = { ...data, startsAt: VoucherService.normalizeDateBoundary(data.startsAt, 'start') };
+    }
+    if (data.endsAt !== undefined) {
+      data = { ...data, endsAt: VoucherService.normalizeDateBoundary(data.endsAt, 'end') };
     }
 
     // Kiểm bất biến trên GIÁ TRỊ SAU KHI GHÉP, không phải chỉ trên phần client

@@ -1,6 +1,7 @@
 const {
   Branch,
   Invoice,
+  InvoiceLine,
   Payment,
   Product,
   ProductVariant,
@@ -193,8 +194,11 @@ class OnlineOrderService {
         paymentDeadlineAt: isTransfer ? OnlineOrderService.paymentDeadlineFrom() : null
       }, { transaction });
 
+      const variantById = new Map(variants.map((v) => [v.id, v]));
+      const createdLines = [];
       for (const line of lines) {
         const created = await SalesOrderLine.create({ ...line, salesOrderId: order.id }, { transaction });
+        createdLines.push({ id: created.id, ...line });
         // Ném 400 khi không đủ tồn — cả đơn rollback, khách được báo ngay chứ
         // không nhận một đơn nửa vời rồi ra quầy mới biết thiếu hàng.
         await InventoryService.postMovement({
@@ -227,6 +231,32 @@ class OnlineOrderService {
           totalAmount
         }, { transaction });
 
+        // Trước đây chỉ tạo Invoice mà bỏ sót InvoiceLine — hoá đơn có tổng
+        // tiền nhưng trang "Chi tiết hoá đơn" đọc `invoice_lines` thì trống
+        // trơn, khác hẳn đơn tại quầy (SalesOrderService.checkout) luôn có
+        // đủ dòng chi tiết.
+        const invoiceLines = createdLines.map((line) => ({
+          invoiceId: invoice.id,
+          lineKind: 'product',
+          description: variantById.get(line.variantId)?.product?.name || `Sản phẩm #${line.variantId}`,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          amount: line.lineTotal,
+          referenceType: 'sales_order_line',
+          referenceId: line.id
+        }));
+        if (discountAmount > 0) {
+          invoiceLines.push({
+            invoiceId: invoice.id,
+            lineKind: 'discount',
+            description: `Mã giảm giá ${voucherResult.voucher.code}`,
+            quantity: 1,
+            unitPrice: -discountAmount,
+            amount: -discountAmount
+          });
+        }
+        await InvoiceLine.bulkCreate(invoiceLines, { transaction });
+
         await Payment.create({
           branchId: branch.id,
           invoiceId: invoice.id,
@@ -252,7 +282,9 @@ class OnlineOrderService {
       await transaction.commit();
       return OnlineOrderService.getOrderForCustomer(order.id, customerId);
     } catch (error) {
-      await transaction.rollback();
+      if (!transaction.finished) {
+        await transaction.rollback().catch(() => {});
+      }
       throw error;
     }
   }
@@ -370,7 +402,9 @@ class OnlineOrderService {
       await transaction.commit();
       return OnlineOrderService.getOrderForCustomer(order.id, customerId);
     } catch (error) {
-      await transaction.rollback();
+      if (!transaction.finished) {
+        await transaction.rollback().catch(() => {});
+      }
       throw error;
     }
   }
@@ -418,7 +452,9 @@ class OnlineOrderService {
         await transaction.commit();
         expired += 1;
       } catch (error) {
-        await transaction.rollback();
+        if (!transaction.finished) {
+          await transaction.rollback().catch(() => {});
+        }
         console.error(`[OnlineOrderService] Lỗi khi tự huỷ đơn #${id} quá hạn thanh toán:`, error.message);
       }
     }

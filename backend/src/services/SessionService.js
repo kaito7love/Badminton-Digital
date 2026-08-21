@@ -1,9 +1,10 @@
 const {
   CourtSession, Court, Customer, Employee, Invoice, Payment,
-  SessionExtra, Extra, Booking, sequelize
+  SessionExtra, Extra, Booking, Branch, sequelize
 } = require('../models');
 const { Op } = require('sequelize');
 const { getPagination, getPagingData } = require('../utils/pagination');
+const { startOfLocalDay, endOfLocalDay } = require('../utils/dateTime');
 
 class SessionService {
   /**
@@ -19,10 +20,16 @@ class SessionService {
     if (customerId)  where.customerId  = customerId;
     if (employeeId)  where.employeeId  = employeeId;
 
-    // Lọc theo ngày bắt đầu phiên
+    // Lọc theo ngày bắt đầu phiên — phải cắt theo giờ CHI NHÁNH, không phải
+    // giờ máy chủ: `new Date(`${date}T00:00:00`)` không có offset nên
+    // ECMAScript hiểu theo giờ local của TIẾN TRÌNH, ra kết quả khác nhau
+    // tuỳ server chạy ở múi giờ nào. Neo bằng 12:00Z (giữa trưa UTC, mọi
+    // múi giờ trên thế giới đều đang cùng ngày lịch đó) rồi để
+    // `startOfLocalDay`/`endOfLocalDay` cắt đúng theo múi giờ chi nhánh.
     if (date) {
-      const dayStart = new Date(`${date}T00:00:00`);
-      const dayEnd   = new Date(`${date}T23:59:59`);
+      const branch = context.branchId ? await Branch.findByPk(context.branchId, { attributes: ['timezone'] }) : null;
+      const dayStart = startOfLocalDay(new Date(`${date}T12:00:00Z`), branch?.timezone);
+      const dayEnd   = endOfLocalDay(new Date(`${date}T12:00:00Z`), branch?.timezone);
       where.startTime = { [Op.between]: [dayStart, dayEnd] };
     }
 

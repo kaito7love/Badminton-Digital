@@ -27,8 +27,8 @@ const getDashboard = async (req, res, next) => {
 
 const getRevenue = async (req, res, next) => {
   try {
-    const period = req.query.period || 'daily';
-    const revenue = await ReportService.getRevenueReport(period, req.branchId);
+    const { period = 'daily', from = null, to = null } = req.query;
+    const revenue = await ReportService.getRevenueReport(period, req.branchId, { from, to });
     return successResponse(res, revenue, 'Revenue report retrieved');
   } catch (err) {
     next(err);

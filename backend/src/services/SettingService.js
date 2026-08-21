@@ -25,13 +25,23 @@ class SettingService {
     return setting.value;
   }
 
+  /**
+   * Ba biến thể field name khác nhau đã từng xuất hiện thật trên các bản cài:
+   * đặc tả/`PUT /settings/pricing` dùng `peakStartHour`/`peakEndHour` (số),
+   * dữ liệu ghi tay qua API lúc dựng demo dùng `peakStartTime`/`peakEndTime`
+   * ("HH:mm"), seeder ghi vào `operating_hours.peak_start`/`peak_end`
+   * ("HH:mm"). Dò đủ cả ba trước khi rơi về mặc định cứng — chỉ đọc đúng
+   * MỘT trong ba là do bỏ sót các biến thể còn lại.
+   */
   static async getPeakHours() {
     const pricing = await SettingService.getSettingByKey('pricing');
-    const peakStartHour = Number(pricing?.peakStartHour);
-    const peakEndHour = Number(pricing?.peakEndHour);
+    const hours = await SettingService.getSettingByKey('operating_hours');
+    const hourOf = (v) => (typeof v === 'string' ? Number(v.slice(0, 2)) : Number(v));
+    const start = [pricing?.peakStartHour, pricing?.peakStartTime, hours?.peak_start].map(hourOf).find(Number.isFinite);
+    const end = [pricing?.peakEndHour, pricing?.peakEndTime, hours?.peak_end].map(hourOf).find(Number.isFinite);
     return {
-      peakStartHour: Number.isFinite(peakStartHour) ? peakStartHour : 17,
-      peakEndHour: Number.isFinite(peakEndHour) ? peakEndHour : 22
+      peakStartHour: Number.isFinite(start) ? start : 17,
+      peakEndHour: Number.isFinite(end) ? end : 22
     };
   }
 }

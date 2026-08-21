@@ -1,6 +1,7 @@
 const { Booking, Court, Customer, User, sequelize } = require("../models");
 const { Op } = require("sequelize");
 const { getPagination, getPagingData } = require("../utils/pagination");
+const { toMinutes } = require("../utils/dateTime");
 const AuditService = require("./AuditService");
 const CustomerService = require("./CustomerService");
 
@@ -116,7 +117,7 @@ class BookingService {
   }
 
   static async createBooking(data, context) {
-    if (data.startTime >= data.endTime) {
+    if (toMinutes(data.startTime) >= toMinutes(data.endTime)) {
       const error = new Error("Giờ kết thúc phải sau giờ bắt đầu");
       error.statusCode = 400;
       throw error;
@@ -223,7 +224,7 @@ class BookingService {
       const bookingDate = data.bookingDate || booking.bookingDate;
       const startTime = data.startTime || booking.startTime;
       const endTime = data.endTime || booking.endTime;
-      if (startTime >= endTime) {
+      if (toMinutes(startTime) >= toMinutes(endTime)) {
         const error = new Error("Giờ kết thúc phải sau giờ bắt đầu");
         error.statusCode = 400;
         throw error;
