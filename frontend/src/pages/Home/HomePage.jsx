@@ -5,6 +5,7 @@ import { publicService, bookingService } from "../../services/apiServices";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import { roleOf, isStaff, homePathForRole } from "../../utils/roles";
+import { todayInZone } from '../../utils/datetime';
 
 // Lựa chọn của khách được giữ lại khi họ phải rẽ qua trang đăng nhập, để quay
 // về là đặt tiếp chứ không phải chọn lại từ đầu.
@@ -44,7 +45,7 @@ export default function HomePage() {
   const [toastMessage, setToastMessage] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [booking, setBooking] = useState({
-    date: new Date().toLocaleDateString("en-CA"),
+    date: todayInZone(),
     time: "17:00",
     duration: "2",
     court: "",
@@ -544,7 +545,7 @@ export default function HomePage() {
                       id="booking-date"
                       type="date"
                       name="date"
-                      min={new Date().toLocaleDateString("en-CA")}
+                      min={todayInZone()}
                       value={booking.date}
                       onChange={handleBookingChange}
                       className="booking-input"

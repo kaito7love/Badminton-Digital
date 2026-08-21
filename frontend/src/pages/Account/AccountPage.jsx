@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import CustomerLayout from '../../layouts/CustomerLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService, customerService } from '../../services/apiServices';
+import { formatDateTime, formatDate } from '../../utils/datetime';
 
 /**
  * Hồ sơ khách hàng — nơi khách tự xem được những gì hệ thống đang lưu về mình:
@@ -24,16 +25,7 @@ const tierOf = (key) => TIERS.find((t) => t.key === key) || TIERS[0];
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString('vi-VN')}đ`;
 
-const formatDateTime = (value) => {
-  if (!value) return '—';
-  const date = new Date(value);
-  return date.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-};
 
-const formatDate = (value) => {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
 
 const initialsOf = (name) =>
   (name || '?')
@@ -247,7 +239,7 @@ export default function AccountPage() {
           <div className="mt-6">
             <InfoRow label="Số điện thoại" value={customer?.phone || user?.phone} />
             <InfoRow label="Email" value={customer?.email || user?.email} />
-            <InfoRow label="Thành viên từ" value={formatDate(customer?.createdAt || user?.createdAt)} />
+            <InfoRow label="Thành viên từ" value={formatDate(customer?.createdAt || user?.createdAt, latestSession?.branch?.timezone)} />
             <InfoRow label="Mã khách hàng" value={customerId ? `#${customerId}` : '—'} />
           </div>
 
@@ -269,7 +261,7 @@ export default function AccountPage() {
           />
           <StatTile label="Buổi đã chơi" value={sessions.length} hint={`${paidSessions.length} buổi đã có hoá đơn`} />
           <StatTile label="Lịch đã đặt" value={bookings.length} hint={`${upcomingCount} lịch sắp tới`} />
-          <StatTile label="Lần chơi gần nhất" value={formatDate(latestSession?.startTime)} hint={latestSession?.court?.name || '—'} />
+          <StatTile label="Lần chơi gần nhất" value={formatDate(latestSession?.startTime, latestSession?.branch?.timezone)} hint={latestSession?.court?.name || '—'} />
         </div>
       </div>
 
@@ -305,7 +297,7 @@ export default function AccountPage() {
               <tbody className="divide-y divide-white/5">
                 {sessions.map((session) => (
                   <tr key={session.id} className="text-sm">
-                    <td className="px-4 py-4 font-mono text-xs text-slate-300">{formatDateTime(session.startTime)}</td>
+                    <td className="px-4 py-4 font-mono text-xs text-slate-300">{formatDateTime(session.startTime, session.branch?.timezone)}</td>
                     <td className="px-4 py-4 font-bold text-white">🏸 {session.court?.name || `Sân #${session.courtId}`}</td>
                     <td className="px-4 py-4 text-right text-slate-300">{formatVnd(session.invoice?.courtFee ?? session.courtFee)}</td>
                     <td className="px-4 py-4 text-right text-slate-300">{formatVnd(session.invoice?.extrasFee)}</td>

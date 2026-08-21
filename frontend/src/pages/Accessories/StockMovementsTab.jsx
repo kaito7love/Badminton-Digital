@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Table, Badge, Pagination } from '../../components/UIComponents';
 import { accessoryService, inventoryService } from '../../services/apiServices';
+import { formatDateTime } from '../../utils/datetime';
+import { useBranch } from '../../contexts/BranchContext';
 
 const TYPE_LABELS = {
   opening_balance: 'Số dư đầu kỳ',
@@ -26,10 +28,12 @@ const TYPE_VARIANT = {
 
 const ADJUSTMENT_TYPES = ['adjustment_in', 'adjustment_out', 'damaged', 'lost'];
 
-const formatDateTime = (d) => d ? new Date(d).toLocaleString('vi-VN') : '—';
+
 const formatMoney = (n) => n == null ? '—' : new Intl.NumberFormat('vi-VN').format(Math.round(n)) + 'đ';
 
 export default function StockMovementsTab() {
+  // Mốc thời gian hiển thị theo giờ chi nhánh đang xem, không theo giờ máy người xem.
+  const { activeTimezone } = useBranch();
   const [products, setProducts] = useState([]);
   const [movements, setMovements] = useState([]);
   const [meta, setMeta] = useState(null);
@@ -174,7 +178,7 @@ export default function StockMovementsTab() {
         <Table headers={['Thời gian', 'Sản phẩm', 'Loại', 'Số lượng', 'Đơn giá', 'Ghi chú']}>
           {movements.map((m) => (
             <tr key={m.id}>
-              <td className="px-6 py-4 whitespace-nowrap">{formatDateTime(m.createdAt)}</td>
+              <td className="px-6 py-4 whitespace-nowrap">{formatDateTime(m.createdAt, activeTimezone)}</td>
               <td className="px-6 py-4">{m.extra?.name || `#${m.extraId}`}</td>
               <td className="px-6 py-4">
                 <Badge variant={TYPE_VARIANT[m.type] || 'slate'}>{TYPE_LABELS[m.type] || m.type}</Badge>

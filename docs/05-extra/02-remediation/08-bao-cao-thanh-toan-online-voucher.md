@@ -214,6 +214,32 @@ tài liệu test). Có thêm ca F7 để chắc chắn **không vá quá tay** �
   không tồn tại vẫn bị từ chối bởi chính ràng buộc còn lại, và xoá chi nhánh đang có sân
   vẫn bị `RESTRICT`. Chỉ số không bị đụng tới. Chi tiết: mục 8.4 tài liệu test.
 
+- **Chuẩn hoá múi giờ: DB lưu UTC, hiển thị theo chi nhánh.** Trước đây
+  `config.js` không đặt `timezone` cho Sequelize nên DATETIME được ghi theo giờ
+  LOCAL của tiến trình Node — cột chỉ lưu "20:00" mà không kèm múi giờ. Đo thực
+  nghiệm cho thấy hậu quả: ghi trên server VN ra `2026-08-20 20:00:00`, đọc trên
+  server Mỹ thành 03:00 ngày 21 — **dời server là sai lệch toàn bộ dữ liệu lịch sử**.
+
+  Đã xử lý trọn gói:
+  - `config.js` đặt `timezone: '+00:00'` cho cả 3 môi trường.
+  - Migration `20260821400001` đổi **78 cột DATETIME** từ giờ VN sang UTC. Tra
+    cột từ `INFORMATION_SCHEMA` nên không sót, và **không bao giờ chạm** 4 cột
+    DATE/TIME (`bookings.booking_date`, `start_time`, `end_time`,
+    `employees.hired_at`) — đó là giờ treo tường, đổi sang UTC là hỏng lịch đặt sân.
+    VN không có DST nên trừ cứng 7 giờ là chính xác tuyệt đối. Nơi triển khai vốn
+    chạy UTC thì đặt `LEGACY_DB_TIMEZONE_OFFSET=0` để không dịch gì.
+  - `priceCalculator` nhận múi giờ chi nhánh thay vì `getHours()` (giờ máy chủ) —
+    **chỗ nhạy cảm tiền bạc nhất**: một phiên 18:00 giờ VN đọc trên server Mỹ ra
+    6 giờ sáng và bị tính giá thấp điểm, thu thiếu tiền khách mà không ai hay.
+  - Frontend: helper `utils/datetime.js` hiển thị theo `branches.timezone`. Trước
+    đó 12 chỗ tự gọi `toLocaleString('vi-VN')` — lấy múi giờ MÁY NGƯỜI XEM, nên
+    ngồi ở VN mở chi nhánh Mỹ sẽ ra giờ VN.
+
+  Kiểm chứng: round-trip `down()`/`up()` khớp tuyệt đối 14/14 dòng; cột giờ treo
+  tường giữ nguyên "18:00 ngày 20/8"; server chạy giờ VN nay ghi đúng UTC và đọc
+  lại đúng nguyên mốc; cùng một phiên chơi cho giá cao điểm ở chi nhánh VN và
+  thấp điểm ở chi nhánh Mỹ. 121 test backend PASS ở UTC, VN và New York.
+
 ### 5.2. Còn tồn tại — mới báo cáo, chưa sửa
 
 1. `POST /auth/login` trả **500** khi cùng tài khoản đăng nhập đồng thời

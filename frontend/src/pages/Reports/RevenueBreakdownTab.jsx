@@ -3,9 +3,11 @@ import { Table } from '../../components/UIComponents';
 import { reportService } from '../../services/apiServices';
 import { useAuth } from '../../contexts/AuthContext';
 import { roleOf } from '../../utils/roles';
+import { formatDateTime } from '../../utils/datetime';
+import { useBranch } from '../../contexts/BranchContext';
 
 const formatMoney = (n) => `${Number(n || 0).toLocaleString('vi-VN')} đ`;
-const fmtDateTime = (d) => (d ? new Date(d).toLocaleString('vi-VN') : '—');
+
 
 const SOURCE_LABELS = {
   court: 'Tiền sân',
@@ -28,6 +30,8 @@ function pivotByBucket(rows, compareBranches) {
 }
 
 export default function RevenueBreakdownTab() {
+  // Mốc thời gian hiển thị theo giờ chi nhánh đang xem, không theo giờ máy người xem.
+  const { activeTimezone } = useBranch();
   const { user } = useAuth();
   const isAdmin = roleOf(user) === 'admin';
 
@@ -125,7 +129,7 @@ export default function RevenueBreakdownTab() {
                 {data.discounts.map((d, i) => (
                   <tr key={i}>
                     <td className="px-6 py-4 font-bold text-emerald-600 dark:text-emerald-400">{d.invoiceNo}</td>
-                    <td className="px-6 py-4 font-mono text-xs text-slate-600 dark:text-slate-300">{fmtDateTime(d.createdAt)}</td>
+                    <td className="px-6 py-4 font-mono text-xs text-slate-600 dark:text-slate-300">{formatDateTime(d.createdAt, activeTimezone)}</td>
                     <td className="px-6 py-4 text-slate-700 dark:text-slate-200">{d.employeeName || '—'}</td>
                     <td className="px-6 py-4 font-semibold text-rose-600 dark:text-rose-400">{formatMoney(d.amount)}</td>
                   </tr>

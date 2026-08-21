@@ -1,4 +1,4 @@
-const { Invoice, InvoiceLine, Payment, CourtSession, SessionExtra, Extra, Customer, Court, Employee, SalesOrder, sequelize } = require('../models');
+const { Invoice, InvoiceLine, Payment, CourtSession, SessionExtra, Extra, Customer, Court, Employee, SalesOrder, Branch, sequelize } = require('../models');
 const { calculateCourtFee, calculateInvoiceTotals } = require('../utils/priceCalculator');
 const { generateVietQRUrl } = require('../utils/vietqr');
 const { nextInvoiceNumber } = require('../utils/documentNumber');
@@ -53,13 +53,19 @@ class PaymentService {
       if (session.status === 'playing') {
         const endTime = new Date();
         const { peakStartHour, peakEndHour } = await SettingService.getPeakHours();
+        // Đọc riêng, KHÔNG gộp vào include của câu khoá dòng phía trên: thêm
+        // Branch vào một query FOR UPDATE sẽ khoá luôn dòng chi nhánh, biến mỗi
+        // lần thanh toán thành điểm nghẽn cho toàn bộ thao tác của chi nhánh đó.
+        const branch = await Branch.findByPk(branchId, { attributes: ['timezone'], transaction });
         const feeCalc = calculateCourtFee(
           session.startTime,
           endTime,
           session.court.peakPricePerHour,
           session.court.offpeakPricePerHour,
           peakStartHour,
-          peakEndHour
+          peakEndHour,
+          // Khung giờ cao điểm là giờ treo tường tại chi nhánh, không phải giờ máy chủ.
+          branch?.timezone
         );
         courtFee = feeCalc.courtFee;
 

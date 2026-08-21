@@ -2,16 +2,35 @@
  * Price Calculator Helper
  */
 
+const { localTimeString, DEFAULT_TIMEZONE } = require('./dateTime');
+
 /**
  * Calculate court fee based on start time, end time, and court rates.
- * @param {Date} startTime 
- * @param {Date} endTime 
+ * @param {Date} startTime
+ * @param {Date} endTime
  * @param {number} peakRate - Court peak price per hour
  * @param {number} offpeakRate - Court offpeak price per hour
  * @param {number} peakStartHour - Default 17 (17:00)
  * @param {number} peakEndHour - Default 22 (22:00)
+ * @param {string} timezone - Múi giờ CỦA CHI NHÁNH, mặc định Asia/Ho_Chi_Minh
+ *
+ * "Cao điểm 17:00–22:00" là giờ treo tường tại chi nhánh, nên phải đọc giờ
+ * theo múi giờ chi nhánh chứ không phải `getHours()` (giờ của máy chạy
+ * server). Trước đây dùng `getHours()` nên chỉ đúng khi server tình cờ chạy
+ * cùng múi giờ với chi nhánh: một phiên 18:00 giờ VN đọc trên server Mỹ ra
+ * 6 giờ sáng và bị tính giá thấp điểm — thu thiếu tiền khách mà không ai
+ * hay. Sau khi DATETIME chuyển sang lưu UTC (migration 20260821400001) thì
+ * việc chốt múi giờ ở đây càng bắt buộc.
  */
-const calculateCourtFee = (startTime, endTime, peakRate, offpeakRate, peakStartHour = 17, peakEndHour = 22) => {
+const calculateCourtFee = (
+  startTime,
+  endTime,
+  peakRate,
+  offpeakRate,
+  peakStartHour = 17,
+  peakEndHour = 22,
+  timezone = DEFAULT_TIMEZONE
+) => {
   const start = new Date(startTime);
   const end = new Date(endTime);
   const totalSeconds = Math.max(0, Math.floor((end - start) / 1000));
@@ -30,7 +49,7 @@ const calculateCourtFee = (startTime, endTime, peakRate, offpeakRate, peakStartH
     const sliceEnd = nextMinute > end ? end : nextMinute;
     const sliceDurationHours = (sliceEnd - current) / (1000 * 3600);
 
-    const hour = current.getHours();
+    const hour = Number(localTimeString(current, timezone).slice(0, 2));
     const isPeak = hour >= peakStartHour && hour < peakEndHour;
     const rate = isPeak ? Number(peakRate) : Number(offpeakRate);
 

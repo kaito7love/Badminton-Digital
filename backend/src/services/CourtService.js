@@ -296,13 +296,19 @@ class CourtService {
       const oldValues = activeSession.toJSON();
       const endTime = new Date();
       const { peakStartHour, peakEndHour } = await SettingService.getPeakHours();
+      // Đọc riêng, KHÔNG gộp vào include của câu khoá dòng phía trên: thêm
+      // Branch vào một query FOR UPDATE sẽ khoá luôn dòng chi nhánh, biến mỗi
+      // lần đóng sân thành điểm nghẽn cho toàn bộ thao tác của chi nhánh đó.
+      const branch = await Branch.findByPk(court.branchId, { attributes: ['timezone'], transaction });
       const { durationSeconds, courtFee } = calculateCourtFee(
         activeSession.startTime,
         endTime,
         court.peakPricePerHour,
         court.offpeakPricePerHour,
         peakStartHour,
-        peakEndHour
+        peakEndHour,
+        // Khung giờ cao điểm là giờ treo tường tại chi nhánh, không phải giờ máy chủ.
+        branch?.timezone
       );
 
       await activeSession.update({

@@ -1,4 +1,4 @@
-const { localDateString, localTimeString, startOfLocalDay, endOfLocalDay, getStorageOffsetMinutes, DEFAULT_TIMEZONE } = require('../src/utils/dateTime');
+const { localDateString, localTimeString, startOfLocalDay, endOfLocalDay, getUtcOffsetMinutes, DEFAULT_TIMEZONE } = require('../src/utils/dateTime');
 
 /**
  * Các hàm trong dateTime.js làm việc theo MÚI GIỜ TRUYỀN VÀO (mặc định
@@ -62,37 +62,25 @@ describe('dateTime — mốc thời gian theo giờ địa phương', () => {
 });
 
 /**
- * `getStorageOffsetMinutes` dùng để dịch cột DATETIME sang giờ chi nhánh khi
- * GROUP BY báo cáo. Cột đó lưu theo giờ LOCAL của tiến trình Node (Sequelize
- * không được đặt `timezone` trong config), nên độ lệch đúng là
- * "giờ chi nhánh − giờ tiến trình", không phải "giờ chi nhánh − UTC".
- *
- * Các ca dưới đây viết sao cho không phụ thuộc múi giờ máy chạy test.
+ * `getUtcOffsetMinutes` dùng để dịch cột DATETIME (lưu UTC) sang giờ chi nhánh
+ * ngay trong câu SQL khi GROUP BY báo cáo. Không phụ thuộc múi giờ máy chủ —
+ * các ca dưới đây cũng viết sao cho chạy đúng ở mọi máy.
  */
-describe('dateTime.getStorageOffsetMinutes', () => {
+describe('dateTime.getUtcOffsetMinutes', () => {
   const d = new Date(Date.UTC(2026, 7, 20, 13, 0, 0));
 
-  test('chi nhánh cùng múi giờ với server thì không dịch gì cả', () => {
-    // Đây chính là ca từng sai: server chạy giờ VN, cột đã là giờ VN rồi mà
-    // vẫn cộng thêm 7 tiếng thì giao dịch 20:00 bị đẩy sang ngày hôm sau.
-    const processTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    expect(getStorageOffsetMinutes(d, processTz)).toBe(0);
+  test('Việt Nam là UTC+7 nên lệch đúng 420 phút', () => {
+    expect(getUtcOffsetMinutes(d, DEFAULT_TIMEZONE)).toBe(420);
   });
 
-  test('hiệu giữa hai chi nhánh đúng bằng chênh lệch múi giờ của chúng', () => {
-    // Phần "giờ tiến trình" triệt tiêu khi lấy hiệu, nên khẳng định này đúng
-    // trên mọi máy: VN (+07) hơn New York (-04) đúng 11 tiếng = 660 phút.
-    const vn = getStorageOffsetMinutes(d, 'Asia/Ho_Chi_Minh');
-    const ny = getStorageOffsetMinutes(d, 'America/New_York');
-    expect(vn - ny).toBe(660);
+  test('múi giờ phía tây UTC cho độ lệch âm', () => {
+    // New York mùa hè là UTC-4.
+    expect(getUtcOffsetMinutes(d, 'America/New_York')).toBe(-240);
   });
 
-  test('cộng độ lệch vào giờ tiến trình thì ra đúng giờ chi nhánh', () => {
-    // Mô phỏng đúng việc SQL làm: DATE_ADD(cột, INTERVAL offset MINUTE).
-    // Cột lưu giờ local của tiến trình, cộng offset phải ra giờ VN.
-    const nhuTrongCot = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-    const sauKhiDich = new Date(nhuTrongCot.getTime() + getStorageOffsetMinutes(d, DEFAULT_TIMEZONE) * 60000);
-    const gioVn = sauKhiDich.toISOString().slice(11, 19);
-    expect(gioVn).toBe(localTimeString(d, DEFAULT_TIMEZONE));
+  test('cộng độ lệch vào mốc UTC thì ra đúng giờ treo tường của chi nhánh', () => {
+    // Mô phỏng đúng việc SQL làm: DATE_ADD(cột_utc, INTERVAL offset MINUTE).
+    const sauKhiDich = new Date(d.getTime() + getUtcOffsetMinutes(d, DEFAULT_TIMEZONE) * 60000);
+    expect(sauKhiDich.toISOString().slice(11, 19)).toBe(localTimeString(d, DEFAULT_TIMEZONE));
   });
 });

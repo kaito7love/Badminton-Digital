@@ -91,36 +91,11 @@ const getUtcOffsetMinutes = (date = new Date(), timezone = DEFAULT_TIMEZONE) => 
   return Math.round((asIfUtc - date.getTime()) / 60000);
 };
 
-/**
- * Số phút cần cộng vào một cột DATETIME để ra giờ địa phương của `timezone`.
- *
- * KHÔNG dùng thẳng `getUtcOffsetMinutes` cho việc này: cột DATETIME không nhất
- * thiết đang lưu theo UTC. `config.js` không đặt tuỳ chọn `timezone` cho
- * Sequelize, nên driver ghi DATETIME theo giờ LOCAL của tiến trình Node — đo
- * thực nghiệm: cùng một thời điểm, chạy với TZ=UTC thì DB lưu 04:46:02, chạy
- * với TZ=Asia/Ho_Chi_Minh thì DB lưu 11:46:03.
- *
- * Do đó độ lệch đúng là "giờ chi nhánh − giờ tiến trình", chứ không phải
- * "giờ chi nhánh − UTC":
- *   - Server chạy UTC, chi nhánh VN  → +420 (cột đang là UTC, cần dịch lên)
- *   - Server chạy VN,  chi nhánh VN  →    0 (cột đã là giờ VN rồi, dịch nữa là sai)
- *   - Server chạy New York, chi nhánh VN → +660
- * Nhờ vậy báo cáo cho ra cùng một kết quả bất kể server đặt múi giờ nào.
- */
-const getStorageOffsetMinutes = (date = new Date(), timezone = DEFAULT_TIMEZONE) => {
-  const branchOffset = getUtcOffsetMinutes(date, timezone);
-  // getTimezoneOffset() trả về số phút cộng vào giờ local để ra UTC, nên đảo
-  // dấu mới ra độ lệch của tiến trình so với UTC.
-  const processOffset = -date.getTimezoneOffset();
-  return branchOffset - processOffset;
-};
-
 module.exports = {
   localDateString,
   localTimeString,
   startOfLocalDay,
   endOfLocalDay,
   getUtcOffsetMinutes,
-  getStorageOffsetMinutes,
   DEFAULT_TIMEZONE
 };

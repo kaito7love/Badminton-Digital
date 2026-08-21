@@ -4,17 +4,9 @@ import CustomerLayout from '../../layouts/CustomerLayout';
 import { myOrderService } from '../../services/apiServices';
 import { formatVnd, lookFor } from '../../utils/shop';
 import { ORDER_TABS, orderQuantity, orderTotal, statusOf } from './orderStatus';
+import { formatDateTime } from '../../utils/datetime';
 
-const formatDateTime = (value) =>
-  value
-    ? new Date(value).toLocaleString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-    : '—';
+
 
 /** "Đơn mua" — danh sách đơn khách đặt trên web, lọc theo trạng thái. */
 export default function OrdersPage() {
@@ -109,7 +101,7 @@ export default function OrdersPage() {
                       Đơn #{order.id}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {formatDateTime(order.createdAt)} • 🏬 {order.branch?.name || 'Chi nhánh'}
+                      {formatDateTime(order.createdAt, order.branch?.timezone)} • 🏬 {order.branch?.name || 'Chi nhánh'}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

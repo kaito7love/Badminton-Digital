@@ -4,17 +4,9 @@ import CustomerLayout from '../../layouts/CustomerLayout';
 import { myOrderService } from '../../services/apiServices';
 import { formatVnd, lookFor, variantLabel } from '../../utils/shop';
 import { orderQuantity, orderTotal, statusOf } from './orderStatus';
+import { formatDateTime } from '../../utils/datetime';
 
-const formatDateTime = (value) =>
-  value
-    ? new Date(value).toLocaleString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-    : '—';
+
 
 const formatCountdown = (ms) => {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -215,7 +207,7 @@ export default function OrderDetailPage() {
                   {meta.label}
                 </span>
               </div>
-              <p className="text-xs text-slate-500">Đặt lúc {formatDateTime(order.createdAt)}</p>
+              <p className="text-xs text-slate-500">Đặt lúc {formatDateTime(order.createdAt, order.branch?.timezone)}</p>
             </div>
             <p className="mt-3 text-sm text-slate-400">{statusHint}</p>
 
@@ -231,7 +223,7 @@ export default function OrderDetailPage() {
                     <span className="font-bold text-white">
                       {order.invoice.payment.method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'} •{' '}
                       {order.invoice.payment.status === 'paid'
-                        ? `đã nhận lúc ${formatDateTime(order.invoice.payment.paidAt)}`
+                        ? `đã nhận lúc ${formatDateTime(order.invoice.payment.paidAt, order.branch?.timezone)}`
                         : 'đang chờ thanh toán'}
                     </span>
                   </div>

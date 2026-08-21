@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Pagination } from '../../components/UIComponents';
 import { accessoryService, supplierService, goodsReceiptService } from '../../services/apiServices';
+import { formatDateTime } from '../../utils/datetime';
+import { useBranch } from '../../contexts/BranchContext';
 
 const formatMoney = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0)) + 'đ';
-const formatDateTime = (d) => d ? new Date(d).toLocaleString('vi-VN') : '—';
+
 
 const emptyLine = () => ({ extraId: '', quantity: 1, unitCost: 0 });
 
 export default function GoodsReceiptTab() {
+  // Mốc thời gian hiển thị theo giờ chi nhánh đang xem, không theo giờ máy người xem.
+  const { activeTimezone } = useBranch();
   const [products, setProducts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [receipts, setReceipts] = useState([]);
@@ -207,7 +211,7 @@ export default function GoodsReceiptTab() {
             {receipts.map((r) => (
               <tr key={r.id}>
                 <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">{r.code}</td>
-                <td className="px-6 py-4">{formatDateTime(r.createdAt)}</td>
+                <td className="px-6 py-4">{formatDateTime(r.createdAt, activeTimezone)}</td>
                 <td className="px-6 py-4">{r.supplier?.name || '—'}</td>
                 <td className="px-6 py-4">{r.receivedBy?.fullName || '—'}</td>
                 <td className="px-6 py-4 font-semibold text-emerald-700 dark:text-emerald-300">{formatMoney(r.totalCost)}</td>

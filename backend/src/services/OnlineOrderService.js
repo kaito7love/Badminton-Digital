@@ -32,7 +32,9 @@ const orderIncludes = [
       include: [{ model: Product, as: 'product', attributes: ['id', 'name'] }]
     }]
   },
-  { model: Branch, as: 'branch', attributes: ['id', 'name', 'address'] },
+  // `timezone` để frontend hiển thị mốc thời gian theo giờ CHI NHÁNH NHẬN HÀNG,
+  // không theo giờ máy khách đang ngồi.
+  { model: Branch, as: 'branch', attributes: ['id', 'name', 'address', 'timezone'] },
   { model: Invoice, as: 'invoice', attributes: ['id', 'invoiceNo', 'status', 'totalAmount'], include: [{ model: Payment, as: 'payment', attributes: ['id', 'method', 'status', 'paidAt'] }] }
 ];
 

@@ -1,6 +1,6 @@
 const { Invoice, Payment, CourtSession, Court, Customer, Extra, SessionExtra, InvoiceLine, ExtraStock, ProductStock, ProductVariant, Product, Employee, User, Branch, sequelize } = require('../models');
 const { Op } = require('sequelize');
-const { startOfLocalDay, endOfLocalDay, getStorageOffsetMinutes, DEFAULT_TIMEZONE } = require('../utils/dateTime');
+const { startOfLocalDay, endOfLocalDay, getUtcOffsetMinutes, DEFAULT_TIMEZONE } = require('../utils/dateTime');
 const InventoryService = require('./InventoryService');
 
 // GROUP BY theo ngày/tháng/năm phải dịch cột DATETIME sang giờ địa phương
@@ -8,18 +8,16 @@ const InventoryService = require('./InventoryService');
 // nhầm sang ngày hôm trước (cùng lớp bug đã từng fix cho Dashboard "hôm nay"
 // — xem `startOfLocalDay`/`endOfLocalDay` — nhưng chưa áp cho báo cáo theo kỳ).
 //
-// Độ lệch lấy từ `getStorageOffsetMinutes`, KHÔNG phải độ lệch so với UTC:
-// cột DATETIME đang được lưu theo giờ local của tiến trình Node (config.js
-// không đặt `timezone` cho Sequelize), nên server chạy đúng giờ VN thì không
-// cần dịch gì cả — dịch thêm là sai 7 tiếng về phía tương lai. Xem ghi chú
-// chi tiết kèm số đo thực nghiệm ở `utils/dateTime.js`.
+// Cột DATETIME lưu theo UTC (`config.js` đặt `timezone: '+00:00'`, dữ liệu cũ
+// đã đổi ở migration 20260821400001), nên độ lệch cần cộng chính là độ lệch
+// của múi giờ chi nhánh so với UTC. Không phụ thuộc múi giờ máy chủ.
 //
 // So sánh nhiều chi nhánh (`compareBranches`) dùng chung 1 offset mặc định
 // vì cả chuỗi hiện tại chỉ vận hành ở 1 múi giờ (`DEFAULT_TIMEZONE`); nếu
 // sau này có chi nhánh khác múi giờ thật, chỗ này cần tách offset theo từng
 // `branch_id` thay vì 1 hằng số chung.
 const localDateFormatExpr = (column, groupByFormat, timezone = DEFAULT_TIMEZONE) => {
-  const offsetMinutes = getStorageOffsetMinutes(new Date(), timezone);
+  const offsetMinutes = getUtcOffsetMinutes(new Date(), timezone);
   const shifted = sequelize.fn('DATE_ADD', column, sequelize.literal(`INTERVAL ${offsetMinutes} MINUTE`));
   return sequelize.fn('DATE_FORMAT', shifted, groupByFormat);
 };

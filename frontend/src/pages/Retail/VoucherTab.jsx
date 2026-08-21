@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Badge } from '../../components/UIComponents';
 import { voucherService } from '../../services/apiServices';
+import { formatDate } from '../../utils/datetime';
+import { useBranch } from '../../contexts/BranchContext';
 
 const formatMoney = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0)) + 'đ';
 
@@ -25,6 +27,8 @@ const describeVoucher = (v) => {
 };
 
 export default function VoucherTab() {
+  // Mã dùng chung toàn chuỗi — hiển thị mốc hiệu lực theo chi nhánh đang xem.
+  const { activeTimezone } = useBranch();
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -136,9 +140,9 @@ export default function VoucherTab() {
               <div className="space-y-1 text-[11px] text-slate-400 dark:text-slate-500">
                 {(v.startsAt || v.endsAt) && (
                   <p>
-                    {v.startsAt ? new Date(v.startsAt).toLocaleDateString('vi-VN') : 'Không giới hạn'}
+                    {v.startsAt ? formatDate(v.startsAt, activeTimezone) : 'Không giới hạn'}
                     {' → '}
-                    {v.endsAt ? new Date(v.endsAt).toLocaleDateString('vi-VN') : 'Không giới hạn'}
+                    {v.endsAt ? formatDate(v.endsAt, activeTimezone) : 'Không giới hạn'}
                   </p>
                 )}
                 {v.usageLimit != null && <p>Tối đa {v.usageLimit} lượt dùng toàn chuỗi</p>}

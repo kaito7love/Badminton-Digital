@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { historyService, salesOrderService } from '../../services/apiServices';
+import { formatDateTime, formatPlainDate } from '../../utils/datetime';
+import { useBranch } from '../../contexts/BranchContext';
 
 // ─── Status Badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
@@ -22,14 +24,9 @@ function StatusBadge({ status }) {
 }
 
 // ─── Format helpers ────────────────────────────────────────────────────────────
-const fmtDateTime = (dt) => {
-  if (!dt) return '—';
-  return new Date(dt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-};
-const fmtDate = (d) => {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
+// Mốc tuyệt đối (startTime/endTime/createdAt) hiển thị theo giờ chi nhánh;
+// còn bookingDate là cột DATE — giờ treo tường, dùng formatPlainDate để không
+// bị đổi múi giờ làm nhảy ngày.
 const fmtMoney = (n) => {
   if (n == null) return '—';
   return Number(n).toLocaleString('vi-VN') + '₫';
@@ -66,6 +63,8 @@ function SkeletonRow({ cols }) {
 
 // ─── Sessions Tab ──────────────────────────────────────────────────────────────
 function SessionsTab() {
+  // Hiển thị theo giờ chi nhánh đang xem, không theo giờ máy người xem.
+  const { activeTimezone } = useBranch();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -160,8 +159,8 @@ function SessionsTab() {
                       const payStatus = payment?.status === 'paid' ? 'paid' : invoice ? 'pending_payment' : null;
                       return (
                         <tr key={s.id} className="border-t border-slate-100 dark:border-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
-                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 font-mono text-xs">{fmtDateTime(s.startTime)}</td>
-                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 font-mono text-xs">{fmtDateTime(s.endTime)}</td>
+                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 font-mono text-xs">{formatDateTime(s.startTime, activeTimezone)}</td>
+                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 font-mono text-xs">{formatDateTime(s.endTime, activeTimezone)}</td>
                           <td className="px-4 py-3.5 font-bold text-emerald-600 dark:text-emerald-400">{s.court?.name || '—'}</td>
                           <td className="px-4 py-3.5">
                             {s.customer
@@ -313,7 +312,7 @@ function BookingsTab() {
                     ? <tr><td colSpan={7}><EmptyState message="Chưa có lịch sử đặt sân" /></td></tr>
                     : bookings.map(b => (
                       <tr key={b.id} className="border-t border-slate-100 dark:border-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                        <td className="px-4 py-3.5 font-mono text-xs text-slate-600 dark:text-slate-300">{fmtDate(b.bookingDate)}</td>
+                        <td className="px-4 py-3.5 font-mono text-xs text-slate-600 dark:text-slate-300">{formatPlainDate(b.bookingDate)}</td>
                         <td className="px-4 py-3.5 font-bold text-emerald-600 dark:text-emerald-400">{b.court?.name || '—'}</td>
                         <td className="px-4 py-3.5">
                           {b.customer
@@ -337,6 +336,8 @@ function BookingsTab() {
 
 // ─── Sales Orders Tab (Bán lẻ) ────────────────────────────────────────────────
 function SalesOrdersTab() {
+  // Hiển thị theo giờ chi nhánh đang xem, không theo giờ máy người xem.
+  const { activeTimezone } = useBranch();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -437,7 +438,7 @@ function SalesOrdersTab() {
                       return (
                         <tr key={o.id} className="border-t border-slate-100 dark:border-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
                           <td className="px-4 py-3.5 font-bold text-emerald-600 dark:text-emerald-400">{o.invoice?.invoiceNo || `#${o.id}`}</td>
-                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 font-mono text-xs">{fmtDateTime(o.createdAt)}</td>
+                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 font-mono text-xs">{formatDateTime(o.createdAt, activeTimezone)}</td>
                           <td className="px-4 py-3.5">
                             {o.customer
                               ? <div><p className="font-semibold text-slate-900 dark:text-white">{o.customer.fullName}</p>{o.customer.phone && <p className="text-xs text-slate-400 dark:text-slate-500">{o.customer.phone}</p>}</div>

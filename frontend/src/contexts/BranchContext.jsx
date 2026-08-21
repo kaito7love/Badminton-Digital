@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { roleOf } from '../utils/roles';
 import { branchService } from '../services/apiServices';
+import { DEFAULT_TIMEZONE } from '../utils/datetime';
 
 const BranchContext = createContext(null);
 
@@ -39,8 +40,14 @@ export function BranchProvider({ children }) {
     window.location.reload();
   };
 
+  /** Múi giờ của chi nhánh đang xem — dùng để hiển thị mọi mốc thời gian.
+   * Backend trả về UTC, hiển thị phải theo giờ nơi phát sinh giao dịch chứ
+   * không theo giờ máy người xem (xem `utils/datetime.js`). */
+  const activeTimezone =
+    branches.find((b) => String(b.id) === String(selectedBranchId))?.timezone || DEFAULT_TIMEZONE;
+
   return (
-    <BranchContext.Provider value={{ isAdmin, branches, selectedBranchId, selectBranch }}>
+    <BranchContext.Provider value={{ isAdmin, branches, selectedBranchId, selectBranch, activeTimezone }}>
       {children}
     </BranchContext.Provider>
   );
