@@ -225,14 +225,43 @@ chính 2 giai đoạn đang kiểm thử, và **đều đã được vá + kiể
 | 2 | Tài khoản thu ngân mẫu có `employees.branch_id = NULL` → không dùng được POS từ giao diện | Trung bình | Seeder gán `branch_id`; migration `20260821100001` backfill dòng cũ và đặt lại `NOT NULL` |
 | 3 | Seeder `20260815100001` có điều kiện chặn tự mâu thuẫn — luôn kích hoạt ở lần cài mới hợp lệ | Trung bình | Đổi căn cứ chặn từ *số tồn kho* (seeder trước luôn tạo) sang *sổ nhật ký kho + phiếu nhập* (chỉ thao tác thật của con người mới ghi) |
 | 4 | Seeder `20260816300001` ghi cứng `employee_id` 14/15 không tồn tại → gãy khoá ngoại | Trung bình | Tra thu ngân theo `branch_id` thay vì hardcode, kèm thông báo lỗi rõ nếu chi nhánh chưa có nhân viên |
+| 5 | **Ràng buộc `branch_id NOT NULL` chưa bao giờ có hiệu lực** trên cả 6 bảng đa chi nhánh | Cao | Migration `20260821200001` backfill + áp `NOT NULL` cho 5 bảng còn lại (`courts`, `bookings`, `court_sessions`, `invoices`, `payments`). Seeder cũng gán `branch_id` cho 4 sân mẫu — xem mục 8.3 |
 
-Kết quả: `npm run migrate && npm run seed` nay **chạy trọn vẹn từ DB rỗng** (35 migration + 7 seeder), không cần thao tác tay nào.
+Kết quả: `npm run migrate && npm run seed` nay **chạy trọn vẹn từ DB rỗng** (36 migration + 7 seeder), không cần thao tác tay nào.
 
-### 8.2. Còn tồn tại — mới báo cáo, **chưa** sửa
+### 8.3. Siết `branch_id NOT NULL` — cách làm và bằng chứng kiểm thử
+
+**Nguyên nhân gốc:** migration M1 (`20260805000001`) đã *định* áp ràng buộc này, nhưng
+`changeColumn` của nó truyền kèm `references`. Trên MySQL, Sequelize sinh ra một `ALTER`
+vừa **không** đặt được `NOT NULL`, vừa gắn thêm một khoá ngoại thứ hai trùng lặp
+(`*_ibfk_N` nằm cạnh `*_branch_id_foreign_idx`). Cách vá: `changeColumn` **không** kèm
+`references` — khoá ngoại đã có sẵn từ `addColumn`.
+
+**Backfill suy từ quan hệ cha, không gán cứng chi nhánh 1.** Một booking thuộc chi nhánh
+của cái sân nó đặt; một payment thuộc chi nhánh của hoá đơn nó trả. Gán cứng số 1 sẽ ném
+dữ liệu chi nhánh 2/3 vào nhầm sổ. Thứ tự bắt buộc:
+`courts` (không có cha → chi nhánh hoạt động nhỏ nhất) → `bookings`/`court_sessions`
+(theo `court_id`) → `invoices` (theo `session_id`, rồi `sales_order_id`) → `payments`
+(theo `invoice_id`).
+
+| Ca | Cách kiểm | Kết quả |
+|---|---|---|
+| Khôi phục đúng chi nhánh gốc | Lưu snapshot chi nhánh thật của 34 dòng trải trên **cả 3 chi nhánh**, `NULL` sạch 4 bảng suy được, chạy migration, đối chiếu từng dòng | **34/34 đúng, 0 sai** — dòng của chi nhánh 2 và 3 về đúng chi nhánh của nó, không bị dồn về 1 |
+| Ràng buộc có hiệu lực thật | `INFORMATION_SCHEMA` sau migration | Cả 6 bảng `IS_NULLABLE = NO` |
+| Chặn dữ liệu hỏng | `INSERT` sân không kèm `branch_id` | Bị từ chối: `Field 'branch_id' doesn't have a default value` |
+| Lưới an toàn khi không suy được | Tắt toàn bộ chi nhánh rồi `NULL` sạch `courts`, chạy migration | Dừng với lỗi nêu rõ bảng + số dòng; **0 dòng bị biến thành `branch_id = 0`** |
+| Phục hồi được | Bật lại chi nhánh, chạy lại | Chạy tiếp thành công, 0 dòng NULL |
+| Hoàn tác | `db:migrate:undo` rồi chạy lại | Nới về nullable và siết lại đều sạch |
+
+> Chốt chặn đếm số dòng NULL **trước** khi đổi cột là cố ý: máy chủ không bật
+> `STRICT_TRANS_TABLES` sẽ âm thầm biến `NULL` thành `0` khi đặt `NOT NULL`, sinh ra dòng
+> trỏ tới chi nhánh không tồn tại. Không dựa vào `sql_mode` của máy chủ đích.
+
+### 8.4. Còn tồn tại — mới báo cáo, **chưa** sửa
 
 | # | Vấn đề | Mức độ | Ghi chú |
 |---|---|---|---|
-| 1 | **Ràng buộc `branch_id NOT NULL` chưa bao giờ có hiệu lực** trên `courts`, `bookings`, `court_sessions`, `invoices`, `payments` | Cao | Migration M1 có `changeColumn(allowNull: false)` nhưng kèm `references` nên MySQL không áp — kiểm `INFORMATION_SCHEMA` thấy cả 6 bảng đều `IS_NULLABLE = YES`. Đợt này mới xử lý `employees`; 5 bảng còn lại cần một đợt rà riêng |
+| 1 | Khoá ngoại `branch_id` bị **trùng lặp** trên 6 bảng (`*_ibfk_N` + `*_branch_id_foreign_idx`) | Thấp | Rác do `changeColumn` kèm `references` của M1 để lại. Vô hại về mặt dữ liệu, chỉ là ràng buộc thừa; dọn được nhưng không gấp |
 | 2 | `POST /auth/login` trả **500** khi cùng một tài khoản đăng nhập đồng thời: `"Attempting to update a stale model instance: User"` — `OptimisticLockError` không được bắt | Trung bình | Nên retry hoặc trả lỗi có nghĩa |
 | 3 | Đơn online chuyển khoản tạo Invoice nhưng **không tạo `invoice_lines`**, trong khi POS thì có | Trung bình | Xem hoá đơn chi tiết của đơn online sẽ trống |
 | 4 | `countUsage` tính cả đơn `open` → đơn POS bỏ dở giữ một lượt mã vĩnh viễn | Thấp | Cân nhắc bổ sung cơ chế dọn đơn quầy bị bỏ quên |

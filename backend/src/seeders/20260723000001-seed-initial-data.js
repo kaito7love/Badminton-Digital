@@ -111,9 +111,12 @@ module.exports = {
     ], {});
 
     // 5. Courts
+    // branch_id BẮT BUỘC (xem ghi chú ở mục Employees) — sân thuộc về một cơ
+    // sở vật lý cụ thể. Bốn sân mẫu này là của chi nhánh chính.
     await queryInterface.bulkInsert('courts', [
       {
         id: 1,
+        branch_id: 1,
         name: 'Sân số 1 (Thường)',
         status: 'active',
         offpeak_price_per_hour: 60000.00,
@@ -124,6 +127,7 @@ module.exports = {
       },
       {
         id: 2,
+        branch_id: 1,
         name: 'Sân số 2 (Thường)',
         status: 'active',
         offpeak_price_per_hour: 60000.00,
@@ -134,6 +138,7 @@ module.exports = {
       },
       {
         id: 3,
+        branch_id: 1,
         name: 'Sân số 3 (Thường)',
         status: 'active',
         offpeak_price_per_hour: 60000.00,
@@ -144,6 +149,7 @@ module.exports = {
       },
       {
         id: 4,
+        branch_id: 1,
         name: 'Sân VIP (Thảm Yonex)',
         status: 'active',
         offpeak_price_per_hour: 100000.00,

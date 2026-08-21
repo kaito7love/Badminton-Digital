@@ -191,13 +191,23 @@ tài liệu test). Có thêm ca F7 để chắc chắn **không vá quá tay** �
   migration + 7 seeder), tạo đủ 3 chi nhánh có tồn kho và 14 đơn hàng mẫu, không cần
   thao tác tay nào.
 
+- **Ràng buộc `branch_id NOT NULL` chưa bao giờ có hiệu lực** trên cả 6 bảng đa chi
+  nhánh. Migration M1 có `changeColumn(allowNull: false)` nhưng truyền kèm `references`,
+  nên trên MySQL nó vừa không đặt được `NOT NULL` vừa gắn thêm một khoá ngoại trùng lặp —
+  kiểm `INFORMATION_SCHEMA` thấy cả 6 bảng đều `IS_NULLABLE = YES`. Migration
+  `20260821200001` backfill rồi áp `NOT NULL` cho 5 bảng còn lại; seeder cũng gán
+  `branch_id` cho 4 sân mẫu (trước đó chèn thiếu, đúng cùng lỗi như nhân viên).
+
+  Backfill **suy từ quan hệ cha**, không gán cứng chi nhánh 1: booking theo sân, phiên
+  chơi theo sân, hoá đơn theo phiên/đơn hàng, thanh toán theo hoá đơn. Kiểm bằng cách lưu
+  snapshot chi nhánh thật của 34 dòng trải trên cả 3 chi nhánh, `NULL` sạch rồi chạy lại
+  → **34/34 về đúng chi nhánh gốc, 0 sai**. Chi tiết các ca kiểm: mục 8.3 tài liệu test.
+
 ### 5.2. Còn tồn tại — mới báo cáo, chưa sửa
 
-1. **Ràng buộc `branch_id NOT NULL` chưa bao giờ có hiệu lực** trên `courts`, `bookings`,
-   `court_sessions`, `invoices`, `payments`. Migration M1 có `changeColumn(allowNull: false)`
-   nhưng kèm `references` nên MySQL không áp — kiểm `INFORMATION_SCHEMA` thấy cả 6 bảng
-   đều `IS_NULLABLE = YES`. Đợt này mới xử lý `employees` (đúng phạm vi lỗi quan sát được);
-   5 bảng còn lại cần một đợt rà riêng vì đụng tới toàn bộ schema đa chi nhánh.
+1. Khoá ngoại `branch_id` **trùng lặp** trên 6 bảng (`*_ibfk_N` nằm cạnh
+   `*_branch_id_foreign_idx`) — rác do `changeColumn` kèm `references` của M1 để lại.
+   Vô hại về dữ liệu, chỉ là ràng buộc thừa.
 2. `POST /auth/login` trả **500** khi cùng tài khoản đăng nhập đồng thời
    (`OptimisticLockError` không được bắt).
 3. Đơn online chuyển khoản tạo hoá đơn nhưng **không tạo dòng hoá đơn** — xem chi tiết
