@@ -55,10 +55,17 @@ module.exports = {
     ], {});
 
     // 3. Employees
+    // branch_id là BẮT BUỘC: `branchContextMiddleware` lấy chi nhánh làm việc
+    // của nhân viên từ cột này, thiếu là mọi thao tác cần chi nhánh (bán hàng
+    // tại quầy, mở/đóng sân, kho) đều bị từ chối "Không xác định được chi
+    // nhánh". Seeder này viết từ trước khi hệ thống lên đa chi nhánh nên từng
+    // bỏ trống — gán chi nhánh 1 (chi nhánh chính, cũng là nơi seeder tồn kho
+    // đổ hàng vào). Admin vẫn chuyển chi nhánh tuỳ ý bằng header X-Branch-Id.
     await queryInterface.bulkInsert('employees', [
       {
         id: 1,
         user_id: 1,
+        branch_id: 1,
         position: 'Chủ sân',
         shift: 'Toàn thời gian',
         hired_at: '2026-01-01',
@@ -68,6 +75,7 @@ module.exports = {
       {
         id: 2,
         user_id: 2,
+        branch_id: 1,
         position: 'Thu ngân',
         shift: 'Ca sáng',
         hired_at: '2026-02-01',

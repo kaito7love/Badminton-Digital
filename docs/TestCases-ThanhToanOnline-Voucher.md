@@ -37,11 +37,10 @@
 | UI | Kiểm thử giao diện 3 luồng bằng Playwright | 20 bước | Đạt |
 | Unit | Jest (`backend/tests/`) | 113 | 113 PASS |
 
-**Tổng: 51 ca kiểm thử tích hợp + 113 unit test, tất cả PASS** (sau khi vá lỗi — xem mục 7).
+**Tổng: 51 ca kiểm thử tích hợp + 114 unit test, tất cả PASS** (sau khi vá lỗi — xem mục 7).
 
-> Lưu ý khi chạy Jest: bộ test có ca phụ thuộc múi giờ địa phương. Phải chạy
-> `TZ=Asia/Ho_Chi_Minh npm test`; chạy trên máy đặt UTC sẽ fail 2 ca trong
-> `dateTime.test.js` (xem mục 8, lỗi tồn tại sẵn).
+> Bộ unit test không phụ thuộc múi giờ máy chạy — `npm test` chạy đúng ở mọi `TZ`
+> (đã kiểm với UTC, Asia/Ho_Chi_Minh, America/New_York, Pacific/Kiritimati).
 
 ---
 
@@ -218,16 +217,26 @@ chính 2 giai đoạn đang kiểm thử, và **đều đã được vá + kiể
 
 ## 8. Vấn đề tồn tại sẵn (ngoài phạm vi 2 giai đoạn — mới báo cáo, **chưa** sửa)
 
+### 8.1. Đã sửa trong đợt này
+
+| # | Vấn đề | Mức độ | Đã sửa bằng |
+|---|---|---|---|
+| 1 | **CI fail:** `dateTime.test.js` dùng `getHours()` (đọc giờ máy) để kiểm hàm trả về mốc theo giờ Việt Nam → đỏ trên runner UTC | Cao | Viết lại test: dựng mốc bằng `Date.UTC(...)`, kiểm bằng `localDateString`/`localTimeString`. Đã kiểm PASS ở 4 múi giờ. **Không cần đụng `ci.yml`** — hàm `dateTime.js` vốn đã độc lập múi giờ, chỉ test viết sai |
+| 2 | Tài khoản thu ngân mẫu có `employees.branch_id = NULL` → không dùng được POS từ giao diện | Trung bình | Seeder gán `branch_id`; migration `20260821100001` backfill dòng cũ và đặt lại `NOT NULL` |
+| 3 | Seeder `20260815100001` có điều kiện chặn tự mâu thuẫn — luôn kích hoạt ở lần cài mới hợp lệ | Trung bình | Đổi căn cứ chặn từ *số tồn kho* (seeder trước luôn tạo) sang *sổ nhật ký kho + phiếu nhập* (chỉ thao tác thật của con người mới ghi) |
+| 4 | Seeder `20260816300001` ghi cứng `employee_id` 14/15 không tồn tại → gãy khoá ngoại | Trung bình | Tra thu ngân theo `branch_id` thay vì hardcode, kèm thông báo lỗi rõ nếu chi nhánh chưa có nhân viên |
+
+Kết quả: `npm run migrate && npm run seed` nay **chạy trọn vẹn từ DB rỗng** (35 migration + 7 seeder), không cần thao tác tay nào.
+
+### 8.2. Còn tồn tại — mới báo cáo, **chưa** sửa
+
 | # | Vấn đề | Mức độ | Ghi chú |
 |---|---|---|---|
-| 1 | **CI sẽ fail:** `dateTime.test.js` giả định múi giờ Việt Nam, nhưng `npm test` là `jest` trần và runner `ubuntu-latest` chạy UTC → 2 ca fail | Cao | Sửa 1 dòng: đặt `TZ: Asia/Ho_Chi_Minh` trong `.github/workflows/ci.yml`, hoặc viết lại test cho độc lập múi giờ |
+| 1 | **Ràng buộc `branch_id NOT NULL` chưa bao giờ có hiệu lực** trên `courts`, `bookings`, `court_sessions`, `invoices`, `payments` | Cao | Migration M1 có `changeColumn(allowNull: false)` nhưng kèm `references` nên MySQL không áp — kiểm `INFORMATION_SCHEMA` thấy cả 6 bảng đều `IS_NULLABLE = YES`. Đợt này mới xử lý `employees`; 5 bảng còn lại cần một đợt rà riêng |
 | 2 | `POST /auth/login` trả **500** khi cùng một tài khoản đăng nhập đồng thời: `"Attempting to update a stale model instance: User"` — `OptimisticLockError` không được bắt | Trung bình | Nên retry hoặc trả lỗi có nghĩa |
-| 3 | Đơn online chuyển khoản tạo Invoice nhưng **không tạo `invoice_lines`** (hoá đơn #8, #13 không có dòng nào), trong khi POS thì có | Trung bình | Xem hoá đơn chi tiết của đơn online sẽ trống |
-| 4 | Tài khoản thu ngân mẫu (`employee@badminton.com`) có `employees.branch_id = NULL` → **không dùng được POS từ giao diện** | Trung bình | Dữ liệu seed có từ trước khi lên đa chi nhánh; chỉ chi nhánh 1 có tồn kho nhưng không nhân viên nào thuộc chi nhánh 1 |
-| 5 | Seeder `20260815100001` có điều kiện chặn tự mâu thuẫn — luôn kích hoạt ở lần cài mới hợp lệ | Trung bình | Phải zero `extra_stocks` thủ công rồi seed từng file mới chạy được |
-| 6 | Seeder `20260816300001` tham chiếu `employee_id` không tồn tại sau seed chuẩn | Trung bình | Đã bỏ qua seeder này khi test |
-| 7 | `countUsage` tính cả đơn `open` → đơn POS bỏ dở giữ một lượt mã vĩnh viễn | Thấp | Cân nhắc bổ sung cơ chế dọn đơn quầy bị bỏ quên |
-| 8 | Rate limit đăng nhập 10 lần/15 phút/IP không có ngoại lệ cho môi trường test | Thấp | Là tính năng bảo mật đúng, nhưng gây khó khi chạy test tự động |
+| 3 | Đơn online chuyển khoản tạo Invoice nhưng **không tạo `invoice_lines`**, trong khi POS thì có | Trung bình | Xem hoá đơn chi tiết của đơn online sẽ trống |
+| 4 | `countUsage` tính cả đơn `open` → đơn POS bỏ dở giữ một lượt mã vĩnh viễn | Thấp | Cân nhắc bổ sung cơ chế dọn đơn quầy bị bỏ quên |
+| 5 | Rate limit đăng nhập 10 lần/15 phút/IP không có ngoại lệ cho môi trường test | Thấp | Là tính năng bảo mật đúng, nhưng gây khó khi chạy test tự động |
 
 ---
 

@@ -129,10 +129,11 @@ Tiêu chí đạt: p95 response time < 2 giây, tỉ lệ lỗi (5xx) < 1% ở t
 
 Tất cả các file trên là unit test thuần logic, không kết nối DB thật (không có `NODE_ENV=test` + MySQL trong CI), phù hợp việc CI hiện tại không có service DB.
 
-⚠️ **Phải chạy `TZ=Asia/Ho_Chi_Minh npm test`.** `dateTime.test.js` giả định múi giờ
-Việt Nam, trong khi `npm test` là `jest` trần và runner `ubuntu-latest` của CI chạy
-UTC — nghĩa là 2 ca trong file này **đang fail trên CI**. Sửa bằng cách đặt biến môi
-trường `TZ` trong `.github/workflows/ci.yml` hoặc viết lại test cho độc lập múi giờ.
+Bộ test **không phụ thuộc múi giờ của máy chạy** — `npm test` chạy đúng ở mọi
+`TZ` (đã kiểm với UTC, Asia/Ho_Chi_Minh, America/New_York, Pacific/Kiritimati).
+`dateTime.test.js` từng dùng `getHours()` (đọc theo giờ máy) để kiểm một hàm trả về
+mốc theo giờ Việt Nam nên đỏ trên CI; nay dựng mốc bằng `Date.UTC(...)` và kiểm bằng
+chính `localDateString`/`localTimeString`.
 
 ### 9.1b Kiểm thử tích hợp trên MySQL thật (chạy tay, chưa vào CI)
 `TestCases-ThanhToanOnline-Voucher.md` ghi lại 51 ca kiểm thử tích hợp đã chạy trên

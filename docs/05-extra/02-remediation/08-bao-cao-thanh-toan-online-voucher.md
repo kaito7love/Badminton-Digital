@@ -168,21 +168,41 @@ tài liệu test). Có thêm ca F7 để chắc chắn **không vá quá tay** �
 
 ## 5. Vấn đề tồn tại sẵn — mới báo cáo, **chưa** sửa
 
-Những mục này nằm ngoài phạm vi 2 giai đoạn, phát hiện trong lúc kiểm thử:
+### 5.1. Đã sửa thêm trong đợt này (ngoài 7 lỗi voucher ở trên)
 
-1. **CI đang fail:** `dateTime.test.js` giả định múi giờ Việt Nam nhưng runner
-   `ubuntu-latest` chạy UTC → 2 ca fail. Sửa 1 dòng `TZ` trong `ci.yml` là xong.
-   *(Đây là mục đáng xử lý sớm nhất — CI đỏ thì mọi kiểm soát chất lượng khác mất tác dụng.)*
+- **CI đang fail.** `dateTime.test.js` dùng `getHours()` — đọc theo giờ *máy* — để kiểm
+  một hàm trả về mốc theo giờ *Việt Nam*, nên đỏ trên runner UTC. Đọc kỹ `dateTime.js`
+  thì bản thân hàm đã nhận tham số múi giờ và hoàn toàn độc lập với giờ máy — **lỗi nằm
+  ở test, không phải ở hàm**. Đã viết lại test: dựng mốc bằng `Date.UTC(...)`, kiểm bằng
+  chính `localDateString`/`localTimeString`, thêm 1 ca kiểm chi nhánh ở múi giờ khác.
+  Đã chạy PASS ở UTC, Asia/Ho_Chi_Minh, America/New_York, Pacific/Kiritimati.
+  *Không đụng `ci.yml`* — đặt `TZ` ở đó chỉ che đi một phép kiểm sai và giấu luôn các
+  hồi quy phụ thuộc giờ máy về sau.
+- **Nhân viên không có chi nhánh.** Seeder gán `branch_id` cho nhân viên; migration
+  `20260821100001` backfill dòng cũ rồi đặt lại `NOT NULL` cho `employees.branch_id`.
+  Thu ngân mẫu nay dùng được màn hình bán hàng mà không cần chọn chi nhánh tay.
+- **Hai seeder hỏng chặn việc cài mới.** `20260815100001` đổi căn cứ chặn từ *số tồn kho*
+  (seeder trước luôn tạo, nên luôn kích hoạt oan) sang *sổ nhật ký kho + phiếu nhập* —
+  đúng ý định ghi trong chính comment của nó là "tránh đè mất số liệu thật nếu ai đó đã
+  Nhập kho tay". `20260816300001` tra thu ngân theo `branch_id` thay vì ghi cứng id 14/15
+  vốn không tồn tại.
+
+  Kết quả: `npm run migrate && npm run seed` nay **chạy trọn vẹn từ DB rỗng** (35
+  migration + 7 seeder), tạo đủ 3 chi nhánh có tồn kho và 14 đơn hàng mẫu, không cần
+  thao tác tay nào.
+
+### 5.2. Còn tồn tại — mới báo cáo, chưa sửa
+
+1. **Ràng buộc `branch_id NOT NULL` chưa bao giờ có hiệu lực** trên `courts`, `bookings`,
+   `court_sessions`, `invoices`, `payments`. Migration M1 có `changeColumn(allowNull: false)`
+   nhưng kèm `references` nên MySQL không áp — kiểm `INFORMATION_SCHEMA` thấy cả 6 bảng
+   đều `IS_NULLABLE = YES`. Đợt này mới xử lý `employees` (đúng phạm vi lỗi quan sát được);
+   5 bảng còn lại cần một đợt rà riêng vì đụng tới toàn bộ schema đa chi nhánh.
 2. `POST /auth/login` trả **500** khi cùng tài khoản đăng nhập đồng thời
    (`OptimisticLockError` không được bắt).
 3. Đơn online chuyển khoản tạo hoá đơn nhưng **không tạo dòng hoá đơn** — xem chi tiết
    hoá đơn của đơn online sẽ trống, trong khi đơn POS thì có đủ.
-4. Tài khoản thu ngân mẫu có `employees.branch_id = NULL` → **không dùng được màn hình
-   bán hàng từ giao diện**; mà chỉ chi nhánh 1 có tồn kho, lại không nhân viên nào thuộc
-   chi nhánh 1.
-5. Hai seeder hỏng (`20260815100001` có điều kiện chặn tự mâu thuẫn, `20260816300001`
-   tham chiếu nhân viên không tồn tại) — phải xử lý tay mới cài mới được từ đầu.
-6. `countUsage` tính cả đơn `open` → đơn quầy bỏ dở giữ một lượt mã vĩnh viễn.
+4. `countUsage` tính cả đơn `open` → đơn quầy bỏ dở giữ một lượt mã vĩnh viễn.
 
 ---
 
@@ -204,20 +224,13 @@ echo "VITE_API_BASE_URL=http://localhost:5000/api/v1" > .env
 npm run dev               # http://localhost:5173
 
 # Test
-cd backend && TZ=Asia/Ho_Chi_Minh npm test
+cd backend && npm test
 ```
 
-**Nếu `npm run seed` báo lỗi ở seeder tồn kho** — đó là lỗi số 5 mục trên. Cách vòng qua:
-
-```sql
-UPDATE extra_stocks SET quantity = 0;
-```
-
-rồi seed từng file bằng `npx sequelize-cli db:seed --seed <tên-file>`, bỏ qua
-`20260816300001-seed-sample-sales-history.js`.
+`migrate` + `seed` chạy thẳng một mạch từ DB rỗng, không cần thao tác tay nào.
 
 **Tài khoản dùng thử:** admin `0901111111/Admin@123` · thu ngân `0902222222/Employee@123`
 · khách `0903333333/Customer@123`.
 
-Muốn xem màn hình bán hàng tại quầy thì đăng nhập **admin** rồi chọn chi nhánh 1 — tài
-khoản thu ngân mẫu chưa gắn chi nhánh (lỗi số 4 mục trên).
+Cả admin lẫn thu ngân đều vào thẳng được màn hình bán hàng tại quầy (thu ngân gắn sẵn
+chi nhánh chính; admin chọn chi nhánh qua ô chuyển chi nhánh).

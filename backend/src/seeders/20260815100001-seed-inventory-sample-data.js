@@ -77,16 +77,24 @@ module.exports = {
     const now = new Date();
 
     // An toàn: seeder này SET tồn kho tuyệt đối cho extras 1-4 (không cộng dồn),
-    // nên chỉ chạy khi các sản phẩm đó đang thật sự chưa có tồn kho — tránh đè
-    // mất số liệu thật nếu ai đó đã "Nhập kho" tay trước khi chạy seeder demo này.
-    const demoExtraIds = [...new Set(RECEIPTS.flatMap((r) => r.items.map((i) => i.extraId)))];
-    const [[{ total }]] = await queryInterface.sequelize.query(
-      'SELECT COALESCE(SUM(quantity), 0) AS total FROM extra_stocks WHERE branch_id = :branchId AND extra_id IN (:extraIds)',
-      { replacements: { branchId: BRANCH_ID, extraIds: demoExtraIds } }
+    // nên chỉ chạy khi chưa ai thao tác kho thật — tránh đè mất số liệu thật
+    // nếu ai đó đã "Nhập kho"/điều chỉnh tay trước khi chạy seeder demo này.
+    //
+    // Căn cứ là SỔ NHẬT KÝ KHO (`stock_movements`) và phiếu nhập, KHÔNG phải
+    // số tồn trong `extra_stocks`: seeder ban đầu
+    // (20260723000001-seed-initial-data.js) luôn đổ sẵn tồn kho cho đúng
+    // extras 1-4 này, nên đo theo số tồn thì điều kiện chặn LUÔN kích hoạt
+    // ngay ở lần cài mới hợp lệ — chính là thứ đã chặn đứng `npm run seed`.
+    // Ngược lại, mọi thao tác kho thật của con người (nhập kho, điều chỉnh,
+    // bán hàng) đều ghi một dòng vào sổ nhật ký, còn seeder ban đầu thì không
+    // — nên sổ nhật ký rỗng là dấu hiệu đáng tin cho "chưa ai đụng vào kho".
+    const [[{ moves, receipts }]] = await queryInterface.sequelize.query(
+      `SELECT (SELECT COUNT(*) FROM stock_movements) AS moves,
+              (SELECT COUNT(*) FROM goods_receipts) AS receipts`
     );
-    if (Number(total) > 0) {
+    if (Number(moves) > 0 || Number(receipts) > 0) {
       throw new Error(
-        'extras 1-4 tại branch 1 đã có tồn kho thật (tổng = ' + total + '). ' +
+        `Kho đã có thao tác thật (${moves} dòng nhật ký kho, ${receipts} phiếu nhập). ` +
         'Seeder dữ liệu mẫu này chỉ dành cho môi trường demo/mới cài — chạy "npx sequelize-cli db:seed:undo --seed 20260815100001-seed-inventory-sample-data.js" nếu đã chạy trước đó, hoặc bỏ qua seeder này trên DB có dữ liệu thật.'
       );
     }

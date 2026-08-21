@@ -13,7 +13,6 @@
 // Giả định đã chạy trước: seeder retail mẫu (20260816200001) — dùng lại
 // product_variants/giá của nó; branch 1/2/3 đã có sẵn từ migration.
 
-const BRANCH_EMPLOYEE = { 1: 2, 2: 14, 3: 15 }; // nhân viên thu ngân mỗi chi nhánh
 const IDEMPOTENCY_PREFIX = 'seed-sales-history-';
 const SEED_NOTE = 'Nhập kho ban đầu — dữ liệu mẫu lịch sử bán hàng';
 
@@ -82,6 +81,23 @@ module.exports = {
     const [variantRows] = await queryInterface.sequelize.query(`SELECT id, sku, list_price FROM product_variants`);
     const variantBySku = Object.fromEntries(variantRows.map((v) => [v.sku, v]));
 
+    // Thu ngân của từng chi nhánh: TRA THEO CHI NHÁNH, không hardcode id.
+    // Bản trước ghi cứng { 1: 2, 2: 14, 3: 15 } trong khi seed chuẩn chỉ tạo
+    // tới employee id 6 — nên seeder này gãy ở khoá ngoại cashier_employee_id
+    // trên mọi lần cài mới. Lấy nhân viên có id nhỏ nhất mỗi chi nhánh.
+    const [employeeRows] = await queryInterface.sequelize.query(
+      `SELECT branch_id, MIN(id) AS employee_id FROM employees
+       WHERE branch_id IS NOT NULL AND deleted_at IS NULL GROUP BY branch_id`
+    );
+    const branchEmployee = Object.fromEntries(employeeRows.map((e) => [Number(e.branch_id), Number(e.employee_id)]));
+    const missingBranches = [...new Set(TRANSACTIONS.map((t) => t.branchId))].filter((b) => !branchEmployee[b]);
+    if (missingBranches.length) {
+      throw new Error(
+        `Chi nhánh ${missingBranches.join(', ')} chưa có nhân viên nào — chạy seeder ` +
+        '20260815300003-seed-branch-managers trước khi chạy seeder lịch sử bán hàng này.'
+      );
+    }
+
     const transaction = await queryInterface.sequelize.transaction();
     try {
       // 1. Tồn kho ban đầu cho chi nhánh 2/3 (chi nhánh 1 đã có sẵn)
@@ -131,7 +147,7 @@ module.exports = {
       for (const tx of TRANSACTIONS) {
         txIndex += 1;
         const createdAt = dateDaysAgo(tx.daysAgo);
-        const employeeId = BRANCH_EMPLOYEE[tx.branchId];
+        const employeeId = branchEmployee[tx.branchId];
 
         const lines = tx.items.map((item) => {
           const variant = variantBySku[item.sku];
