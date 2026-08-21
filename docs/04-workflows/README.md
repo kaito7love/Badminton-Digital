@@ -6,6 +6,11 @@ Hệ thống hiện là đa chi nhánh (Branch/`X-Branch-Id`, Admin chuyển đ�
 nhánh xem/thao tác, nhân viên và `branch_manager` bị khoá vào chi nhánh của
 mình) và có thêm module quản lý kho hàng (nhà cung cấp, phiếu nhập kho, sổ
 nhật ký xuất/nhập) — xem `WF-Admin.md` §7 và `flows/WF-07-Accessories.md`.
+Từ 2026-08-16 hệ thống có thêm trụ kinh doanh thứ 2 — **bán lẻ dụng cụ tại
+quầy** (POS độc lập với luồng thuê sân, catalog `Product`/`ProductVariant`
+riêng) và 2 báo cáo nhìn xuyên cả 2 trụ (doanh thu chi tiết theo nguồn, đối
+chiếu nhập-bán-tồn kho) — xem `flows/WF-09-Retail.md` và
+`flows/WF-08-ReportsSettings.md` §D.1/D.2.
 
 ---
 
@@ -25,7 +30,8 @@ nhật ký xuất/nhập) — xem `WF-Admin.md` §7 và `flows/WF-07-Accessories
     ├── WF-05-CustomerManagement.md  ← Luồng quản lý khách hàng (UC-14,15)
     ├── WF-06-EmployeeManagement.md  ← Luồng quản lý nhân viên (UC-16)
     ├── WF-07-Accessories.md         ← Luồng phụ kiện & tồn kho (UC-17)
-    └── WF-08-ReportsSettings.md     ← Luồng Dashboard & Cài đặt (UC-19,20,21)
+    ├── WF-08-ReportsSettings.md     ← Luồng Dashboard & Cài đặt (UC-19,20,21,25)
+    └── WF-09-Retail.md              ← Luồng bán lẻ dụng cụ & POS (UC-24) — mới
 ```
 
 ---
@@ -34,9 +40,9 @@ nhật ký xuất/nhập) — xem `WF-Admin.md` §7 và `flows/WF-07-Accessories
 
 | Actor | Workflows chính |
 |-------|----------------|
-| **Admin** | Quản lý sân, Nhân viên, Cài đặt, Dashboard, Báo cáo, Nhà cung cấp, chuyển đổi chi nhánh xem/thao tác |
-| **`branch_manager`** | Như Nhân viên, cộng thêm: CRUD sân, quản lý Nhân viên, xem Dashboard/Báo cáo — giới hạn trong chi nhánh của mình |
-| **Nhân viên (Employee)** | Mở/Đóng sân, Booking, Thanh toán, Quản lý khách hàng, Gọi phụ kiện, Nhập kho & điều chỉnh kho |
+| **Admin** | Quản lý sân, Nhân viên, Cài đặt, Dashboard, Báo cáo, Nhà cung cấp, catalog bán lẻ, chuyển đổi chi nhánh xem/thao tác |
+| **`branch_manager`** | Như Nhân viên, cộng thêm: CRUD sân, quản lý Nhân viên, xem Dashboard/Báo cáo, quản lý catalog bán lẻ — giới hạn trong chi nhánh của mình |
+| **Nhân viên (Employee)** | Mở/Đóng sân, Booking, Thanh toán, Quản lý khách hàng, Gọi phụ kiện, Nhập kho & điều chỉnh kho, bán hàng tại quầy (POS bán lẻ) |
 | **Khách hàng (Customer)** | Đặt lịch, Xem lịch sử (toàn chuỗi), Đổi mật khẩu, Tự đăng ký |
 | **Hệ thống (System)** | Kiểm tra trùng lịch, Tính tiền tự động, VietQR |
 

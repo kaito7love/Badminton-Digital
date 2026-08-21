@@ -180,7 +180,31 @@ Use Cases: UC-10, UC-11, UC-12, UC-13
 
 ---
 
-## 👤 8. Quản lý Khách hàng
+## 🛍️ 8. Bán lẻ Dụng cụ tại quầy (POS) — mới
+
+```
+[Trang Bán Lẻ Dụng Cụ] → tab "Bán hàng"
+       ↓
+  Chọn sản phẩm (vợt, áo, quần...) → thêm vào giỏ
+       ↓ (hệ thống trừ tồn kho CỦA CHI NHÁNH ĐANG LÀM VIỆC NGAY khi thêm
+       ↓  vào giỏ, không đợi thanh toán)
+  Nhập giảm giá (nếu có) → Chọn phương thức thanh toán
+       ↓
+  Thanh toán → Tạo Invoice/Payment độc lập với mọi CourtSession
+```
+
+Hoàn toàn độc lập với luồng thuê sân (mục 2–6) — không cần mở sân, không
+cần khách đang chơi. Nhân viên làm được đầy đủ trừ tab "Danh mục sản phẩm"
+(CRUD catalog — chỉ Admin/`branch_manager`). Giỏ hàng hiện tại KHÔNG gán
+được khách hàng cụ thể qua giao diện (luôn ẩn danh, không cộng dồn hạng hội
+viên). Chi tiết đầy đủ (idempotency, VietQR, đối chiếu kho) xem
+`flows/WF-09-Retail.md`.
+
+Use Cases: UC-24
+
+---
+
+## 👤 9. Quản lý Khách hàng
 
 ```
 [Trang Khách hàng]

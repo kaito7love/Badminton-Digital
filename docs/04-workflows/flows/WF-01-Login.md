@@ -1,7 +1,19 @@
-# WF-01 — Luồng Đăng nhập (UC-01, UC-03, UC-04)
+# WF-01 — Luồng Đăng nhập (UC-01, UC-02, UC-03, UC-04)
 
 **Actors:** Admin, Nhân viên, Khách hàng  
-**Use Cases:** UC-01, UC-03, UC-04
+**Use Cases:** UC-01, UC-02 (Đăng xuất), UC-03, UC-04
+
+## Chống dò/spam — Rate limiting (`authRoutes.js`)
+
+Đã triển khai (khác với ghi chú "khuyến nghị bổ sung" trong `TestPlan.md`
+bản cũ — mục này đã CÓ trong code, tính theo IP, không theo tài khoản để
+tránh bị lợi dụng khoá tài khoản người khác):
+
+| Endpoint | Giới hạn | Khi vượt |
+|---|---|---|
+| `/login`, `/forgot-password`, `/reset-password` | 10 request / 15 phút / IP | 429 "Quá nhiều yêu cầu, vui lòng thử lại sau ít phút." |
+| `/register` | 5 request / 60 phút / IP | 429 (message như trên) |
+| `/refresh-token` | 30 request / 15 phút / IP | 429 (message như trên) — ngưỡng cao hơn hẳn vì mỗi tab/thiết bị tự làm mới token ngầm mỗi ~15 phút, tần suất gọi thật vốn đã cao
 
 ---
 
@@ -130,6 +142,33 @@ Xác thực mật khẩu cũ → Cập nhật hash mới
     ↓
 Thông báo thành công
 ```
+
+---
+
+## Luồng: Đăng xuất (UC-02)
+
+```
+[Menu tài khoản] → "Đăng xuất"
+    ↓
+[POST /api/v1/auth/logout]  (yêu cầu authMiddleware — phải đang có Access
+    │                         Token hợp lệ để gọi, không đăng xuất được
+    │                         một session đã hết hạn token)
+    ↓
+AuthService.logout(userId): user.refreshToken = NULL trong DB
+    ↓ (server KHÔNG gọi clearCookie — refresh token cũ trong cookie trình
+    ↓  duyệt vẫn còn đó về mặt kỹ thuật, nhưng vô dụng vì không còn khớp
+    ↓  giá trị đã lưu trong DB, nên /refresh-token sau đó sẽ luôn thất bại)
+    ↓
+Frontend (bất kể API thành công hay lỗi — VD access token đã hết hạn sẵn):
+    xoá access_token, refresh_token, user_info, admin_selected_branch_id
+    khỏi localStorage → Redirect về trang Login
+```
+
+Không có khái niệm "đăng xuất khỏi mọi thiết bị" — chỉ có 1 `refreshToken`
+lưu trên `User`, nên đăng xuất ở 1 nơi sẽ vô hiệu hoá refresh token của MỌI
+phiên đang đăng nhập bằng tài khoản đó (kể cả các tab/thiết bị khác chưa
+chủ động đăng xuất) — access token 15 phút hiện có ở các phiên khác vẫn
+dùng được cho tới khi hết hạn, chỉ refresh tiếp theo mới bị chặn.
 
 ---
 

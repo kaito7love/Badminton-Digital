@@ -106,22 +106,56 @@ Use Cases: UC-17
 
 ---
 
+## 🛍️ 4b. Bán lẻ Dụng cụ (POS) — mới
+
+```
+Dashboard
+  └─→ [Trang Bán Lẻ Dụng Cụ — 3 tab]
+           ├─→ [Bán hàng] Quầy POS độc lập với luồng sân: chọn sản phẩm →
+           │       giỏ hàng → giảm giá → thanh toán (tiền mặt/VietQR)
+           ├─→ [Kho bán lẻ] Tồn kho ProductVariant theo chi nhánh đang
+           │       chọn + form nhập kho (dùng chung phiếu nhập với phụ
+           │       kiện — 1 phiếu có thể trộn cả 2 loại dòng)
+           └─→ [Danh mục sản phẩm] — Admin/branch_manager mới thấy tab
+                   này: CRUD danh mục, sản phẩm, biến thể (size/màu, SKU,
+                   giá bán, ngưỡng cảnh báo)
+```
+
+Đây là hệ thống catalog RIÊNG với `Extra` ở mục 4 (vợt/áo/quần bán độc lập,
+có biến thể size/màu, không gắn `CourtSession`) nhưng dùng chung 1 ledger
+tồn kho (`stock_movements`) và 1 hạ tầng hóa đơn (`Invoice`/`Payment`) với
+phụ kiện trong sân. Chi tiết đầy đủ xem `flows/WF-09-Retail.md`.
+
+Use Cases: UC-24
+
+---
+
 ## 📊 5. Dashboard & Báo cáo
 
 ```
 Dashboard
-  ├─→ Doanh thu hôm nay / tuần / tháng (biểu đồ)
+  ├─→ Doanh thu hôm nay / tuần / tháng (biểu đồ) — gộp cả thuê sân + bán lẻ
   ├─→ Tổng số lượt khách
   ├─→ Tỷ lệ lấp đầy sân (Occupancy Rate)
-  ├─→ Cảnh báo tồn kho thấp
+  ├─→ Cảnh báo tồn kho thấp — gộp cả phụ kiện trong sân + sản phẩm bán lẻ
   ├─→ Top sân được thuê nhiều nhất
-  ├─→ Top phụ kiện bán chạy
+  ├─→ Top phụ kiện bán chạy (chỉ phụ kiện gọi trong sân, KHÔNG gồm bán lẻ)
+  ├─→ [Báo cáo doanh thu chi tiết theo nguồn] — tách sân/phụ kiện trong
+  │       sân/bán lẻ/giảm giá theo từng kỳ; Admin xem được kèm so sánh
+  │       toàn chuỗi (`compareBranches=true`) — mới, chỉ có dữ liệu từ
+  │       2026-08-16
+  ├─→ [Đối chiếu nhập-bán-tồn kho] — so khớp sổ nhật ký kho với hóa đơn
+  │       thật, phát hiện chênh lệch (kho đã trừ nhưng chưa có hóa đơn) —
+  │       mới, gộp cả phụ kiện lẫn sản phẩm bán lẻ
   └─→ [Xuất báo cáo]
            ├─→ Xuất Excel (.xlsx)
            └─→ Xuất PDF
 ```
 
-Use Cases: UC-19, UC-20
+Hai báo cáo mới (doanh thu chi tiết, đối chiếu kho) chi tiết xem
+`flows/WF-08-ReportsSettings.md` §D.1/D.2.
+
+Use Cases: UC-19, UC-20, UC-25
 
 ---
 

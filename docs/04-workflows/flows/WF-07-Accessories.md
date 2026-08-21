@@ -139,9 +139,15 @@ Admin / Nhân viên
         (Mã phiếu | Ngày | Nhà cung cấp | Người nhập | Tổng tiền)
 ```
 
-`POST /api/v1/goods-receipts` yêu cầu role `admin` hoặc `employee`
-(`goodsReceiptRoutes.js`). `GET /api/v1/goods-receipts` và
+`POST /api/v1/goods-receipts` yêu cầu role `admin`, `branch_manager` hoặc
+`employee` (`goodsReceiptRoutes.js`). `GET /api/v1/goods-receipts` và
 `GET /api/v1/goods-receipts/:id` cùng quyền, để xem lại chi tiết phiếu.
+
+> Từ merge hệ thống bán lẻ (2026-08-16), mỗi dòng phiếu nhập kho có thể là
+> `extraId` (như trên) **hoặc** `productVariantId` (sản phẩm bán lẻ — vợt,
+> áo, quần...) — một phiếu có thể trộn cả hai loại dòng cùng lúc. Chi tiết
+> luồng bán lẻ, catalog `Product`/`ProductVariant`, và POS checkout độc lập
+> với sân xem `flows/WF-09-Retail.md`.
 
 ---
 

@@ -77,4 +77,18 @@ const endOfLocalDay = (date = new Date(), timezone = DEFAULT_TIMEZONE) => {
   return end;
 };
 
-module.exports = { localDateString, localTimeString, startOfLocalDay, endOfLocalDay, DEFAULT_TIMEZONE };
+/**
+ * Lệch múi giờ (phút) của `timezone` tại thời điểm `date` so với UTC — dùng để
+ * dịch cột DATETIME (lưu theo UTC, xem `config.js`) sang giờ địa phương ngay
+ * trong câu SQL (VD `DATE_ADD(created_at, INTERVAL n MINUTE)` trước khi
+ * `DATE_FORMAT` để GROUP BY theo đúng ngày địa phương). Không cần bảng
+ * `mysql.time_zone` vì chỉ cộng một số phút cố định, không gọi CONVERT_TZ
+ * theo tên múi giờ.
+ */
+const getUtcOffsetMinutes = (date = new Date(), timezone = DEFAULT_TIMEZONE) => {
+  const zoned = getZonedParts(date, timezone);
+  const asIfUtc = Date.UTC(zoned.year, zoned.month - 1, zoned.day, zoned.hour, zoned.minute, zoned.second);
+  return Math.round((asIfUtc - date.getTime()) / 60000);
+};
+
+module.exports = { localDateString, localTimeString, startOfLocalDay, endOfLocalDay, getUtcOffsetMinutes, DEFAULT_TIMEZONE };

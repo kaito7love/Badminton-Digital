@@ -1,8 +1,8 @@
 # Use Case Specification
 ## Dự án: Badminton Digital Management – Hệ thống quản lý sân cầu lông
 
-**Phiên bản:** 1.1
-**Ngày:** 15/08/2026 (từ v1.0 ngày 19/07/2026)
+**Phiên bản:** 1.2
+**Ngày:** 16/08/2026 (từ v1.1 ngày 15/08/2026, v1.0 ngày 19/07/2026)
 **Tài liệu tham chiếu:** `SRS.md`
 
 ---
@@ -46,6 +46,8 @@
 | Settings | UC-21 | Cấu hình hệ thống (giá, giờ hoạt động, theme) | Admin |
 | Auth | UC-22 | Khách hàng tự đăng ký tài khoản | Khách hàng |
 | Multi-branch | UC-23 | Chuyển đổi chi nhánh đang xem/thao tác | Admin |
+| Retail | UC-24 | Bán lẻ dụng cụ tại quầy (POS độc lập với thuê sân) | Nhân viên, `branch_manager`, Admin |
+| Report | UC-25 | Doanh thu chi tiết theo nguồn & đối chiếu nhập-bán-tồn kho | Admin, `branch_manager` |
 
 ---
 
@@ -191,6 +193,62 @@
 
 ---
 
+### UC-24: Bán lẻ dụng cụ tại quầy (POS)
+- **Actor chính:** Nhân viên, `branch_manager`, Admin
+- **Mô tả:** Bán vợt/áo/quần/giày và phụ kiện thể thao tại quầy, hoàn toàn
+  độc lập với luồng thuê sân — khách không cần chơi sân mới mua được. Danh
+  mục sản phẩm (`Product`/`ProductVariant`, có biến thể size/màu) dùng chung
+  toàn chuỗi; tồn kho (`ProductStock`) tách theo từng chi nhánh, chung 1 sổ
+  nhật ký (`stock_movements`) với phụ kiện trong sân (UC-17).
+- **Tiền điều kiện:** Sản phẩm đã có trong danh mục, có sẵn ≥ 1 biến thể.
+- **Luồng chính:**
+  1. Nhân viên tạo đơn bán lẻ (`SalesOrder`, `channel: 'pos'`, `status:
+     'open'`), mặc định không gắn khách hàng.
+  2. Bấm chọn sản phẩm → thêm dòng vào đơn; hệ thống trừ tồn kho chi nhánh
+     NGAY tại bước này (không đợi thanh toán).
+  3. Nhân viên áp dụng giảm giá (số tiền cố định) nếu có, chọn phương thức
+     thanh toán (tiền mặt/chuyển khoản), thanh toán.
+  4. Hệ thống tạo `Invoice`/`Payment` (tái dùng đúng hạ tầng của UC-18),
+     tiền mặt xác nhận ngay, chuyển khoản chờ webhook ngân hàng.
+- **Luồng ngoại lệ:**
+  - 2a. Không đủ tồn kho tại chi nhánh → từ chối thêm dòng, báo số lượng
+    hiện có.
+  - 3a. Đơn chưa có sản phẩm nào mà bấm thanh toán → từ chối.
+- **Hậu điều kiện:** `SalesOrder` → `'paid'`, `Invoice`/`Payment` được lưu,
+  góp vào doanh thu (UC-19) và báo cáo doanh thu chi tiết (UC-25). Vì đơn
+  thường không gắn `customerId`, phần lớn doanh số bán lẻ KHÔNG cộng vào
+  `totalSpent`/hạng hội viên của khách. Chi tiết đầy đủ xem
+  `docs/04-workflows/flows/WF-09-Retail.md`.
+
+---
+
+### UC-25: Doanh thu chi tiết theo nguồn & đối chiếu nhập-bán-tồn kho
+- **Actor chính:** Admin, `branch_manager`
+- **Mô tả:** Hai báo cáo bổ sung (từ 2026-08-16) nhìn xuyên cả 2 trụ doanh
+  thu — thuê sân và bán lẻ dụng cụ — để tách bạch nguồn tiền và phát hiện
+  thất thoát kho. (1) Doanh thu chi tiết: tách mỗi kỳ thành 4 nhóm (tiền
+  sân / phụ kiện trong sân / bán lẻ / giảm giá), Admin xem được kèm so sánh
+  giữa các chi nhánh. (2) Đối chiếu kho: so khớp số lượng đã trừ kho
+  (`stock_movements`) với số lượng thực sự xuất hiện trên hóa đơn
+  (`invoice_lines`) cho từng sản phẩm/chi nhánh, lộ ra chênh lệch (kho đã
+  trừ nhưng chưa từng thanh toán).
+- **Tiền điều kiện:** Đã xác định được `branchId` (trừ khi so sánh toàn
+  chuỗi bằng `compareBranches=true`, chỉ dành cho Admin).
+- **Luồng chính:**
+  1. Admin/`branch_manager` chọn kỳ báo cáo, khoảng ngày (tuỳ chọn).
+  2. Đọc `GET /api/v1/reports/revenue-breakdown` hoặc
+     `GET /api/v1/reports/inventory-reconciliation`.
+  3. Hệ thống trả về số liệu đã tách nhóm/đối chiếu, hiển thị dạng bảng.
+- **Luồng ngoại lệ:**
+  - 1a. Không xác định được chi nhánh → 400.
+  - Dữ liệu doanh thu chi tiết chỉ có từ 2026-08-16 (`invoice_lines`); hóa
+    đơn tạo trước mốc này không xuất hiện trong báo cáo này (vẫn tính đủ ở
+    báo cáo doanh thu tổng UC-20).
+- **Hậu điều kiện:** Không thay đổi dữ liệu, chỉ hiển thị. Chi tiết đầy đủ
+  xem `docs/04-workflows/flows/WF-08-ReportsSettings.md` §D.1/D.2.
+
+---
+
 ## 4. Ma trận quyền truy cập Use Case theo Role
 
 | Use Case | Admin | Nhân viên | Khách hàng |
@@ -207,6 +265,8 @@
 | UC-21 Cài đặt hệ thống | ✅ | ❌ | ❌ |
 | UC-22 Tự đăng ký tài khoản | ❌ | ❌ | ✅ |
 | UC-23 Chuyển đổi chi nhánh | ✅ | ❌ | ❌ |
+| UC-24 Bán lẻ dụng cụ (POS) | ✅ | ✅ | ❌ |
+| UC-25 Doanh thu chi tiết / đối chiếu kho | ✅ | ❌ | ❌ |
 
 > **`branch_manager`** không có cột riêng trong ma trận trên (ma trận theo 3
 > vai trò tổng quan của `SRS.md`) — trong route thực tế, `branch_manager`
@@ -221,3 +281,4 @@
 - Các use case còn lại (UC-02, 03, 04, 08, 09, 12, 13, 14, 15, 16, 17, 20, 21) áp dụng cấu trúc đặc tả tương tự các use case mẫu ở mục 3; có thể mở rộng chi tiết khi bước vào giai đoạn thiết kế API/Database.
 - Use case sẽ được đối chiếu lại với `DatabaseDesign.md` và `APIDesign.md` để đảm bảo tính nhất quán.
 - UC-22, UC-23 (bổ sung ở v1.1) đã được đặc tả chi tiết ở mục 3 do gắn với thay đổi mô hình dữ liệu quan trọng (đăng nhập bằng SĐT, đa chi nhánh) — không theo quy ước "chỉ đặc tả sơ lược" như các UC còn lại.
+- UC-24, UC-25 (bổ sung ở v1.2, 16/08/2026) gắn với module bán lẻ dụng cụ (`Product`/`ProductVariant`/`SalesOrder`) và 2 báo cáo mới đọc xuyên cả 2 trụ doanh thu — cũng được đặc tả chi tiết ở mục 3 vì cùng lý do trên.

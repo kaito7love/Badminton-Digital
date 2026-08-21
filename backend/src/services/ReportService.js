@@ -1,7 +1,22 @@
 const { Invoice, Payment, CourtSession, Court, Customer, Extra, SessionExtra, InvoiceLine, ExtraStock, ProductStock, ProductVariant, Product, Employee, User, Branch, sequelize } = require('../models');
 const { Op } = require('sequelize');
-const { startOfLocalDay, endOfLocalDay } = require('../utils/dateTime');
+const { startOfLocalDay, endOfLocalDay, getUtcOffsetMinutes, DEFAULT_TIMEZONE } = require('../utils/dateTime');
 const InventoryService = require('./InventoryService');
+
+// Cột DATETIME lưu theo UTC (xem config.js) — GROUP BY theo ngày/tháng/năm
+// phải dịch sang giờ địa phương trước khi DATE_FORMAT, nếu không giao dịch
+// từ 00:00–07:00 giờ VN sẽ bị tính nhầm sang ngày hôm trước (cùng lớp bug đã
+// từng fix cho Dashboard "hôm nay" — xem `startOfLocalDay`/`endOfLocalDay`
+// ở trên — nhưng chưa áp dụng cho các báo cáo GROUP BY theo kỳ này).
+// So sánh nhiều chi nhánh (`compareBranches`) dùng chung 1 offset mặc định
+// vì cả chuỗi hiện tại chỉ vận hành ở 1 múi giờ (`DEFAULT_TIMEZONE`); nếu
+// sau này có chi nhánh khác múi giờ thật, chỗ này cần tách offset theo từng
+// `branch_id` thay vì 1 hằng số chung.
+const localDateFormatExpr = (column, groupByFormat, timezone = DEFAULT_TIMEZONE) => {
+  const offsetMinutes = getUtcOffsetMinutes(new Date(), timezone);
+  const shifted = sequelize.fn('DATE_ADD', column, sequelize.literal(`INTERVAL ${offsetMinutes} MINUTE`));
+  return sequelize.fn('DATE_FORMAT', shifted, groupByFormat);
+};
 
 // Phân loại từng dòng invoice_lines về 1 trong 4 nhóm nguồn doanh thu.
 // reference_type phân biệt "phụ kiện dùng trong sân" (session_extra) với
@@ -91,17 +106,19 @@ class ReportService {
     }
 
     const paidAtRange = buildDateRange('paidAt', from, to);
+    const branch = await Branch.findByPk(branchId);
+    const dateExpr = localDateFormatExpr(sequelize.col('paid_at'), groupByFormat, branch?.timezone);
 
     const revenueData = await Payment.findAll({
       attributes: [
-        [sequelize.fn('DATE_FORMAT', sequelize.col('paid_at'), groupByFormat), 'date'],
+        [dateExpr, 'date'],
         [sequelize.fn('SUM', sequelize.col('invoice.total_amount')), 'totalRevenue'],
         [sequelize.fn('COUNT', sequelize.col('Payment.id')), 'totalTransactions']
       ],
       where: { branchId, status: 'paid', ...(paidAtRange || {}) },
       include: [{ model: Invoice, as: 'invoice', attributes: [] }],
-      group: [sequelize.fn('DATE_FORMAT', sequelize.col('paid_at'), groupByFormat)],
-      order: [[sequelize.fn('DATE_FORMAT', sequelize.col('paid_at'), groupByFormat), 'DESC']],
+      group: [dateExpr],
+      order: [[dateExpr, 'DESC']],
       raw: true
     });
 
@@ -215,16 +232,21 @@ class ReportService {
 
     const createdAtRange = buildDateRange('createdAt', from, to);
     const invoiceWhere = compareBranches ? {} : { branchId };
+    // compareBranches gộp nhiều chi nhánh trong 1 query nên dùng offset mặc
+    // định (xem ghi chú ở `localDateFormatExpr`); trường hợp 1 chi nhánh thì
+    // lấy đúng timezone của chi nhánh đó.
+    const branch = compareBranches ? null : await Branch.findByPk(branchId);
+    const bucketExpr = localDateFormatExpr(sequelize.col('InvoiceLine.created_at'), groupByFormat, branch?.timezone);
 
     const groupCols = [
-      sequelize.fn('DATE_FORMAT', sequelize.col('InvoiceLine.created_at'), groupByFormat),
+      bucketExpr,
       sequelize.literal(REVENUE_SOURCE_CASE)
     ];
     if (compareBranches) groupCols.push(sequelize.col('invoice.branch_id'));
 
     const rows = await InvoiceLine.findAll({
       attributes: [
-        [sequelize.fn('DATE_FORMAT', sequelize.col('InvoiceLine.created_at'), groupByFormat), 'bucket'],
+        [bucketExpr, 'bucket'],
         [sequelize.literal(REVENUE_SOURCE_CASE), 'source'],
         ...(compareBranches ? [[sequelize.col('invoice.branch_id'), 'branchId']] : []),
         [sequelize.fn('SUM', sequelize.col('InvoiceLine.amount')), 'amount'],
@@ -233,7 +255,7 @@ class ReportService {
       where: { ...(createdAtRange || {}) },
       include: [{ model: Invoice, as: 'invoice', attributes: [], where: invoiceWhere }],
       group: groupCols,
-      order: [[sequelize.fn('DATE_FORMAT', sequelize.col('InvoiceLine.created_at'), groupByFormat), 'DESC']],
+      order: [[bucketExpr, 'DESC']],
       raw: true
     });
 
