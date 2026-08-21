@@ -383,6 +383,25 @@ trên trạng thái đã gộp cả 2 nhánh, không chỉ test riêng từng nh
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
 | 4 việc cần quyết định chính sách kinh doanh trước (discount guardrail, onboarding branch_manager, luồng hoàn tiền/void, cấu hình tài khoản ngân hàng) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
 
+## Lỗi phát hiện qua kiểm thử hồi quy 21/08/2026 — đã ghi nhận, CHƯA sửa
+
+Bộ kiểm thử hồi quy sau đợt chuẩn hoá múi giờ (~190 phép kiểm trên MySQL thật) soi ra
+**8 lỗi có sẵn từ trước**. Nguyên nhân + cách khắc phục từng lỗi:
+`09-loi-phat-hien-kiem-thu-hoi-quy.md`.
+
+Hai lỗi đụng tiền và dữ liệu, nên xử lý trước:
+
+- 🔴 **Giờ cao điểm đọc sai khoá cấu hình** — `SettingService.getPeakHours()` đọc khoá
+  `pricing` trong khi seeder ghi vào `operating_hours`, nên luôn rơi về mặc định 17–22.
+  Cấu hình `peak_end = 21:00` bị bỏ qua ⇒ khách bị tính giá cao điểm thừa 1 tiếng mỗi ngày.
+- 🔴 **Đặt lịch so sánh giờ bằng chuỗi** — `BookingService` dùng `startTime >= endTime` trên
+  chuỗi, nên `9:00 → 10:00` bị từ chối oan còn `10:00 → 9:00` lại được lưu vào DB và lọt
+  cả kiểm tra trùng lịch.
+
+Sáu lỗi còn lại (cắt ngày theo giờ máy chủ ở 5 chỗ, `/reports/revenue` bỏ qua `from`/`to`,
+báo cáo sai ngày ở vùng có DST, `compareBranches` gộp một múi giờ, checkout đồng thời trả
+500, mã giảm giá "đến hết hôm nay" chết từ 7h sáng) — xem chi tiết trong file trên.
+
 ## Cố ý bỏ qua / đã hoãn — không tự ý làm lại nếu chưa hỏi lại chủ dự án
 
 - Bảo mật webhook thanh toán (secret, chống giả mạo) — cả module thanh toán
