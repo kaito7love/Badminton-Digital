@@ -190,9 +190,10 @@ class SalesOrderService {
    * Áp (hoặc gỡ, khi `voucherCode` rỗng) mã giảm giá cho đơn tại quầy, trước
    * lúc checkout — cùng cơ chế khoá dòng voucher trong transaction như
    * OnlineOrderService.placeOrder, để hai quầy/hai khách không giành cùng một
-   * lượt cuối cùng của một mã. Chốt sẵn `voucherDiscountAmount` ở đây, không
-   * tính lại lúc checkout — checkout chỉ cộng nó vào cùng discountAmount thủ
-   * công (nếu thu ngân còn giảm tay thêm nữa).
+   * lượt cuối cùng của một mã. `voucherDiscountAmount` ghi ở đây chỉ là số để
+   * HIỂN THỊ cho thu ngân thấy ngay; con số có hiệu lực về tiền là số được
+   * tính lại trong `checkout` trên giỏ hàng cuối cùng (xem ghi chú ở đó) —
+   * giỏ có thể còn thay đổi sau bước này.
    */
   static async applyVoucher(orderId, { voucherCode }, context = {}) {
     const transaction = await sequelize.transaction();
@@ -309,8 +310,34 @@ class SalesOrderService {
       }
 
       const extrasFee = order.lines.reduce((sum, line) => sum + Number(line.lineTotal), 0);
-      const manualDiscount = Number(discountAmount || 0);
-      const voucherDiscount = Number(order.voucherDiscountAmount || 0);
+
+      // Tính LẠI số tiền giảm của mã ngay tại đây, trên giỏ hàng cuối cùng —
+      // không tin số đã chốt lúc applyVoucher. Giữa hai thời điểm đó nhân
+      // viên có thể đã thêm/bớt dòng hàng (chuyện thường ở quầy: quét nhầm,
+      // khách đổi ý) hoặc admin đã tắt mã. Nếu chỉ đọc số cũ thì mọi ràng
+      // buộc minOrderAmount/maxDiscountAmount/isActive/hạn dùng đều vượt qua
+      // được: áp mã lúc giỏ "đẹp" rồi bỏ bớt hàng, hoá đơn ra tiền giảm lớn
+      // hơn cả tiền hàng. `excludeOrderId` để đơn không tự đếm mình là một
+      // lượt đã dùng khi soi usageLimit.
+      let voucherDiscount = 0;
+      if (order.voucherId) {
+        const revalidated = await VoucherService.validateAndCompute({
+          code: order.voucherCode,
+          customerId: order.customerId,
+          orderAmount: extrasFee,
+          transaction,
+          excludeOrderId: order.id
+        });
+        voucherDiscount = revalidated.discountAmount;
+        if (voucherDiscount !== Number(order.voucherDiscountAmount || 0)) {
+          await order.update({ voucherDiscountAmount: voucherDiscount }, { transaction });
+        }
+      }
+
+      // Giảm giá tay cũng phải nằm trong phần còn lại của đơn — trước đây
+      // discount_amount lưu số thô nên nhập 999.999đ cho đơn 25.000đ vẫn ghi
+      // thẳng vào hoá đơn, làm báo cáo doanh thu đọc ra số vô nghĩa.
+      const manualDiscount = Math.max(0, Math.min(Number(discountAmount || 0), extrasFee - voucherDiscount));
       const totalDiscountAmount = manualDiscount + voucherDiscount;
       const totalAmount = Math.max(0, extrasFee - totalDiscountAmount);
 

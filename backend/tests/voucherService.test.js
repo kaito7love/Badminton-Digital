@@ -36,6 +36,40 @@ describe('VoucherService.computeDiscount', () => {
     const voucher = { discountType: 'percent', discountValue: 90, maxDiscountAmount: 1000000 };
     expect(VoucherService.computeDiscount(voucher, 50000)).toBe(45000);
   });
+
+  test('làm tròn về đồng nguyên — VND không có đơn vị lẻ dưới 1đ', () => {
+    const voucher = { discountType: 'percent', discountValue: 10, maxDiscountAmount: null };
+    expect(VoucherService.computeDiscount(voucher, 333333)).toBe(33333);
+  });
+});
+
+describe('VoucherService.assertConsistent', () => {
+  test('percent > 100 bị chặn (áp dụng cho cả tạo mới lẫn sửa)', () => {
+    expect(() => VoucherService.assertConsistent({ discountType: 'percent', discountValue: 150 }))
+      .toThrow(/không thể vượt quá 100/);
+  });
+
+  test('flat thì giá trị lớn hơn 100 vẫn hợp lệ — đó là số tiền, không phải %', () => {
+    expect(() => VoucherService.assertConsistent({ discountType: 'flat', discountValue: 50000 })).not.toThrow();
+  });
+
+  test('ngày kết thúc trước ngày bắt đầu bị chặn', () => {
+    expect(() => VoucherService.assertConsistent({
+      discountType: 'flat',
+      discountValue: 1000,
+      startsAt: '2026-12-01T00:00:00.000Z',
+      endsAt: '2026-01-01T00:00:00.000Z'
+    })).toThrow(/phải sau ngày bắt đầu/);
+  });
+
+  test('chỉ có một trong hai mốc thời gian thì không kiểm khoảng', () => {
+    expect(() => VoucherService.assertConsistent({
+      discountType: 'flat',
+      discountValue: 1000,
+      startsAt: '2026-12-01T00:00:00.000Z',
+      endsAt: null
+    })).not.toThrow();
+  });
 });
 
 describe('VoucherService.assertWithinWindow', () => {

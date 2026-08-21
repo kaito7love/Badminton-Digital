@@ -164,7 +164,7 @@ export default function VoucherTab() {
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Mã *</label>
-              <input type="text" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })}
+              <input type="text" required maxLength={32} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })}
                 className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 px-4 py-2.5 text-sm uppercase focus:border-emerald-500 focus:outline-none"
                 placeholder="VD: SALE10" />
             </div>

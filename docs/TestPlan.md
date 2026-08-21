@@ -124,8 +124,21 @@ Tiêu chí đạt: p95 response time < 2 giây, tỉ lệ lỗi (5xx) < 1% ở t
 - `dateTime.test.js`
 - `phone.test.js`
 - `inventoryService.test.js` — thêm cùng đợt merge hệ thống quản lý kho hàng (nhà cung cấp, phiếu nhập kho, tồn kho)
+- `publicCatalogService.test.js`, `onlineOrderService.test.js`, `onlineOrderValidation.test.js` — luồng khách tự đặt hàng online + thanh toán chuyển khoản VietQR
+- `voucherService.test.js`, `voucherValidation.test.js` — mã giảm giá (xem `TestCases-ThanhToanOnline-Voucher.md`)
 
 Tất cả các file trên là unit test thuần logic, không kết nối DB thật (không có `NODE_ENV=test` + MySQL trong CI), phù hợp việc CI hiện tại không có service DB.
+
+⚠️ **Phải chạy `TZ=Asia/Ho_Chi_Minh npm test`.** `dateTime.test.js` giả định múi giờ
+Việt Nam, trong khi `npm test` là `jest` trần và runner `ubuntu-latest` của CI chạy
+UTC — nghĩa là 2 ca trong file này **đang fail trên CI**. Sửa bằng cách đặt biến môi
+trường `TZ` trong `.github/workflows/ci.yml` hoặc viết lại test cho độc lập múi giờ.
+
+### 9.1b Kiểm thử tích hợp trên MySQL thật (chạy tay, chưa vào CI)
+`TestCases-ThanhToanOnline-Voucher.md` ghi lại 51 ca kiểm thử tích hợp đã chạy trên
+backend + MySQL thật cho 2 giai đoạn thanh toán online và mã giảm giá, kèm 7 lỗi phát
+hiện được và bằng chứng vá. Đây là loại test mục 3 xếp vào "Integration Test" — hiện
+chạy tay vì CI chưa có service DB.
 
 ### 9.2 Test file hiện có (frontend — `frontend/src/**/*.test.*`, chạy bằng `npm test` → `vitest`)
 - `src/utils/roles.test.js` — hiện là file test duy nhất ở frontend.

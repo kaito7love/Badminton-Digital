@@ -31,7 +31,10 @@ class VoucherService {
     }
     const raw = amount * (Number(voucher.discountValue) / 100);
     const capped = voucher.maxDiscountAmount != null ? Math.min(raw, Number(voucher.maxDiscountAmount)) : raw;
-    return Math.min(capped, amount);
+    // Làm tròn về đồng nguyên: VND không có đơn vị nhỏ hơn 1đ, mà 10% của
+    // 333.333đ ra 33.333,3 — để nguyên thì số lẻ đó chui vào
+    // sales_orders.voucher_discount_amount DECIMAL(12,2) rồi lệch khi đối soát.
+    return Math.round(Math.min(capped, amount));
   }
 
   /** Còn hiệu lực ở thời điểm `now` không — không tính chuyện lượt dùng hay đơn tối thiểu. */
@@ -53,13 +56,23 @@ class VoucherService {
     }
   }
 
-  static async countUsage(voucherId, customerId, transaction) {
+  /**
+   * `excludeOrderId` để bỏ chính đơn đang xét ra khỏi phép đếm — cần khi
+   * kiểm tra lại mã lúc checkout một đơn ĐÃ mang voucher_id: nếu không loại
+   * ra thì đơn tự đếm chính mình là một lượt đã dùng và mã usageLimit=1 sẽ
+   * báo "hết lượt" ngay trên đơn hợp lệ của nó.
+   */
+  static async countUsage(voucherId, customerId, transaction, excludeOrderId = null) {
+    const notSelf = excludeOrderId ? { id: { [Op.ne]: excludeOrderId } } : {};
     const total = await SalesOrder.count({
-      where: { voucherId, status: { [Op.ne]: 'cancelled' } },
+      where: { voucherId, status: { [Op.ne]: 'cancelled' }, ...notSelf },
       transaction
     });
     const byCustomer = customerId
-      ? await SalesOrder.count({ where: { voucherId, customerId, status: { [Op.ne]: 'cancelled' } }, transaction })
+      ? await SalesOrder.count({
+        where: { voucherId, customerId, status: { [Op.ne]: 'cancelled' }, ...notSelf },
+        transaction
+      })
       : 0;
     return { total, byCustomer };
   }
@@ -71,7 +84,7 @@ class VoucherService {
    * (đọc thêm ghi chú ở nơi gọi — OnlineOrderService/SalesOrderService cũng
    * khoá dòng `sales_orders` tương ứng trước khi gọi hàm này).
    */
-  static async validateAndCompute({ code, customerId = null, orderAmount, transaction }) {
+  static async validateAndCompute({ code, customerId = null, orderAmount, transaction, excludeOrderId = null }) {
     if (!transaction) {
       throw new Error('VoucherService.validateAndCompute requires an active transaction');
     }
@@ -105,7 +118,7 @@ class VoucherService {
     }
 
     if (voucher.usageLimit != null || voucher.perCustomerLimit != null) {
-      const { total, byCustomer } = await VoucherService.countUsage(voucher.id, customerId, transaction);
+      const { total, byCustomer } = await VoucherService.countUsage(voucher.id, customerId, transaction, excludeOrderId);
       if (voucher.usageLimit != null && total >= voucher.usageLimit) {
         const error = new Error('Mã giảm giá đã hết lượt sử dụng');
         error.statusCode = 400;
@@ -161,6 +174,24 @@ class VoucherService {
     return voucher;
   }
 
+  /**
+   * Các bất biến phải đúng ở CẢ create lẫn update — trước đây chỉ create kiểm
+   * `percent > 100`, nên sửa một mã 10% thành 150% qua PUT là lọt, và mã đó
+   * giảm trọn vẹn giá trị đơn (đơn về 0đ).
+   */
+  static assertConsistent({ discountType, discountValue, startsAt, endsAt }) {
+    if (discountType === 'percent' && Number(discountValue) > 100) {
+      const error = new Error('Giảm theo % không thể vượt quá 100');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
+      const error = new Error('Ngày kết thúc phải sau ngày bắt đầu');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
   static async create(data, context = {}) {
     const code = VoucherService.normalizeCode(data.code);
     const existing = await Voucher.findOne({ where: { code } });
@@ -169,11 +200,7 @@ class VoucherService {
       error.statusCode = 400;
       throw error;
     }
-    if (data.discountType === 'percent' && Number(data.discountValue) > 100) {
-      const error = new Error('Giảm theo % không thể vượt quá 100');
-      error.statusCode = 400;
-      throw error;
-    }
+    VoucherService.assertConsistent(data);
 
     const voucher = await Voucher.create({
       code,
@@ -215,6 +242,24 @@ class VoucherService {
         throw error;
       }
       data = { ...data, code: nextCode };
+    }
+
+    // Kiểm bất biến trên GIÁ TRỊ SAU KHI GHÉP, không phải chỉ trên phần client
+    // gửi lên: sửa mỗi discountValue=150 mà không gửi discountType thì vẫn
+    // phải soi discountType đang lưu trong DB mới biết đó là percent.
+    const merged = {
+      discountType: data.discountType ?? voucher.discountType,
+      discountValue: data.discountValue ?? voucher.discountValue,
+      startsAt: data.startsAt !== undefined ? data.startsAt : voucher.startsAt,
+      endsAt: data.endsAt !== undefined ? data.endsAt : voucher.endsAt
+    };
+    VoucherService.assertConsistent(merged);
+
+    // Giữ đúng bất biến "flat thì không có mức trần" như create: đổi percent
+    // sang flat mà để lại max_discount_amount cũ là dữ liệu rác, admin nhìn
+    // bảng sẽ tưởng mã flat vẫn đang bị chặn trần.
+    if (merged.discountType === 'flat') {
+      data = { ...data, maxDiscountAmount: null };
     }
 
     const updated = await voucher.update({
