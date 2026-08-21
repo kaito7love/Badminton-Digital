@@ -203,12 +203,20 @@ tài liệu test). Có thêm ca F7 để chắc chắn **không vá quá tay** �
   snapshot chi nhánh thật của 34 dòng trải trên cả 3 chi nhánh, `NULL` sạch rồi chạy lại
   → **34/34 về đúng chi nhánh gốc, 0 sai**. Chi tiết các ca kiểm: mục 8.3 tài liệu test.
 
+- **Khoá ngoại `branch_id` trùng lặp.** Cùng lỗi `changeColumn` kèm `references` của M1
+  để lại hai ràng buộc y hệt nhau trên mỗi bảng trong 6 bảng (`*_branch_id_foreign_idx`
+  từ `addColumn` và `*_ibfk_N` từ `changeColumn`) — cùng trỏ `branches(id)`, cùng
+  CASCADE/RESTRICT, khiến MySQL kiểm tra hai lần mỗi lần ghi. Migration `20260821300001`
+  giữ lại đúng một ràng buộc mỗi bảng, tra `INFORMATION_SCHEMA` lúc chạy thay vì ghi cứng
+  tên (đuôi `_ibfk_N` do MySQL đánh số theo thứ tự tạo nên mỗi nơi một khác).
+
+  Kiểm chứng quan trọng nhất là **toàn vẹn tham chiếu không suy giảm**: chèn `branch_id`
+  không tồn tại vẫn bị từ chối bởi chính ràng buộc còn lại, và xoá chi nhánh đang có sân
+  vẫn bị `RESTRICT`. Chỉ số không bị đụng tới. Chi tiết: mục 8.4 tài liệu test.
+
 ### 5.2. Còn tồn tại — mới báo cáo, chưa sửa
 
-1. Khoá ngoại `branch_id` **trùng lặp** trên 6 bảng (`*_ibfk_N` nằm cạnh
-   `*_branch_id_foreign_idx`) — rác do `changeColumn` kèm `references` của M1 để lại.
-   Vô hại về dữ liệu, chỉ là ràng buộc thừa.
-2. `POST /auth/login` trả **500** khi cùng tài khoản đăng nhập đồng thời
+1. `POST /auth/login` trả **500** khi cùng tài khoản đăng nhập đồng thời
    (`OptimisticLockError` không được bắt).
 3. Đơn online chuyển khoản tạo hoá đơn nhưng **không tạo dòng hoá đơn** — xem chi tiết
    hoá đơn của đơn online sẽ trống, trong khi đơn POS thì có đủ.

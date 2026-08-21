@@ -257,12 +257,38 @@ dữ liệu chi nhánh 2/3 vào nhầm sổ. Thứ tự bắt buộc:
 > `STRICT_TRANS_TABLES` sẽ âm thầm biến `NULL` thành `0` khi đặt `NOT NULL`, sinh ra dòng
 > trỏ tới chi nhánh không tồn tại. Không dựa vào `sql_mode` của máy chủ đích.
 
-### 8.4. Còn tồn tại — mới báo cáo, **chưa** sửa
+### 8.4. Dọn khoá ngoại `branch_id` trùng lặp
+
+Cùng lỗi `changeColumn` kèm `references` của M1 còn để lại **hai khoá ngoại y hệt nhau**
+trên mỗi bảng trong 6 bảng: một do Sequelize đặt tên (`<bảng>_branch_id_foreign_idx`,
+từ `addColumn`) và một do MySQL tự sinh (`<bảng>_ibfk_N`, từ `changeColumn`). Cả hai cùng
+trỏ `branches(id)`, cùng `ON UPDATE CASCADE`, cùng `ON DELETE RESTRICT` — MySQL phải kiểm
+tra hai lần cho mỗi lần ghi. Migration `20260821300001` giữ lại đúng một ràng buộc mỗi bảng.
+
+**Không ghi cứng tên ràng buộc.** Phần đuôi `_ibfk_N` do MySQL đánh số theo thứ tự khoá
+ngoại được tạo trong từng bảng nên mỗi nơi triển khai một khác (ở DB tham chiếu:
+`courts_ibfk_1`, `payments_ibfk_3`, `bookings_ibfk_4`). Migration tra `INFORMATION_SCHEMA`
+lúc chạy, ưu tiên giữ tên do migration đặt.
+
+| Ca | Cách kiểm | Kết quả |
+|---|---|---|
+| Dọn đúng phạm vi | Đếm khoá ngoại `branch_id` từng bảng sau migration | 6 bảng trùng lặp còn đúng 1, đều giữ tên `*_branch_id_foreign_idx`; 8 bảng vốn chỉ có 1 (`*_ibfk_N`) **không bị đụng tới** |
+| **Toàn vẹn tham chiếu — chiều chèn** | `INSERT` sân và booking với `branch_id = 999` | Bị từ chối bởi chính ràng buộc còn lại (`courts_branch_id_foreign_idx`, `bookings_branch_id_foreign_idx`) |
+| **Toàn vẹn tham chiếu — chiều xoá** | Tạo chi nhánh 99 chỉ có 1 sân rồi xoá chi nhánh | Bị chặn `RESTRICT` bởi `courts_branch_id_foreign_idx`; xoá sân trước thì xoá chi nhánh thành công |
+| Không chặn nhầm | `INSERT` sân với chi nhánh hợp lệ | Thành công |
+| Chỉ số không đụng tới | Đối chiếu `INFORMATION_SCHEMA.STATISTICS` trước/sau | 6 index giữ nguyên y hệt (`idx_courts_branch_status`, `uk_invoices_branch_invoice_no`, …) |
+| Chạy lại được | `db:migrate:undo` rồi chạy lại | Sạch, không lỗi — lần hai không tìm thấy bản sao nào nên không làm gì |
+| Đường ghi thật | Tạo đơn POS → thêm hàng → thanh toán qua API thật | Thành công, xuất hoá đơn `BD-1-00000019` |
+
+> `down()` cố ý là no-op: trạng thái cũ là "một ràng buộc thừa mang tên MySQL tự sinh
+> không đoán trước được", dựng lại vừa vô nghĩa vừa không tái lập được đúng tên. Ràng buộc
+> thật vẫn nguyên nên bỏ qua migration này không mất mát gì.
+
+### 8.5. Còn tồn tại — mới báo cáo, **chưa** sửa
 
 | # | Vấn đề | Mức độ | Ghi chú |
 |---|---|---|---|
-| 1 | Khoá ngoại `branch_id` bị **trùng lặp** trên 6 bảng (`*_ibfk_N` + `*_branch_id_foreign_idx`) | Thấp | Rác do `changeColumn` kèm `references` của M1 để lại. Vô hại về mặt dữ liệu, chỉ là ràng buộc thừa; dọn được nhưng không gấp |
-| 2 | `POST /auth/login` trả **500** khi cùng một tài khoản đăng nhập đồng thời: `"Attempting to update a stale model instance: User"` — `OptimisticLockError` không được bắt | Trung bình | Nên retry hoặc trả lỗi có nghĩa |
+| 1 | `POST /auth/login` trả **500** khi cùng một tài khoản đăng nhập đồng thời: `"Attempting to update a stale model instance: User"` — `OptimisticLockError` không được bắt | Trung bình | Nên retry hoặc trả lỗi có nghĩa |
 | 3 | Đơn online chuyển khoản tạo Invoice nhưng **không tạo `invoice_lines`**, trong khi POS thì có | Trung bình | Xem hoá đơn chi tiết của đơn online sẽ trống |
 | 4 | `countUsage` tính cả đơn `open` → đơn POS bỏ dở giữ một lượt mã vĩnh viễn | Thấp | Cân nhắc bổ sung cơ chế dọn đơn quầy bị bỏ quên |
 | 5 | Rate limit đăng nhập 10 lần/15 phút/IP không có ngoại lệ cho môi trường test | Thấp | Là tính năng bảo mật đúng, nhưng gây khó khi chạy test tự động |
