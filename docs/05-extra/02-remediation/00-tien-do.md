@@ -441,11 +441,7 @@ mỗi nhánh thêm 1 khối hàm riêng biệt nên git tự gộp được). Sa
 2: `npm test` backend 121/121, frontend 46/46 — chạy trên trạng thái đã gộp,
 không chỉ test riêng từng nhánh. `main` đã được push lên `origin` sau đó.
 
----
-
-## Đã code + test xong trên nhánh riêng — CHƯA merge, chờ duyệt
-
-### 12. `feat/realtime-event-bus` (commit `1064876`, chưa merge)
+### 12. `feat/realtime-event-bus` (merge tại `a7c21ad`)
 Nguồn: `../01-audit/RealtimeCourtSync.md` — mở/đóng/chuyển sân ở thiết bị A
 không tự cập nhật cho thiết bị B đang xem cùng trang Sân, phải tự F5. Theo
 đúng phương án đã chọn trong audit (SSE, không phải polling/WebSocket) và
@@ -501,6 +497,10 @@ nền tảng.
 — phạm vi đã chốt chỉ làm trang Sân trước): `BookingService`/
 `AccessoryService`/`SalesOrderService` chưa emit sự kiện gì — cùng khuôn
 transaction nên thêm sau chỉ tốn 1 dòng mỗi điểm, không cần sửa nền tảng.
+
+Merge vào `main` bằng `--no-ff` (`a7c21ad`) — không conflict (nhánh này không
+đụng file nào mà mục 10/11 đã sửa). `npm test` sau merge: backend 121/121,
+frontend 46/46.
 
 ---
 
