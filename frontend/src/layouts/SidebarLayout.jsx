@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBranch } from '../contexts/BranchContext';
-import { MoonIcon, SunIcon, ChartBarIcon, HomeIcon, TicketIcon, ClipboardListIcon, UserGroupIcon, BuildingOfficeIcon, FileChartBarIcon, Cog6ToothIcon, HistoryIcon, ShoppingBagIcon } from './icons';
+import { MoonIcon, SunIcon, ChartBarIcon, HomeIcon, TicketIcon, ClipboardListIcon, UserGroupIcon, BuildingOfficeIcon, FileChartBarIcon, Cog6ToothIcon, HistoryIcon, ShoppingBagIcon, ClipboardCheckIcon } from './icons';
 import { roleOf } from '../utils/roles';
 
 // `roles` bỏ trống = mọi nhân sự đều thấy. Những mục chỉ admin mới gọi được API
@@ -19,6 +19,7 @@ const navItems = [
   { path: '/employees', label: 'Nhân Viên', icon: ChartBarIcon, roles: ['admin', 'branch_manager'] },
   { path: '/history', label: 'Lịch Sử', icon: HistoryIcon },
   { path: '/reports', label: 'Báo Cáo', icon: FileChartBarIcon, roles: ['admin', 'branch_manager'] },
+  { path: '/activity-log', label: 'Nhật Ký Hoạt Động', icon: ClipboardCheckIcon, roles: ['admin', 'branch_manager'] },
   { path: '/settings', label: 'Cài Đặt', icon: Cog6ToothIcon, roles: ['admin'] }
 ];
 

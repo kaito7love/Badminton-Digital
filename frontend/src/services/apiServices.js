@@ -180,6 +180,11 @@ export const invoiceService = {
   exportPdf: (id) => apiClient.get(`/invoices/${id}/export-pdf`, { responseType: 'blob' }),
 };
 
+// ─── Activity Log (Nhật ký hoạt động, admin/branch_manager) ──────
+export const activityLogService = {
+  list: (params) => apiClient.get('/activity-logs', { params }),
+};
+
 // ─── Reports ─────────────────────────────────────────────────────
 export const reportService = {
   getDashboard: () => apiClient.get('/reports/dashboard'),
