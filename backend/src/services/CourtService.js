@@ -5,6 +5,7 @@ const AuditService = require('./AuditService');
 const SettingService = require('./SettingService');
 const CustomerService = require('./CustomerService');
 const { localDateString, localTimeString } = require('../utils/dateTime');
+const realtimeBus = require('../utils/realtimeBus');
 
 const COURT_STATUSES = ['active', 'maintenance', 'inactive'];
 
@@ -271,6 +272,10 @@ class CourtService {
       await AuditService.record({ actor: context.actor, branchId: context.branchId, action: 'court.session_opened', targetType: 'court_session', targetId: session.id, newValues: session.toJSON(), requestId: context.requestId, transaction });
 
       await transaction.commit();
+      // Chỉ bắn sự kiện SAU KHI commit xong — bắn sớm hơn có thể khiến thiết
+      // bị khác fetch lại đúng lúc transaction chưa ghi xong, đọc phải dữ
+      // liệu cũ rồi coi như "không có gì đổi" (mục (c), RealtimeCourtSync.md).
+      realtimeBus.emit('court:updated', { branchId: context.branchId, courtId: Number(courtId) });
       return session;
     } catch (err) {
       await transaction.rollback();
@@ -321,6 +326,7 @@ class CourtService {
       await AuditService.record({ actor: context.actor, branchId: court.branchId, action: 'court.session_closed', targetType: 'court_session', targetId: activeSession.id, oldValues, newValues: activeSession.toJSON(), requestId: context.requestId, transaction });
 
       await transaction.commit();
+      realtimeBus.emit('court:updated', { branchId: court.branchId, courtId: court.id });
 
       return {
         sessionId: activeSession.id,
@@ -382,6 +388,11 @@ class CourtService {
       await AuditService.record({ actor: context.actor, branchId: sourceCourt.branchId, action: 'court.session_transferred', targetType: 'court_session', targetId: activeSession.id, oldValues, newValues: activeSession.toJSON(), requestId: context.requestId, transaction });
 
       await transaction.commit();
+      // Cả 2 sân đổi trạng thái (nguồn trống lại, đích chuyển sang đang chơi)
+      // — bắn 1 sự kiện mỗi sân, client luôn refetch toàn bộ danh sách nên
+      // không cần payload chi tiết hơn.
+      realtimeBus.emit('court:updated', { branchId: sourceCourt.branchId, courtId: sourceCourt.id });
+      realtimeBus.emit('court:updated', { branchId: targetCourt.branchId, courtId: targetCourt.id });
       return activeSession;
     } catch (err) {
       await transaction.rollback();
@@ -479,6 +490,7 @@ class CourtService {
       const updated = await court.update({ status }, { transaction });
       await AuditService.record({ actor: context.actor, branchId: court.branchId, action, targetType: 'court', targetId: court.id, oldValues, newValues: updated.toJSON(), requestId: context.requestId, transaction });
       await transaction.commit();
+      realtimeBus.emit('court:updated', { branchId: court.branchId, courtId: court.id });
       return CourtService.formatCourt(updated);
     } catch (error) {
       await transaction.rollback();
