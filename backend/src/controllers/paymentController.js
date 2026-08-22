@@ -31,6 +31,20 @@ const getInvoiceById = async (req, res, next) => {
   }
 };
 
+const voidInvoice = async (req, res, next) => {
+  try {
+    const result = await PaymentService.voidInvoice(req.params.id, {
+      reason: req.body.reason,
+      actor: req.user,
+      branchId: req.branchId,
+      requestId: req.requestId
+    });
+    return successResponse(res, result, 'Invoice voided successfully');
+  } catch (err) {
+    next(err);
+  }
+};
+
 const exportPdf = async (req, res, next) => {
   try {
     const invoice = await PaymentService.getInvoiceById(req.params.id, { actor: req.user, branchId: req.branchId });
@@ -69,5 +83,6 @@ module.exports = {
   checkout,
   processWebhook,
   getInvoiceById,
-  exportPdf
+  exportPdf,
+  voidInvoice
 };

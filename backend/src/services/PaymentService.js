@@ -1,9 +1,11 @@
-const { Invoice, InvoiceLine, Payment, CourtSession, SessionExtra, Extra, Customer, Court, Employee, SalesOrder, Branch, sequelize } = require('../models');
+const { Invoice, InvoiceLine, Payment, CourtSession, SessionExtra, Extra, Customer, Court, Employee, SalesOrder, SalesOrderLine, Branch, sequelize } = require('../models');
 const { calculateCourtFee, calculateInvoiceTotals } = require('../utils/priceCalculator');
 const { generateVietQRUrl } = require('../utils/vietqr');
 const { nextInvoiceNumber } = require('../utils/documentNumber');
+const { computeLoyaltyTier } = require('../utils/loyalty');
 const AuditService = require('./AuditService');
 const SettingService = require('./SettingService');
+const InventoryService = require('./InventoryService');
 
 class PaymentService {
   static async checkout({ sessionId, paymentMethod = 'cash', discountAmount = 0, isDiscountPercent = false, employeeId, branchId, actor, requestId, idempotencyKey }) {
@@ -174,16 +176,9 @@ class PaymentService {
         const customer = await Customer.findByPk(session.customerId, { transaction });
         if (customer) {
           const newTotalSpent = Number(customer.totalSpent) + totals.totalAmount;
-          let loyaltyTier = 'normal';
-          if (newTotalSpent >= 15000000) {
-            loyaltyTier = 'vip';
-          } else if (newTotalSpent >= 5000000) {
-            loyaltyTier = 'gold';
-          }
-
           await customer.update({
             totalSpent: newTotalSpent,
-            loyaltyTier
+            loyaltyTier: computeLoyaltyTier(newTotalSpent)
           }, { transaction });
         }
       }
@@ -217,7 +212,12 @@ class PaymentService {
         qrCodeUrl
       };
     } catch (err) {
-      await transaction.rollback();
+      // Chỉ rollback khi transaction chưa tự kết thúc — cùng khuôn đã áp ở
+      // SalesOrderService (26ad904), tránh lỗi rollback-trên-transaction-đã-
+      // chết che mất lỗi gốc.
+      if (!transaction.finished) {
+        await transaction.rollback().catch(() => {});
+      }
       throw err;
     }
   }
@@ -275,6 +275,128 @@ class PaymentService {
     }
 
     return invoice;
+  }
+
+  /**
+   * Huỷ toàn bộ 1 hoá đơn đã thanh toán (nhân viên bấm nhầm lúc checkout,
+   * khách yêu cầu hoàn tiền...). Chỉ huỷ toàn bộ — không hoàn từng dòng.
+   * Không đụng gì tới hoá đơn `draft`/`issued` (chưa có gì để hoàn) hay đã
+   * `void` từ trước (409, tránh trừ totalSpent/trả kho hai lần).
+   */
+  static async voidInvoice(invoiceId, { reason, actor, branchId, requestId }) {
+    if (!reason || !reason.trim()) {
+      const error = new Error('Lý do huỷ hoá đơn là bắt buộc');
+      error.statusCode = 400;
+      throw error;
+    }
+    const transaction = await sequelize.transaction();
+    try {
+      const invoice = await Invoice.findOne({
+        where: { id: invoiceId, ...(branchId ? { branchId } : {}) },
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+      if (!invoice) {
+        const error = new Error('Invoice not found');
+        error.statusCode = 404;
+        throw error;
+      }
+      if (invoice.status === 'void') {
+        const error = new Error('Hoá đơn này đã được huỷ trước đó');
+        error.statusCode = 409;
+        throw error;
+      }
+      if (invoice.status !== 'paid') {
+        const error = new Error(`Chỉ huỷ được hoá đơn đã thanh toán (trạng thái hiện tại: '${invoice.status}')`);
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const payment = await Payment.findOne({ where: { invoiceId: invoice.id }, transaction, lock: transaction.LOCK.UPDATE });
+      if (!payment || payment.status !== 'paid') {
+        const error = new Error('Không tìm thấy giao dịch đã thanh toán ứng với hoá đơn này');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // Xác định khách hàng gắn với hoá đơn — cùng nhánh if/else đã dùng ở
+      // processWebhook: hoá đơn phiên sân hoặc hoá đơn đơn bán lẻ loại trừ
+      // lẫn nhau (sessionId/salesOrderId không bao giờ cùng có giá trị).
+      let customerId = null;
+      if (invoice.salesOrderId) {
+        const order = await SalesOrder.findByPk(invoice.salesOrderId, { transaction, lock: transaction.LOCK.UPDATE });
+        customerId = order?.customerId || null;
+
+        // Trả kho — chỉ áp dụng cho hoá đơn bán lẻ. Phụ kiện gọi trong phiên
+        // chơi (hoá đơn sessionId) đã bị tiêu thụ lúc chơi, không phải hàng
+        // hoá có thể nhập lại kệ, nên không đụng tới ở nhánh else.
+        const productLines = await InvoiceLine.findAll({
+          where: { invoiceId: invoice.id, lineKind: 'product', referenceType: 'sales_order_line' },
+          transaction
+        });
+        for (const line of productLines) {
+          const soLine = await SalesOrderLine.findByPk(line.referenceId, { transaction });
+          if (soLine) {
+            await InventoryService.postMovement({
+              branchId: invoice.branchId,
+              productVariantId: soLine.variantId,
+              type: 'sale_return',
+              quantity: line.quantity,
+              referenceType: 'invoice_line',
+              referenceId: line.id,
+              actor,
+              transaction
+            });
+          }
+        }
+      } else if (invoice.sessionId) {
+        const session = await CourtSession.findByPk(invoice.sessionId, { transaction, lock: transaction.LOCK.UPDATE });
+        customerId = session?.customerId || null;
+      }
+
+      const oldValues = { invoiceStatus: invoice.status, paymentStatus: payment.status };
+
+      await payment.update({ status: 'refunded' }, { transaction });
+      await invoice.update({ status: 'void' }, { transaction });
+
+      if (customerId) {
+        const customer = await Customer.findByPk(customerId, { transaction, lock: transaction.LOCK.UPDATE });
+        if (customer) {
+          const newTotalSpent = Math.max(0, Number(customer.totalSpent) - Number(invoice.totalAmount));
+          await customer.update({
+            totalSpent: newTotalSpent,
+            loyaltyTier: computeLoyaltyTier(newTotalSpent)
+          }, { transaction });
+        }
+      }
+
+      await AuditService.record({
+        actor,
+        branchId: invoice.branchId,
+        action: 'invoice.voided',
+        targetType: 'invoice',
+        targetId: invoice.id,
+        oldValues,
+        newValues: { invoiceStatus: 'void', paymentStatus: 'refunded', reason },
+        requestId,
+        transaction
+      });
+
+      await transaction.commit();
+
+      return {
+        invoiceId: invoice.id,
+        invoiceNo: invoice.invoiceNo,
+        status: invoice.status,
+        paymentStatus: payment.status,
+        totalAmount: Number(invoice.totalAmount)
+      };
+    } catch (err) {
+      if (!transaction.finished) {
+        await transaction.rollback().catch(() => {});
+      }
+      throw err;
+    }
   }
 
   static async processWebhook({ provider, providerReference, status, invoiceNo, payload, requestId }) {
@@ -335,7 +457,7 @@ class PaymentService {
         const customer = await Customer.findByPk(customerId, { transaction, lock: transaction.LOCK.UPDATE });
         if (customer) {
           const totalSpent = Number(customer.totalSpent) + Number(invoice.totalAmount);
-          await customer.update({ totalSpent, loyaltyTier: totalSpent >= 15000000 ? 'vip' : totalSpent >= 5000000 ? 'gold' : 'normal' }, { transaction });
+          await customer.update({ totalSpent, loyaltyTier: computeLoyaltyTier(totalSpent) }, { transaction });
         }
       }
       await AuditService.record({ branchId: invoice.branchId, action: 'payment.webhook_confirmed', targetType: 'payment', targetId: payment.id, oldValues, newValues: payment.toJSON(), requestId, transaction });
