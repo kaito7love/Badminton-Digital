@@ -178,6 +178,7 @@ export const paymentService = {
 export const invoiceService = {
   getInvoiceById: (id) => apiClient.get(`/invoices/${id}`),
   exportPdf: (id) => apiClient.get(`/invoices/${id}/export-pdf`, { responseType: 'blob' }),
+  voidInvoice: (id, { reason }) => apiClient.post(`/invoices/${id}/void`, { reason }),
 };
 
 // ─── Reports ─────────────────────────────────────────────────────

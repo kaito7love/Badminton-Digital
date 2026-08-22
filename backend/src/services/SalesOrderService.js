@@ -5,6 +5,7 @@ const { nextInvoiceNumber } = require('../utils/documentNumber');
 const { generateVietQRUrl } = require('../utils/vietqr');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const { startOfLocalDay, endOfLocalDay } = require('../utils/dateTime');
+const { computeLoyaltyTier } = require('../utils/loyalty');
 const AuditService = require('./AuditService');
 const VoucherService = require('./VoucherService');
 
@@ -464,10 +465,7 @@ class SalesOrderService {
         const customer = await Customer.findByPk(order.customerId, { transaction });
         if (customer) {
           const newTotalSpent = Number(customer.totalSpent) + totalAmount;
-          let loyaltyTier = 'normal';
-          if (newTotalSpent >= 15000000) loyaltyTier = 'vip';
-          else if (newTotalSpent >= 5000000) loyaltyTier = 'gold';
-          await customer.update({ totalSpent: newTotalSpent, loyaltyTier }, { transaction });
+          await customer.update({ totalSpent: newTotalSpent, loyaltyTier: computeLoyaltyTier(newTotalSpent) }, { transaction });
         }
       }
 

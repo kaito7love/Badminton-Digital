@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { historyService, salesOrderService } from '../../services/apiServices';
+import { historyService, salesOrderService, invoiceService } from '../../services/apiServices';
 import { formatDateTime, formatPlainDate } from '../../utils/datetime';
 import { useBranch } from '../../contexts/BranchContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { roleOf } from '../../utils/roles';
 
 // ─── Status Badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
@@ -14,6 +16,7 @@ function StatusBadge({ status }) {
     cancelled: { label: 'Đã huỷ',     cls: 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/30' },
     paid:      { label: 'Đã thanh toán', cls: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30' },
     pending_payment: { label: 'Chờ thanh toán', cls: 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30' },
+    refunded:  { label: 'Đã huỷ', cls: 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/30' },
   };
   const s = map[status] || { label: status, cls: 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-700/60 dark:text-slate-400 dark:border-slate-600/50' };
   return (
@@ -61,10 +64,90 @@ function SkeletonRow({ cols }) {
   );
 }
 
+// ─── Void Invoice (chỉ admin/branch_manager, chỉ hoá đơn đã thanh toán) ────────
+function VoidInvoiceButton({ invoiceId, invoiceNo, onVoided }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleConfirm = async () => {
+    if (!reason.trim()) {
+      setError('Vui lòng nhập lý do huỷ hoá đơn');
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await invoiceService.voidInvoice(invoiceId, { reason: reason.trim() });
+      setOpen(false);
+      setReason('');
+      onVoided?.();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Không thể huỷ hoá đơn. Vui lòng thử lại.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="rounded-lg border border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20 px-2.5 py-1 text-[11px] font-bold transition"
+      >
+        Huỷ hoá đơn
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-6 space-y-4">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">Huỷ hoá đơn {invoiceNo}</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Hành động này sẽ chuyển hoá đơn sang trạng thái huỷ, hoàn tồn kho (nếu là đơn bán lẻ)
+                và trừ lại điểm chi tiêu/hạng hội viên của khách (nếu có). Không thể hoàn tác.
+              </p>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Lý do huỷ *</label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={3}
+                className="mt-1.5 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-violet-400"
+                placeholder="VD: Nhân viên checkout nhầm, khách yêu cầu huỷ..."
+              />
+            </div>
+            {error && <p className="text-sm text-rose-600 dark:text-rose-400 font-semibold">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setOpen(false); setReason(''); setError(null); }}
+                disabled={submitting}
+                className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-50"
+              >
+                Đóng
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={submitting}
+                className="rounded-xl bg-rose-600 hover:bg-rose-700 px-4 py-2 text-sm font-bold text-white transition disabled:opacity-50"
+              >
+                {submitting ? 'Đang huỷ...' : 'Xác nhận huỷ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Sessions Tab ──────────────────────────────────────────────────────────────
 function SessionsTab() {
   // Hiển thị theo giờ chi nhánh đang xem, không theo giờ máy người xem.
   const { activeTimezone } = useBranch();
+  const { user } = useAuth();
+  const canVoid = ['admin', 'branch_manager'].includes(roleOf(user));
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -139,24 +222,24 @@ function SessionsTab() {
           <table className="w-full min-w-[800px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-800/80 dark:bg-slate-950/60">
-                {['Thời gian bắt đầu', 'Thời gian đóng', 'Sân', 'Khách hàng', 'Thời lượng', 'Tiền sân', 'Phụ kiện', 'Tổng cộng', 'Trạng thái'].map(h => (
+                {['Thời gian bắt đầu', 'Thời gian đóng', 'Sân', 'Khách hàng', 'Thời lượng', 'Tiền sân', 'Phụ kiện', 'Tổng cộng', 'Trạng thái', ...(canVoid ? ['Thao tác'] : [])].map(h => (
                   <th key={h} className="px-4 py-3.5 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading
-                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={9} />)
+                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={canVoid ? 10 : 9} />)
                 : error
                   ? (
-                    <tr><td colSpan={9} className="px-4 py-8 text-center text-sm text-rose-600 dark:text-rose-400 font-semibold">{error}</td></tr>
+                    <tr><td colSpan={canVoid ? 10 : 9} className="px-4 py-8 text-center text-sm text-rose-600 dark:text-rose-400 font-semibold">{error}</td></tr>
                   )
                   : sessions.length === 0
-                    ? <tr><td colSpan={9}><EmptyState message="Chưa có phiên chơi nào được ghi nhận" /></td></tr>
+                    ? <tr><td colSpan={canVoid ? 10 : 9}><EmptyState message="Chưa có phiên chơi nào được ghi nhận" /></td></tr>
                     : sessions.map(s => {
                       const invoice = s.invoice;
                       const payment = invoice?.payment;
-                      const payStatus = payment?.status === 'paid' ? 'paid' : invoice ? 'pending_payment' : null;
+                      const payStatus = payment?.status === 'paid' ? 'paid' : payment?.status === 'refunded' ? 'refunded' : invoice ? 'pending_payment' : null;
                       return (
                         <tr key={s.id} className="border-t border-slate-100 dark:border-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
                           <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 font-mono text-xs">{formatDateTime(s.startTime, activeTimezone)}</td>
@@ -172,6 +255,13 @@ function SessionsTab() {
                           <td className="px-4 py-3.5 text-slate-700 dark:text-slate-200">{fmtMoney(invoice?.extrasFee)}</td>
                           <td className="px-4 py-3.5 font-black text-slate-900 dark:text-white">{fmtMoney(invoice?.totalAmount)}</td>
                           <td className="px-4 py-3.5">{payStatus ? <StatusBadge status={payStatus} /> : <span className="text-slate-400 dark:text-slate-600 text-xs">—</span>}</td>
+                          {canVoid && (
+                            <td className="px-4 py-3.5">
+                              {payment?.status === 'paid' && (
+                                <VoidInvoiceButton invoiceId={invoice.id} invoiceNo={invoice.invoiceNo} onVoided={fetchSessions} />
+                              )}
+                            </td>
+                          )}
                         </tr>
                       );
                     })
@@ -338,6 +428,8 @@ function BookingsTab() {
 function SalesOrdersTab() {
   // Hiển thị theo giờ chi nhánh đang xem, không theo giờ máy người xem.
   const { activeTimezone } = useBranch();
+  const { user } = useAuth();
+  const canVoid = ['admin', 'branch_manager'].includes(roleOf(user));
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -419,21 +511,21 @@ function SalesOrdersTab() {
           <table className="w-full min-w-[800px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-800/80 dark:bg-slate-950/60">
-                {['Hoá đơn', 'Thời gian', 'Khách hàng', 'Nhân viên bán', 'Sản phẩm', 'Tổng tiền', 'Trạng thái'].map(h => (
+                {['Hoá đơn', 'Thời gian', 'Khách hàng', 'Nhân viên bán', 'Sản phẩm', 'Tổng tiền', 'Trạng thái', ...(canVoid ? ['Thao tác'] : [])].map(h => (
                   <th key={h} className="px-4 py-3.5 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading
-                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={7} />)
+                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={canVoid ? 8 : 7} />)
                 : error
-                  ? <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-rose-600 dark:text-rose-400 font-semibold">{error}</td></tr>
+                  ? <tr><td colSpan={canVoid ? 8 : 7} className="px-4 py-8 text-center text-sm text-rose-600 dark:text-rose-400 font-semibold">{error}</td></tr>
                   : orders.length === 0
-                    ? <tr><td colSpan={7}><EmptyState message="Chưa có đơn bán lẻ nào được ghi nhận" /></td></tr>
+                    ? <tr><td colSpan={canVoid ? 8 : 7}><EmptyState message="Chưa có đơn bán lẻ nào được ghi nhận" /></td></tr>
                     : orders.map(o => {
                       const payment = o.invoice?.payment;
-                      const payStatus = payment?.status === 'paid' ? 'paid' : o.invoice ? 'pending_payment' : o.status === 'cancelled' ? 'cancelled' : null;
+                      const payStatus = payment?.status === 'paid' ? 'paid' : payment?.status === 'refunded' ? 'refunded' : o.invoice ? 'pending_payment' : o.status === 'cancelled' ? 'cancelled' : null;
                       const productSummary = (o.lines || []).map(l => `${l.variant?.product?.name || l.variant?.sku} ×${l.quantity}`).join(', ');
                       return (
                         <tr key={o.id} className="border-t border-slate-100 dark:border-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
@@ -448,6 +540,13 @@ function SalesOrdersTab() {
                           <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 text-xs max-w-[220px] truncate" title={productSummary}>{productSummary || '—'}</td>
                           <td className="px-4 py-3.5 font-black text-slate-900 dark:text-white">{fmtMoney(o.invoice?.totalAmount)}</td>
                           <td className="px-4 py-3.5">{payStatus ? <StatusBadge status={payStatus} /> : <span className="text-slate-400 dark:text-slate-600 text-xs">Đang mở</span>}</td>
+                          {canVoid && (
+                            <td className="px-4 py-3.5">
+                              {payment?.status === 'paid' && (
+                                <VoidInvoiceButton invoiceId={o.invoice.id} invoiceNo={o.invoice.invoiceNo} onVoided={fetchOrders} />
+                              )}
+                            </td>
+                          )}
                         </tr>
                       );
                     })

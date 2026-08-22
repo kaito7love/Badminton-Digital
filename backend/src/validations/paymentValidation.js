@@ -26,7 +26,14 @@ const webhookRules = [
   validate
 ];
 
+const voidInvoiceRules = [
+  param('id').isInt().withMessage('Invoice ID must be an integer'),
+  body('reason').trim().notEmpty().withMessage('Lý do huỷ hoá đơn là bắt buộc'),
+  validate
+];
+
 module.exports = {
   checkoutRules,
-  webhookRules
+  webhookRules,
+  voidInvoiceRules
 };
