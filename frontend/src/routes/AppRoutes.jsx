@@ -23,6 +23,7 @@ const EmployeesPage = lazy(() => import('../pages/Employees/EmployeesPage'));
 const ReportsPage = lazy(() => import('../pages/Reports/ReportsPage'));
 const SettingsPage = lazy(() => import('../pages/Settings/SettingsPage'));
 const HistoryPage = lazy(() => import('../pages/History/HistoryPage'));
+const ActivityLogPage = lazy(() => import('../pages/ActivityLog/ActivityLogPage'));
 const MyBookingsPage = lazy(() => import('../pages/MyBookings/MyBookingsPage'));
 const AccountPage = lazy(() => import('../pages/Account/AccountPage'));
 const ShopPage = lazy(() => import('../pages/Shop/ShopPage'));
@@ -112,6 +113,14 @@ export default function AppRoutes() {
             element={
               <ProtectedRoute roles={['admin']}>
                 <SidebarLayout><SettingsPage /></SidebarLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/activity-log"
+            element={
+              <ProtectedRoute roles={['admin', 'branch_manager']}>
+                <SidebarLayout><ActivityLogPage /></SidebarLayout>
               </ProtectedRoute>
             }
           />

@@ -14,3 +14,4 @@ export const MoonIcon = ({ className }) => <Icon className={className}>🌙</Ico
 export const SunIcon = ({ className }) => <Icon className={className}>☀️</Icon>;
 export const HistoryIcon = ({ className }) => <Icon className={className}>🕐</Icon>;
 export const ShoppingBagIcon = ({ className }) => <Icon className={className}>🛍️</Icon>;
+export const ClipboardCheckIcon = ({ className }) => <Icon className={className}>📋</Icon>;

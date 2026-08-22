@@ -181,6 +181,11 @@ export const invoiceService = {
   voidInvoice: (id, { reason }) => apiClient.post(`/invoices/${id}/void`, { reason }),
 };
 
+// ─── Activity Log (Nhật ký hoạt động, admin/branch_manager) ──────
+export const activityLogService = {
+  list: (params) => apiClient.get('/activity-logs', { params }),
+};
+
 // ─── Reports ─────────────────────────────────────────────────────
 export const reportService = {
   getDashboard: () => apiClient.get('/reports/dashboard'),
