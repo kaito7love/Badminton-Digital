@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Badge } from '../../components/UIComponents';
 import { courtService, sessionService, accessoryService, paymentService } from '../../services/apiServices';
+import { connectRealtimeStream } from '../../services/realtimeClient';
+import { useBranch } from '../../contexts/BranchContext';
 
 const formatTime = (ms) => {
   if (!ms || ms < 0) return '00:00:00';
@@ -42,6 +44,7 @@ const mapCourt = (c) => {
 };
 
 export default function CourtsPage() {
+  const { selectedBranchId } = useBranch() || {};
   const [courts, setCourts] = useState([]);
   const [extrasList, setExtrasList] = useState([]);
   const [now, setNow] = useState(Date.now());
@@ -125,6 +128,28 @@ export default function CourtsPage() {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Đồng bộ realtime giữa nhiều thiết bị: thiết bị khác mở/đóng/chuyển sân
+  // thì trang này tự cập nhật, không cần F5 (docs/05-extra/01-audit/RealtimeCourtSync.md).
+  // Nhận sự kiện là fetch lại TOÀN BỘ danh sách sân, không tự ráp state từ
+  // payload — tránh sự kiện đến sai thứ tự làm UI kẹt sai trạng thái.
+  useEffect(() => {
+    const close = connectRealtimeStream({
+      branchId: selectedBranchId,
+      onEvent: () => fetchCourts()
+    });
+    // Tab quay lại foreground trên di động: trình duyệt di động thường tạm
+    // ngưng kết nối SSE nền khi chuyển app, có thể đã bỏ lỡ sự kiện trong
+    // lúc đó — fetch lại ngay 1 lần cho chắc.
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchCourts();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      close();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [selectedBranchId]);
 
   // CRUD Sân
   const handleOpenAddCourtModal = () => {

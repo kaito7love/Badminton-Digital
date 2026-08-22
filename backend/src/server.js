@@ -29,6 +29,7 @@ app.use('/api/v1/public', require('./routes/publicRoutes'));
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/courts', require('./routes/courtRoutes'));
+app.use('/api/v1/realtime', require('./routes/realtimeRoutes'));
 app.use('/api/v1/bookings', require('./routes/bookingRoutes'));
 app.use('/api/v1/accessories', require('./routes/accessoryRoutes'));
 app.use('/api/v1/suppliers', require('./routes/supplierRoutes'));

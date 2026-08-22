@@ -6,6 +6,7 @@ const { computeLoyaltyTier } = require('../utils/loyalty');
 const AuditService = require('./AuditService');
 const SettingService = require('./SettingService');
 const InventoryService = require('./InventoryService');
+const realtimeBus = require('../utils/realtimeBus');
 
 class PaymentService {
   static async checkout({ sessionId, paymentMethod = 'cash', discountAmount = 0, isDiscountPercent = false, employeeId, branchId, actor, requestId, idempotencyKey }) {
@@ -187,6 +188,13 @@ class PaymentService {
       await AuditService.record({ actor, branchId, action: isImmediatelyConfirmed ? 'payment.completed' : 'payment.pending', targetType: 'payment', targetId: payment.id, newValues: payment.toJSON(), requestId, transaction });
 
       await transaction.commit();
+      // Checkout thường đi kèm tự động đóng sân (session đang 'playing' —
+      // xem đoạn "auto-close" phía trên), nên đây CŨNG là một điểm đổi
+      // trạng thái sân thật sự — trang Sân của thiết bị khác chỉ gọi
+      // paymentService.checkout lúc bấm "Đóng Sân & Tính Tiền", không gọi
+      // CourtService.closeCourt (route đó tồn tại nhưng không frontend nào
+      // dùng tới), nên phải bắn sự kiện ở đây, không phải chỉ ở closeCourt.
+      realtimeBus.emit('court:updated', { branchId, courtId: session.courtId });
 
       // Generate VietQR Url if transfer method
       let qrCodeUrl = null;
