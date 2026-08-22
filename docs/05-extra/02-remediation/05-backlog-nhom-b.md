@@ -41,9 +41,15 @@ hiện phải nhờ chỉnh DB tay.
   hiện chưa được quản lý phụ kiện/nhà cung cấp dù được quản lý sân + nhân
   viên — có mở rộng quyền này cùng lúc không, hay giữ nguyên?
 
-## 3. `feat/refund-void-flow` — luồng hoàn tiền / huỷ hoá đơn
+## 3. `feat/refund-void-flow` — luồng hoàn tiền / huỷ hoá đơn — ✅ ĐÃ XONG (2026-08-22)
 
-**Hiện trạng:** `Payment.status` đã có sẵn giá trị `refunded`,
+Đã code + test + merge, xem `00-tien-do.md` mục 10 (`feat/void-invoice`,
+merge tại `9acb824`). Câu trả lời đã chốt cho 3 câu hỏi bên dưới: chỉ huỷ
+**toàn bộ** hoá đơn (không hoàn từng dòng), chỉ `admin`/`branch_manager`
+được thực hiện, **có** trừ lại `Customer.totalSpent`/`loyaltyTier`. Giữ
+nguyên nội dung gốc bên dưới để tham khảo bối cảnh quyết định.
+
+**Hiện trạng (trước khi làm):** `Payment.status` đã có sẵn giá trị `refunded`,
 `Invoice.status` đã có sẵn giá trị `void` trong enum — nhưng **không có bất
 kỳ code nào** (service, controller, route) xử lý việc chuyển sang 2 trạng
 thái này. Nhân viên hiện không có cách nào huỷ 1 hoá đơn đã thanh toán nhầm

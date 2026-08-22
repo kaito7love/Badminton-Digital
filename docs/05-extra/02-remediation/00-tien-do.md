@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-08-16. Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-08-22. Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -10,9 +10,9 @@ thật (chạy server thật, gọi API thật, truy vấn DB thật — không 
 → báo cáo kết quả → chờ duyệt merge ("merge vào main đi") → merge cục bộ vào
 `main`. **Không có nhánh nào tự merge khi chưa được duyệt.**
 
-`main` hiện **chưa được push lên `origin`** kể từ commit `2ca2672` — mọi
-merge dưới đây chỉ nằm ở máy cục bộ, chưa lên remote. Có push hay không tuỳ
-quyết định của chủ dự án.
+`main` đã được push lên `origin` (đồng bộ tới commit `2ea7ae2` — mục 10 + 11
+bên dưới) — cập nhật so với ghi chú "chưa push" ở các mục trước đó trong file
+này, vốn đúng tại thời điểm viết nhưng chủ dự án đã quyết định push sau đó.
 
 ---
 
@@ -374,6 +374,134 @@ cùng thêm mục mới), gộp tay giữ lại đầy đủ nội dung mục 8 
 merge: `npm test` backend 38/38 pass, `npm test` frontend 8/8 pass (chạy lại
 trên trạng thái đã gộp cả 2 nhánh, không chỉ test riêng từng nhánh).
 
+### 10. `feat/void-invoice` (merge tại `9acb824`)
+Nguồn: mục 5.2 `../01-audit/ProjectGapsAndDirection.md` — `Payment.status`
+có sẵn `refunded`, `Invoice.status` có sẵn `void` trong enum từ lúc thiết kế
+nhưng **0 dòng code dùng tới** — nhân viên checkout nhầm không có cách nào
+sửa ngoài sửa DB tay. Phạm vi đã chốt với chủ dự án (backlog Nhóm B mục 3,
+xem `05-backlog-nhom-b.md`): chỉ huỷ **toàn bộ** hoá đơn (không hoàn từng
+dòng), chỉ `admin`/`branch_manager`, phải trừ lại `Customer.totalSpent`/
+`loyaltyTier`.
+
+- `PaymentService.voidInvoice()` mới: khoá `invoice`+`payment`, guard trạng
+  thái (chỉ void hoá đơn `paid`; void 2 lần → 409; void hoá đơn chưa thanh
+  toán → 400); trả kho tự động cho hoá đơn bán lẻ qua
+  `InventoryService.postMovement(type: 'sale_return')` — hoá đơn phiên sân
+  **không** trả kho vì phụ kiện đã tiêu thụ lúc chơi, không phải hàng bán lẻ
+  nhập lại kệ được; trừ lại `totalSpent`/tính lại `loyaltyTier` cho **cả 2**
+  luồng checkout (phiên sân lẫn đơn bán lẻ — lúc code phát hiện
+  `SalesOrderService.checkout` cũng cộng `totalSpent`, không chỉ
+  `PaymentService.checkout` như audit gốc chỉ nhắc tới); ghi
+  `AuditService` action `invoice.voided` kèm lý do bắt buộc.
+- Gộp công thức tính hạng hội viên (lặp lại 3 nơi: checkout, webhook, void)
+  vào `utils/loyalty.js` dùng chung. Tiện thể áp khuôn rollback-an-toàn
+  (`transaction.finished`, mẫu từ `26ad904`) cho `PaymentService.checkout`,
+  vốn chưa có.
+- Route `POST /invoices/:id/void`, chỉ `admin`/`branch_manager`.
+- Frontend: nút "Huỷ hoá đơn" + modal bắt buộc nhập lý do ở `HistoryPage`
+  (tab Phiên Chơi + Bán Lẻ), chỉ hiện với `admin`/`branch_manager`.
+- **Bằng chứng test thật** (server thật, API thật, DB dev thật): void hoá
+  đơn bán lẻ 105.000đ → `totalSpent` khách giảm đúng 105.000→0, tồn kho trả
+  đúng 29→32; void hoá đơn phiên sân không đụng tồn kho (đúng thiết kế);
+  double-void → 409; void hoá đơn `issued` → 400; role `employee` gọi API
+  → 403. Test qua trình duyệt thật: đăng nhập admin, huỷ hoá đơn ở
+  `/history`, badge đổi "Đã huỷ" ngay, không lỗi console. Đã dọn sạch dữ
+  liệu test khỏi DB dev sau khi xong. `npm test`: backend 121/121, frontend
+  46/46.
+
+### 11. `feat/activity-log-screen` (merge tại `2ea7ae2`)
+Nguồn: mục 1.2 `../01-audit/ProjectGapsAndDirection.md` — `AuditService.record`
+ghi vào `activity_logs` ở **26 điểm/8 service** (hầu như mọi thao tác
+tạo/sửa/hủy quan trọng) nhưng chỉ có đúng 1 API đọc lại
+(`GET /employees/:id/activity-logs`, khoá cứng theo 1 `employeeId`) và
+**không trang frontend nào** gọi tới — dữ liệu ghi rất đầy đủ nhưng không ai
+xem được qua giao diện, chỉ truy vấn thẳng DB.
+
+- `AuditService.list()` mới: endpoint riêng cho màn hình xem toàn chi
+  nhánh (không đụng endpoint cũ, giữ nguyên không breaking) — phân trang
+  thật, lọc `action`/`targetType`/khoảng ngày theo giờ chi nhánh (khuôn
+  `startOfLocalDay`/`endOfLocalDay` đã chuẩn hoá ở `26ad904`), include đủ
+  `employee`/`user`/`branch` để hiển thị tên thay vì chỉ id.
+- Route `GET /activity-logs`, chỉ `admin`/`branch_manager`.
+- Frontend: trang mới `/activity-log`, theo đúng khuôn `HistoryPage.jsx`
+  (bảng + bộ lọc + phân trang), nút "Xem chi tiết" mở modal hiện
+  `oldValues`/`newValues` dạng JSON — lần đầu dữ liệu này xem được qua giao
+  diện. Thêm mục nav, chỉ `admin`/`branch_manager`.
+- **Bằng chứng test thật:** API trả đúng 578 dòng log thật đang có trong DB
+  dev kèm tên người thao tác/chi nhánh; lọc `action`/`targetType` đúng kết
+  quả; role `employee` → 403 (API lẫn UI — không thấy mục nav, gõ thẳng URL
+  bị `ProtectedRoute` đá về `/courts`). Test qua trình duyệt thật: xem đúng
+  log `invoice.voided` vừa tạo ở nhánh mục 10, modal chi tiết hiện đúng
+  JSON, không lỗi console. `npm test`: backend 121/121, frontend 46/46.
+
+Mục 10 và 11 đều tách từ cùng điểm trên `main` (2 việc độc lập, mỗi việc 1
+nhánh riêng) — merge lần lượt bằng `--no-ff` (có commit merge thật cho mỗi
+nhánh, không conflict — 2 nhánh chỉ chung đúng 1 file `apiServices.js`,
+mỗi nhánh thêm 1 khối hàm riêng biệt nên git tự gộp được). Sau khi merge cả
+2: `npm test` backend 121/121, frontend 46/46 — chạy trên trạng thái đã gộp,
+không chỉ test riêng từng nhánh. `main` đã được push lên `origin` sau đó.
+
+---
+
+## Đã code + test xong trên nhánh riêng — CHƯA merge, chờ duyệt
+
+### 12. `feat/realtime-event-bus` (commit `1064876`, chưa merge)
+Nguồn: `../01-audit/RealtimeCourtSync.md` — mở/đóng/chuyển sân ở thiết bị A
+không tự cập nhật cho thiết bị B đang xem cùng trang Sân, phải tự F5. Theo
+đúng phương án đã chọn trong audit (SSE, không phải polling/WebSocket) và
+build thành **event bus dùng chung** ngay từ đầu (không riêng trang Sân) để
+mở rộng sau này chỉ cần thêm `emit()` ở service khác, không phải làm lại
+nền tảng.
+
+- `utils/realtimeBus.js`: bọc `EventEmitter` built-in của Node, singleton
+  dùng chung giữa nơi phát (services, ngay sau `transaction.commit()`) và
+  nơi lắng nghe (route SSE). **Chỉ đúng khi có 1 tiến trình backend** — ghi
+  rõ giới hạn này cho lúc scale ngang sau này (cần đổi sang Redis pub/sub).
+- `middleware/sseAuthMiddleware.js`: biến thể `authMiddleware` nhận token
+  qua query string (`EventSource` của trình duyệt không set được header tuỳ
+  ý), không sửa `authMiddleware.js` gốc.
+- `routes/realtimeRoutes.js` + `controllers/realtimeController.js`:
+  `GET /realtime/stream` — ánh xạ `branchId` từ query sang header
+  `X-Branch-Id` để dùng lại nguyên `branchContextMiddleware`, đóng chủ động
+  sau ~20 phút (khớp vòng đời access token 15 phút), lọc sự kiện đúng
+  `branchId` của kết nối.
+- `CourtService.js`: emit `court:updated` ngay sau `transaction.commit()`
+  ở `openCourt`/`transferCourt`/`updateCourtStatus`.
+- **Phát hiện lúc test, không có trong plan gốc:** nút "Đóng Sân & Tính
+  Tiền" trên UI thực ra gọi thẳng `PaymentService.checkout` (tự động đóng
+  session như tác dụng phụ khi `status === 'playing'`), **không** gọi
+  `CourtService.closeCourt` — route đó tồn tại (`courtService.closeCourt`
+  ở `apiServices.js`) nhưng **không frontend nào dùng tới**. Test 2 tab đầu
+  tiên cho thấy đóng sân không đồng bộ sang tab kia; nguyên nhân là thiếu
+  đúng điểm emit — đã vá bằng cách thêm `realtimeBus.emit(...)` vào
+  `PaymentService.checkout` (không phải `closeCourt`), verify lại xác nhận
+  đúng. Đây là ví dụ cụ thể cho nguyên tắc (c) trong `RealtimeCourtSync.md`
+  (chỉ emit sau khi biết chắc trạng thái đã đổi thật) — điểm đổi trạng thái
+  sân thật sự nằm ở service nào không phải lúc nào cũng trùng với route có
+  tên nghe hợp lý nhất.
+- Frontend: `services/realtimeClient.js` (client SSE dùng chung, tự đóng +
+  mở lại bằng token mới khi lỗi/mất kết nối) + wiring vào `CourtsPage.jsx`
+  — nhận sự kiện luôn `fetchCourts()` lại toàn bộ (không tự ráp state từ
+  payload, tránh sự kiện đến sai thứ tự làm UI kẹt sai trạng thái — nguyên
+  tắc (a)), refetch thêm khi tab quay lại foreground (`visibilitychange`,
+  nguyên tắc (b)).
+- **Bằng chứng test thật** (server thật, DB dev thật, 2 tab trình duyệt
+  thật hoàn toàn độc lập — 1 tab không hề được front/tương tác trong lúc
+  tab kia thao tác, loại trừ khả năng cập nhật do `visibilitychange` thay
+  vì do SSE thật): mở sân ở tab A → tab B tự hiện đúng tên khách trong
+  ~2 giây, không cần F5; đóng sân & thanh toán ở tab B → tab A tự về
+  "Trống". Cách ly theo chi nhánh xác nhận qua SSE thật bằng `curl`: kết
+  nối tới chi nhánh 2, mở sân ở chi nhánh 1 (không liên quan) → không nhận
+  được gì; mở sân ở chi nhánh 2 → nhận đúng
+  `event: court:updated / data: {"branchId":2,"courtId":5}`. `npm test`:
+  backend 121/121, frontend 46/46. Đã dọn sạch toàn bộ sân/khách hàng test
+  khỏi DB dev sau khi xong.
+
+**Chưa làm ở nhánh này** (để lại cho lần mở rộng sau, không phải thiếu sót
+— phạm vi đã chốt chỉ làm trang Sân trước): `BookingService`/
+`AccessoryService`/`SalesOrderService` chưa emit sự kiện gì — cùng khuôn
+transaction nên thêm sau chỉ tốn 1 dòng mỗi điểm, không cần sửa nền tảng.
+
 ---
 
 ## Chưa làm — xem plan riêng từng phần
@@ -381,7 +509,7 @@ trên trạng thái đã gộp cả 2 nhánh, không chỉ test riêng từng nh
 | Việc | File plan | Ưu tiên gốc |
 |---|---|---|
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
-| 4 việc cần quyết định chính sách kinh doanh trước (discount guardrail, onboarding branch_manager, luồng hoàn tiền/void, cấu hình tài khoản ngân hàng) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
+| 3 việc còn lại cần quyết định chính sách kinh doanh trước (discount guardrail, onboarding branch_manager, cấu hình tài khoản ngân hàng — mục 3 "hoàn tiền/void" đã xong, xem mục 10 ở trên) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
 
 ## Lỗi phát hiện qua kiểm thử hồi quy 21/08/2026 — đã ghi nhận, CHƯA sửa
 
@@ -413,7 +541,3 @@ báo cáo sai ngày ở vùng có DST, `compareBranches` gộp một múi giờ,
 - Backfill dữ liệu `invoice_lines` cho hoá đơn cũ — chủ động chọn không làm.
 - UI xem/in hoá đơn chi tiết ở frontend — hoãn, làm sau khi có báo cáo dùng
   tới dữ liệu này.
-- Đồng bộ realtime đa thiết bị (mở sân ở máy A không tự cập nhật máy B) —
-  đã điều tra và có phương án ở `../01-audit/RealtimeCourtSync.md`, nhưng
-  **chưa lên plan trong `02-remediation/`** vì chưa được chủ dự án chốt ưu
-  tiên — cần hỏi lại trước khi lên nhánh riêng.
