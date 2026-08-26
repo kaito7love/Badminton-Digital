@@ -95,7 +95,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Metric Cards Grid */}
-      <div className="grid gap-5 xl:grid-cols-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-4">
         {stats.map((item) => (
           <div key={item.label} className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-slate-900/80 p-6 shadow-2xl backdrop-blur-xl hover:border-emerald-500/40 transition">
             <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 font-medium">{item.label}</p>
@@ -106,7 +106,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Charts & Side Cards */}
-      <div className="grid gap-6 xl:grid-cols-[1.8fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.8fr_1fr]">
 
         {/* Revenue Line Chart */}
         <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-slate-900/80 p-6 md:p-8 shadow-2xl backdrop-blur-xl">

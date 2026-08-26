@@ -167,7 +167,7 @@ export default function PosTab() {
   if (loading) return <div className="p-8 text-slate-600 dark:text-slate-300">⏳ Đang tải quầy bán hàng...</div>;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       {/* Product picker */}
       <div className="lg:col-span-2 space-y-4">
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -186,7 +186,7 @@ export default function PosTab() {
         {visibleProducts.length === 0 ? (
           <p className="text-center text-slate-500 dark:text-slate-400 py-8 rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90">Chưa có sản phẩm nào — thêm ở tab "Danh mục".</p>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {visibleProducts.map((p) => (
               <div key={p.id} className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-4 space-y-2">
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{p.name}</p>

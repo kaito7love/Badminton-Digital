@@ -71,7 +71,7 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-6 shadow-xl shadow-slate-200/40 dark:shadow-slate-950/20">
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Giờ mở cửa</h2>
           <div className="mt-6 space-y-4">

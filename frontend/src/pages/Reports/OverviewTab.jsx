@@ -129,7 +129,7 @@ export default function OverviewTab() {
         </button>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
         <StatBox
           label="Tổng doanh thu"
           value={formatMoney(totalRevenue)}
@@ -189,7 +189,7 @@ export default function OverviewTab() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-6">
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Top sân được thuê nhiều nhất</h3>
           {topCourts.length === 0 ? (

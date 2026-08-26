@@ -125,33 +125,38 @@ export default function ProductsTab({ onGoToReceiving }) {
         {accessories.length === 0 ? (
           <p className="text-center text-slate-500 dark:text-slate-400 py-8">Chưa có phụ kiện nào trong danh mục.</p>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="divide-y divide-slate-200 dark:divide-slate-800/80">
             {accessories.map((item) => {
               const stock = item.stockQuantity ?? 0;
               const status = getStockStatus(stock, item.lowStockThreshold);
               return (
                 <div
                   key={item.id}
-                  className="rounded-3xl border border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/80 dark:hover:border-slate-700 p-5 flex flex-col justify-between space-y-4 transition"
+                  className="flex flex-wrap items-center gap-x-6 gap-y-3 py-4 first:pt-0 last:pb-0"
                 >
-                  <div>
-                    <div className="flex items-center justify-between gap-4">
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{item.name}</p>
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass[status]}`}>
-                        {status}
-                      </span>
-                    </div>
-                    <p className="mt-3 text-3xl font-bold text-slate-900 dark:text-slate-100">{stock}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Đơn giá: <span className="font-semibold text-slate-700 dark:text-slate-200">{formatMoney(item.price || 0)}</span></p>
-                    {item.averageCost != null && (
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Giá vốn BQ: {formatMoney(item.averageCost)}</p>
-                    )}
+                  <div className="min-w-[160px] flex-1">
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{item.name}</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Đơn giá: <span className="font-semibold text-slate-700 dark:text-slate-200">{formatMoney(item.price || 0)}</span>
+                      {item.averageCost != null && (
+                        <span className="ml-3 text-slate-400 dark:text-slate-500">Giá vốn BQ: {formatMoney(item.averageCost)}</span>
+                      )}
+                    </p>
                   </div>
 
-                  <div className="flex gap-2 pt-3 border-t border-slate-200 dark:border-slate-800/80 text-xs">
+                  <div className="shrink-0 text-center">
+                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stock}</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">Tồn kho</p>
+                  </div>
+
+                  <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${statusClass[status]}`}>
+                    {status}
+                  </span>
+
+                  <div className="flex shrink-0 gap-2 text-xs">
                     <button
                       onClick={() => handleOpenEditModal(item)}
-                      className="flex-1 rounded-xl border border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100 py-2 font-medium transition"
+                      className="whitespace-nowrap rounded-xl border border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100 px-3 py-2 font-medium transition"
                     >
                       ✏️ Cập nhật
                     </button>

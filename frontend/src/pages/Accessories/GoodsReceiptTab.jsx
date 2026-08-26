@@ -107,7 +107,7 @@ export default function GoodsReceiptTab() {
       <form onSubmit={handleSubmit} className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-6 shadow-xl shadow-slate-200/40 dark:shadow-slate-950/20 space-y-4">
         <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Tạo phiếu nhập kho</h3>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Nhà cung cấp</label>
             <select

@@ -120,7 +120,7 @@ export default function RetailStockTab() {
       {stocks.length === 0 ? (
         <p className="text-center text-slate-500 dark:text-slate-400 py-8 rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90">Chưa có tồn kho sản phẩm bán lẻ nào ở chi nhánh này — nhập kho bên dưới.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stocks.map((s) => {
             const status = getStockStatus(s.quantity, s.variant?.lowStockThreshold);
             return (
@@ -149,7 +149,7 @@ export default function RetailStockTab() {
       <form onSubmit={handleSubmit} className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-6 shadow-xl shadow-slate-200/40 dark:shadow-slate-950/20 space-y-4">
         <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Nhập kho sản phẩm bán lẻ</h3>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Nhà cung cấp</label>
             <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}
