@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import SidebarLayout from '../layouts/SidebarLayout';
 // Home + Login là 2 điểm vào đầu tiên của phần lớn người dùng (khách xem
@@ -40,16 +40,6 @@ const RouteFallback = () => (
   </div>
 );
 
-// Toàn bộ màn hình dưới đây là bàn làm việc của nhân viên: chặn theo vai trò ngay
-// ở route để khách hàng không lọt vào rồi mới bị API trả 403.
-function StaffLayout({ children }) {
-  return (
-    <ProtectedRoute roles={STAFF_ROLES}>
-      <SidebarLayout>{children}</SidebarLayout>
-    </ProtectedRoute>
-  );
-}
-
 export default function AppRoutes() {
   return (
     <Router>
@@ -77,62 +67,37 @@ export default function AppRoutes() {
           <Route path="/orders" element={<ProtectedRoute roles={['customer']}><OrdersPage /></ProtectedRoute>} />
           <Route path="/orders/:id" element={<ProtectedRoute roles={['customer']}><OrderDetailPage /></ProtectedRoute>} />
 
-          {/* Bàn làm việc của nhân viên & quản trị */}
-          {/* Dashboard đọc báo cáo — API mở cho admin và branch_manager, route cũng vậy */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute roles={['admin', 'branch_manager']}>
-                <SidebarLayout><DashboardPage /></SidebarLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/courts" element={<StaffLayout><CourtsPage /></StaffLayout>} />
-          <Route
-            path="/courts/layout"
-            element={
-              <ProtectedRoute roles={['admin', 'branch_manager']}>
-                <SidebarLayout><CourtLayoutPage /></SidebarLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/bookings" element={<StaffLayout><BookingsPage /></StaffLayout>} />
-          <Route path="/accessories" element={<StaffLayout><AccessoriesPage /></StaffLayout>} />
-          <Route path="/retail" element={<StaffLayout><RetailPage /></StaffLayout>} />
-          <Route path="/customers" element={<StaffLayout><CustomersPage /></StaffLayout>} />
-          <Route
-            path="/employees"
-            element={
-              <ProtectedRoute roles={['admin', 'branch_manager']}>
-                <SidebarLayout><EmployeesPage /></SidebarLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/history" element={<StaffLayout><HistoryPage /></StaffLayout>} />
-          <Route
-            path="/reports"
-            element={
-              <ProtectedRoute roles={['admin', 'branch_manager']}>
-                <SidebarLayout><ReportsPage /></SidebarLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute roles={['admin']}>
-                <SidebarLayout><SettingsPage /></SidebarLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/activity-log"
-            element={
-              <ProtectedRoute roles={['admin', 'branch_manager']}>
-                <SidebarLayout><ActivityLogPage /></SidebarLayout>
-              </ProtectedRoute>
-            }
-          />
+          {/* Bàn làm việc của nhân viên & quản trị — nested route dùng chung 1
+              SidebarLayout (render <Outlet/> nội bộ) thay vì mỗi route tự
+              dựng lại sidebar/header riêng. Nhờ vậy SidebarLayout chỉ mount 1
+              lần cho cả phiên làm việc trong khu vực admin — không unmount/
+              mount lại (và không mất prefetch đã lên lịch) mỗi lần chuyển
+              trang, đồng thời Suspense bên trong SidebarLayout chỉ thay vùng
+              nội dung, sidebar/header không biến mất lúc chờ tải chunk.
+              Phân quyền giữ lồng theo đúng tập con cũ: STAFF_ROLES bọc ngoài
+              cùng (chặn khách hàng trước khi sidebar admin kịp render) →
+              admin/branch_manager → admin, không đổi vai trò nào so với
+              trước. */}
+          <Route element={<ProtectedRoute roles={STAFF_ROLES}><SidebarLayout /></ProtectedRoute>}>
+            <Route path="/courts" element={<CourtsPage />} />
+            <Route path="/bookings" element={<BookingsPage />} />
+            <Route path="/accessories" element={<AccessoriesPage />} />
+            <Route path="/retail" element={<RetailPage />} />
+            <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+
+            <Route element={<ProtectedRoute roles={['admin', 'branch_manager']}><Outlet /></ProtectedRoute>}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/courts/layout" element={<CourtLayoutPage />} />
+              <Route path="/employees" element={<EmployeesPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/activity-log" element={<ActivityLogPage />} />
+
+              <Route element={<ProtectedRoute roles={['admin']}><Outlet /></ProtectedRoute>}>
+                <Route path="/settings" element={<SettingsPage />} />
+              </Route>
+            </Route>
+          </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

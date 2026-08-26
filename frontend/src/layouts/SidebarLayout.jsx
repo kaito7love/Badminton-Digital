@@ -1,10 +1,22 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { Suspense, useEffect } from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBranch } from '../contexts/BranchContext';
 import { MoonIcon, SunIcon, ChartBarIcon, HomeIcon, TicketIcon, ClipboardListIcon, UserGroupIcon, BuildingOfficeIcon, FileChartBarIcon, Cog6ToothIcon, HistoryIcon, ShoppingBagIcon, ClipboardCheckIcon, MapIcon } from './icons';
 import { roleOf } from '../utils/roles';
+import ErrorBoundary from '../components/ErrorBoundary';
+import { scheduleAdminPrefetch } from '../routes/adminPrefetch';
+
+// Fallback cho lúc chờ tải chunk của 1 trang admin — chỉ thay vùng nội dung
+// (đặt trong Suspense bọc riêng <Outlet/>), sidebar/header ở ngoài boundary
+// nên không biến mất theo. Dùng đúng convention loading text + animate-pulse
+// đã có sẵn khắp các trang (vd DashboardPage.jsx, CourtsPage.jsx).
+const RouteLoadingFallback = () => (
+  <div className="p-8 text-slate-500 dark:text-slate-400 font-semibold animate-pulse">
+    ⏳ Đang tải trang...
+  </div>
+);
 
 // `roles` bỏ trống = mọi nhân sự đều thấy. Những mục chỉ admin mới gọi được API
 // thì cũng chỉ hiện với admin — bày ra một đường dẫn chắc chắn trả 403 là mời
@@ -24,13 +36,21 @@ const navItems = [
   { path: '/settings', label: 'Cài Đặt', icon: Cog6ToothIcon, roles: ['admin'] }
 ];
 
-export default function SidebarLayout({ children }) {
+export default function SidebarLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { isAdmin: canSwitchBranch, branches, selectedBranchId, selectBranch } = useBranch() || {};
   const role = roleOf(user);
   const visibleNavItems = navItems.filter((item) => !item.roles || item.roles.includes(role));
+
+  // SidebarLayout giờ là route cha (nested route + Outlet) nên chỉ mount 1
+  // lần cho cả phiên làm việc trong khu vực admin, không mount lại mỗi lần
+  // chuyển trang — đúng thời điểm để bắt đầu prefetch nền các trang hay dùng.
+  useEffect(() => {
+    const cancel = scheduleAdminPrefetch();
+    return cancel;
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#070A11] dark:text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950">
@@ -132,7 +152,11 @@ export default function SidebarLayout({ children }) {
 
         {/* MAIN CONTENT AREA */}
         <main className="flex-1 overflow-y-auto p-6 md:p-10">
-          {children}
+          <ErrorBoundary fullScreen={false}>
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
 
