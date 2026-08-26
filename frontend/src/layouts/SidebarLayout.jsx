@@ -295,7 +295,7 @@ export default function SidebarLayout() {
         </aside>
 
         {/* MAIN CONTENT AREA */}
-        <main className="flex-1 min-w-0 overflow-y-auto p-6 pb-24 md:pb-10 md:p-10">
+        <main className="content-scroll flex-1 min-w-0 overflow-y-auto p-6 pb-24 md:pb-10 md:p-10">
           {/* Chi nhánh + tài khoản dời từ chân sidebar lên đây — góc trên
               bên phải luôn thấy được bất kể sidebar đang thu gọn hay không,
               không còn chiếm chỗ của danh sách nav. Chỉ hiện ở desktop, mobile

@@ -29,3 +29,14 @@ body {
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background-color: rgb(16 185 129 / 0.6);
 }
+
+/* Vùng nội dung chính vẫn cuộn được bình thường (chuột/trackpad/phím) —
+   chỉ ẩn thanh scrollbar mặc định của trình duyệt cho gọn, không phải tắt
+   khả năng cuộn. */
+.content-scroll::-webkit-scrollbar {
+  display: none;
+}
+.content-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
