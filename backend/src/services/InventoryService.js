@@ -104,6 +104,24 @@ class InventoryService {
     return stock;
   }
 
+  /**
+   * Kiểm tồn kho có đủ hay không mà KHÔNG ghi giao dịch — dùng để chặn sớm,
+   * trước khi chỗ gọi kịp lưu dòng hàng xuống DB. Nếu để `postMovement` bắt
+   * sau, một số lượng phi lý (thu ngân gõ nhầm) đã kịp làm tràn cột tiền của
+   * dòng hàng và văng lỗi DB, che mất thông báo "không đủ tồn kho".
+   * Khoá cùng dòng `product_stocks` mà `postMovement` sẽ khoá ngay sau đó nên
+   * không mở thêm khe hở tranh chấp nào.
+   */
+  static async assertProductStockAvailable({ productVariantId, branchId, quantity, transaction }) {
+    const stock = await InventoryService._getLockedProductStock(productVariantId, branchId, transaction);
+    if (stock.quantity < quantity) {
+      const error = new Error(`Không đủ tồn kho tại chi nhánh này. Hiện có: ${stock.quantity}`);
+      error.statusCode = 400;
+      throw error;
+    }
+    return stock;
+  }
+
   static async _getLockedProductStock(productVariantId, branchId, transaction) {
     let stock = await ProductStock.findOne({
       where: { productVariantId, branchId },

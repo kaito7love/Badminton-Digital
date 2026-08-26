@@ -199,9 +199,12 @@ class PaymentService {
       // Generate VietQR Url if transfer method
       let qrCodeUrl = null;
       if (paymentMethod === 'transfer') {
+        // Nội dung chuyển khoản PHẢI là invoiceNo: webhook ngân hàng tra hoá
+        // đơn bằng `Invoice.findOne({ where: { invoiceNo } })`. Dùng id nội bộ
+        // ở đây thì khoản tiền về không khớp được với hoá đơn nào.
         qrCodeUrl = generateVietQRUrl({
           amount: totals.totalAmount,
-          addInfo: `HOA DON BD${invoice.id}`
+          addInfo: `HOA DON ${invoice.invoiceNo}`
         });
       }
 

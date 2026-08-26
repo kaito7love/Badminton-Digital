@@ -118,6 +118,16 @@ class SalesOrderService {
         throw error;
       }
 
+      // Chặn số lượng vượt tồn NGAY, trước khi dòng hàng chạm DB: lưu trước
+      // rồi mới kiểm thì một số lượng phi lý làm tràn cột `line_total` và trả
+      // về lỗi DB thay vì thông báo hết hàng mà thu ngân đọc được.
+      await InventoryService.assertProductStockAvailable({
+        productVariantId: variantId,
+        branchId: order.branchId,
+        quantity,
+        transaction
+      });
+
       const unitPrice = Number(variant.listPrice);
       const lineTotal = unitPrice * quantity;
 
@@ -477,7 +487,10 @@ class SalesOrderService {
 
       let qrCodeUrl = null;
       if (paymentMethod === 'transfer') {
-        qrCodeUrl = generateVietQRUrl({ amount: totalAmount, addInfo: `HOA DON BD${invoice.id}` });
+        // Nội dung chuyển khoản PHẢI là invoiceNo: webhook ngân hàng tra hoá
+        // đơn bằng `Invoice.findOne({ where: { invoiceNo } })`. Dùng id nội bộ
+        // ở đây thì khoản tiền về không khớp được với hoá đơn nào.
+        qrCodeUrl = generateVietQRUrl({ amount: totalAmount, addInfo: `HOA DON ${invoice.invoiceNo}` });
       }
 
       return {
