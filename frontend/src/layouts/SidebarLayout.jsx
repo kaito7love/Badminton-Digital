@@ -255,7 +255,7 @@ export default function SidebarLayout() {
             </button>
           )}
 
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-5 -mx-1 px-1">
+          <div className="sidebar-scroll flex-1 min-h-0 overflow-y-auto space-y-5 -mx-1 px-1">
             {visibleGroups.map((group) => (
               <div key={group.label} className="space-y-1.5">
                 {!collapsed && (
@@ -278,31 +278,8 @@ export default function SidebarLayout() {
               </Link>
             )}
 
-            {!collapsed && canSwitchBranch && branches?.length > 0 && (
-              <div className="rounded-2xl border border-sky-500/30 bg-sky-500/10 p-3.5">
-                <label className="block text-[10px] uppercase font-bold tracking-widest text-sky-700 dark:text-sky-300 mb-1.5">🏬 Đang xem chi nhánh</label>
-                <select
-                  value={selectedBranchId || ''}
-                  onChange={(e) => selectBranch(Number(e.target.value))}
-                  className="w-full rounded-xl border border-sky-500/30 bg-white dark:bg-slate-950 px-3 py-2 text-xs font-semibold text-sky-700 dark:text-sky-200 focus:border-sky-400 focus:outline-none"
-                >
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             {collapsed ? (
-              <div className="flex flex-col items-center gap-3">
-                <button
-                  type="button"
-                  onClick={toggleTheme}
-                  title={theme === 'dark' ? 'Chuyển giao diện sáng' : 'Chuyển giao diện tối'}
-                  className="rounded-xl border border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 p-2.5 transition hover:border-emerald-500/40"
-                >
-                  {theme === 'dark' ? <SunIcon className="h-4 w-4 text-amber-400" /> : <MoonIcon className="h-4 w-4 text-emerald-400" />}
-                </button>
+              <div className="flex justify-center">
                 <button
                   onClick={logout}
                   title="Đăng xuất"
@@ -312,16 +289,34 @@ export default function SidebarLayout() {
                 </button>
               </div>
             ) : (
-              <>
-                {accountBlock}
-                {logoutButton}
-              </>
+              logoutButton
             )}
           </div>
         </aside>
 
         {/* MAIN CONTENT AREA */}
         <main className="flex-1 min-w-0 overflow-y-auto p-6 pb-24 md:pb-10 md:p-10">
+          {/* Chi nhánh + tài khoản dời từ chân sidebar lên đây — góc trên
+              bên phải luôn thấy được bất kể sidebar đang thu gọn hay không,
+              không còn chiếm chỗ của danh sách nav. Chỉ hiện ở desktop, mobile
+              đã có 2 mục này trong bottom sheet riêng. */}
+          <div className="mb-6 hidden md:flex flex-wrap items-center justify-end gap-3">
+            {canSwitchBranch && branches?.length > 0 && (
+              <div className="flex items-center gap-2 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-3.5 py-2">
+                <span className="text-xs">🏬</span>
+                <select
+                  value={selectedBranchId || ''}
+                  onChange={(e) => selectBranch(Number(e.target.value))}
+                  className="bg-transparent text-xs font-semibold text-sky-700 dark:text-sky-200 focus:outline-none"
+                >
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id} className="text-slate-900">{b.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {accountBlock}
+          </div>
           <ErrorBoundary fullScreen={false}>
             <Suspense fallback={<RouteLoadingFallback />}>
               <Outlet />
