@@ -36,7 +36,7 @@ export default function AccessoriesPage() {
         )}
       </div>
 
-      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
+      <div className="hide-scrollbar flex gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
         {visibleTabs.map((tab) => (
           <button
             key={tab.key}

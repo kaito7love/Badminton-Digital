@@ -170,7 +170,7 @@ export default function BookingsPage() {
           {bookings.length === 0 ? (
             <p className="text-center text-slate-500 dark:text-slate-400 py-12 font-medium">Chưa có lịch đặt sân nào trong hệ thống.</p>
           ) : (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
               {bookings.map((b) => {
                 const status = (b.status || '').toUpperCase();
                 const courtName = b.court?.name || b.courtName || `Sân #${b.courtId}`;

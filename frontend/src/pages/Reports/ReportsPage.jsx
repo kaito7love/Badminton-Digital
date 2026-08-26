@@ -20,7 +20,7 @@ export default function ReportsPage() {
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">Phân tích doanh thu sân, phụ kiện, bán lẻ và đối chiếu kho, kèm xuất dữ liệu Excel/PDF.</p>
       </div>
 
-      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
+      <div className="hide-scrollbar flex gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
         {TABS.map((tab) => (
           <button
             key={tab.key}

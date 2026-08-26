@@ -40,3 +40,15 @@ body {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+
+/* Thanh tab con (Retail/Báo Cáo/Dịch Vụ) và hàng chip lọc danh mục cuộn
+   ngang khi không đủ chỗ — giữ nguyên khả năng cuộn, chỉ ẩn thanh cuộn
+   mặc định của trình duyệt cho đỡ chỏi với giao diện, cùng cách làm với
+   .content-scroll nhưng theo chiều ngang. */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
