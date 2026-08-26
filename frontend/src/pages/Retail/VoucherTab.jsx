@@ -118,7 +118,7 @@ export default function VoucherTab() {
         </p>
         <button
           onClick={openCreateModal}
-          className="rounded-3xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 whitespace-nowrap"
+          className="shrink-0 whitespace-nowrap rounded-3xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
         >
           + Thêm mã giảm giá
         </button>

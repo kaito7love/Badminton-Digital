@@ -166,7 +166,7 @@ export default function StockMovementsTab() {
         </div>
         <button
           onClick={openAdjustModal}
-          className="rounded-3xl border border-amber-500/30 bg-amber-500/10 px-5 py-3 text-sm font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition whitespace-nowrap"
+          className="shrink-0 whitespace-nowrap rounded-3xl border border-amber-500/30 bg-amber-500/10 px-5 py-3 text-sm font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition"
         >
           ⚠️ Điều chỉnh kho
         </button>

@@ -322,22 +322,22 @@ export default function CourtLayoutPage() {
             Kéo để di chuyển, kéo ô góc để đổi kích thước khu vực. Khách hàng ở trang chủ sẽ thấy thay đổi ngay sau khi lưu.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {saveMessage && <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{saveMessage}</span>}
-          {saveError && <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">{saveError}</span>}
-          {dirty && !saveMessage && <span className="text-xs text-amber-600 dark:text-amber-400">Chưa lưu</span>}
+        <div className="flex flex-wrap items-center gap-3">
+          {saveMessage && <span className="whitespace-nowrap text-sm font-semibold text-emerald-600 dark:text-emerald-400">{saveMessage}</span>}
+          {saveError && <span className="whitespace-nowrap text-sm font-semibold text-rose-600 dark:text-rose-400">{saveError}</span>}
+          {dirty && !saveMessage && <span className="whitespace-nowrap text-xs text-amber-600 dark:text-amber-400">Chưa lưu</span>}
           <button
             onClick={handleReset}
             disabled={!dirty || saving}
             title="Bỏ thay đổi chưa lưu, quay về bản đã lưu gần nhất"
-            className="rounded-2xl border border-slate-200 dark:border-slate-700 px-5 py-3 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="shrink-0 whitespace-nowrap rounded-2xl border border-slate-200 dark:border-slate-700 px-5 py-3 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             ↺ Khôi phục
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-400 transition disabled:opacity-60"
+            className="shrink-0 whitespace-nowrap rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-400 transition disabled:opacity-60"
           >
             {saving ? 'Đang lưu...' : 'Lưu bố cục'}
           </button>

@@ -94,7 +94,7 @@ function VoidInvoiceButton({ invoiceId, invoiceNo, onVoided }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="rounded-lg border border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20 px-2.5 py-1 text-[11px] font-bold transition"
+        className="whitespace-nowrap rounded-lg border border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20 px-2.5 py-1 text-[11px] font-bold transition"
       >
         Huỷ hoá đơn
       </button>

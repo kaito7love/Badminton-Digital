@@ -105,16 +105,16 @@ export default function ProductsTab({ onGoToReceiving }) {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-500 dark:text-slate-400 max-w-2xl">Danh mục sản phẩm dùng chung mọi chi nhánh. Tồn kho hiển thị bên dưới là của chi nhánh bạn đang đăng nhập.</p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={onGoToReceiving}
-            className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300 transition hover:bg-emerald-500/20"
+            className="shrink-0 whitespace-nowrap rounded-3xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300 transition hover:bg-emerald-500/20"
           >
             📥 Nhập kho
           </button>
           <button
             onClick={handleOpenAddModal}
-            className="rounded-3xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+            className="shrink-0 whitespace-nowrap rounded-3xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
           >
             + Thêm phụ kiện
           </button>

@@ -130,16 +130,16 @@ export default function CatalogTab() {
         <p className="text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
           Danh mục sản phẩm bán lẻ (vợt, áo, quần, phụ kiện) dùng chung toàn chuỗi — tồn kho theo từng chi nhánh xem ở tab "Kho bán lẻ".
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setIsCategoryModalOpen(true)}
-            className="rounded-3xl border border-slate-300 bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 transition hover:bg-slate-200 dark:hover:bg-slate-700"
+            className="shrink-0 whitespace-nowrap rounded-3xl border border-slate-300 bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 transition hover:bg-slate-200 dark:hover:bg-slate-700"
           >
             + Danh mục
           </button>
           <button
             onClick={openProductModal}
-            className="rounded-3xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+            className="shrink-0 whitespace-nowrap rounded-3xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
           >
             + Thêm sản phẩm
           </button>
