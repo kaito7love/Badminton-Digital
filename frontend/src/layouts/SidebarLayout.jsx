@@ -295,12 +295,15 @@ export default function SidebarLayout() {
         </aside>
 
         {/* MAIN CONTENT AREA */}
-        <main className="content-scroll flex-1 min-w-0 overflow-y-auto p-6 pb-24 md:pb-10 md:p-10">
-          {/* Chi nhánh + tài khoản dời từ chân sidebar lên đây — góc trên
-              bên phải luôn thấy được bất kể sidebar đang thu gọn hay không,
-              không còn chiếm chỗ của danh sách nav. Chỉ hiện ở desktop, mobile
-              đã có 2 mục này trong bottom sheet riêng. */}
-          <div className="mb-6 hidden md:flex flex-wrap items-center justify-end gap-3">
+        <main className="content-scroll relative flex-1 min-w-0 overflow-y-auto p-6 pb-24 md:pb-10 md:p-10">
+          {/* Chi nhánh + tài khoản: định vị absolute ở góc trên-phải thay vì
+              nằm trong luồng bình thường — mỗi trang admin tự vẽ tiêu đề
+              riêng (icon + heading) ở đầu nội dung, đặt absolute thì khối này
+              nằm cùng hàng với tiêu đề của bất kỳ trang nào mà không cần sửa
+              lại từng trang. Top/right khớp đúng padding của main (p-6/p-10)
+              để thẳng hàng với mép nội dung. Chỉ hiện ở desktop, mobile đã có
+              2 mục này trong bottom sheet riêng. */}
+          <div className="absolute right-6 top-6 z-10 hidden md:right-10 md:top-10 md:flex flex-wrap items-center justify-end gap-3">
             {canSwitchBranch && branches?.length > 0 && (
               <div className="flex items-center gap-2 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-3.5 py-2">
                 <span className="text-xs">🏬</span>
