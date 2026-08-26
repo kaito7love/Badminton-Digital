@@ -46,6 +46,8 @@ export default function CourtLayoutPage() {
   const [addCourtName, setAddCourtName] = useState('');
 
   const savedSnapshotRef = useRef('');
+  const canvasWrapRef = useRef(null);
+  const [scale, setScale] = useState(1);
 
   const dirty = JSON.stringify({ canvas, courts, zones }) !== savedSnapshotRef.current;
 
@@ -77,6 +79,26 @@ export default function CourtLayoutPage() {
       cancelled = true;
     };
   }, [selectedBranchId]);
+
+  // Thu nhỏ sơ đồ vừa khít bề ngang khung chứa — không bao giờ hiện thanh
+  // trượt ngang, kể cả khi canvas rộng hơn màn hình. Không phóng to quá 1
+  // (canvas nhỏ hơn khung thì giữ nguyên kích thước thật, không kéo giãn).
+  useEffect(() => {
+    const el = canvasWrapRef.current;
+    if (!el) return undefined;
+    const compute = () => {
+      const available = el.clientWidth;
+      setScale(available > 0 ? Math.min(1, available / canvas.width) : 1);
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+    // `loading` bắt buộc có trong deps: div chứa canvasWrapRef chỉ mount sau
+    // khi tải xong (return sớm lúc loading=true), nên nếu chỉ phụ thuộc
+    // canvas.width thì lần load đầu tiên effect chạy trước khi ref tồn tại
+    // và không bao giờ chạy lại nếu width tải về trùng giá trị mặc định.
+  }, [canvas.width, loading]);
 
   // Rời trang khi còn thay đổi chưa lưu thì cảnh báo — kéo/xoay cả chục món
   // rồi mất trắng vì lỡ tay bấm back là rất khó chịu.
@@ -192,8 +214,10 @@ export default function CourtLayoutPage() {
     let ny = oy;
     el.setPointerCapture(e.pointerId);
     const onMove = (ev) => {
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
+      // Canvas đang hiển thị thu nhỏ theo `scale` — 1px chuột di chuyển
+      // tương ứng 1/scale px trong toạ độ thật của sơ đồ.
+      const dx = (ev.clientX - startX) / scale;
+      const dy = (ev.clientY - startY) / scale;
       nx = Math.max(0, Math.min(canvas.width - COURT_W, ox + dx));
       ny = Math.max(0, Math.min(canvas.height - COURT_H, oy + dy));
       el.style.left = `${nx}px`;
@@ -220,8 +244,8 @@ export default function CourtLayoutPage() {
     let ny = oy;
     el.setPointerCapture(e.pointerId);
     const onMove = (ev) => {
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
+      const dx = (ev.clientX - startX) / scale;
+      const dy = (ev.clientY - startY) / scale;
       nx = Math.max(0, Math.min(canvas.width - w, ox + dx));
       ny = Math.max(0, Math.min(canvas.height - h, oy + dy));
       el.style.left = `${nx}px`;
@@ -249,8 +273,8 @@ export default function CourtLayoutPage() {
     let nh = oh;
     handle.setPointerCapture(e.pointerId);
     const onMove = (ev) => {
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
+      const dx = (ev.clientX - startX) / scale;
+      const dy = (ev.clientY - startY) / scale;
       nw = Math.max(30, Math.min(canvas.width - x, ow + dx));
       nh = Math.max(20, Math.min(canvas.height - y, oh + dy));
       boxEl.style.width = `${nw}px`;
@@ -413,13 +437,17 @@ export default function CourtLayoutPage() {
 
         {/* Canvas */}
         <div className="min-w-0 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-4">
-          <div className="overflow-x-auto">
+          {/* Thu nhỏ theo `scale` để vừa khít bề ngang, không bao giờ cần
+              thanh trượt ngang — chiều cao div ngoài phải khai theo kích
+              thước ĐÃ thu nhỏ, vì transform:scale không tự co layout box. */}
+          <div ref={canvasWrapRef} className="overflow-hidden" style={{ height: canvas.height * scale }}>
             <div
-              className="relative mx-auto rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+              className="relative rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
               style={{
                 width: canvas.width,
                 height: canvas.height,
-                minWidth: canvas.width,
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
                 backgroundImage:
                   'linear-gradient(rgba(100,116,139,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,0.08) 1px, transparent 1px)',
                 backgroundSize: '25px 25px',
