@@ -129,7 +129,7 @@ export default function OverviewTab() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <StatBox
           label="Tổng doanh thu"
           value={formatMoney(totalRevenue)}
