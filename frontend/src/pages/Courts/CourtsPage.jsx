@@ -334,7 +334,7 @@ export default function CourtsPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400 font-medium">Realtime Court Matrix</p>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-1">Sơ đồ quản lý sân thời gian thực</h1>
