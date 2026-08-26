@@ -412,7 +412,7 @@ export default function CourtLayoutPage() {
         </div>
 
         {/* Canvas */}
-        <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-4">
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-4">
           <div className="overflow-x-auto">
             <div
               className="relative mx-auto rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
