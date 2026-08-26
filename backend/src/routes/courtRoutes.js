@@ -9,12 +9,15 @@ const {
   updateCourtRules,
   openCourtRules,
   transferCourtRules,
-  updateCourtStatusRules
+  updateCourtStatusRules,
+  updateCourtLayoutRules
 } = require('../validations/courtValidation');
 
 router.use(authMiddleware, branchContextMiddleware);
 
 router.get('/', courtController.getCourts);
+// Đặt trước '/:id' — nếu để sau, Express sẽ khớp '/layout' vào :id.
+router.put('/layout', roleMiddleware(['admin', 'branch_manager']), updateCourtLayoutRules, courtController.updateCourtLayout);
 router.get('/:id', courtController.getCourtById);
 
 router.post('/', roleMiddleware(['admin', 'branch_manager']), createCourtRules, courtController.createCourt);

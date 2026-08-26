@@ -15,6 +15,7 @@ const ForgotPasswordPage = lazy(() => import('../pages/Login/ForgotPasswordPage'
 const ResetPasswordPage = lazy(() => import('../pages/Login/ResetPasswordPage'));
 const DashboardPage = lazy(() => import('../pages/Dashboard/DashboardPage'));
 const CourtsPage = lazy(() => import('../pages/Courts/CourtsPage'));
+const CourtLayoutPage = lazy(() => import('../pages/Courts/CourtLayoutPage'));
 const BookingsPage = lazy(() => import('../pages/Bookings/BookingsPage'));
 const AccessoriesPage = lazy(() => import('../pages/Accessories/AccessoriesPage'));
 const RetailPage = lazy(() => import('../pages/Retail/RetailPage'));
@@ -87,6 +88,14 @@ export default function AppRoutes() {
             }
           />
           <Route path="/courts" element={<StaffLayout><CourtsPage /></StaffLayout>} />
+          <Route
+            path="/courts/layout"
+            element={
+              <ProtectedRoute roles={['admin', 'branch_manager']}>
+                <SidebarLayout><CourtLayoutPage /></SidebarLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route path="/bookings" element={<StaffLayout><BookingsPage /></StaffLayout>} />
           <Route path="/accessories" element={<StaffLayout><AccessoriesPage /></StaffLayout>} />
           <Route path="/retail" element={<StaffLayout><RetailPage /></StaffLayout>} />

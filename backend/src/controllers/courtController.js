@@ -1,4 +1,5 @@
 const CourtService = require('../services/CourtService');
+const CourtLayoutService = require('../services/CourtLayoutService');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 const getCourts = async (req, res, next) => {
@@ -89,6 +90,15 @@ const updateCourtStatus = async (req, res, next) => {
   }
 };
 
+const updateCourtLayout = async (req, res, next) => {
+  try {
+    const layout = await CourtLayoutService.saveLayout(req.branchId, req.body);
+    return successResponse(res, layout, 'Đã lưu sơ đồ mặt bằng');
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getCourts,
   getCourtById,
@@ -98,5 +108,6 @@ module.exports = {
   openCourt,
   closeCourt,
   transferCourt,
-  updateCourtStatus
+  updateCourtStatus,
+  updateCourtLayout
 };

@@ -49,10 +49,22 @@ const transferCourtRules = [
   validate
 ];
 
+// Chỉ kiểm tra shape ở đây — đối chiếu courtName với sân thật của đúng chi
+// nhánh là business rule, để CourtLayoutService lo (cần query DB).
+const updateCourtLayoutRules = [
+  body('canvas').isObject().withMessage('canvas là bắt buộc'),
+  body('canvas.width').isFloat({ min: 200 }).withMessage('canvas.width phải là số >= 200'),
+  body('canvas.height').isFloat({ min: 200 }).withMessage('canvas.height phải là số >= 200'),
+  body('courts').isArray().withMessage('courts phải là mảng'),
+  body('zones').isArray().withMessage('zones phải là mảng'),
+  validate
+];
+
 module.exports = {
   createCourtRules,
   updateCourtRules,
   openCourtRules,
   transferCourtRules,
-  updateCourtStatusRules
+  updateCourtStatusRules,
+  updateCourtLayoutRules
 };
