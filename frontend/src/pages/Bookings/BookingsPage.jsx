@@ -141,24 +141,24 @@ export default function BookingsPage() {
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">Theo dõi danh sách khách đặt online & tại quầy, duyệt hoặc đổi lịch đặt sân.</p>
         </div>
 
-        <div className="flex gap-3">
-          <div className="flex rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/80 p-1">
+        <div className="flex flex-wrap gap-3">
+          <div className="flex shrink-0 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/80 p-1">
             <button
               onClick={() => setViewMode('list')}
-              className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${viewMode === 'list' ? 'bg-emerald-500 text-slate-950 shadow-md' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
+              className={`whitespace-nowrap rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${viewMode === 'list' ? 'bg-emerald-500 text-slate-950 shadow-md' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
             >
               Danh sách
             </button>
             <button
               onClick={() => setViewMode('calendar')}
-              className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${viewMode === 'calendar' ? 'bg-emerald-500 text-slate-950 shadow-md' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
+              className={`whitespace-nowrap rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${viewMode === 'calendar' ? 'bg-emerald-500 text-slate-950 shadow-md' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
             >
               Lịch Tuần
             </button>
           </div>
           <button
             onClick={handleOpenAddModal}
-            className="rounded-2xl bg-gradient-to-r from-emerald-500 to-lime-400 px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-950 shadow-lg shadow-emerald-500/20 hover:brightness-110 transition"
+            className="shrink-0 whitespace-nowrap rounded-2xl bg-gradient-to-r from-emerald-500 to-lime-400 px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-950 shadow-lg shadow-emerald-500/20 hover:brightness-110 transition"
           >
             + Tạo Lịch Đặt Mới
           </button>

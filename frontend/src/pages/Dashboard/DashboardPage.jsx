@@ -86,7 +86,7 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-1">Tổng Quan Vận Hành</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">Theo dõi tình trạng sân cầu lông, doanh thu thực tế, lịch đặt sân & cảnh báo kho vật tư.</p>
         </div>
-        <div className="rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-5 shadow-2xl backdrop-blur-xl text-sm text-slate-600 dark:text-slate-300">
+        <div className="shrink-0 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-5 shadow-2xl backdrop-blur-xl text-sm text-slate-600 dark:text-slate-300">
           <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white mb-1">
             <span className="text-emerald-600 dark:text-emerald-400">⚡</span> Badminton Digital Core
           </div>

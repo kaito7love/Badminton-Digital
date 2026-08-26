@@ -340,20 +340,20 @@ export default function CourtsPage() {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-1">Sơ đồ quản lý sân thời gian thực</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tự động đếm giờ, tính tiền sân, gọi đồ, trả đồ dư & cập nhật thông tin sân.</p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex shrink-0 gap-3">
             <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 px-4 py-2 text-center">
-              <span className="text-xs text-slate-500 dark:text-slate-400">Đang chơi</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Đang chơi</span>
               <p className="text-base font-bold text-rose-600 dark:text-rose-400">{courts.filter(c => c.status === 'busy').length} sân</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 px-4 py-2 text-center">
-              <span className="text-xs text-slate-500 dark:text-slate-400">Sân trống</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Sân trống</span>
               <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">{courts.filter(c => c.status === 'open').length} sân</p>
             </div>
           </div>
           <button
             onClick={handleOpenAddCourtModal}
-            className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-400 transition"
+            className="shrink-0 whitespace-nowrap rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-400 transition"
           >
             + Thêm Sân Mới
           </button>

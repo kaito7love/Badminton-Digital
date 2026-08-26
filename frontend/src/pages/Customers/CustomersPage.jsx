@@ -115,7 +115,7 @@ export default function CustomersPage() {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Danh sách khách hàng</h1>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">Tra cứu nhanh khách hàng, cập nhật SĐT, thông tin cá nhân và lịch sử tiêu dùng.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <form onSubmit={handleSearch} className="flex gap-2">
             <input
               type="text"
@@ -126,14 +126,14 @@ export default function CustomersPage() {
             />
             <button
               type="submit"
-              className="rounded-3xl border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 px-4 py-2.5 text-sm font-semibold transition"
+              className="shrink-0 whitespace-nowrap rounded-3xl border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 px-4 py-2.5 text-sm font-semibold transition"
             >
               🔍 Tìm
             </button>
           </form>
           <button
             onClick={handleOpenAddModal}
-            className="rounded-3xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+            className="shrink-0 whitespace-nowrap rounded-3xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
           >
             + Thêm khách hàng
           </button>

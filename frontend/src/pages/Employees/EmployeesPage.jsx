@@ -119,7 +119,7 @@ export default function EmployeesPage() {
         </div>
         <button
           onClick={handleOpenAddModal}
-          className="rounded-3xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+          className="shrink-0 whitespace-nowrap rounded-3xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
         >
           + Thêm nhân viên
         </button>
