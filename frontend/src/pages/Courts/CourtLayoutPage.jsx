@@ -112,6 +112,20 @@ export default function CourtLayoutPage() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
+  // Bỏ hết thay đổi chưa lưu, quay về đúng bản đã lưu gần nhất (hoặc canvas
+  // trống mặc định nếu chi nhánh chưa từng có file layout) — không gọi API,
+  // chỉ nạp lại snapshot đã giữ sẵn trong bộ nhớ.
+  const handleReset = () => {
+    const snapshot = savedSnapshotRef.current
+      ? JSON.parse(savedSnapshotRef.current)
+      : { canvas: DEFAULT_CANVAS, courts: [], zones: [] };
+    setCanvas(snapshot.canvas);
+    setCourts(snapshot.courts);
+    setZones(snapshot.zones);
+    setSelected(null);
+    setSaveError(null);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setSaveError(null);
@@ -312,6 +326,14 @@ export default function CourtLayoutPage() {
           {saveMessage && <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{saveMessage}</span>}
           {saveError && <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">{saveError}</span>}
           {dirty && !saveMessage && <span className="text-xs text-amber-600 dark:text-amber-400">Chưa lưu</span>}
+          <button
+            onClick={handleReset}
+            disabled={!dirty || saving}
+            title="Bỏ thay đổi chưa lưu, quay về bản đã lưu gần nhất"
+            className="rounded-2xl border border-slate-200 dark:border-slate-700 px-5 py-3 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            ↺ Khôi phục
+          </button>
           <button
             onClick={handleSave}
             disabled={saving}
