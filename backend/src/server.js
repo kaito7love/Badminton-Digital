@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { sequelize } = require('./models');
@@ -22,6 +23,11 @@ app.use(requestContextMiddleware);
 // Health Check Endpoints
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 app.get('/api/v1/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
+
+// Sơ đồ mặt bằng sân theo chi nhánh: file JSON tĩnh, cập nhật bằng cách sửa
+// file trực tiếp (không qua DB) — chỉ chứa toạ độ hình học, không dữ liệu
+// nhạy cảm nên không cần auth.
+app.use('/static/layouts', express.static(path.join(__dirname, '../public/layouts')));
 
 // Register API Routes
 // Trang chủ công khai: chỉ đọc danh mục sân và khung giờ trống, không cần đăng nhập

@@ -1,0 +1,18 @@
+{
+  "branchId": 1,
+  "canvas": { "width": 1000, "height": 560 },
+  "courts": [
+    { "courtName": "Sân số 1 (Thường)", "x": 30, "y": 70, "rotation": 0 },
+    { "courtName": "Sân số 2 (Thường)", "x": 240, "y": 70, "rotation": 0 },
+    { "courtName": "Sân số 3 (Thường)", "x": 450, "y": 70, "rotation": 0 },
+    { "courtName": "Sân VIP (Thảm Yonex)", "x": 660, "y": 70, "rotation": 0 }
+  ],
+  "zones": [
+    { "label": "KHU VỰC VĂN PHÒNG", "x": 860, "y": 70, "w": 130, "h": 320, "cls": "office", "rotation": 0 },
+    { "label": "KHU VỰC KHÁCH NGỒI NGHỈ", "x": 30, "y": 200, "w": 800, "h": 90, "cls": "wait", "rotation": 0 },
+    { "label": "QUẦY THU NGÂN", "x": 100, "y": 310, "w": 190, "h": 45, "cls": "counter", "rotation": 0 },
+    { "label": "SHOW-ROOM / TRƯNG BÀY SẢN PHẨM", "x": 310, "y": 310, "w": 250, "h": 45, "cls": "show", "rotation": 0 },
+    { "label": "BÃI XE KHÁCH", "x": 0, "y": 380, "w": 180, "h": 110, "cls": "parking", "rotation": 0 },
+    { "label": "CỬA", "x": 460, "y": 500, "w": 70, "h": 25, "cls": "entrance", "rotation": 0 }
+  ]
+}

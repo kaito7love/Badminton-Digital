@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./HomePage.css";
 import { publicService, bookingService } from "../../services/apiServices";
+import CourtFloorPlan from "../../components/CourtFloorPlan";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import { roleOf, isStaff, homePathForRole } from "../../utils/roles";
@@ -10,6 +11,9 @@ import { todayInZone } from '../../utils/datetime';
 // Lựa chọn của khách được giữ lại khi họ phải rẽ qua trang đăng nhập, để quay
 // về là đặt tiếp chứ không phải chọn lại từ đầu.
 const PENDING_BOOKING_KEY = "pending_booking";
+// Chi nhánh khách đã chọn ở trang chủ — riêng biệt với "admin_selected_branch_id"
+// (BranchContext.jsx) vì đó là bộ chuyển chi nhánh của nhân viên, khác đối tượng.
+const CUSTOMER_BRANCH_KEY = "customer_selected_branch_id";
 
 const addHours = (hhmm, hours) => {
   const [h, m] = hhmm.split(":").map(Number);
@@ -37,6 +41,11 @@ export default function HomePage() {
   const [scrolled, setScrolled] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [courts, setCourts] = useState([]);
+  const [layout, setLayout] = useState(null);
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState(
+    () => localStorage.getItem(CUSTOMER_BRANCH_KEY) || "",
+  );
   const [peakHours, setPeakHours] = useState({ peakStartHour: 17, peakEndHour: 22 });
   const [catalogError, setCatalogError] = useState(null);
   const [selectedCourt, setSelectedCourt] = useState(null);
@@ -52,6 +61,7 @@ export default function HomePage() {
   });
   const closeButtonRef = useRef(null);
   const lastFocusedElementRef = useRef(null);
+  const currentBranch = branches.find((b) => String(b.id) === String(selectedBranchId));
 
   // Giá một khung đặt: cộng theo từng giờ, giờ nào rơi vào cao điểm thì tính giá
   // cao điểm — cùng quy tắc với priceCalculator ở backend.
@@ -85,20 +95,51 @@ export default function HomePage() {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isModalOpen]);
 
-  // Danh mục sân và bảng giá lấy thẳng từ hệ thống, không cứng trong code —
-  // nếu không, đổi giá ở màn Cài đặt mà trang chủ vẫn rao giá cũ.
+  // Danh sách chi nhánh cho bộ chọn — chỉ tải 1 lần, độc lập với chi nhánh
+  // đang xem.
+  useEffect(() => {
+    publicService
+      .getBranches()
+      .then((res) => setBranches(res.data?.data || []))
+      .catch(() => {});
+  }, []);
+
+  // Danh mục sân, bảng giá và sơ đồ mặt bằng — tải lại mỗi khi khách đổi chi
+  // nhánh. Không cứng branchId trong code: đổi giá/sân ở màn Cài đặt hay đổi
+  // chi nhánh ở đây đều phải phản ánh đúng ngay, tránh khách xem nhầm sân của
+  // chi nhánh khác rồi đặt lịch ở sai địa điểm.
   useEffect(() => {
     let cancelled = false;
     publicService
-      .getCourts()
+      .getCourts(selectedBranchId ? { branchId: selectedBranchId } : undefined)
       .then((res) => {
         if (cancelled) return;
         const data = res.data?.data;
         const list = data?.courts || [];
         setCourts(list);
+        setLayout(null);
         if (data?.peakHours) setPeakHours(data.peakHours);
         const firstBookable = list.find((c) => c.bookable);
-        if (firstBookable) setBooking((cur) => ({ ...cur, court: String(firstBookable.id) }));
+        setBooking((cur) => ({ ...cur, court: firstBookable ? String(firstBookable.id) : "" }));
+        // Chưa chọn chi nhánh nào (lần đầu vào trang) thì server tự chọn hộ —
+        // đồng bộ ngược lại state/localStorage để bộ chọn hiện đúng chi nhánh
+        // đang xem, không để trống gây hiểu nhầm.
+        const branchId = data?.branch?.id;
+        if (branchId) {
+          if (String(branchId) !== selectedBranchId) {
+            setSelectedBranchId(String(branchId));
+          }
+          localStorage.setItem(CUSTOMER_BRANCH_KEY, String(branchId));
+          // Sơ đồ mặt bằng là file tĩnh riêng theo chi nhánh — chưa chắc chi
+          // nhánh nào cũng có, nên lỗi/404 chỉ bỏ qua (getBranchLayout tự trả
+          // null), không chặn phần còn lại của trang chủ.
+          publicService
+            .getBranchLayout(branchId)
+            .then((l) => {
+              if (!cancelled) setLayout(l);
+            })
+            .catch(() => {});
+        }
       })
       .catch(() => {
         if (!cancelled) setCatalogError("Chưa tải được danh sách sân. Vui lòng thử lại sau.");
@@ -106,7 +147,7 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedBranchId]);
 
   // Quay lại sau khi đăng nhập: dựng lại đúng lựa chọn dở dang.
   useEffect(() => {
@@ -150,6 +191,13 @@ export default function HomePage() {
     scrollToSection("booking-widget");
   };
 
+  // Bấm vào 1 ô sân trên sơ đồ mặt bằng: điền sẵn đúng sân đó rồi đưa khách
+  // về widget đặt sân — cùng một điểm kiểm tra trống với mọi lối tắt khác.
+  const selectCourtFromLayout = (court) => {
+    setBooking((cur) => ({ ...cur, court: String(court.id) }));
+    scrollToSection("booking-widget");
+  };
+
   const handleBookingChange = (event) => {
     setBooking((current) => ({
       ...current,
@@ -172,11 +220,16 @@ export default function HomePage() {
     try {
       // Hỏi đúng hệ thống xem còn trống không, thay vì hứa suông rồi để khách
       // phát hiện trùng lịch ở bước cuối.
+      // Bắt buộc kèm branchId: thiếu nó, backend tự resolve về chi nhánh mặc
+      // định và báo "Không tìm thấy sân" cho bất kỳ sân nào không thuộc chi
+      // nhánh đó — đúng lỗi khách đang lo (xem 1 chi nhánh, kiểm tra hoá ra
+      // lại tính theo chi nhánh khác).
       const res = await publicService.checkAvailability({
         courtId: court.id,
         bookingDate: booking.date,
         startTime,
         endTime,
+        branchId: selectedBranchId || undefined,
       });
       if (!res.data?.data?.available) {
         showToast(res.data?.data?.message || "Khung giờ này đã có người đặt. Mời bạn chọn giờ khác.");
@@ -187,6 +240,7 @@ export default function HomePage() {
       setSelectedCourt({
         courtId: court.id,
         name: court.name,
+        branchName: currentBranch?.name,
         bookingDate: booking.date,
         startTime,
         endTime,
@@ -650,6 +704,46 @@ export default function HomePage() {
             </p>
           </div>
 
+          {branches.length > 0 && (
+            <div className="nike-card-static flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 py-4 mb-8 border-emerald-500/20">
+              <div className="flex items-center gap-2 font-kinetic text-sm font-bold text-white">
+                <span aria-hidden="true">📍</span>
+                <span>
+                  Đang xem: <span className="text-emerald-400">{currentBranch?.name || "…"}</span>
+                  {currentBranch?.address && (
+                    <span className="text-slate-400 font-medium"> — {currentBranch.address}</span>
+                  )}
+                </span>
+              </div>
+              {branches.length > 1 && (
+                <div className="flex items-center gap-3">
+                  <label
+                    htmlFor="branch-select"
+                    className="font-kinetic text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap"
+                  >
+                    Đổi chi nhánh
+                  </label>
+                  <select
+                    id="branch-select"
+                    value={selectedBranchId}
+                    onChange={(e) => setSelectedBranchId(e.target.value)}
+                    className="booking-input"
+                    style={{ width: "auto" }}
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
+          {layout ? (
+            <CourtFloorPlan layout={layout} courts={courts} onSelectCourt={selectCourtFromLayout} />
+          ) : (
           <div className="grid md:grid-cols-3 gap-8">
             {/* Court 1 */}
             <div className="nike-card group">
@@ -792,6 +886,7 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </section>
 
@@ -1150,6 +1245,14 @@ export default function HomePage() {
             </h3>
 
             <div className="bg-slate-950/90 p-5 rounded-2xl mb-6 space-y-3 border border-white/10 font-kinetic text-sm">
+              {selectedCourt.branchName && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">CHI NHÁNH:</span>
+                  <strong className="text-emerald-400 font-black">
+                    {selectedCourt.branchName}
+                  </strong>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-400">SÂN:</span>
                 <strong className="text-white font-black">

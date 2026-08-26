@@ -18,6 +18,16 @@ export const publicService = {
   getProducts: (params) => apiClient.get('/public/products', { params }),
   getProductById: (id, params) => apiClient.get(`/public/products/${id}`, { params }),
   getBranches: () => apiClient.get('/public/branches'),
+  // Sơ đồ mặt bằng sân: file JSON tĩnh phục vụ trực tiếp từ backend (không
+  // qua /api/v1), nên không dùng apiClient — origin tính từ VITE_API_BASE_URL
+  // để chạy đúng cả khi frontend/backend khác domain ở production.
+  getBranchLayout: async (branchId) => {
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+    const origin = apiBase.replace(/\/api\/v1\/?$/, '');
+    const res = await fetch(`${origin}/static/layouts/branch-${branchId}.json`);
+    if (!res.ok) return null;
+    return res.json();
+  },
 };
 
 // ─── Đơn hàng của khách (đặt online, nhận tại quầy) ─────────────
