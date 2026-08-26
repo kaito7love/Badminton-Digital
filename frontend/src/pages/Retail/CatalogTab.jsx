@@ -169,7 +169,7 @@ export default function CatalogTab() {
           Chưa có sản phẩm nào trong danh mục này.
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {visibleProducts.map((p) => (
             <div key={p.id} className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-5 shadow-xl shadow-slate-200/40 dark:shadow-slate-950/20 space-y-3">
               <div className="flex items-start justify-between gap-2">

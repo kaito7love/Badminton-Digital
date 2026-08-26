@@ -130,7 +130,7 @@ export default function EmployeesPage() {
         {employees.length === 0 ? (
           <p className="text-center text-slate-500 dark:text-slate-400 py-8">Chưa có nhân viên nào.</p>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {employees.map((emp) => {
               const name = emp.user?.fullName || emp.user?.full_name || emp.fullName || emp.full_name || emp.name || 'N/A';
               const email = emp.email || emp.user?.email || '';

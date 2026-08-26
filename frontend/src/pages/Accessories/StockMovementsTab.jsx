@@ -118,7 +118,7 @@ export default function StockMovementsTab() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90 p-6">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 flex-1">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 flex-1">
           <div>
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Sản phẩm</label>
             <select

@@ -120,7 +120,7 @@ export default function RetailStockTab() {
       {stocks.length === 0 ? (
         <p className="text-center text-slate-500 dark:text-slate-400 py-8 rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/90">Chưa có tồn kho sản phẩm bán lẻ nào ở chi nhánh này — nhập kho bên dưới.</p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {stocks.map((s) => {
             const status = getStockStatus(s.quantity, s.variant?.lowStockThreshold);
             return (
