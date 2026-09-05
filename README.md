@@ -6,8 +6,8 @@ Hệ thống quản lý sân cầu lông full-stack — React, Node.js/Express, 
 - `frontend/` — React SPA (giao diện quản trị/nhân viên + đặt sân khách hàng) — xem [`frontend/README.md`](frontend/README.md)
 - `backend/` — Node.js/Express REST API (đa chi nhánh, kho hàng, đặt sân, thanh toán) — xem [`backend/README.md`](backend/README.md); migrations/seeders nằm ở `backend/src/migrations/` và `backend/src/seeders/`
 - `docs/` — SRS, Use Case, Database Design, API Design, Architecture, Test Plan, Deployment Guide
-- `postman/` — Postman collection kiểm thử API
-- `k6/` — Kịch bản load testing
+- `postman/` — Postman collection kiểm thử API (112 endpoint) — xem [`postman/README.md`](postman/README.md)
+- `k6/` — Kịch bản load testing (smoke / load / spike) — xem [`k6/README.md`](k6/README.md)
 - `docker/` — Docker Compose & Dockerfile
 - `.github/workflows/` — CI/CD pipeline
 
@@ -18,6 +18,24 @@ Xem hướng dẫn chi tiết tại [`docs/DeploymentGuide.md`](docs/DeploymentG
 cd docker
 docker compose up --build
 ```
+
+## Kiểm thử
+
+```bash
+npm --prefix backend test     # Jest — unit test service layer
+npm --prefix frontend test    # Vitest
+
+# API — cần backend đang chạy ở localhost:5000
+npx newman run postman/badminton_api_collection.json -e postman/badminton_local.postman_environment.json
+
+# Chịu tải — cần k6 (winget install k6)
+k6 run k6/smoke.js       # ~2 giây, kiểm tra môi trường
+k6 run k6/load_test.js   # ~5 phút, 100 VU
+k6 run k6/spike_test.js  # ~2 phút, 200 VU dội đột ngột
+```
+
+Newman mặc định **chỉ chạy request đọc**; k6 `load_test.js` mặc định **chỉ đọc**. Xem README của
+từng thư mục để biết cách bật nhóm ghi và các cảnh báo khi đo (rate limit đăng nhập, cache CSDL lạnh).
 
 ## Tài liệu
 | Tài liệu | Đường dẫn |
