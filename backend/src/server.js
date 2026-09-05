@@ -1,4 +1,5 @@
 require('dotenv').config();
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -28,6 +29,45 @@ app.get('/api/v1/health', (req, res) => res.json({ status: 'ok', time: new Date(
 // file trực tiếp (không qua DB) — chỉ chứa toạ độ hình học, không dữ liệu
 // nhạy cảm nên không cần auth.
 app.use('/static/layouts', express.static(path.join(__dirname, '../public/layouts')));
+
+// Swagger UI — tài liệu API tương tác tại /api-docs.
+//
+// Trang này phơi TOÀN BỘ bề mặt API (112 endpoint kèm body mẫu), nên ở
+// production phải bật có ý thức bằng ENABLE_API_DOCS=true; mặc định tắt.
+// Dev/test luôn bật vì đó là chỗ nó có ích.
+//
+// Spec là file sinh tự động từ Postman collection — xem scripts/collection-to-openapi.js.
+const apiDocsEnabled = process.env.NODE_ENV !== 'production' || process.env.ENABLE_API_DOCS === 'true';
+if (apiDocsEnabled) {
+  const swaggerUi = require('swagger-ui-express');
+  const YAML = require('yamljs');
+  const specPath = path.join(__dirname, 'docs', 'openapi.yaml');
+
+  if (fs.existsSync(specPath)) {
+    const swaggerDocument = YAML.load(specPath);
+    app.use(
+      '/api-docs',
+      swaggerUi.serve,
+      swaggerUi.setup(swaggerDocument, {
+        customSiteTitle: 'Badminton Digital API',
+        swaggerOptions: {
+          // Mặc định Swagger UI bung hết mọi tag; 23 nhóm mở sẵn thì không đọc nổi.
+          docExpansion: 'none',
+          // Giữ token sau khi F5 — đỡ phải Authorize lại mỗi lần đổi trang.
+          persistAuthorization: true,
+          filter: true,
+          // Gắn anchor theo tag/operation vào URL để gửi link thẳng tới một endpoint.
+          deepLinking: true,
+          displayRequestDuration: true
+        }
+      })
+    );
+    // Cho công cụ khác (sinh SDK, import Postman/Insomnia) tải spec thô.
+    app.get('/api-docs.json', (req, res) => res.json(swaggerDocument));
+  } else {
+    console.warn('⚠️  Chưa có src/docs/openapi.yaml — chạy `npm run docs:build` để sinh. Bỏ qua /api-docs.');
+  }
+}
 
 // Register API Routes
 // Trang chủ công khai: chỉ đọc danh mục sân và khung giờ trống, không cần đăng nhập
