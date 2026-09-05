@@ -1,6 +1,6 @@
 # Phase 6: Testing, DevOps & Deployment
 
-- **Trạng thái:** 🔄 ĐANG LÀM — mục 2 (Postman) và mục 3 (Load testing) đã xong 05/09/2026
+- **Trạng thái:** 🔄 ĐANG LÀM — mục 2 (Postman + Swagger) và mục 3 (Load testing) đã xong; còn integration test Supertest và CI
 - **Thư mục liên quan:** `docker/`, `postman/`, `k6/`, `.github/workflows/`
 
 ---
@@ -15,7 +15,7 @@
 
 2. **API Documentation & Postman Collection:**
    - ✅ Postman Collection (`postman/badminton_api_collection.json`) — **112 request / 23 nhóm**, đủ toàn bộ endpoint, có body mẫu, test script và biến id tự điền. Kèm environment `postman/badminton_local.postman_environment.json`. Chạy thật bằng newman: 50 request đọc / 150 assertion / 0 lỗi; bật `runWrites=true` thành 74 request / 222 assertion / 0 lỗi.
-   - ⏳ Swagger / OpenAPI documentation UI tại `/api-docs` — `swagger-ui-express` đã có trong `package.json` nhưng **chưa nối vào `server.js`**.
+   - ✅ Swagger / OpenAPI documentation UI tại `/api-docs` — spec `backend/src/docs/openapi.yaml` (OpenAPI 3.0.3, **112 operation / 23 tag**) **sinh tự động** từ Postman collection bằng `npm run docs:build`, không gõ tay. Bộ sinh bắt buộc collection khớp 1-1 với `src/routes/` nên kiêm luôn việc canh lệch pha. Trang bị tắt ở production trừ khi đặt `ENABLE_API_DOCS=true`. Spec thô ở `/api-docs.json`. Không thêm dependency mới (`swagger-ui-express` + `yamljs` đã có sẵn).
 
 3. **Load Testing (Kiểm thử chịu tải):** ✅
    - `k6/smoke.js` — 1 VU quét 31 endpoint đọc, dùng để xác minh môi trường trước khi đo.

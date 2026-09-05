@@ -1,0 +1,3898 @@
+# ⚠️ FILE SINH TỰ ĐỘNG — đừng sửa tay.
+# Nguồn: postman/badminton_api_collection.json · Sinh lại: npm run docs:build
+openapi: 3.0.3
+info:
+  title: 'Badminton Digital Management API'
+  version: 1.0.0
+  description: "REST API quản lý chuỗi sân cầu lông — đặt sân, phiên chơi, bán lẻ, kho, báo cáo.\n\n**Sinh tự động** từ `postman/badminton_api_collection.json` bằng `npm run docs:build`.\nĐừng sửa tay file YAML này — sửa collection rồi chạy lại lệnh trên.\n\n## Envelope\nMọi phản hồi đều có dạng `{ success, data, message, errors }`.\n\n## Xác thực\nBấm **Authorize** rồi dán access token lấy từ `POST /auth/login`\n(tài khoản mẫu: `0901111111` / `Admin@123`). Access token sống 15 phút.\n\n## Đa chi nhánh\nPhần lớn endpoint nhận header `X-Branch-Id`. Nhóm `Public` là nhóm duy nhất không cần đăng nhập."
+servers:
+  -
+    url: 'http://localhost:5000'
+    description: 'Máy cá nhân'
+  -
+    url: '{scheme}://{host}'
+    description: 'Máy chủ khác'
+    variables:
+      scheme:
+        default: https
+        enum:
+          - http
+          - https
+      host:
+        default: 'localhost:5000'
+tags:
+  -
+    name: '01 · Auth'
+  -
+    name: '02 · Public (không cần đăng nhập)'
+  -
+    name: '03 · Branches'
+  -
+    name: '04 · Courts'
+  -
+    name: '05 · Bookings'
+  -
+    name: '06 · Court Sessions'
+  -
+    name: '07 · Accessories (phụ kiện cho thuê/bán tại sân)'
+  -
+    name: '08 · Suppliers'
+  -
+    name: '09 · Goods Receipts (nhập hàng)'
+  -
+    name: '10 · Inventory'
+  -
+    name: '11 · Product Categories'
+  -
+    name: '12 · Products (hàng bán lẻ)'
+  -
+    name: '13 · Vouchers'
+  -
+    name: '14 · Sales Orders (POS bán lẻ tại quầy)'
+  -
+    name: '15 · My Orders (đặt hàng online — vai trò customer)'
+  -
+    name: '16 · Customers'
+  -
+    name: '17 · Employees'
+  -
+    name: '18 · Payments'
+  -
+    name: '19 · Invoices'
+  -
+    name: '20 · Activity Logs'
+  -
+    name: '21 · Reports'
+  -
+    name: '22 · Settings'
+  -
+    name: '23 · Realtime (SSE)'
+security:
+  -
+    bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Envelope:
+      type: object
+      required:
+        - success
+        - data
+        - message
+        - errors
+      properties:
+        success:
+          type: boolean
+        data:
+          nullable: true
+          description: 'Payload của endpoint; `null` khi lỗi'
+        message:
+          type: string
+          nullable: true
+        errors:
+          nullable: true
+          description: 'Danh sách lỗi validation, `null` khi thành công'
+  responses:
+    Success:
+      description: 'Thành công'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+    ValidationError:
+      description: 'Dữ liệu gửi lên không hợp lệ'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+    Unauthorized:
+      description: 'Thiếu token hoặc token hết hạn'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+    Forbidden:
+      description: 'Vai trò không đủ quyền, hoặc sai chi nhánh'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+    NotFound:
+      description: 'Không tìm thấy bản ghi'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+paths:
+  /api/v1/auth/login:
+    post:
+      tags:
+        - '01 · Auth'
+      summary: Login
+      operationId: post_auth_login
+      description: "Nhận `identifier` là **số điện thoại hoặc email**. Trả access token (15 phút) + refresh token (7 ngày).\n\n⚠️ Bị giới hạn **10 lần / 15 phút / IP**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              identifier: string
+              password: string
+      security: []
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/auth/me:
+    get:
+      tags:
+        - '01 · Auth'
+      summary: 'Get profile (/me)'
+      operationId: get_auth_me
+      description: 'Thông tin tài khoản đang đăng nhập, kèm role và bản ghi employee/customer tương ứng.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/auth/refresh-token:
+    post:
+      tags:
+        - '01 · Auth'
+      summary: 'Refresh token'
+      operationId: post_auth_refresh_token
+      description: 'Đổi refresh token lấy access token mới. Frontend `apiClient` gọi tự động khi gặp 401.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              refreshToken: string
+      security: []
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/auth/register:
+    post:
+      tags:
+        - '01 · Auth'
+      summary: 'Register (khách tự đăng ký)'
+      operationId: post_auth_register
+      description: "Chỉ tạo được tài khoản vai trò `customer`. Tài khoản nhân viên phải do admin tạo qua `/employees`.\n\n⚠️ Giới hạn 5 lần / giờ / IP."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              fullName: 'Khách Postman'
+              phone: string
+              email: string
+              password: Customer@123
+      security: []
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/auth/change-password:
+    put:
+      tags:
+        - '01 · Auth'
+      summary: 'Change password'
+      operationId: put_auth_change_password
+      description: 'Đổi mật khẩu của chính tài khoản đang đăng nhập.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              oldPassword: string
+              newPassword: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/auth/forgot-password:
+    post:
+      tags:
+        - '01 · Auth'
+      summary: 'Forgot password'
+      operationId: post_auth_forgot_password
+      description: 'Gửi email đặt lại mật khẩu (nodemailer).'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              email: admin@badminton.com
+      security: []
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/auth/reset-password:
+    post:
+      tags:
+        - '01 · Auth'
+      summary: 'Reset password'
+      operationId: post_auth_reset_password
+      description: '`token` lấy từ link trong email đặt lại mật khẩu.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              token: '<token-tu-email>'
+              newPassword: MatKhauMoi@123
+      security: []
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - '01 · Auth'
+      summary: Logout
+      operationId: post_auth_logout
+      description: '⚠️ Chạy request này sẽ vô hiệu token đang dùng — mọi request sau đó trong lần chạy sẽ 401.'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/public/branches:
+    get:
+      tags:
+        - '02 · Public (không cần đăng nhập)'
+      summary: 'Danh sách chi nhánh'
+      operationId: get_public_branches
+      description: ""
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/public/courts:
+    get:
+      tags:
+        - '02 · Public (không cần đăng nhập)'
+      summary: 'Danh sách sân + bảng giá'
+      operationId: get_public_courts
+      description: 'Trả kèm khung giờ cao điểm và giá peak/offpeak của từng sân.'
+      parameters:
+        -
+          name: branchId
+          in: query
+          required: false
+          schema:
+            type: string
+          example: branchId
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/public/products:
+    get:
+      tags:
+        - '02 · Public (không cần đăng nhập)'
+      summary: 'Danh mục sản phẩm'
+      operationId: get_public_products
+      description: ""
+      parameters:
+        -
+          name: branchId
+          in: query
+          required: false
+          schema:
+            type: string
+          example: branchId
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/public/products/{id}':
+    get:
+      tags:
+        - '02 · Public (không cần đăng nhập)'
+      summary: 'Chi tiết sản phẩm'
+      operationId: get_public_products_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: branchId
+          in: query
+          required: false
+          schema:
+            type: string
+          example: branchId
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/public/availability:
+    get:
+      tags:
+        - '02 · Public (không cần đăng nhập)'
+      summary: 'Kiểm tra khung giờ trống'
+      operationId: get_public_availability
+      description: 'Endpoint bị dồn tải nhiều nhất khi mở bán khung giờ đẹp — cũng là mục tiêu của `k6/spike_test.js`.'
+      parameters:
+        -
+          name: courtId
+          in: query
+          required: false
+          schema:
+            type: string
+          example: courtId
+        -
+          name: bookingDate
+          in: query
+          required: false
+          schema:
+            type: string
+          example: tomorrow
+        -
+          name: startTime
+          in: query
+          required: false
+          schema:
+            type: string
+          example: '08:00'
+        -
+          name: endTime
+          in: query
+          required: false
+          schema:
+            type: string
+          example: '10:00'
+        -
+          name: branchId
+          in: query
+          required: false
+          schema:
+            type: string
+          example: branchId
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/branches:
+    get:
+      tags:
+        - '03 · Branches'
+      summary: 'Danh sách chi nhánh'
+      operationId: get_branches
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/courts:
+    get:
+      tags:
+        - '04 · Courts'
+      summary: 'Danh sách sân'
+      operationId: get_courts
+      description: 'Trả kèm `state` (AVAILABLE / IN_USE / ...) và phiên đang mở nếu có.'
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '04 · Courts'
+      summary: 'Tạo sân'
+      operationId: post_courts
+      description: 'Vai trò: `admin`, `branch_manager`.'
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              name: 'Sân QA Postman'
+              peakPricePerHour: 90000
+              offpeakPricePerHour: 60000
+              note: 'Sân tạo bởi Postman - sẽ bị xoá ở cuối nhóm'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/courts/{id}':
+    get:
+      tags:
+        - '04 · Courts'
+      summary: 'Chi tiết sân'
+      operationId: get_courts_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - '04 · Courts'
+      summary: 'Cập nhật sân'
+      operationId: put_courts_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              name: 'Sân QA Postman (đã sửa)'
+              peakPricePerHour: 95000
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - '04 · Courts'
+      summary: 'Xoá sân (dọn sân QA vừa tạo)'
+      operationId: delete_courts_id
+      description: 'Dọn đúng bản ghi do request `Tạo sân` phía trên sinh ra.'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/courts/layout:
+    put:
+      tags:
+        - '04 · Courts'
+      summary: 'Lưu sơ đồ mặt bằng sân'
+      operationId: put_courts_layout
+      description: "Toạ độ sân trên sơ đồ mặt bằng. Vai trò: `admin`, `branch_manager`.\n\n🔴 **Endpoint này ghi ra FILE trên đĩa** (`backend/public/layouts/branch-<id>.json`), không ghi vào CSDL. Nghĩa là chạy trên CSDL test **vẫn ghi đè sơ đồ thật** — CSDL dùng một lần không cô lập được nó. Sao lưu file đó trước khi chạy bộ `runDestructive`, hoặc khôi phục bằng `git checkout -- backend/public/layouts/` sau khi chạy.\n\n⚠️ Mỗi sân trong `courts` phải có **`courtName` khớp đúng tên sân thật của chi nhánh** (không phải `id`) — sai tên là API trả 400 kèm danh sách tên không khớp. Mỗi `zones` cần `label`, `x`, `y`, `w`, `h`; `cls` nhận một trong `parking｜wait｜counter｜office｜show｜entrance｜back｜custom`."
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              canvas:
+                width: 1200
+                height: 800
+              courts:
+                -
+                  courtName: 'Sân số 1 (Thường)'
+                  x: 40
+                  y: 40
+                  rotation: 0
+              zones:
+                -
+                  label: 'Bãi xe'
+                  x: 900
+                  y: 40
+                  w: 240
+                  h: 180
+                  cls: parking
+                  rotation: 0
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/courts/{id}/open':
+    post:
+      tags:
+        - '04 · Courts'
+      summary: 'Mở sân (bắt đầu phiên chơi)'
+      operationId: post_courts_id_open
+      description: 'Tạo `CourtSession`. Có thể gắn khách có sẵn (`customerId`), booking (`bookingId`) hoặc khách vãng lai (`guestName`/`guestPhone`).'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              guestName: 'Khách vãng lai'
+              guestPhone: '0900000009'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/courts/{id}/transfer':
+    post:
+      tags:
+        - '04 · Courts'
+      summary: 'Chuyển sân'
+      operationId: post_courts_id_transfer
+      description: 'Dời phiên đang mở sang sân khác. Sau lệnh này phiên nằm ở `targetCourtId`, nên request `Đóng sân` phải nhắm vào sân mới.'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              targetCourtId: string
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/courts/{id}/close':
+    post:
+      tags:
+        - '04 · Courts'
+      summary: 'Đóng sân (kết thúc phiên)'
+      operationId: post_courts_id_close
+      description: 'Đóng phiên mà không thu tiền. Muốn đóng kèm hoá đơn thì dùng `POST /payments/checkout`.'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/courts/{id}/status':
+    put:
+      tags:
+        - '04 · Courts'
+      summary: 'Đổi trạng thái sân'
+      operationId: put_courts_id_status
+      description: "Giá trị hợp lệ: `active` | `maintenance` | `inactive`.\n\nHai điều đã vấp phải khi tự động hoá request này:\n1. Đặt lại đúng trạng thái sân đang có thì API trả **400** *\"Sân đang ở trạng thái ... rồi\"* — đây là chốt chặn no-op có chủ đích, không phải lỗi.\n2. Để sân ở `maintenance` sẽ làm hỏng mọi lần chạy sau: không mở sân và không đặt lịch được nữa (400 *\"Sân đang bảo trì\"*).\n\nNên request này chuyển sân sang `maintenance` (đường đi thật), rồi **test script tự trả về `active`** ngay sau đó."
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              status: maintenance
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/bookings:
+    get:
+      tags:
+        - '05 · Bookings'
+      summary: 'Danh sách booking'
+      operationId: get_bookings
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '05 · Bookings'
+      summary: 'Tạo booking'
+      operationId: post_bookings
+      description: "Không gửi `customerName`/`customerPhone` thì booking là khách vãng lai (`customerId: null`) — **gửi vào là service tự tạo bản ghi Customer mới**, nhớ dọn.\n\nTrùng khung giờ → **409**."
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              courtId: string
+              bookingDate: string
+              startTime: '07:00'
+              endTime: '08:00'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/bookings/availability:
+    get:
+      tags:
+        - '05 · Bookings'
+      summary: 'Kiểm tra khung giờ trống'
+      operationId: get_bookings_availability
+      description: ""
+      parameters:
+        -
+          name: courtId
+          in: query
+          required: false
+          schema:
+            type: string
+          example: courtId
+        -
+          name: bookingDate
+          in: query
+          required: false
+          schema:
+            type: string
+          example: tomorrow
+        -
+          name: startTime
+          in: query
+          required: false
+          schema:
+            type: string
+          example: '08:00'
+        -
+          name: endTime
+          in: query
+          required: false
+          schema:
+            type: string
+          example: '10:00'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/bookings/{id}':
+    get:
+      tags:
+        - '05 · Bookings'
+      summary: 'Chi tiết booking'
+      operationId: get_bookings_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - '05 · Bookings'
+      summary: 'Cập nhật booking'
+      operationId: put_bookings_id
+      description: 'Không đổi được `status` trực tiếp ở đây (validation chặn) — dùng `/confirm` hoặc `DELETE`.'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              startTime: '07:00'
+              endTime: '09:00'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - '05 · Bookings'
+      summary: 'Huỷ booking (dọn booking QA vừa tạo)'
+      operationId: delete_bookings_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/bookings/{id}/confirm':
+    put:
+      tags:
+        - '05 · Bookings'
+      summary: 'Xác nhận booking'
+      operationId: put_bookings_id_confirm
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/sessions/history:
+    get:
+      tags:
+        - '06 · Court Sessions'
+      summary: 'Lịch sử phiên chơi'
+      operationId: get_sessions_history
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/sessions/{sessionId}':
+    get:
+      tags:
+        - '06 · Court Sessions'
+      summary: 'Chi tiết phiên'
+      operationId: get_sessions_sessionId
+      description: ""
+      parameters:
+        -
+          name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/sessions/{sessionId}/extras':
+    get:
+      tags:
+        - '06 · Court Sessions'
+      summary: 'Phụ kiện trong phiên'
+      operationId: get_sessions_sessionId_extras
+      description: ""
+      parameters:
+        -
+          name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '06 · Court Sessions'
+      summary: 'Thêm phụ kiện vào phiên'
+      operationId: post_sessions_sessionId_extras
+      description: "Trừ tồn kho `extra_stocks` và ghi `stock_movements`.\n\n⚠️ Cần một phiên **đang mở** — `{{sessionId}}` lấy từ lịch sử là phiên đã đóng nên không dùng được. Script chuẩn bị của thư mục này tự mở sẵn một phiên khi bật `runDestructive`."
+      parameters:
+        -
+          name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              extraId: string
+              quantity: 2
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/sessions/{sessionId}/extras/return':
+    post:
+      tags:
+        - '06 · Court Sessions'
+      summary: 'Trả lại phụ kiện'
+      operationId: post_sessions_sessionId_extras_return
+      description: 'Trả bớt số lượng đã thuê, cộng ngược tồn kho. Trả hết thì dòng `SessionExtra` bị xoá.'
+      parameters:
+        -
+          name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              extraId: string
+              returnQuantity: 1
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/accessories:
+    get:
+      tags:
+        - '07 · Accessories (phụ kiện cho thuê/bán tại sân)'
+      summary: 'Danh sách phụ kiện'
+      operationId: get_accessories
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '07 · Accessories (phụ kiện cho thuê/bán tại sân)'
+      summary: 'Tạo phụ kiện'
+      operationId: post_accessories
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              name: 'Phụ kiện QA Postman'
+              price: 25000
+              lowStockThreshold: 10
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/accessories/{id}':
+    get:
+      tags:
+        - '07 · Accessories (phụ kiện cho thuê/bán tại sân)'
+      summary: 'Chi tiết phụ kiện'
+      operationId: get_accessories_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - '07 · Accessories (phụ kiện cho thuê/bán tại sân)'
+      summary: 'Cập nhật phụ kiện'
+      operationId: put_accessories_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              price: 30000
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - '07 · Accessories (phụ kiện cho thuê/bán tại sân)'
+      summary: 'Xoá phụ kiện (dọn bản ghi QA)'
+      operationId: delete_accessories_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/suppliers:
+    get:
+      tags:
+        - '08 · Suppliers'
+      summary: 'Danh sách nhà cung cấp'
+      operationId: get_suppliers
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '08 · Suppliers'
+      summary: 'Tạo nhà cung cấp'
+      operationId: post_suppliers
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              name: 'NCC QA Postman'
+              phone: '0281234599'
+              email: qa@ncc.example
+              address: '123 Test'
+              taxCode: '0300000000'
+              note: 'Bản ghi QA'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/suppliers/{id}':
+    get:
+      tags:
+        - '08 · Suppliers'
+      summary: 'Chi tiết nhà cung cấp'
+      operationId: get_suppliers_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - '08 · Suppliers'
+      summary: 'Cập nhật nhà cung cấp'
+      operationId: put_suppliers_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              note: 'Đã sửa bởi Postman'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - '08 · Suppliers'
+      summary: 'Xoá nhà cung cấp (dọn bản ghi QA)'
+      operationId: delete_suppliers_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/goods-receipts:
+    get:
+      tags:
+        - '09 · Goods Receipts (nhập hàng)'
+      summary: 'Danh sách phiếu nhập'
+      operationId: get_goods_receipts
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '09 · Goods Receipts (nhập hàng)'
+      summary: 'Tạo phiếu nhập'
+      operationId: post_goods_receipts
+      description: 'Mỗi dòng phải có **một trong hai**: `extraId` (phụ kiện) hoặc `productVariantId` (biến thể hàng bán lẻ). Ghi tồn thật — không tự dọn được nên xếp vào nhóm destructive.'
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              supplierId: string
+              note: 'Nhập hàng QA'
+              items:
+                -
+                  extraId: string
+                  quantity: 10
+                  unitCost: 20000
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/goods-receipts/{id}':
+    get:
+      tags:
+        - '09 · Goods Receipts (nhập hàng)'
+      summary: 'Chi tiết phiếu nhập'
+      operationId: get_goods_receipts_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/inventory/stock-levels:
+    get:
+      tags:
+        - '10 · Inventory'
+      summary: 'Tồn kho phụ kiện'
+      operationId: get_inventory_stock_levels
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/inventory/product-stock-levels:
+    get:
+      tags:
+        - '10 · Inventory'
+      summary: 'Tồn kho hàng bán lẻ'
+      operationId: get_inventory_product_stock_levels
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/inventory/movements:
+    get:
+      tags:
+        - '10 · Inventory'
+      summary: 'Lịch sử biến động kho'
+      operationId: get_inventory_movements
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/inventory/adjustments:
+    post:
+      tags:
+        - '10 · Inventory'
+      summary: 'Điều chỉnh kho'
+      operationId: post_inventory_adjustments
+      description: '`type`: `adjustment_in` | `adjustment_out` | `damaged` | `lost`. Ghi thẳng vào sổ cái tồn — không hoàn tác được.'
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              extraId: string
+              type: adjustment_in
+              quantity: 1
+              note: 'Kiểm kê QA'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/product-categories:
+    get:
+      tags:
+        - '11 · Product Categories'
+      summary: 'Danh sách danh mục'
+      operationId: get_product_categories
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '11 · Product Categories'
+      summary: 'Tạo danh mục'
+      operationId: post_product_categories
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              name: 'Danh mục QA Postman'
+              sortOrder: 99
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/product-categories/{id}':
+    put:
+      tags:
+        - '11 · Product Categories'
+      summary: 'Cập nhật danh mục'
+      operationId: put_product_categories_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              name: 'Danh mục QA (đã sửa)'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - '11 · Product Categories'
+      summary: 'Xoá danh mục (dọn bản ghi QA)'
+      operationId: delete_product_categories_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/products:
+    get:
+      tags:
+        - '12 · Products (hàng bán lẻ)'
+      summary: 'Danh sách sản phẩm'
+      operationId: get_products
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '12 · Products (hàng bán lẻ)'
+      summary: 'Tạo sản phẩm (kèm biến thể)'
+      operationId: post_products
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              name: 'Sản phẩm QA Postman'
+              categoryId: string
+              productType: retail
+              variants:
+                -
+                  sku: QA-POSTMAN-001
+                  listPrice: 150000
+                  size: M
+                  color: Đen
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/products/{id}':
+    get:
+      tags:
+        - '12 · Products (hàng bán lẻ)'
+      summary: 'Chi tiết sản phẩm'
+      operationId: get_products_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - '12 · Products (hàng bán lẻ)'
+      summary: 'Cập nhật sản phẩm'
+      operationId: put_products_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              name: 'Sản phẩm QA (đã sửa)'
+              isActive: false
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/products/{id}/variants':
+    post:
+      tags:
+        - '12 · Products (hàng bán lẻ)'
+      summary: 'Thêm biến thể'
+      operationId: post_products_id_variants
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              sku: QA-POSTMAN-002
+              listPrice: 180000
+              size: L
+              color: Trắng
+              lowStockThreshold: 5
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/products/variants/{variantId}':
+    put:
+      tags:
+        - '12 · Products (hàng bán lẻ)'
+      summary: 'Cập nhật biến thể'
+      operationId: put_products_variants_variantId
+      description: ""
+      parameters:
+        -
+          name: variantId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              listPrice: 200000
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/vouchers:
+    get:
+      tags:
+        - '13 · Vouchers'
+      summary: 'Danh sách voucher'
+      operationId: get_vouchers
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '13 · Vouchers'
+      summary: 'Tạo voucher'
+      operationId: post_vouchers
+      description: '`discountType`: `percent` | `flat`.'
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              code: 'QAPOSTMAN{{$timestamp}}'
+              description: 'Voucher QA Postman'
+              discountType: percent
+              discountValue: 10
+              maxDiscountAmount: 50000
+              minOrderAmount: 100000
+              usageLimit: 5
+              perCustomerLimit: 1
+              isActive: true
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/vouchers/{id}':
+    get:
+      tags:
+        - '13 · Vouchers'
+      summary: 'Chi tiết voucher'
+      operationId: get_vouchers_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - '13 · Vouchers'
+      summary: 'Cập nhật voucher'
+      operationId: put_vouchers_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              description: 'Voucher QA (đã sửa)'
+              discountValue: 15
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/vouchers/preview:
+    post:
+      tags:
+        - '13 · Vouchers'
+      summary: 'Xem trước mức giảm'
+      operationId: post_vouchers_preview
+      description: 'Tính thử số tiền được giảm cho một giá trị đơn — không tiêu lượt dùng.'
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              code: string
+              orderAmount: 500000
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/vouchers/{id}/deactivate':
+    post:
+      tags:
+        - '13 · Vouchers'
+      summary: 'Ngừng voucher (dọn bản ghi QA)'
+      operationId: post_vouchers_id_deactivate
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/sales-orders:
+    get:
+      tags:
+        - '14 · Sales Orders (POS bán lẻ tại quầy)'
+      summary: 'Danh sách đơn bán lẻ'
+      operationId: get_sales_orders
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '14 · Sales Orders (POS bán lẻ tại quầy)'
+      summary: 'Tạo đơn bán lẻ'
+      operationId: post_sales_orders
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              customerId: null
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/sales-orders/{id}':
+    get:
+      tags:
+        - '14 · Sales Orders (POS bán lẻ tại quầy)'
+      summary: 'Chi tiết đơn bán lẻ'
+      operationId: get_sales_orders_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/sales-orders/{id}/lines':
+    post:
+      tags:
+        - '14 · Sales Orders (POS bán lẻ tại quầy)'
+      summary: 'Thêm dòng hàng'
+      operationId: post_sales_orders_id_lines
+      description: '⚠️ Endpoint trả về **cả đơn hàng**, không phải dòng vừa thêm — nên id của dòng nằm ở `data.lines[...]`, còn `data.id` là id đơn. Bắt nhầm `data.id` rồi đem đi xoá sẽ ra 404.'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              variantId: string
+              quantity: 2
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/sales-orders/{id}/lines/{lineId}':
+    delete:
+      tags:
+        - '14 · Sales Orders (POS bán lẻ tại quầy)'
+      summary: 'Xoá dòng hàng'
+      operationId: delete_sales_orders_id_lines_lineId
+      description: 'Xoá đúng dòng hàng dùng-một-lần do script chuẩn bị thêm vào, để dòng chính vẫn còn cho bước áp voucher và thanh toán phía sau (xoá hết dòng thì đơn rỗng, không thanh toán được).'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: lineId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/sales-orders/{id}/voucher':
+    post:
+      tags:
+        - '14 · Sales Orders (POS bán lẻ tại quầy)'
+      summary: 'Áp voucher vào đơn'
+      operationId: post_sales_orders_id_voucher
+      description: 'Dùng mã do script chuẩn bị của thư mục tạo riêng. Không dùng lại `{{tmpVoucherCode}}` của nhóm Vouchers vì mã đó đã bị request `Ngừng voucher` tắt ở cuối nhóm 13 — API sẽ trả 400 "Mã giảm giá này đã ngừng áp dụng".'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              voucherCode: string
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/sales-orders/{id}/checkout':
+    post:
+      tags:
+        - '14 · Sales Orders (POS bán lẻ tại quầy)'
+      summary: 'Thanh toán đơn'
+      operationId: post_sales_orders_id_checkout
+      description: '`paymentMethod`: `cash` | `transfer`. Trừ tồn kho, sinh hoá đơn, cộng `totalSpent` cho khách (ảnh hưởng hạng thành viên).'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              paymentMethod: cash
+              discountAmount: 0
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/my-orders:
+    get:
+      tags:
+        - '15 · My Orders (đặt hàng online — vai trò customer)'
+      summary: 'Đơn hàng của tôi'
+      operationId: get_my_orders
+      description: ""
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '15 · My Orders (đặt hàng online — vai trò customer)'
+      summary: 'Đặt hàng online'
+      operationId: post_my_orders
+      description: 'Chọn chi nhánh nhận hàng ngay trong đơn. Chuyển khoản quá 30 phút không thanh toán sẽ bị job nền tự huỷ và trả hàng về kệ.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              branchId: 1
+              items:
+                -
+                  variantId: string
+                  quantity: 1
+              contactName: 'Khách Postman'
+              contactPhone: string
+              customerNote: 'Đơn QA'
+              paymentMethod: transfer
+              voucherCode: null
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/my-orders/{id}':
+    get:
+      tags:
+        - '15 · My Orders (đặt hàng online — vai trò customer)'
+      summary: 'Chi tiết đơn của tôi'
+      operationId: get_my_orders_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/my-orders/{id}/cancel':
+    post:
+      tags:
+        - '15 · My Orders (đặt hàng online — vai trò customer)'
+      summary: 'Huỷ đơn của tôi'
+      operationId: post_my_orders_id_cancel
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/customers:
+    get:
+      tags:
+        - '16 · Customers'
+      summary: 'Danh sách khách hàng'
+      operationId: get_customers
+      description: ""
+      parameters:
+        -
+          name: page
+          in: query
+          required: false
+          schema:
+            type: string
+          example: '1'
+        -
+          name: limit
+          in: query
+          required: false
+          schema:
+            type: string
+          example: '20'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '16 · Customers'
+      summary: 'Tạo khách hàng'
+      operationId: post_customers
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              fullName: 'Khách QA Postman'
+              phone: string
+              email: null
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/customers/{id}':
+    get:
+      tags:
+        - '16 · Customers'
+      summary: 'Chi tiết khách hàng'
+      operationId: get_customers_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - '16 · Customers'
+      summary: 'Cập nhật khách hàng'
+      operationId: put_customers_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              fullName: 'Khách QA (đã sửa)'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - '16 · Customers'
+      summary: 'Xoá khách hàng (dọn bản ghi QA)'
+      operationId: delete_customers_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/customers/{id}/history':
+    get:
+      tags:
+        - '16 · Customers'
+      summary: 'Lịch sử giao dịch của khách'
+      operationId: get_customers_id_history
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/employees:
+    get:
+      tags:
+        - '17 · Employees'
+      summary: 'Danh sách nhân viên'
+      operationId: get_employees
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - '17 · Employees'
+      summary: 'Tạo nhân viên'
+      operationId: post_employees
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              fullName: 'NV QA Postman'
+              email: string
+              phone: string
+              password: Employee@123
+              position: 'Lễ tân'
+              shift: 'Ca sáng'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/employees/{id}':
+    get:
+      tags:
+        - '17 · Employees'
+      summary: 'Chi tiết nhân viên'
+      operationId: get_employees_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - '17 · Employees'
+      summary: 'Cập nhật nhân viên'
+      operationId: put_employees_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              position: 'Thu ngân'
+              shift: 'Ca chiều'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - '17 · Employees'
+      summary: 'Xoá nhân viên'
+      operationId: delete_employees_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/employees/{id}/activity-logs':
+    get:
+      tags:
+        - '17 · Employees'
+      summary: 'Nhật ký thao tác của nhân viên'
+      operationId: get_employees_id_activity_logs
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/payments/checkout:
+    post:
+      tags:
+        - '18 · Payments'
+      summary: 'Thanh toán phiên chơi'
+      operationId: post_payments_checkout
+      description: "Đóng phiên, sinh hoá đơn + bản ghi thanh toán, cộng `totalSpent` và cập nhật hạng thành viên.\n\nCần một phiên **đang mở** — script chuẩn bị của thư mục tự mở nếu chưa có."
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              sessionId: string
+              paymentMethod: cash
+              discountAmount: 0
+              isDiscountPercent: false
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/payments/webhook:
+    post:
+      tags:
+        - '18 · Payments'
+      summary: 'Webhook xác nhận chuyển khoản'
+      operationId: post_payments_webhook
+      description: "Không qua authMiddleware — do cổng thanh toán gọi vào. `status` bắt buộc là `paid`.\n\n⚠️ `invoiceNo` phải là số hoá đơn **có thật**; định dạng thực tế là `BD-<chi nhánh>-<8 chữ số>` (vd `BD-1-00000009`), không phải `INV-…`. Biến `{{invoiceNo}}` được các bước thanh toán phía trước điền vào."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              provider: sepay
+              providerReference: 'FT{{$timestamp}}'
+              invoiceNo: string
+              status: paid
+      security: []
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/invoices/{id}':
+    get:
+      tags:
+        - '19 · Invoices'
+      summary: 'Chi tiết hoá đơn'
+      operationId: get_invoices_id
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/invoices/{id}/export-pdf':
+    get:
+      tags:
+        - '19 · Invoices'
+      summary: 'Xuất hoá đơn PDF'
+      operationId: get_invoices_id_export_pdf
+      description: ""
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/invoices/{id}/void':
+    post:
+      tags:
+        - '19 · Invoices'
+      summary: 'Huỷ hoá đơn (void)'
+      operationId: post_invoices_id_void
+      description: 'Hoàn tồn kho và trừ lại `totalSpent` của khách.'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              reason: 'Huỷ do sai thông tin - QA'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/activity-logs:
+    get:
+      tags:
+        - '20 · Activity Logs'
+      summary: 'Danh sách nhật ký'
+      operationId: get_activity_logs
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/reports/dashboard:
+    get:
+      tags:
+        - '21 · Reports'
+      summary: 'Dashboard tổng quan'
+      operationId: get_reports_dashboard
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/reports/revenue:
+    get:
+      tags:
+        - '21 · Reports'
+      summary: 'Doanh thu theo ngày'
+      operationId: get_reports_revenue
+      description: ""
+      parameters:
+        -
+          name: from
+          in: query
+          required: false
+          schema:
+            type: string
+          example: dateFrom
+        -
+          name: to
+          in: query
+          required: false
+          schema:
+            type: string
+          example: dateTo
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/reports/top-courts:
+    get:
+      tags:
+        - '21 · Reports'
+      summary: 'Top sân'
+      operationId: get_reports_top_courts
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/reports/top-accessories:
+    get:
+      tags:
+        - '21 · Reports'
+      summary: 'Top phụ kiện'
+      operationId: get_reports_top_accessories
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/reports/revenue-breakdown:
+    get:
+      tags:
+        - '21 · Reports'
+      summary: 'Cơ cấu doanh thu'
+      operationId: get_reports_revenue_breakdown
+      description: 'Tách doanh thu theo nguồn: tiền sân (`court`) và bán lẻ (`retail`).'
+      parameters:
+        -
+          name: from
+          in: query
+          required: false
+          schema:
+            type: string
+          example: dateFrom
+        -
+          name: to
+          in: query
+          required: false
+          schema:
+            type: string
+          example: dateTo
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/reports/inventory-reconciliation:
+    get:
+      tags:
+        - '21 · Reports'
+      summary: 'Đối soát kho'
+      operationId: get_reports_inventory_reconciliation
+      description: 'So tồn theo sổ cái với số lượng đã xuất trên hoá đơn.'
+      parameters:
+        -
+          name: from
+          in: query
+          required: false
+          schema:
+            type: string
+          example: dateFrom
+        -
+          name: to
+          in: query
+          required: false
+          schema:
+            type: string
+          example: dateTo
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/reports/export-excel:
+    get:
+      tags:
+        - '21 · Reports'
+      summary: 'Xuất báo cáo Excel'
+      operationId: get_reports_export_excel
+      description: ""
+      parameters:
+        -
+          name: from
+          in: query
+          required: false
+          schema:
+            type: string
+          example: dateFrom
+        -
+          name: to
+          in: query
+          required: false
+          schema:
+            type: string
+          example: dateTo
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/reports/export-pdf:
+    get:
+      tags:
+        - '21 · Reports'
+      summary: 'Xuất báo cáo PDF'
+      operationId: get_reports_export_pdf
+      description: ""
+      parameters:
+        -
+          name: from
+          in: query
+          required: false
+          schema:
+            type: string
+          example: dateFrom
+        -
+          name: to
+          in: query
+          required: false
+          schema:
+            type: string
+          example: dateTo
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/settings:
+    get:
+      tags:
+        - '22 · Settings'
+      summary: 'Đọc toàn bộ cấu hình'
+      operationId: get_settings
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - '22 · Settings'
+      summary: 'Cập nhật 1 khoá cấu hình'
+      operationId: put_settings
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              key: store_info
+              value:
+                name: 'Badminton Digital'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/settings/pricing:
+    put:
+      tags:
+        - '22 · Settings'
+      summary: 'Cập nhật bảng giá'
+      operationId: put_settings_pricing
+      description: 'Toàn bộ body được lưu vào khoá `pricing`.'
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              peakStartHour: 17
+              peakEndHour: 21
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/settings/operating-hours:
+    put:
+      tags:
+        - '22 · Settings'
+      summary: 'Cập nhật giờ mở cửa'
+      operationId: put_settings_operating_hours
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              openTime: '06:00'
+              closeTime: '23:00'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/settings/branding:
+    put:
+      tags:
+        - '22 · Settings'
+      summary: 'Cập nhật nhận diện thương hiệu'
+      operationId: put_settings_branding
+      description: ""
+      parameters:
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              primaryColor: '#16a34a'
+              logoUrl: null
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/realtime/stream:
+    get:
+      tags:
+        - '23 · Realtime (SSE)'
+      summary: 'Mở luồng SSE'
+      operationId: get_realtime_stream
+      description: "⚠️ Kết nối mở vô hạn — **newman sẽ treo** nếu chạy request này, nên mặc định bị bỏ qua.\n\nEventSource của trình duyệt không set được header tuỳ ý, nên `branchId` truyền qua query string rồi được ánh xạ sang `X-Branch-Id` ở tầng route."
+      parameters:
+        -
+          name: branchId
+          in: query
+          required: false
+          schema:
+            type: string
+          example: branchId
+        -
+          name: token
+          in: query
+          required: false
+          schema:
+            type: string
+          example: accessToken
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'

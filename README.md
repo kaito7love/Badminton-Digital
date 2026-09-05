@@ -19,6 +19,14 @@ cd docker
 docker compose up --build
 ```
 
+## Tài liệu API tương tác
+
+Chạy backend rồi mở **<http://localhost:5000/api-docs>** — Swagger UI cho cả 112 endpoint, bấm
+**Authorize** dán token là thử được ngay trong trình duyệt. Spec thô ở `/api-docs.json`.
+
+Trang này phơi toàn bộ bề mặt API nên **ở production mặc định tắt**; muốn bật thì đặt
+`ENABLE_API_DOCS=true`.
+
 ## Kiểm thử
 
 ```bash
@@ -27,6 +35,9 @@ npm --prefix frontend test    # Vitest
 
 # API — cần backend đang chạy ở localhost:5000
 npx newman run postman/badminton_api_collection.json -e postman/badminton_local.postman_environment.json
+
+# Sinh lại tài liệu OpenAPI từ Postman collection (kiêm luôn kiểm tra lệch pha với routes/)
+npm --prefix backend run docs:build
 
 # Chịu tải — cần k6 (winget install k6)
 k6 run k6/smoke.js       # ~2 giây, kiểm tra môi trường
