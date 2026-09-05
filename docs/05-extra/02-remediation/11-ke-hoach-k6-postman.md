@@ -171,3 +171,83 @@ thăm dò thủ công, 2 voucher `QAPOSTMAN…` do newman tạo.
 - Integration test bằng Supertest cho tầng route (`supertest` cũng đã cài sẵn, chưa dùng).
 - Chưa cắm k6 `smoke.js` và newman vào `.github/workflows/ci.yml` — cần một MySQL service container
   trong CI thì mới chạy được.
+
+---
+
+# VÒNG 2 — QUÉT TRỌN BỘ 112 ENDPOINT · 05/09/2026
+
+Vòng 1 chỉ chạy 74/112 request; 38 request thuộc nhóm `runDestructive` chưa hề chạy lần nào. Vòng
+này dựng CSDL dùng một lần để quét nốt.
+
+## Cách làm
+`badminton_digital_management_test` dựng từ CSDL trắng: **38 migration + 7 seeder chạy sạch** (tự
+nó đã xác minh bộ migration còn dựng lại được từ đầu), backend chạy `NODE_ENV=test` trên CSDL đó,
+newman bật cả `runWrites` lẫn `runDestructive`. CSDL thật không bị đụng — kiểm chứng bằng SQL:
+`bookings` 40, `customers` 98, `vouchers` 0, y như trước.
+
+## Kết quả: 2 lỗi thật + 8 nhóm lỗi collection
+
+### Lỗi thật 1 — `/auth/forgot-password` rò rỉ email nào đã đăng ký (đã sửa)
+
+```
+email CÓ trong hệ thống  → HTTP 500
+email KHÔNG tồn tại      → HTTP 200
+```
+
+`AuthService.forgotPassword` cố tình trả cùng một thông điệp để giấu danh sách email, nhưng email
+không tồn tại thì `return` sớm còn email có thật đi tiếp tới `sendPasswordResetEmail` — hàm này ném
+500 khi chưa cấu hình SMTP. Chênh lệch mã trạng thái phá đúng thứ đoạn code đó bảo vệ. Đang sống
+với `.env` hiện tại, và trên production sẽ tự bật lại mỗi khi SMTP chập chờn.
+
+Đã sửa ở commit `900afbe`: bọc try/catch, ghi log máy chủ, vẫn trả 200 generic. Kiểm chứng: hai
+phản hồi nay **giống hệt từng byte**.
+
+### Lỗi thật 2 — `NODE_ENV=test` trỏ vào CSDL thật (đã sửa)
+
+`config.js` nhánh `test` đọc `process.env.DB_NAME || '..._test'`; mọi `.env` đều có `DB_NAME` nên
+vế mặc định không bao giờ tới lượt. Chưa nổ vì Jest chỉ có unit test, nhưng Phase 6 đang định thêm
+integration test Supertest.
+
+Đã sửa ở commit `900afbe`: dùng biến riêng `DB_NAME_TEST`, thêm chốt chặn ném lỗi khi trùng
+`DB_NAME`, ghi vào `.env.example`.
+
+### 8 nhóm lỗi collection (44 assertion) — API đều đúng
+
+| # | Nguyên nhân | Cách sửa |
+|---|---|---|
+| 1 | Assert cứng `200` ở 4-5 endpoint trả `201` đúng chuẩn REST | thêm helper `testOkOrCreated` |
+| 2 | `Đổi trạng thái sân → maintenance` chạy trước, làm hỏng Mở/Chuyển/Đóng sân + cả nhóm Bookings | xếp lại vòng đời mở→chuyển→đóng, đổi trạng thái xuống cuối và **tự trả sân về `active`** |
+| 3 | Session-extras + `payments/checkout` cần phiên **đang mở** | script chuẩn bị cấp thư mục tự mở phiên → `{{openSessionId}}` |
+| 4 | `POST /sales-orders/:id/lines` trả về cả đơn, bắt nhầm `data.id` | lấy id từ `data.lines[...]`; thêm dòng dùng-một-lần riêng cho request xoá |
+| 5 | Áp voucher đã bị `deactivate` ở nhóm trước | script chuẩn bị tạo voucher riêng cho nhóm 14 |
+| 6 | My Orders cần vai trò `customer`, collection đang là admin → 403 | script chuẩn bị đăng nhập customer → `{{customerAccessToken}}` |
+| 7 | Webhook dùng `invoiceNo` bịa; định dạng thật là `BD-1-00000009` | capture `invoiceNo` thật từ bước thanh toán |
+| 8 | `Reset password` cần token từ email | cờ `runManual`, mặc định bỏ qua |
+
+Cũng phát hiện thêm: request `Lưu sơ đồ mặt bằng` gửi sai shape — service yêu cầu `courtName` khớp
+tên sân thật (không phải `id`), zones cần `label`/`w`/`h`.
+
+Một chi tiết nhỏ nhưng đáng sửa: script đăng nhập `customer` ban đầu chạy cả khi nhóm bị bỏ qua,
+đốt phí một lượt trong hạn 10 lần/15 phút của `/auth/login`. Đã thêm điều kiện `runDestructive`.
+
+## Số liệu sau khi sửa
+
+| Chế độ | CSDL | Request | Assertion | Lỗi |
+|---|---|---|---|---|
+| Mặc định (chỉ đọc) | dev thật | 50 | 150 | **0** |
+| `runWrites` + `runDestructive` | test dùng một lần | 114 | 324 | **0** |
+
+Trước khi sửa: 107 request / 321 assertion / **45 lỗi**.
+
+Sau lần chạy đầy đủ: 5/5 sân về `active`, 0 phiên chơi còn treo → chạy lại nhiều lần được.
+Jest vẫn 121/121 pass. CSDL test đã xoá sau khi xong.
+
+## Cảnh báo phát hiện thêm: CSDL dùng một lần không cô lập được tất cả
+
+`PUT /courts/layout` **ghi ra file trên đĩa** (`backend/public/layouts/branch-<id>.json`) chứ không
+ghi vào CSDL. Chạy bộ `runDestructive` trên CSDL test vẫn ghi đè sơ đồ mặt bằng thật — chính tay
+vòng test này đã làm mất sơ đồ chi nhánh 1 (4 sân + 6 khu vực bị thay bằng payload mẫu 1 sân +
+1 khu vực) và phải khôi phục bằng `git checkout`.
+
+Đây là endpoint DUY NHẤT trong 112 endpoint có tác dụng phụ ra ngoài phạm vi CSDL. Đã ghi cảnh báo
+vào mô tả request và `postman/README.md`, kèm bước dọn `git checkout -- backend/public/layouts/`.

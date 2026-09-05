@@ -174,6 +174,41 @@
       "key": "invoiceId",
       "value": "1",
       "type": "string"
+    },
+    {
+      "key": "invoiceNo",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "activeCourtId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "transferTargetCourtId",
+      "value": "2",
+      "type": "string"
+    },
+    {
+      "key": "openSessionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderVoucherCode",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "customerAccessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "runManual",
+      "value": "false",
+      "type": "string"
     }
   ],
   "item": [
@@ -365,7 +400,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> 200/201', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
                   "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
                 ]
               }
@@ -533,11 +568,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "// Request nay tac dong len DU LIEU CO SAN (xoa/sua ban ghi seed, checkout, doi cau hinh)",
-                  "// hoac lam hong phien chay (vd: logout huy token). Chi bat khi that su muon:",
-                  "// newman run ... --env-var runDestructive=true",
-                  "if (String(pm.variables.get('runDestructive')) !== 'true') {",
-                  "  console.log('SKIP (runDestructive=false): ' + pm.info.requestName);",
+                  "// Chi chay tay: can token that lay tu email dat lai mat khau.",
+                  "// Muon thu: dan token vao body roi bat --env-var runManual=true",
+                  "if (String(pm.variables.get('runManual')) !== 'true') {",
+                  "  console.log('SKIP (can thao tac tay): ' + pm.info.requestName);",
                   "  pm.execution.skipRequest();",
                   "}"
                 ]
@@ -911,7 +945,12 @@
                   "const d = pm.response.json().data;",
                   "const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);",
                   "if (arr.length) { pm.collectionVariables.set('courtId', arr[0].id); }",
-                  "pm.collectionVariables.set('has_courtId', arr.length ? 'true' : 'false');"
+                  "pm.collectionVariables.set('has_courtId', arr.length ? 'true' : 'false');",
+                  "// Sân thứ hai dùng làm đích cho request 'Chuyển sân' — phải là sân khác",
+                  "// nhưng cùng chi nhánh, nên lấy ngay từ danh sách này thay vì gán cứng.",
+                  "const cs = pm.response.json().data;",
+                  "if (Array.isArray(cs) && cs.length > 1) { pm.collectionVariables.set('transferTargetCourtId', cs[1].id); }",
+                  "pm.collectionVariables.set('activeCourtId', pm.collectionVariables.get('courtId'));"
                 ]
               }
             }
@@ -1139,7 +1178,7 @@
           ]
         },
         {
-          "name": "Đổi trạng thái sân",
+          "name": "Lưu sơ đồ mặt bằng sân",
           "request": {
             "method": "PUT",
             "header": [
@@ -1153,20 +1192,19 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/courts/{{courtId}}/status",
+              "raw": "{{baseUrl}}/courts/layout",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "courts",
-                "{{courtId}}",
-                "status"
+                "layout"
               ]
             },
-            "description": "",
+            "description": "Toạ độ sân trên sơ đồ mặt bằng. Vai trò: `admin`, `branch_manager`.\n\n🔴 **Endpoint này ghi ra FILE trên đĩa** (`backend/public/layouts/branch-<id>.json`), không ghi vào CSDL. Nghĩa là chạy trên CSDL test **vẫn ghi đè sơ đồ thật** — CSDL dùng một lần không cô lập được nó. Sao lưu file đó trước khi chạy bộ `runDestructive`, hoặc khôi phục bằng `git checkout -- backend/public/layouts/` sau khi chạy.\n\n⚠️ Mỗi sân trong `courts` phải có **`courtName` khớp đúng tên sân thật của chi nhánh** (không phải `id`) — sai tên là API trả 400 kèm danh sách tên không khớp. Mỗi `zones` cần `label`, `x`, `y`, `w`, `h`; `cls` nhận một trong `parking｜wait｜counter｜office｜show｜entrance｜back｜custom`.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"maintenance\"\n}",
+              "raw": "{\n  \"canvas\": {\n    \"width\": 1200,\n    \"height\": 800\n  },\n  \"courts\": [\n    {\n      \"courtName\": \"Sân số 1 (Thường)\",\n      \"x\": 40,\n      \"y\": 40,\n      \"rotation\": 0\n    }\n  ],\n  \"zones\": [\n    {\n      \"label\": \"Bãi xe\",\n      \"x\": 900,\n      \"y\": 40,\n      \"w\": 240,\n      \"h\": 180,\n      \"cls\": \"parking\",\n      \"rotation\": 0\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1259,8 +1297,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
-                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                  "pm.test(pm.info.requestName + ' -> 200/201', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });",
+                  "const d = pm.response.json().data;",
+                  "pm.collectionVariables.set('openSessionId', d.id);",
+                  "// Sân đang giữ phiên — 'Chuyển sân' sẽ cập nhật lại biến này.",
+                  "pm.collectionVariables.set('activeCourtId', pm.variables.get('courtId'));"
                 ]
               }
             }
@@ -1281,20 +1323,20 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/courts/{{courtId}}/transfer",
+              "raw": "{{baseUrl}}/courts/{{activeCourtId}}/transfer",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "courts",
-                "{{courtId}}",
+                "{{activeCourtId}}",
                 "transfer"
               ]
             },
-            "description": "",
+            "description": "Dời phiên đang mở sang sân khác. Sau lệnh này phiên nằm ở `targetCourtId`, nên request `Đóng sân` phải nhắm vào sân mới.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"targetCourtId\": 2\n}",
+              "raw": "{\n  \"targetCourtId\": \"{{transferTargetCourtId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1324,7 +1366,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
-                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });",
+                  "pm.collectionVariables.set('activeCourtId', pm.variables.get('transferTargetCourtId'));"
                 ]
               }
             }
@@ -1341,17 +1384,17 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/courts/{{courtId}}/close",
+              "raw": "{{baseUrl}}/courts/{{activeCourtId}}/close",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "courts",
-                "{{courtId}}",
+                "{{activeCourtId}}",
                 "close"
               ]
             },
-            "description": ""
+            "description": "Đóng phiên mà không thu tiền. Muốn đóng kèm hoá đơn thì dùng `POST /payments/checkout`."
           },
           "event": [
             {
@@ -1375,14 +1418,16 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
-                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });",
+                  "// Phiên đã đóng — xoá biến để nhóm Sessions/Payments tự mở phiên mới.",
+                  "pm.collectionVariables.unset('openSessionId');"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Lưu sơ đồ mặt bằng sân",
+          "name": "Đổi trạng thái sân",
           "request": {
             "method": "PUT",
             "header": [
@@ -1396,19 +1441,20 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/courts/layout",
+              "raw": "{{baseUrl}}/courts/{{courtId}}/status",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "courts",
-                "layout"
+                "{{courtId}}",
+                "status"
               ]
             },
-            "description": "Toạ độ sân trên sơ đồ mặt bằng. Vai trò: `admin`, `branch_manager`.",
+            "description": "Giá trị hợp lệ: `active` | `maintenance` | `inactive`.\n\nHai điều đã vấp phải khi tự động hoá request này:\n1. Đặt lại đúng trạng thái sân đang có thì API trả **400** *\"Sân đang ở trạng thái ... rồi\"* — đây là chốt chặn no-op có chủ đích, không phải lỗi.\n2. Để sân ở `maintenance` sẽ làm hỏng mọi lần chạy sau: không mở sân và không đặt lịch được nữa (400 *\"Sân đang bảo trì\"*).\n\nNên request này chuyển sân sang `maintenance` (đường đi thật), rồi **test script tự trả về `active`** ngay sau đó.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"canvas\": {\n    \"width\": 1200,\n    \"height\": 800\n  },\n  \"courts\": [\n    {\n      \"id\": 1,\n      \"x\": 40,\n      \"y\": 40,\n      \"width\": 180,\n      \"height\": 320,\n      \"rotation\": 0\n    }\n  ],\n  \"zones\": []\n}",
+              "raw": "{\n  \"status\": \"maintenance\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1438,7 +1484,23 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
-                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });",
+                  "const _h = {",
+                  "  'Content-Type': 'application/json',",
+                  "  'Authorization': 'Bearer ' + pm.variables.get('accessToken'),",
+                  "  'X-Branch-Id': String(pm.variables.get('branchId') || 1)",
+                  "};",
+                  "const _base = pm.variables.get('baseUrl');",
+                  "// Trả sân về active để lần chạy sau không bị kẹt ở 'đang bảo trì'.",
+                  "pm.sendRequest({",
+                  "  url: _base + '/courts/' + pm.variables.get('courtId') + '/status',",
+                  "  method: 'PUT', header: _h,",
+                  "  body: { mode: 'raw', raw: JSON.stringify({ status: 'active' }) }",
+                  "}, function (err, res) {",
+                  "  console.log(!err && res.code === 200",
+                  "    ? 'Đã trả sân về trạng thái active.'",
+                  "    : 'CẢNH BÁO: không trả được sân về active, hãy đổi tay trước lần chạy sau.');",
+                  "});"
                 ]
               }
             }
@@ -1967,20 +2029,20 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/sessions/{{sessionId}}/extras",
+              "raw": "{{baseUrl}}/sessions/{{openSessionId}}/extras",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "sessions",
-                "{{sessionId}}",
+                "{{openSessionId}}",
                 "extras"
               ]
             },
-            "description": "Trừ tồn kho `extra_stocks` và ghi `stock_movements`.",
+            "description": "Trừ tồn kho `extra_stocks` và ghi `stock_movements`.\n\n⚠️ Cần một phiên **đang mở** — `{{sessionId}}` lấy từ lịch sử là phiên đã đóng nên không dùng được. Script chuẩn bị của thư mục này tự mở sẵn một phiên khi bật `runDestructive`.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"extraId\": \"{{extraId}}\",\n  \"quantity\": 1\n}",
+              "raw": "{\n  \"extraId\": \"{{extraId}}\",\n  \"quantity\": 2\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2009,7 +2071,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> 200/201', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
                   "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
                 ]
               }
@@ -2031,18 +2093,18 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/sessions/{{sessionId}}/extras/return",
+              "raw": "{{baseUrl}}/sessions/{{openSessionId}}/extras/return",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "sessions",
-                "{{sessionId}}",
+                "{{openSessionId}}",
                 "extras",
                 "return"
               ]
             },
-            "description": "",
+            "description": "Trả bớt số lượng đã thuê, cộng ngược tồn kho. Trả hết thì dòng `SessionExtra` bị xoá.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"extraId\": \"{{extraId}}\",\n  \"returnQuantity\": 1\n}",
@@ -2080,6 +2142,36 @@
               }
             }
           ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const _h = {",
+              "  'Content-Type': 'application/json',",
+              "  'Authorization': 'Bearer ' + pm.variables.get('accessToken'),",
+              "  'X-Branch-Id': String(pm.variables.get('branchId') || 1)",
+              "};",
+              "const _base = pm.variables.get('baseUrl');",
+              "if (String(pm.variables.get('runDestructive')) === 'true' && !pm.collectionVariables.get('openSessionId')) {",
+              "  pm.sendRequest({",
+              "    url: _base + '/courts/' + pm.variables.get('courtId') + '/open',",
+              "    method: 'POST', header: _h,",
+              "    body: { mode: 'raw', raw: JSON.stringify({ guestName: 'Khách QA Postman' }) }",
+              "  }, function (err, res) {",
+              "    if (!err && (res.code === 200 || res.code === 201)) {",
+              "      pm.collectionVariables.set('openSessionId', res.json().data.id);",
+              "      console.log('Đã mở phiên chơi #' + res.json().data.id + ' cho nhóm này.');",
+              "    } else {",
+              "      console.log('Không mở được phiên chơi: ' + (err ? err.message : res.text()));",
+              "    }",
+              "  });",
+              "}"
+            ]
+          }
         }
       ]
     },
@@ -2757,7 +2849,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> 200/201', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
                   "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
                 ]
               }
@@ -2931,7 +3023,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> 200/201', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
                   "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
                 ]
               }
@@ -4015,10 +4107,10 @@
                 "lines"
               ]
             },
-            "description": "",
+            "description": "⚠️ Endpoint trả về **cả đơn hàng**, không phải dòng vừa thêm — nên id của dòng nằm ở `data.lines[...]`, còn `data.id` là id đơn. Bắt nhầm `data.id` rồi đem đi xoá sẽ ra 404.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"variantId\": \"{{variantId}}\",\n  \"quantity\": 1\n}",
+              "raw": "{\n  \"variantId\": \"{{variantId}}\",\n  \"quantity\": 2\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4048,9 +4140,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(pm.info.requestName + ' -> 200/201', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
-                  "const b = pm.response.json();",
-                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(b.success).to.eql(true); });",
-                  "if (b.data && b.data.id) { pm.collectionVariables.set('tmpSalesOrderLineId', b.data.id); }"
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });",
+                  "const lines = pm.response.json().data.lines || [];",
+                  "if (lines.length) { pm.collectionVariables.set('tmpSalesOrderLineId', lines[lines.length - 1].id); }"
                 ]
               }
             }
@@ -4067,7 +4159,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/sales-orders/{{tmpSalesOrderId}}/lines/{{tmpSalesOrderLineId}}",
+              "raw": "{{baseUrl}}/sales-orders/{{tmpSalesOrderId}}/lines/{{tmpDeletableLineId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -4075,10 +4167,10 @@
                 "sales-orders",
                 "{{tmpSalesOrderId}}",
                 "lines",
-                "{{tmpSalesOrderLineId}}"
+                "{{tmpDeletableLineId}}"
               ]
             },
-            "description": ""
+            "description": "Xoá đúng dòng hàng dùng-một-lần do script chuẩn bị thêm vào, để dòng chính vẫn còn cho bước áp voucher và thanh toán phía sau (xoá hết dòng thì đơn rỗng, không thanh toán được)."
           },
           "event": [
             {
@@ -4092,6 +4184,24 @@
                   "if (String(pm.variables.get('runDestructive')) !== 'true') {",
                   "  console.log('SKIP (runDestructive=false): ' + pm.info.requestName);",
                   "  pm.execution.skipRequest();",
+                  "}",
+                  "const _h = {",
+                  "  'Content-Type': 'application/json',",
+                  "  'Authorization': 'Bearer ' + pm.variables.get('accessToken'),",
+                  "  'X-Branch-Id': String(pm.variables.get('branchId') || 1)",
+                  "};",
+                  "const _base = pm.variables.get('baseUrl');",
+                  "if (String(pm.variables.get('runDestructive')) === 'true') {",
+                  "  pm.sendRequest({",
+                  "    url: _base + '/sales-orders/' + pm.variables.get('tmpSalesOrderId') + '/lines',",
+                  "    method: 'POST', header: _h,",
+                  "    body: { mode: 'raw', raw: JSON.stringify({ variantId: pm.variables.get('variantId'), quantity: 1 }) }",
+                  "  }, function (err, res) {",
+                  "    if (!err && (res.code === 200 || res.code === 201)) {",
+                  "      const ls = res.json().data.lines || [];",
+                  "      if (ls.length) { pm.collectionVariables.set('tmpDeletableLineId', ls[ls.length - 1].id); }",
+                  "    }",
+                  "  });",
                   "}"
                 ]
               }
@@ -4133,10 +4243,10 @@
                 "voucher"
               ]
             },
-            "description": "",
+            "description": "Dùng mã do script chuẩn bị của thư mục tạo riêng. Không dùng lại `{{tmpVoucherCode}}` của nhóm Vouchers vì mã đó đã bị request `Ngừng voucher` tắt ở cuối nhóm 13 — API sẽ trả 400 \"Mã giảm giá này đã ngừng áp dụng\".",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"voucherCode\": \"{{tmpVoucherCode}}\"\n}",
+              "raw": "{\n  \"voucherCode\": \"{{orderVoucherCode}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4229,18 +4339,56 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
-                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                  "pm.test(pm.info.requestName + ' -> 200/201', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });",
+                  "// Hoá đơn thật sinh ra ở đây — nhóm Payments (webhook) và Invoices dùng lại.",
+                  "const d = pm.response.json().data;",
+                  "if (d.invoiceId) { pm.collectionVariables.set('invoiceId', d.invoiceId); }",
+                  "if (d.invoiceNo) { pm.collectionVariables.set('invoiceNo', d.invoiceNo); }"
                 ]
               }
             }
           ]
         }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const _h = {",
+              "  'Content-Type': 'application/json',",
+              "  'Authorization': 'Bearer ' + pm.variables.get('accessToken'),",
+              "  'X-Branch-Id': String(pm.variables.get('branchId') || 1)",
+              "};",
+              "const _base = pm.variables.get('baseUrl');",
+              "// Voucher riêng cho nhóm này, tạo một lần rồi dùng lại trong cả lần chạy.",
+              "// minOrderAmount = 0 để áp được với mọi giá trị đơn.",
+              "if (String(pm.variables.get('runDestructive')) === 'true' && !pm.collectionVariables.get('orderVoucherCode')) {",
+              "  const code = 'QAORDER' + Date.now();",
+              "  pm.sendRequest({",
+              "    url: _base + '/vouchers', method: 'POST', header: _h,",
+              "    body: { mode: 'raw', raw: JSON.stringify({",
+              "      code: code, description: 'Voucher QA cho đơn bán lẻ', discountType: 'percent',",
+              "      discountValue: 10, minOrderAmount: 0, isActive: true",
+              "    }) }",
+              "  }, function (err, res) {",
+              "    if (!err && (res.code === 200 || res.code === 201)) {",
+              "      pm.collectionVariables.set('orderVoucherCode', code);",
+              "    } else {",
+              "      console.log('Không tạo được voucher cho nhóm Sales Orders: ' + (err ? err.message : res.text()));",
+              "    }",
+              "  });",
+              "}"
+            ]
+          }
+        }
       ]
     },
     {
       "name": "15 · My Orders (đặt hàng online — vai trò customer)",
-      "description": "⚠️ Chỉ vai trò `customer` gọi được. Đăng nhập bằng `{{customerPhone}}` / `{{customerPassword}}` trước khi chạy nhóm này.",
+      "description": "Nhóm **duy nhất** không dùng token admin. `roleMiddleware(['customer'])` chặn thẳng mọi vai trò khác — chạy bằng token admin sẽ ra 403 ở cả 4 request.\n\nScript chuẩn bị của thư mục tự đăng nhập bằng `{{customerPhone}}` / `{{customerPassword}}` và lưu vào `customerAccessToken`; 4 request dưới đây dùng token đó thay vì token collection.\n\nCũng không gửi `X-Branch-Id`: chi nhánh nhận hàng do khách chọn trong thân đơn, không phải chi nhánh công tác của nhân viên.",
       "item": [
         {
           "name": "Đơn hàng của tôi",
@@ -4256,7 +4404,17 @@
                 "my-orders"
               ]
             },
-            "description": ""
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -4306,9 +4464,19 @@
               ]
             },
             "description": "Chọn chi nhánh nhận hàng ngay trong đơn. Chuyển khoản quá 30 phút không thanh toán sẽ bị job nền tự huỷ và trả hàng về kệ.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"branchId\": 1,\n  \"items\": [\n    {\n      \"variantId\": \"{{variantId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"contactName\": \"Khách Postman\",\n  \"contactPhone\": \"0903333333\",\n  \"customerNote\": \"Đơn QA\",\n  \"paymentMethod\": \"transfer\",\n  \"voucherCode\": null\n}",
+              "raw": "{\n  \"branchId\": 1,\n  \"items\": [\n    {\n      \"variantId\": \"{{variantId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"contactName\": \"Khách Postman\",\n  \"contactPhone\": \"{{customerPhone}}\",\n  \"customerNote\": \"Đơn QA\",\n  \"paymentMethod\": \"transfer\",\n  \"voucherCode\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4361,7 +4529,17 @@
                 "{{tmpOnlineOrderId}}"
               ]
             },
-            "description": ""
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -4407,7 +4585,17 @@
                 "cancel"
               ]
             },
-            "description": ""
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -4436,6 +4624,37 @@
               }
             }
           ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Đăng nhập vai trò customer một lần cho cả nhóm.",
+              "// Hai điều kiện, cả hai đều vì rate limit /auth/login (10 lần / 15 phút / IP):",
+              "//  - chỉ khi runDestructive bật, vì tắt thì cả 4 request dưới đều bị bỏ qua,",
+              "//    đăng nhập lúc đó là đốt phí một lượt vô ích;",
+              "//  - chỉ khi chưa có token, vì script này chạy trước TỪNG request trong nhóm.",
+              "if (String(pm.variables.get('runDestructive')) === 'true' && !pm.collectionVariables.get('customerAccessToken')) {",
+              "  pm.sendRequest({",
+              "    url: pm.variables.get('baseUrl') + '/auth/login',",
+              "    method: 'POST', header: { 'Content-Type': 'application/json' },",
+              "    body: { mode: 'raw', raw: JSON.stringify({",
+              "      identifier: pm.variables.get('customerPhone') || '0903333333',",
+              "      password: pm.variables.get('customerPassword') || 'Customer@123'",
+              "    }) }",
+              "  }, function (err, res) {",
+              "    if (!err && res.code === 200) {",
+              "      pm.collectionVariables.set('customerAccessToken', res.json().data.accessToken);",
+              "    } else {",
+              "      console.log('Không đăng nhập được vai trò customer: ' + (err ? err.message : res.text()));",
+              "    }",
+              "  });",
+              "}"
+            ]
+          }
         }
       ]
     },
@@ -5106,10 +5325,10 @@
                 "checkout"
               ]
             },
-            "description": "Đóng phiên, sinh hoá đơn + bản ghi thanh toán, cộng `totalSpent` và cập nhật hạng thành viên.",
+            "description": "Đóng phiên, sinh hoá đơn + bản ghi thanh toán, cộng `totalSpent` và cập nhật hạng thành viên.\n\nCần một phiên **đang mở** — script chuẩn bị của thư mục tự mở nếu chưa có.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"paymentMethod\": \"cash\",\n  \"discountAmount\": 0,\n  \"isDiscountPercent\": false\n}",
+              "raw": "{\n  \"sessionId\": \"{{openSessionId}}\",\n  \"paymentMethod\": \"cash\",\n  \"discountAmount\": 0,\n  \"isDiscountPercent\": false\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5138,8 +5357,13 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
-                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                  "pm.test(pm.info.requestName + ' -> 200/201', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });",
+                  "const d = pm.response.json().data;",
+                  "if (d.invoiceId) { pm.collectionVariables.set('invoiceId', d.invoiceId); }",
+                  "if (d.invoiceNo) { pm.collectionVariables.set('invoiceNo', d.invoiceNo); }",
+                  "// Phiên đã bị checkout đóng lại.",
+                  "pm.collectionVariables.unset('openSessionId');"
                 ]
               }
             }
@@ -5165,13 +5389,13 @@
                 "webhook"
               ]
             },
-            "description": "Không qua authMiddleware — do cổng thanh toán gọi vào. `status` bắt buộc là `paid`.",
+            "description": "Không qua authMiddleware — do cổng thanh toán gọi vào. `status` bắt buộc là `paid`.\n\n⚠️ `invoiceNo` phải là số hoá đơn **có thật**; định dạng thực tế là `BD-<chi nhánh>-<8 chữ số>` (vd `BD-1-00000009`), không phải `INV-…`. Biến `{{invoiceNo}}` được các bước thanh toán phía trước điền vào.",
             "auth": {
               "type": "noauth"
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"provider\": \"sepay\",\n  \"providerReference\": \"FT{{$timestamp}}\",\n  \"invoiceNo\": \"INV-1-00000001\",\n  \"status\": \"paid\"\n}",
+              "raw": "{\n  \"provider\": \"sepay\",\n  \"providerReference\": \"FT{{$timestamp}}\",\n  \"invoiceNo\": \"{{invoiceNo}}\",\n  \"status\": \"paid\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5191,6 +5415,10 @@
                   "if (String(pm.variables.get('runDestructive')) !== 'true') {",
                   "  console.log('SKIP (runDestructive=false): ' + pm.info.requestName);",
                   "  pm.execution.skipRequest();",
+                  "}",
+                  "if (!pm.collectionVariables.get('invoiceNo')) {",
+                  "  console.log('SKIP: chưa có hoá đơn thật nào để gửi webhook.');",
+                  "  pm.execution.skipRequest();",
                   "}"
                 ]
               }
@@ -5206,6 +5434,36 @@
               }
             }
           ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const _h = {",
+              "  'Content-Type': 'application/json',",
+              "  'Authorization': 'Bearer ' + pm.variables.get('accessToken'),",
+              "  'X-Branch-Id': String(pm.variables.get('branchId') || 1)",
+              "};",
+              "const _base = pm.variables.get('baseUrl');",
+              "if (String(pm.variables.get('runDestructive')) === 'true' && !pm.collectionVariables.get('openSessionId')) {",
+              "  pm.sendRequest({",
+              "    url: _base + '/courts/' + pm.variables.get('courtId') + '/open',",
+              "    method: 'POST', header: _h,",
+              "    body: { mode: 'raw', raw: JSON.stringify({ guestName: 'Khách QA Postman' }) }",
+              "  }, function (err, res) {",
+              "    if (!err && (res.code === 200 || res.code === 201)) {",
+              "      pm.collectionVariables.set('openSessionId', res.json().data.id);",
+              "      console.log('Đã mở phiên chơi #' + res.json().data.id + ' cho nhóm này.');",
+              "    } else {",
+              "      console.log('Không mở được phiên chơi: ' + (err ? err.message : res.text()));",
+              "    }",
+              "  });",
+              "}"
+            ]
+          }
         }
       ]
     },

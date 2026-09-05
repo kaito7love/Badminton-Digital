@@ -184,11 +184,26 @@ class AuthService {
     const baseUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
     const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
-    await sendPasswordResetEmail({
-      to: user.email,
-      fullName: user.fullName,
-      resetUrl,
-    });
+    // Lỗi gửi mail KHÔNG được vọt ra ngoài thành 5xx.
+    //
+    // Email không tồn tại thì hàm này đã return 200 ở trên; nếu email có thật
+    // mà khâu gửi mail ném lỗi (chưa cấu hình SMTP, hoặc nhà cung cấp mail
+    // chập chờn) thì client nhận 500. Chênh lệch 500-với-200 đó đủ để dò ra
+    // email nào đã đăng ký — đúng thứ mà `genericMessage` ở trên được dựng ra
+    // để giấu. Nuốt lỗi tại đây và vẫn trả cùng một thông điệp, sự cố gửi mail
+    // ghi vào log máy chủ cho người vận hành.
+    try {
+      await sendPasswordResetEmail({
+        to: user.email,
+        fullName: user.fullName,
+        resetUrl,
+      });
+    } catch (err) {
+      console.error(
+        `[forgotPassword] Không gửi được email đặt lại mật khẩu cho userId=${user.id}:`,
+        err.message
+      );
+    }
 
     return { message: genericMessage };
   }
