@@ -1,0 +1,5 @@
+# `core.autocrlf=true` mong file trên đĩa có CRLF, nhưng file sinh tự động dưới
+# đây được script ghi bằng LF. Không ghim thì `npm run docs:build` luôn để lại
+# cây git "bẩn" dù nội dung không đổi một byte nào — và một bước kiểm tra kiểu
+# `git diff --exit-code` trong CI sẽ đỏ oan.
+backend/src/docs/openapi.yaml text eol=lf
