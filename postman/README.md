@@ -33,6 +33,7 @@ Mặc định **chỉ chạy request đọc** để không làm bẩn CSDL. Ba c
 | `runWrites` | `false` | Request ghi **tự dọn** — tạo bản ghi QA rồi xoá/huỷ/ngừng ngay trong cùng nhóm |
 | `runDestructive` | `false` | Request tác động lên dữ liệu có sẵn: checkout, void hoá đơn, điều chỉnh kho, đổi cấu hình, xoá bản ghi seed, `logout` |
 | `runStream` | `false` | `GET /realtime/stream` — SSE, kết nối mở vô hạn nên **newman sẽ treo** |
+| `runManual` | `false` | `POST /auth/reset-password` — cần token thật lấy từ email, không tự động hoá được |
 
 ```bash
 # Kèm nhóm ghi tự dọn
@@ -46,17 +47,61 @@ Request bị bỏ qua sẽ in `SKIP (...)` ra console kèm lý do, không tính 
 > ⚠️ `runDestructive=true` sẽ **thay đổi dữ liệu thật** và không tự hoàn tác: nó đóng phiên chơi,
 > huỷ hoá đơn, sửa cấu hình cửa hàng và xoá bản ghi có sẵn. Chỉ bật trên CSDL dùng một lần.
 
+## Chạy trọn bộ 112 endpoint
+
+`runDestructive=true` đụng vào dữ liệu có sẵn nên **đừng bật trên CSDL thật**. Cách an toàn là
+dựng một CSDL dùng một lần rồi xoá đi:
+
+```bash
+# 1. Tạo CSDL test rỗng (tên mặc định của NODE_ENV=test)
+mysql -u root -p -e "CREATE DATABASE badminton_digital_management_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+
+# 2. Dựng schema + dữ liệu mẫu
+cd backend && NODE_ENV=test npx sequelize-cli db:migrate && NODE_ENV=test npx sequelize-cli db:seed:all
+
+# 3. Chạy backend trên CSDL đó
+NODE_ENV=test node src/server.js
+
+# 4. Quét toàn bộ
+cd .. && npx newman run postman/badminton_api_collection.json \
+  -e postman/badminton_local.postman_environment.json \
+  --env-var runWrites=true --env-var runDestructive=true
+
+# 5. Dọn: xoá CSDL test + trả lại file sơ đồ (xem cảnh báo ngay dưới)
+git checkout -- backend/public/layouts/
+```
+
+> 🔴 **CSDL dùng một lần KHÔNG cô lập được tất cả.** `PUT /courts/layout` ghi ra **file trên đĩa**
+> (`backend/public/layouts/branch-<id>.json`) chứ không ghi vào CSDL, nên chạy trên CSDL test vẫn
+> ghi đè sơ đồ mặt bằng thật. Đây là thứ duy nhất trong 112 endpoint có tác dụng phụ ra ngoài phạm
+> vi CSDL — nhớ `git checkout -- backend/public/layouts/` sau khi chạy.
+
+### Trạng thái được dựng sẵn thế nào
+
+Vài endpoint không chạy độc lập được vì cần trạng thái có sẵn. Thay vì thêm request phụ vào
+collection (làm hỏng ánh xạ 1-1 với endpoint), phần dựng trạng thái nằm ở **script chuẩn bị cấp thư
+mục**:
+
+| Thư mục | Script chuẩn bị làm gì |
+|---|---|
+| `06 · Court Sessions` | Mở sẵn một phiên chơi nếu chưa có → `{{openSessionId}}` |
+| `14 · Sales Orders` | Tạo một voucher còn hiệu lực riêng cho nhóm → `{{orderVoucherCode}}` |
+| `15 · My Orders` | Đăng nhập vai trò `customer` → `{{customerAccessToken}}` |
+| `18 · Payments` | Mở sẵn một phiên chơi cho `checkout` |
+
+Ngoài ra `04 · Courts` chạy đúng vòng đời **mở sân → chuyển sân → đóng sân** rồi mới đổi trạng thái
+sân, và request `Đổi trạng thái sân` **tự trả sân về `active`** sau khi thử `maintenance` — nếu để
+sân ở trạng thái bảo trì thì mọi lần chạy sau đó sẽ hỏng hàng loạt.
+
 ## Kết quả chạy thật — 05/09/2026
 
-Chạy trên backend local (`NODE_ENV=production`) + MySQL 8 với dữ liệu seed:
+| Chế độ | CSDL | Request | Assertion | Lỗi | Thời gian |
+|---|---|---|---|---|---|
+| Mặc định (chỉ đọc) | dev thật | 50 | 150 | **0** | 7.5 s |
+| `runWrites` + `runDestructive` | test dùng một lần | 114 | 324 | **0** | 18.1 s |
 
-| Chế độ | Request chạy | Assertion | Lỗi | Thời gian |
-|---|---|---|---|---|
-| Mặc định (chỉ đọc) | 50 | 150 | **0** | 7.1 s |
-| `runWrites=true` | 74 | 222 | **0** | 10.8 s |
-
-Sau lần chạy `runWrites=true`, nhóm ghi đã tự đưa mọi bản ghi QA về trạng thái vô hại — sân/phụ
-kiện/nhà cung cấp/danh mục bị xoá, booking bị huỷ, khách hàng bị xoá mềm, voucher bị ngừng.
+Lần chạy đầy đủ chạm tới **cả 112 endpoint** (114 request vì có thêm 2 lời gọi dựng trạng thái).
+Sau khi chạy xong: 5/5 sân về `active`, 0 phiên chơi còn treo — collection chạy lại nhiều lần được.
 
 > Lưu ý về chữ "tự dọn": nó dùng đúng API xoá của hệ thống, nghĩa là **xoá mềm** (`deleted_at`),
 > **huỷ** (`status = cancelled`) hoặc **ngừng** (`is_active = 0`) — dòng vẫn còn trong bảng. Voucher
@@ -73,6 +118,20 @@ backend là reset.
 Các request tạo khách hàng/nhân viên sinh số hợp lệ ở pre-request script (`{{qaCustomerPhone}}`,
 `{{qaEmployeePhone}}`) thay vì dùng `{{$randomInt}}` — biến dựng sẵn của Postman chỉ trả 0–1000 nên
 sinh ra số quá ngắn và bị trả về 400.
+
+## Bốn hành vi API dễ hiểu nhầm là lỗi
+
+Đều đã gặp thật khi chạy trọn bộ, và đều là **API đúng**:
+
+1. **Nhiều endpoint tạo mới trả `201` chứ không phải `200`** (`/auth/register`, `/goods-receipts`,
+   `/inventory/adjustments`, `/sales-orders/:id/checkout`, `/sessions/:id/extras`). Assert cứng
+   `200` là test sai.
+2. **Đặt lại đúng trạng thái sân đang có → `400`** *"Sân đang ở trạng thái ... rồi"*. Đây là chốt
+   chặn no-op có chủ đích.
+3. **`POST /sales-orders/:id/lines` trả về cả đơn hàng**, không phải dòng vừa thêm — id dòng nằm ở
+   `data.lines[...]`, còn `data.id` là id đơn.
+4. **`invoiceNo` có dạng `BD-<chi nhánh>-<8 chữ số>`** (vd `BD-1-00000009`), không phải `INV-…`.
+   Gửi số bịa vào webhook sẽ ra 404 *"Không tìm thấy hóa đơn"*.
 
 ## Nhóm request
 
