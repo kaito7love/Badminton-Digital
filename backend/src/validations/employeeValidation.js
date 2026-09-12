@@ -26,6 +26,9 @@ const createEmployeeRules = [
 
 const updateEmployeeRules = [
   param('id').isInt().withMessage('Employee ID must be an integer'),
+  // Email là danh tính đăng nhập và là nơi nhận link đặt lại mật khẩu: đổi được
+  // qua API này thì chiếm được tài khoản. Trang Nhân viên không gửi email khi sửa.
+  body('email').not().exists().withMessage('Không thể đổi email đăng nhập qua API sửa nhân viên.'),
   body('phone').optional({ nullable: true, checkFalsy: true }).custom((value) => {
     if (!isValidPhone(value)) throw new Error('Số điện thoại không hợp lệ');
     return true;

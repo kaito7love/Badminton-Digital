@@ -1,5 +1,6 @@
 'use strict';
 const bcrypt = require('bcrypt');
+const { assertDemoSeedAllowed } = require('../utils/demoSeedGuard');
 
 // Mỗi chi nhánh demo (Quận 3, Quận 7) giờ có đủ "1 nhân viên + 1 quản lý chi
 // nhánh" để test vai trò branch_manager (quyền rộng hơn nhân viên nhưng chỉ
@@ -17,6 +18,7 @@ const PASSWORD = 'Manager@123';
 
 module.exports = {
   async up(queryInterface) {
+    assertDemoSeedAllowed();
     const now = new Date();
 
     const [roleRows] = await queryInterface.sequelize.query(

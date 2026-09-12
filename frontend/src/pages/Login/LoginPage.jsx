@@ -3,6 +3,36 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { redirectAfterLogin } from '../../utils/roles';
 
+// Tài khoản mẫu chỉ hiện trên máy dev, hoặc ở bản demo công khai build với
+// VITE_SHOW_DEMO_ACCOUNTS=true. Build production mặc định không có khối này:
+// điều kiện là hằng số lúc build nên Vite bỏ luôn cả chuỗi mật khẩu khỏi bundle.
+const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === 'true';
+
+// Admin chỉ có trên máy dev. Bản demo công khai mà mở quyền admin thì người xem
+// trước có thể xoá nhân viên, đổi giá, huỷ hoá đơn — hỏng demo của người xem sau.
+const DEMO_ACCOUNTS = [
+  ...(import.meta.env.DEV ? [{ label: 'Admin (toàn chuỗi)', identifier: 'admin@badminton.com', password: 'Admin@123' }] : []),
+  { label: 'Quản lý Chi nhánh Quận 3', identifier: 'manager.q3@badminton.com', password: 'Manager@123' },
+  { label: 'Quản lý Chi nhánh Quận 7', identifier: 'manager.q7@badminton.com', password: 'Manager@123' },
+  { label: 'NV Chi nhánh chính', identifier: 'employee@badminton.com', password: 'Employee@123' },
+  { label: 'NV Chi nhánh Quận 3', identifier: 'employee.q3@badminton.com', password: 'Employee@123' },
+  { label: 'NV Chi nhánh Quận 7', identifier: 'employee.q7@badminton.com', password: 'Employee@123' },
+  { label: 'Khách hàng', identifier: '0903333333', password: 'Customer@123' },
+];
+
+function DemoAccounts() {
+  return (
+    <div className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-4 text-xs text-slate-400 space-y-1">
+      <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">Tài Khoản Thử Nghiệm System</p>
+      {DEMO_ACCOUNTS.map((account) => (
+        <p key={account.identifier}>
+          {account.label}: <span className="text-emerald-400 font-mono">{account.identifier}</span> / <span className="text-emerald-400 font-mono">{account.password}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -35,12 +65,12 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#070A11] text-slate-100 flex flex-col items-center justify-center px-4 py-12 relative overflow-hidden font-sans selection:bg-emerald-500 selection:text-slate-950">
-      
+
       {/* Ambient background glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/15 rounded-full blur-[140px] pointer-events-none"></div>
-      
+
       <div className="w-full max-w-md space-y-8 rounded-3xl border border-slate-800/80 bg-slate-900/80 p-8 shadow-2xl backdrop-blur-2xl relative z-10">
-        
+
         <div className="text-center space-y-3">
           <Link to="/" className="inline-flex items-center gap-3 group">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5 group-hover:scale-105 transition-transform">
@@ -109,16 +139,7 @@ export default function LoginPage() {
           </Link>
         </p>
 
-        <div className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-4 text-xs text-slate-400 space-y-1">
-          <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">Tài Khoản Thử Nghiệm System</p>
-          <p>Admin (toàn chuỗi): <span className="text-emerald-400 font-mono">admin@badminton.com</span> / <span className="text-emerald-400 font-mono">Admin@123</span></p>
-          <p>Quản lý Chi nhánh Quận 3: <span className="text-emerald-400 font-mono">manager.q3@badminton.com</span> / <span className="text-emerald-400 font-mono">Manager@123</span></p>
-          <p>Quản lý Chi nhánh Quận 7: <span className="text-emerald-400 font-mono">manager.q7@badminton.com</span> / <span className="text-emerald-400 font-mono">Manager@123</span></p>
-          <p>NV Chi nhánh chính: <span className="text-emerald-400 font-mono">employee@badminton.com</span> / <span className="text-emerald-400 font-mono">Employee@123</span></p>
-          <p>NV Chi nhánh Quận 3: <span className="text-emerald-400 font-mono">employee.q3@badminton.com</span> / <span className="text-emerald-400 font-mono">Employee@123</span></p>
-          <p>NV Chi nhánh Quận 7: <span className="text-emerald-400 font-mono">employee.q7@badminton.com</span> / <span className="text-emerald-400 font-mono">Employee@123</span></p>
-          <p>Khách hàng: <span className="text-emerald-400 font-mono">0903333333</span> / <span className="text-emerald-400 font-mono">Customer@123</span></p>
-        </div>
+        {SHOW_DEMO_ACCOUNTS && <DemoAccounts />}
 
         <div className="text-center pt-2">
           <Link to="/" className="text-xs font-semibold text-slate-400 hover:text-emerald-400 transition-colors">

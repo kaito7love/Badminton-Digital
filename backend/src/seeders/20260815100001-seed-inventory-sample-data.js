@@ -1,5 +1,7 @@
 'use strict';
 
+const { assertDemoSeedAllowed } = require('../utils/demoSeedGuard');
+
 // Dữ liệu mẫu để test tay tính năng kho mới (nhà cung cấp, phiếu nhập kho,
 // sổ nhật ký kho, giá vốn bình quân gia quyền). Giả định seeder ban đầu
 // (20260723000001-seed-initial-data.js) và migration M1 (branch id=1) đã
@@ -74,6 +76,7 @@ const ADJUSTMENTS = [
 
 module.exports = {
   async up(queryInterface) {
+    assertDemoSeedAllowed();
     const now = new Date();
 
     // An toàn: seeder này SET tồn kho tuyệt đối cho extras 1-4 (không cộng dồn),

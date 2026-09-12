@@ -1,5 +1,7 @@
 'use strict';
 
+const { assertDemoSeedAllowed } = require('../utils/demoSeedGuard');
+
 // Dữ liệu mẫu trải dài 7 ngày, nhiều chi nhánh, cho 2 báo cáo mới
 // (revenue-breakdown, inventory-reconciliation) có gì để hiển thị — thay vì
 // chỉ vài giao dịch test lẻ tẻ. Ghi trực tiếp bằng SQL có tính toán tay
@@ -67,6 +69,7 @@ const lastInsertId = async (queryInterface, transaction) => {
 
 module.exports = {
   async up(queryInterface) {
+    assertDemoSeedAllowed();
     const [existing] = await queryInterface.sequelize.query(
       `SELECT idempotency_key FROM payments WHERE idempotency_key LIKE :prefix LIMIT 1`,
       { replacements: { prefix: `${IDEMPOTENCY_PREFIX}%` } }

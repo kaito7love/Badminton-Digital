@@ -1,17 +1,16 @@
 'use strict';
 const bcrypt = require('bcrypt');
+const { assertDemoSeedAllowed } = require('../utils/demoSeedGuard');
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
+    assertDemoSeedAllowed();
     const now = new Date();
 
-    // 1. Roles
-    await queryInterface.bulkInsert('roles', [
-      { id: 1, name: 'admin', description: 'Chủ sân / Quản trị hệ thống', created_at: now, updated_at: now },
-      { id: 2, name: 'employee', description: 'Nhân viên vận hành tại quầy', created_at: now, updated_at: now },
-      { id: 3, name: 'customer', description: 'Khách hàng thuê sân', created_at: now, updated_at: now }
-    ], {});
+    // 1. Roles — không seed ở đây nữa. Ba role lõi do migration
+    // 20260912100001-ensure-core-roles.js tạo, để bản cài production chỉ
+    // migrate (không seed demo) vẫn đủ vai trò.
 
     // 2. Users (Admin@123, Employee@123, Customer@123)
     const adminPassword = await bcrypt.hash('Admin@123', 10);
@@ -232,6 +231,6 @@ module.exports = {
     await queryInterface.bulkDelete('customers', null, {});
     await queryInterface.bulkDelete('employees', null, {});
     await queryInterface.bulkDelete('users', null, {});
-    await queryInterface.bulkDelete('roles', null, {});
+    // Không xoá roles: bảng này thuộc migration 20260912100001-ensure-core-roles.js.
   }
 };

@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { roleOf, isStaff, isStaffPath, homePathForRole, redirectAfterLogin } from './roles';
+import { roleOf, isStaff, isStaffPath, homePathForRole, redirectAfterLogin, canManageStaff } from './roles';
 
 const admin = { role: 'admin' };
 const employee = { role: 'employee' };
@@ -50,5 +50,38 @@ describe('roles — phân luồng theo vai trò', () => {
   test('không có nơi dở dang thì về trang chủ của vai trò', () => {
     expect(redirectAfterLogin(employee, null)).toBe('/courts');
     expect(redirectAfterLogin(customer, null)).toBe('/my-bookings');
+  });
+});
+
+describe('canManageStaff — ai được sửa/xoá tài khoản nhân viên', () => {
+  const adminA = { id: 1, role: { name: 'admin' } };
+  const adminB = { id: 9, role: { name: 'admin' } };
+  const manager = { id: 2, role: 'branch_manager' };
+  const otherManager = { id: 3, role: { name: 'branch_manager' } };
+  const staff = { id: 4, role: { name: 'employee' } };
+
+  test('quản lý chi nhánh chỉ đụng được nhân viên thường', () => {
+    expect(canManageStaff(manager, staff, 'update')).toBe(true);
+    expect(canManageStaff(manager, staff, 'delete')).toBe(true);
+    for (const target of [adminA, otherManager, manager]) {
+      expect(canManageStaff(manager, target, 'update')).toBe(false);
+      expect(canManageStaff(manager, target, 'delete')).toBe(false);
+    }
+  });
+
+  test('admin sửa được mọi người nhưng không xoá admin hay chính mình', () => {
+    for (const target of [staff, manager, adminB, adminA]) {
+      expect(canManageStaff(adminA, target, 'update')).toBe(true);
+    }
+    expect(canManageStaff(adminA, staff, 'delete')).toBe(true);
+    expect(canManageStaff(adminA, manager, 'delete')).toBe(true);
+    expect(canManageStaff(adminA, adminB, 'delete')).toBe(false);
+    expect(canManageStaff(adminA, adminA, 'delete')).toBe(false);
+  });
+
+  test('nhân viên thường, khách hoặc chưa đăng nhập thì không quản lý được ai', () => {
+    expect(canManageStaff(staff, { id: 5, role: 'employee' }, 'update')).toBe(false);
+    expect(canManageStaff({ id: 6, role: 'customer' }, staff, 'delete')).toBe(false);
+    expect(canManageStaff(null, staff, 'update')).toBe(false);
   });
 });

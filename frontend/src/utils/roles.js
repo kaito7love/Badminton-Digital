@@ -12,6 +12,31 @@ export const roleOf = (user) =>
 export const isStaff = (user) => STAFF_ROLES.includes(roleOf(user));
 
 /**
+ * Ai được sửa (`update`) hay xoá (`delete`) tài khoản nhân viên nào — cùng bảng
+ * với `EmployeeService.assertCanManage` ở backend. Backend mới là chốt chặn
+ * thật; ở đây chỉ để không hiện những nút bấm vào là nhận 403.
+ *
+ * - admin: sửa được mọi người; xoá được employee/branch_manager, không xoá
+ *   admin hay chính mình.
+ * - branch_manager: chỉ sửa/xoá tài khoản `employee` (API đã lọc sẵn theo chi
+ *   nhánh), không đụng admin, quản lý khác hay chính mình.
+ */
+export const canManageStaff = (actor, targetUser, action) => {
+  const actorRole = roleOf(actor);
+  const targetRole = roleOf(targetUser);
+  const isSelf = actor?.id != null && actor.id === targetUser?.id;
+
+  if (actorRole === 'admin') {
+    if (action === 'update') return true;
+    return !isSelf && ['employee', 'branch_manager'].includes(targetRole);
+  }
+  if (actorRole === 'branch_manager') {
+    return !isSelf && targetRole === 'employee';
+  }
+  return false;
+};
+
+/**
  * Trang chủ sau đăng nhập của từng vai trò — phải là màn hình họ thực sự mở
  * được. /dashboard gọi /reports/dashboard, mà API đó chỉ cho admin: đưa nhân
  * viên vào đó thì họ nhận đúng một thông báo 403 ngay khi vừa đăng nhập.

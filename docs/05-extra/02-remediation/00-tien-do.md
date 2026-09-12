@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-08-22. Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-09-13 (thêm mục 13, chờ duyệt merge). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -503,6 +503,37 @@ Merge vào `main` bằng `--no-ff` (`a7c21ad`) — không conflict (nhánh này 
 frontend 46/46.
 
 ---
+
+## Đã code + test, chờ duyệt merge
+
+### 13. `fix/account-takeover-secret-leaks` (chưa commit, chờ duyệt)
+Nguồn: nhóm sửa 1/6 của đợt kiểm tra trước deploy 12/09/2026 (`SEC-01`, `SEC-02`, `AUTH-01`,
+`CFG-01`, `CFG-02`). Plan và kết quả đầy đủ: `13-ke-hoach-chan-chiem-tai-khoan.md`.
+
+- **Không lộ bí mật qua lỗi:**
+  - `errorHandler` không trả `err.errors` thô nữa (trước đây lộ `passwordHash` + `refreshToken` qua
+    `instance`). Lỗi trùng trả 409, dữ liệu sai trả 400, kèm `[{ field, message }]`.
+  - Model `User` mặc định không nạp hai trường bí mật; chỉ `AuthService` dùng `User.scope('withSecrets')`.
+- **Bảng quyền sửa/xoá nhân viên** (`EmployeeService.assertCanManage`):
+  - Quản lý chi nhánh chỉ đụng được nhân viên thường.
+  - Không ai xoá được admin hay chính mình.
+  - Bỏ sửa email qua `PUT /employees/:id`.
+  - Trang Nhân viên ẩn nút tương ứng.
+- **Tài khoản mẫu:** trang đăng nhập chỉ hiện ở dev, hoặc ở bản build với `VITE_SHOW_DEMO_ACCOUNTS=true`
+  (không bao giờ kèm admin).
+- **Cài mới an toàn:**
+  - Migration `20260912100001-ensure-core-roles` tạo sẵn role lõi.
+  - Seeder demo tự dừng khi `NODE_ENV=production`, trừ khi đặt `ALLOW_DEMO_SEED=true`.
+  - `npm run create-admin` tạo admin đầu tiên.
+- **JWT:** server từ chối secret mẫu hoặc hai secret trùng nhau. Refresh token lưu dạng sha256, nên mọi
+  phiên cũ phải đăng nhập lại một lần.
+- **Bằng chứng test thật:**
+  - Trên code cũ đã tái hiện đủ chuỗi chiếm quyền: lỗi 500 lộ token admin → refresh ra token admin →
+    `/reports/dashboard` trả 200.
+  - Sau khi sửa, 17/17 kịch bản đạt: server + DB dev, trình duyệt thật, và 2 DB tạm (migrate 39/39,
+    `create-admin`, chặn seed demo, khách đăng ký khi chưa seed, từ chối khởi động với secret yếu).
+  - Jest 164/164, Vitest 49/49.
+  - Đã dọn sạch dữ liệu test; DB tạm đã DROP.
 
 ## Chưa làm — xem plan riêng từng phần
 

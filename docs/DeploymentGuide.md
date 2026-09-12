@@ -37,9 +37,11 @@ DB_NAME=badminton_digital_management
 DB_USER=bp_user
 DB_PASSWORD=<đặt mật khẩu mạnh>
 
-# JWT
-JWT_ACCESS_SECRET=<random string dài>
-JWT_REFRESH_SECRET=<random string dài khác>
+# JWT — hai chuỗi ngẫu nhiên KHÁC NHAU, tối thiểu 32 ký tự. Sinh mỗi chuỗi bằng:
+#   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+# Server từ chối khởi động nếu thiếu, quá ngắn, trùng nhau hoặc còn là chuỗi mẫu trong repo.
+JWT_ACCESS_SECRET=<chuỗi ngẫu nhiên thứ nhất>
+JWT_REFRESH_SECRET=<chuỗi ngẫu nhiên thứ hai>
 JWT_ACCESS_EXPIRES=15m
 JWT_REFRESH_EXPIRES=7d
 JWT_RESET_EXPIRES=15m
@@ -56,13 +58,21 @@ MAIL_FROM=Badminton Digital <no-reply@badminton.com>
 
 # Upload
 UPLOAD_DIR=/app/uploads
+
+# Seeder dữ liệu demo (tài khoản mật khẩu công khai) bị chặn khi NODE_ENV=production.
+# Chỉ đặt true cho bản demo công khai — xem mục 10.
+ALLOW_DEMO_SEED=false
 ```
 
-> Danh sách trên khớp với `backend/.env.example` (nguồn tham chiếu chính thức). Đăng nhập/đăng ký bằng số điện thoại, chuyển đổi chi nhánh (admin), và hệ thống kho hàng (nhà cung cấp/phiếu nhập kho/tồn kho) không cần thêm biến môi trường mới — đã kiểm tra qua `backend/src/config/config.js` và các `process.env.*` trong service/controller liên quan.
+> Danh sách trên khớp với `backend/.env.example` (nguồn tham chiếu chính thức). Đăng nhập/đăng ký bằng số điện thoại, chuyển đổi chi nhánh (admin), và hệ thống kho hàng (nhà cung cấp/phiếu nhập kho/tồn kho) không cần thêm biến môi trường mới — đã kiểm tra qua `backend/src/config/config.js` và các `process.env.*` trong service/controller liên quan. Các biến `ADMIN_*` của `npm run create-admin` (mục 7.2) truyền thẳng khi chạy lệnh, không ghi vào `.env`.
 
 ### 3.2 Frontend `.env`
 ```env
 VITE_API_BASE_URL=https://api.badmintondigitalmanagement.vn/api/v1
+
+# Hiện khối "Tài khoản thử nghiệm" trên trang đăng nhập. Chỉ bật cho bản demo công khai;
+# tài khoản admin không bao giờ hiện ở bản build.
+VITE_SHOW_DEMO_ACCOUNTS=false
 ```
 
 > **Lưu ý bảo mật:** Không commit file `.env` thật lên Git. Chỉ commit `.env.example` với giá trị mẫu.
@@ -129,13 +139,15 @@ cd Badminton Digital Management
 # 2. Cấu hình biến môi trường
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
-# → chỉnh sửa giá trị phù hợp
+# → chỉnh sửa giá trị phù hợp (bắt buộc sinh 2 JWT secret — xem mục 3.1)
 
 # 3. Khởi chạy toàn bộ hệ thống bằng Docker Compose
 cd docker
 docker compose up --build
 
 # 4. Chạy migration & seed dữ liệu mẫu (trong container backend)
+#    Seed chỉ dành cho máy dev/bản demo: tài khoản mẫu dùng mật khẩu công khai,
+#    seeder tự dừng khi NODE_ENV=production (xem mục 7.2).
 docker compose exec backend npx sequelize-cli db:migrate
 docker compose exec backend npx sequelize-cli db:seed:all
 
@@ -208,9 +220,15 @@ Các bước sau được đề xuất bổ sung vào pipeline nhưng **chưa c�
 2. Clone repo, cấu hình `.env` production.
 3. Cấu hình domain + SSL (Let's Encrypt qua Certbot hoặc Nginx Proxy Manager).
 4. `docker compose -f docker-compose.prod.yml up -d --build`.
-5. **Backup DB trước khi migrate** (`mysqldump` — xem mục 8), rồi chạy migration production: `docker compose exec backend npx sequelize-cli db:migrate` (chạy `npm run migrate` tương đương ở mục "Commands" của `CLAUDE.md`).
+5. **Backup DB trước khi migrate** (`mysqldump` — xem mục 8), rồi chạy migration production: `docker compose exec backend npx sequelize-cli db:migrate` (chạy `npm run migrate` tương đương ở mục "Commands" của `CLAUDE.md`). Migration tự tạo đủ 4 vai trò (`admin`, `employee`, `customer`, `branch_manager`), không cần seed.
    > ⚠️ Một số migration gần đây thay đổi/xoá dữ liệu không thể hoàn tác qua `down`: `20260815300001-unify-customers-chain-wide.js` gộp các hồ sơ khách hàng trùng số điện thoại giữa các chi nhánh thành 1 hồ sơ duy nhất (ghi log quyết định gộp vào bảng mới `customer_merge_audit`, nhưng dữ liệu gốc bị gộp/xoá không phục hồi được từ `down`). Migration này chạy cùng đợt với `20260815000002-inventory-foundation.js` (khởi tạo lại tồn kho theo chi nhánh, xoá cột `extras.stock_quantity` cũ) và `20260815300002-add-branch-manager-role.js`. Bắt buộc backup đầy đủ trước khi chạy `db:migrate` trên dữ liệu production — không chỉ với 3 migration này mà với mọi migration M1–M3 nói chung (xem `CLAUDE.md`).
-6. Cấu hình reverse proxy (Nginx) trỏ domain → container frontend (80) và `/api` → container backend (5000).
+6. **Tạo admin đầu tiên — không seed dữ liệu demo lên production.** Seeder demo tạo tài khoản mật khẩu công khai và tự dừng khi `NODE_ENV=production`. Thay vào đó:
+   ```bash
+   docker compose exec -e ADMIN_EMAIL=chu.san@example.com -e ADMIN_PASSWORD='<mật khẩu mạnh>' \
+     -e ADMIN_FULL_NAME='Nguyễn Văn A' backend npm run create-admin
+   ```
+   Mật khẩu tối thiểu 12 ký tự và không trùng mật khẩu demo. Tuỳ chọn `ADMIN_PHONE`, `ADMIN_BRANCH_CODE` (mặc định chi nhánh đang hoạt động có id nhỏ nhất). Script từ chối chạy nếu đã có admin đang hoạt động và không in mật khẩu ra màn hình.
+7. Cấu hình reverse proxy (Nginx) trỏ domain → container frontend (80) và `/api` → container backend (5000).
 
 ### 7.3 Giám sát & Log
 - Log ứng dụng: thư mục `backend/src/logs/` (mount volume để không mất log khi container restart).
@@ -234,8 +252,10 @@ Các bước sau được đề xuất bổ sung vào pipeline nhưng **chưa c�
 
 ## 10. Checklist trước khi Demo/Release
 - [ ] 2 job CI hiện tại (`backend-test`, `frontend-build`) pass — xem mục 6.1. Integration test/Postman chưa có trong CI (mục 6.2), nên phần đó (nếu chạy) là thủ công ngoài CI.
-- [ ] Biến môi trường production đã cấu hình đúng, không dùng giá trị mặc định/dev.
+- [ ] Biến môi trường production đã cấu hình đúng, không dùng giá trị mặc định/dev. Hai JWT secret là chuỗi ngẫu nhiên khác nhau (server tự từ chối chuỗi mẫu hoặc hai secret trùng nhau).
 - [ ] Swagger UI truy cập được, phản ánh đúng API hiện tại.
-- [ ] Đã seed dữ liệu demo (vài sân, vài khách hàng, vài booking mẫu) để trình bày trực quan.
+- [ ] Chọn đúng **một** chế độ và cấu hình khớp:
+  - **Vận hành thật:** tạo admin bằng `npm run create-admin`, **không** seed, `VITE_SHOW_DEMO_ACCOUNTS=false`.
+  - **Demo công khai cho người xem portfolio:** `ALLOW_DEMO_SEED=true` rồi seed dữ liệu demo (vài sân, vài khách hàng, vài booking mẫu), build frontend với `VITE_SHOW_DEMO_ACCOUNTS=true`. Trang đăng nhập không hiện tài khoản admin — người xem trước có quyền admin sẽ phá dữ liệu demo của người xem sau.
 - [ ] README.md có hướng dẫn chạy dự án rõ ràng cho người xem portfolio.
 - [ ] Đã quay demo video ngắn (theo Roadmap Phase 5) phòng khi môi trường live gặp sự cố lúc phỏng vấn.

@@ -15,10 +15,11 @@ npm run dev        # nodemon dev server, http://localhost:5000
 npm start           # production start
 npm test            # Jest unit tests (backend/tests/)
 npm test -- courtService.test.js   # single test file
-npm run migrate     # sequelize-cli db:migrate
-npm run seed         # sequelize-cli db:seed:all
+npm run migrate     # sequelize-cli db:migrate (also creates the admin/employee/customer/branch_manager roles)
+npm run seed         # sequelize-cli db:seed:all — demo data with public passwords; refuses under NODE_ENV=production unless ALLOW_DEMO_SEED=true
+npm run create-admin # first admin for a real install, from ADMIN_EMAIL / ADMIN_PASSWORD (>= 12 chars) / ADMIN_FULL_NAME env vars
 ```
-Requires MySQL >= 8.0 and a `.env` (copy from `.env.example`) with `DB_*`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`.
+Requires MySQL >= 8.0 and a `.env` (copy from `.env.example`) with `DB_*`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` — two different random strings of 32+ chars; the server refuses to boot on the old placeholder values or identical secrets.
 
 ### Frontend (`frontend/`)
 ```bash
@@ -42,7 +43,9 @@ Standard layered Express app: `routes/` → `controllers/` → `services/` (busi
 
 All models are wired up in `models/index.js`, which is the single source of truth for associations (not each model file) — check it before adding a new relation.
 
-Roles: `admin` (full access, all branches, can switch active branch via `X-Branch-Id`), `branch_manager` (same operational scope as `admin` — courts, employees, reports, inventory — but locked to their own branch; added in migration `20260815300002-add-branch-manager-role.js` and already gated on most routes and frontend routes/nav, not just a DB stub), `employee` (day-to-day operations within their branch: courts, bookings, checkout, customers, inventory), `customer` (own bookings only, can self-register). Auth flow: `POST /api/v1/auth/login` takes an `identifier` (phone number or email) + password and issues a short-lived access token (15m) + refresh token (7d); `apiClient` on the frontend auto-refreshes on 401.
+Roles: `admin` (full access, all branches, can switch active branch via `X-Branch-Id`), `branch_manager` (same operational scope as `admin` — courts, employees, reports, inventory — but locked to their own branch; added in migration `20260815300002-add-branch-manager-role.js` and already gated on most routes and frontend routes/nav, not just a DB stub), `employee` (day-to-day operations within their branch: courts, bookings, checkout, customers, inventory), `customer` (own bookings only, can self-register). Auth flow: `POST /api/v1/auth/login` takes an `identifier` (phone number or email) + password and issues a short-lived access token (15m) + refresh token (7d); `apiClient` on the frontend auto-refreshes on 401. Refresh tokens are stored as sha256 only.
+
+Secrets and staff accounts: the `User` model's `defaultScope` excludes `passwordHash`/`refreshToken` (Sequelize applies it to includes too) — only `AuthService` loads them, via `User.scope('withSecrets')`. `errorHandler.js` must never return raw `err.errors`: Sequelize error items carry the whole record in `instance`, so it only emits `[{ field, message }]`. Editing/deleting staff accounts goes through `EmployeeService.assertCanManage` (branch_manager may touch only `employee` accounts; nobody deletes an admin or themselves), mirrored for the UI in `frontend/src/utils/roles.js#canManageStaff`.
 
 ### Multi-tenancy migration in progress
 The system is mid-migration from a flat 13-table schema to a multi-branch (tenant) model — see `backend/docs/architecture/README.md`, `TARGET_SCHEMA.md`, and `MIGRATION_ROADMAP.md` (stages M1–M7). A `Branch` model and `branchId` foreign keys have been added across most entities (`Court`, `Booking`, `CourtSession`, `Employee`, `Invoice`, `Payment`, `ActivityLog`, and the newer inventory models `ExtraStock`/`StockMovement`/`GoodsReceipt`) — but deliberately *not* `Customer`: migration `20260815300001-unify-customers-chain-wide.js` dropped `branch_id` from `customers` so one customer identity (matched by phone) spans every branch in the chain, rather than being re-created per branch. `models/index.js` is still the source to check before trusting any relationship diagram elsewhere. Migrations for this effort live under `backend/src/migrations/` prefixed `m1`/`m2`/`m3` plus later dated ones; back up the DB before running them against real data.
