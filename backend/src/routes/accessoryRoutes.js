@@ -12,9 +12,10 @@ const {
 
 router.use(authMiddleware, branchContextMiddleware);
 
-// Accessories CRUD
-router.get('/', accessoryController.getAccessories);
-router.get('/:id', accessoryController.getAccessoryById);
+// Accessories CRUD — bản đọc kèm giá vốn bình quân và tồn kho theo chi nhánh,
+// nên chỉ nhân viên đọc được.
+router.get('/', roleMiddleware(['admin', 'branch_manager', 'employee']), accessoryController.getAccessories);
+router.get('/:id', roleMiddleware(['admin', 'branch_manager', 'employee']), accessoryController.getAccessoryById);
 
 router.post('/', roleMiddleware(['admin']), createAccessoryRules, accessoryController.createAccessory);
 router.put('/:id', roleMiddleware(['admin']), updateAccessoryRules, accessoryController.updateAccessory);

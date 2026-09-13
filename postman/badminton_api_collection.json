@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b4d21701-0000-4000-8000-badm1n70n0001",
     "name": "Badminton Digital Management API",
-    "description": "# Badminton Digital Management — REST API\n\n`112 endpoint` / `23 nhóm` — base path `/api/v1`.\n\n## Chạy nhanh\n1. Chọn environment **Badminton — Local**.\n2. Chạy `01 · Auth → Login`. Request này tự lưu `accessToken` + `refreshToken` vào biến collection, mọi request khác dùng lại ngay.\n\n## Quy ước\n- Mọi phản hồi theo envelope `{ success, data, message, errors }`.\n- Request thuộc phạm vi chi nhánh gửi kèm header `X-Branch-Id: {{branchId}}`. Admin đổi chi nhánh bằng cách đổi biến này.\n- Biến id (`courtId`, `customerId`, `sessionId`...) **tự điền** từ các request danh sách chạy trước đó — chạy cả collection theo thứ tự là không phải nhập tay.\n\n## Cờ an toàn khi chạy bằng newman\nMặc định `newman run` **chỉ chạy request đọc** để không làm bẩn CSDL:\n\n| Cờ | Mặc định | Bật thêm nhóm nào |\n|---|---|---|\n| `runWrites` | `false` | Request ghi **tự dọn** — tạo bản ghi QA rồi xoá/huỷ ngay trong cùng nhóm |\n| `runDestructive` | `false` | Request tác động lên dữ liệu có sẵn (checkout, void, đổi cấu hình, xoá bản ghi seed, logout) |\n| `runStream` | `false` | `GET /realtime/stream` — SSE, sẽ làm newman treo |\n\n```bash\nnewman run postman/badminton_api_collection.json -e postman/badminton_local.postman_environment.json\nnewman run postman/badminton_api_collection.json -e postman/badminton_local.postman_environment.json --env-var runWrites=true\n```\n\n## Rate limit cần biết\n`POST /auth/login` giới hạn **10 lần / 15 phút / IP**; `/auth/register` **5 lần / giờ**; `/auth/refresh-token` **30 lần / 15 phút**. Bộ đếm nằm trong RAM — khởi động lại backend là reset.",
+    "description": "# Badminton Digital Management — REST API\n\n`113 endpoint` / `23 nhóm` — base path `/api/v1`.\n\n## Chạy nhanh\n1. Chọn environment **Badminton — Local**.\n2. Chạy `01 · Auth → Login`. Request này tự lưu `accessToken` + `refreshToken` vào biến collection, mọi request khác dùng lại ngay.\n\n## Quy ước\n- Mọi phản hồi theo envelope `{ success, data, message, errors }`.\n- Request thuộc phạm vi chi nhánh gửi kèm header `X-Branch-Id: {{branchId}}`. Admin đổi chi nhánh bằng cách đổi biến này.\n- Biến id (`courtId`, `customerId`, `sessionId`...) **tự điền** từ các request danh sách chạy trước đó — chạy cả collection theo thứ tự là không phải nhập tay.\n\n## Cờ an toàn khi chạy bằng newman\nMặc định `newman run` **chỉ chạy request đọc** để không làm bẩn CSDL:\n\n| Cờ | Mặc định | Bật thêm nhóm nào |\n|---|---|---|\n| `runWrites` | `false` | Request ghi **tự dọn** — tạo bản ghi QA rồi xoá/huỷ ngay trong cùng nhóm |\n| `runDestructive` | `false` | Request tác động lên dữ liệu có sẵn (checkout, void, đổi cấu hình, xoá bản ghi seed, logout) |\n| `runStream` | `false` | `GET /realtime/stream` — SSE, sẽ làm newman treo |\n\n```bash\nnewman run postman/badminton_api_collection.json -e postman/badminton_local.postman_environment.json\nnewman run postman/badminton_api_collection.json -e postman/badminton_local.postman_environment.json --env-var runWrites=true\n```\n\n## Rate limit cần biết\n`POST /auth/login` giới hạn **10 lần / 15 phút / IP**; `/auth/register` **5 lần / giờ**; `/auth/refresh-token` **30 lần / 15 phút**. Bộ đếm nằm trong RAM — khởi động lại backend là reset.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -206,6 +206,21 @@
       "type": "string"
     },
     {
+      "key": "mergeWalkInId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "mergeAccountCustomerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "mergePhone",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "runManual",
       "value": "false",
       "type": "string"
@@ -365,7 +380,7 @@
                 "register"
               ]
             },
-            "description": "Chỉ tạo được tài khoản vai trò `customer`. Tài khoản nhân viên phải do admin tạo qua `/employees`.\n\n⚠️ Giới hạn 5 lần / giờ / IP.",
+            "description": "Chỉ tạo được tài khoản vai trò `customer`. Tài khoản nhân viên phải do admin tạo qua `/employees`.\n\n**Không tự gắn hồ sơ tại quầy cùng số điện thoại.** Tài khoản luôn nhận hồ sơ khách hàng mới; nếu số đã thuộc một hồ sơ khác thì hồ sơ của tài khoản để trống số điện thoại. Response giống hệt nhau dù số từng ra quầy hay chưa. Nhân viên xác minh khách rồi gộp lịch sử qua `POST /customers/:id/merge-into-account`.\n\n⚠️ Giới hạn 5 lần / giờ / IP.",
             "auth": {
               "type": "noauth"
             },
@@ -1737,7 +1752,7 @@
                 "{{tmpBookingId}}"
               ]
             },
-            "description": "Không đổi được `status` trực tiếp ở đây (validation chặn) — dùng `/confirm` hoặc `DELETE`.",
+            "description": "Chỉ nhân viên (`admin`, `branch_manager`, `employee`) gọi được; khách muốn đổi lịch thì huỷ rồi đặt lại.\n\nBody chỉ nhận `courtId`, `bookingDate`, `startTime`, `endTime`. Gửi trường khác (`status`, `branchId`, `createdBy`, `customerId`, `customerName`...) → 400 `\"Không sửa được các trường: ...\"`. Đổi trạng thái dùng `/confirm` hoặc `DELETE`; đổi khách thì huỷ lịch và tạo lịch mới.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"startTime\": \"07:00\",\n  \"endTime\": \"09:00\"\n}",
@@ -4925,6 +4940,106 @@
                 "exec": [
                   "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
                   "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gộp hồ sơ tại quầy vào tài khoản",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Branch-Id",
+                "value": "{{branchId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{mergeWalkInId}}/merge-into-account",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{mergeWalkInId}}",
+                "merge-into-account"
+              ]
+            },
+            "description": "Gộp hồ sơ tại quầy (`:id` — chưa gắn tài khoản, có số điện thoại) vào hồ sơ của tài khoản khách tự đăng ký **cùng số** (`accountCustomerId` — hồ sơ tài khoản chưa mang số). Mọi nhân viên gọi được; chỉ gộp sau khi đã xác minh khách tại quầy, vì `POST /auth/register` không tự gộp.\n\nMột transaction: chuyển `court_sessions` / `bookings` / `sales_orders` (kể cả dòng đã xoá mềm), cộng `totalSpent`, tính lại hạng, chuyển số điện thoại sang hồ sơ tài khoản, xoá mềm hồ sơ cũ, ghi nhật ký `customer.merged`.\n\n`GET /customers` gắn `pendingAccount: { customerId, fullName, registeredAt }` vào hồ sơ đang chờ gộp. Điều kiện không khớp → 400; hồ sơ đã gộp → 409.\n\nScript chuẩn bị (chỉ khi `runWrites=true`) tự dựng cặp hồ sơ: tạo hồ sơ tại quầy bằng một số QA mới rồi đăng ký tài khoản cùng số — tốn thêm 1 lượt rate limit của `/auth/register`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountCustomerId\": {{mergeAccountCustomerId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request nay GHI vao DB. Mac dinh bi bo qua khi chay newman de khong lam ban du lieu.",
+                  "// Bat bang: newman run ... --env-var runWrites=true",
+                  "if (String(pm.variables.get('runWrites')) !== 'true') {",
+                  "  console.log('SKIP (runWrites=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "} else {",
+                  "  // Dựng cặp hồ sơ cần gộp: hồ sơ tại quầy mang một số QA mới, rồi tài khoản khách đăng ký cùng số.",
+                  "  const _base = pm.variables.get('baseUrl');",
+                  "  const _phone = '07' + String(Date.now()).slice(-8);",
+                  "  pm.sendRequest({",
+                  "    url: _base + '/customers', method: 'POST',",
+                  "    header: {",
+                  "      'Content-Type': 'application/json',",
+                  "      'Authorization': 'Bearer ' + pm.variables.get('accessToken'),",
+                  "      'X-Branch-Id': String(pm.variables.get('branchId') || 1)",
+                  "    },",
+                  "    body: { mode: 'raw', raw: JSON.stringify({ fullName: 'Khách QA tại quầy (gộp)', phone: _phone }) }",
+                  "  }, function (err, walkInRes) {",
+                  "    if (err || walkInRes.code !== 201) {",
+                  "      console.log('Không tạo được hồ sơ tại quầy để gộp: ' + (err ? err.message : walkInRes.text()));",
+                  "      return;",
+                  "    }",
+                  "    pm.collectionVariables.set('mergeWalkInId', walkInRes.json().data.id);",
+                  "    pm.sendRequest({",
+                  "      url: _base + '/auth/register', method: 'POST',",
+                  "      header: { 'Content-Type': 'application/json' },",
+                  "      body: { mode: 'raw', raw: JSON.stringify({ fullName: 'Khách QA online (gộp)', phone: _phone, password: 'Customer@123' }) }",
+                  "    }, function (err2, registerRes) {",
+                  "      if (err2 || registerRes.code !== 201) {",
+                  "        console.log('Không đăng ký được tài khoản cùng số để gộp: ' + (err2 ? err2.message : registerRes.text()));",
+                  "        return;",
+                  "      }",
+                  "      pm.collectionVariables.set('mergeAccountCustomerId', registerRes.json().data.customerId);",
+                  "      pm.collectionVariables.set('mergePhone', _phone);",
+                  "    });",
+                  "  });",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "const b = pm.response.json();",
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(b.success).to.eql(true); });",
+                  "pm.test(pm.info.requestName + ' -> số điện thoại chuyển sang hồ sơ tài khoản', function () {",
+                  "  pm.expect(String(b.data.customer.id)).to.eql(String(pm.collectionVariables.get('mergeAccountCustomerId')));",
+                  "  pm.expect(String(b.data.mergedCustomerId)).to.eql(String(pm.collectionVariables.get('mergeWalkInId')));",
+                  "  pm.expect(b.data.customer.phone).to.eql(pm.collectionVariables.get('mergePhone'));",
+                  "});"
                 ]
               }
             }

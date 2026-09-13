@@ -278,6 +278,9 @@ export default function AccountPage() {
           <div className="nike-card-static p-10 text-center">
             <p className="font-kinetic text-lg font-black uppercase text-white">Chưa có buổi chơi nào</p>
             <p className="mt-3 text-slate-400">Đặt sân đầu tiên và buổi chơi sẽ được ghi lại ở đây.</p>
+            <p className="mt-2 text-xs text-slate-500">
+              Từng chơi tại quầy trước khi có tài khoản? Nhờ nhân viên gộp lịch sử vào tài khoản của bạn.
+            </p>
             <Link to="/#booking-widget" className="btn-nike-bolt mt-6 text-xs">
               Đặt sân ngay ⚡
             </Link>

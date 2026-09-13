@@ -24,15 +24,14 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const { mergedHistory } = await register({
+      await register({
         fullName: form.fullName.trim(),
         phone: form.phone.trim(),
         email: form.email.trim() || undefined,
         password: form.password
       });
-      // Khách từng ra chơi tại quầy thì hồ sơ cũ được gắn vào tài khoản này,
-      // nên đưa thẳng sang trang lịch để họ thấy lịch sử của mình.
-      navigate('/my-bookings', { replace: true, state: { mergedHistory } });
+      // Đăng ký xong là đã đăng nhập — đưa thẳng sang trang lịch để đặt sân.
+      navigate('/my-bookings', { replace: true });
     } catch (err) {
       const detail = err.response?.data?.errors?.[0]?.msg || err.response?.data?.errors?.[0]?.message;
       setError(detail || err.response?.data?.message || err.message || 'Đăng ký không thành công');

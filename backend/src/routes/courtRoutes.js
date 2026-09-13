@@ -15,10 +15,12 @@ const {
 
 router.use(authMiddleware, branchContextMiddleware);
 
-router.get('/', courtController.getCourts);
+// Sân kèm phiên đang chơi (họ tên, SĐT khách) là dữ liệu vận hành — chỉ nhân
+// viên đọc. Trang khách xem sân qua /public/courts.
+router.get('/', roleMiddleware(['admin', 'branch_manager', 'employee']), courtController.getCourts);
 // Đặt trước '/:id' — nếu để sau, Express sẽ khớp '/layout' vào :id.
 router.put('/layout', roleMiddleware(['admin', 'branch_manager']), updateCourtLayoutRules, courtController.updateCourtLayout);
-router.get('/:id', courtController.getCourtById);
+router.get('/:id', roleMiddleware(['admin', 'branch_manager', 'employee']), courtController.getCourtById);
 
 router.post('/', roleMiddleware(['admin', 'branch_manager']), createCourtRules, courtController.createCourt);
 router.put('/:id', roleMiddleware(['admin', 'branch_manager']), updateCourtRules, courtController.updateCourt);

@@ -1,8 +1,16 @@
 const bcrypt = require('bcrypt');
-const { Customer, CourtSession, Booking, Invoice, Court, User, Role, sequelize } = require('../models');
+const { Customer, CourtSession, Booking, SalesOrder, Invoice, Court, User, Role, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const { normalizePhone } = require('../utils/phone');
+const { computeLoyaltyTier } = require('../utils/loyalty');
+const AuditService = require('./AuditService');
+
+const httpError = (message, statusCode) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
 
 class CustomerService {
   /**
@@ -41,8 +49,51 @@ class CustomerService {
       offset,
       order: [['id', 'DESC']]
     });
+    await CustomerService.attachPendingAccounts(data.rows);
 
     return getPagingData(data, page, limit);
+  }
+
+  /**
+   * Gắn `pendingAccount` vào hồ sơ tại quầy (chưa gắn tài khoản, có số) khi số
+   * đó đã có tài khoản khách tự đăng ký mà hồ sơ của tài khoản chưa mang số —
+   * tức đang chờ nhân viên xác minh rồi gộp (`mergeIntoAccount`).
+   */
+  static async attachPendingAccounts(rows) {
+    const phones = rows.filter((row) => !row.userId && row.phone).map((row) => row.phone);
+    const accounts = phones.length
+      ? await User.findAll({
+        where: { phone: { [Op.in]: phones } },
+        attributes: ['id', 'phone', 'createdAt'],
+        include: [
+          { model: Role, as: 'role', attributes: ['name'], where: { name: 'customer' } },
+          { model: Customer, as: 'customer', attributes: ['id', 'fullName'], where: { phone: null } }
+        ]
+      })
+      : [];
+    const byPhone = new Map(accounts.map((account) => [account.phone, account]));
+
+    rows.forEach((row) => {
+      const account = !row.userId && row.phone ? byPhone.get(row.phone) : null;
+      row.setDataValue('pendingAccount', account
+        ? { customerId: account.customer.id, fullName: account.customer.fullName, registeredAt: account.createdAt }
+        : null);
+    });
+    return rows;
+  }
+
+  /**
+   * Hồ sơ của tài khoản đăng ký trùng số với một hồ sơ tại quầy chưa gộp thì
+   * chưa mang số (xem AuthService.register). Khi chính chủ tài khoản xem hồ sơ
+   * của mình thì hiện số/email của tài khoản thay vào chỗ trống — trang Tài
+   * khoản không được tự khai ra "số này đang nằm ở một hồ sơ khác". Chỉ đổi dữ
+   * liệu trả về, không ghi DB.
+   */
+  static withAccountContact(customer, user) {
+    if (!customer || !user) return customer;
+    if (!customer.phone && user.phone) customer.setDataValue('phone', user.phone);
+    if (!customer.email && user.email) customer.setDataValue('email', user.email);
+    return customer;
   }
 
   static async getCustomerById(id, context = {}) {
@@ -53,6 +104,7 @@ class CustomerService {
       throw error;
     }
     CustomerService.assertOwnership(customer, context.actor);
+    if (context.actor?.role?.name === 'customer') CustomerService.withAccountContact(customer, context.actor);
     return customer;
   }
 
@@ -67,8 +119,9 @@ class CustomerService {
       throw error;
     }
 
-    // Không có mật khẩu thì chỉ lập hồ sơ, khách tự đăng ký sau bằng chính số
-    // này và sẽ được gắn vào hồ sơ có sẵn — lịch sử không bị chẻ làm đôi.
+    // Không có mật khẩu thì chỉ lập hồ sơ. Khách tự đăng ký sau bằng chính số
+    // này thì tài khoản nhận hồ sơ riêng; nhân viên xác minh rồi gộp tại quầy
+    // (mergeIntoAccount) để lịch sử không bị chẻ đôi.
     if (!data.password) {
       return await Customer.create({
         ...CustomerService.pickEditableFields(data),
@@ -220,6 +273,7 @@ class CustomerService {
       throw error;
     }
     CustomerService.assertOwnership(customer, context.actor);
+    if (context.actor?.role?.name === 'customer') CustomerService.withAccountContact(customer, context.actor);
 
     const sessions = await CourtSession.findAll({
       where: { customerId: id },
@@ -241,6 +295,99 @@ class CustomerService {
       sessions,
       bookings
     };
+  }
+
+  /**
+   * Điều kiện gộp hồ sơ tại quầy `walkIn` vào hồ sơ `account` của tài khoản
+   * `accountUser`. Hai hồ sơ nạp kèm dòng đã xoá mềm để phân biệt "đã gộp rồi"
+   * (409) với "không tồn tại" (404).
+   */
+  static assertMergeable({ walkIn, account, accountUser }) {
+    if (!walkIn || !account) throw httpError('Không tìm thấy hồ sơ khách hàng', 404);
+    if (walkIn.id === account.id) throw httpError('Không gộp được một hồ sơ vào chính nó', 400);
+    if (walkIn.deletedAt) throw httpError('Hồ sơ này đã được gộp hoặc đã bị xoá', 409);
+    if (walkIn.userId) throw httpError('Hồ sơ này đã gắn với một tài khoản', 409);
+    if (!walkIn.phone) throw httpError('Hồ sơ tại quầy chưa có số điện thoại để đối chiếu', 400);
+    if (account.deletedAt || !account.userId || !accountUser) {
+      throw httpError('Hồ sơ đích không phải hồ sơ của một tài khoản đang tồn tại', 400);
+    }
+    if (accountUser.role?.name !== 'customer') throw httpError('Chỉ gộp được vào tài khoản khách hàng', 400);
+    if (account.phone) throw httpError('Hồ sơ của tài khoản đã mang số điện thoại, không có gì chờ gộp', 400);
+    if (normalizePhone(accountUser.phone) !== walkIn.phone) {
+      throw httpError('Số điện thoại của tài khoản không trùng với hồ sơ tại quầy', 400);
+    }
+  }
+
+  /**
+   * Gộp hồ sơ tại quầy vào hồ sơ của tài khoản khách tự đăng ký cùng số.
+   *
+   * Đăng ký không tự gộp vì hệ thống không xác minh được chủ số
+   * (AuthService.register); nhân viên chỉ gộp sau khi xác minh người trước mặt
+   * vừa là chủ số vừa là chủ tài khoản. Một transaction: lịch sử, tổng chi
+   * tiêu, hạng và số điện thoại chuyển sang hồ sơ tài khoản, hồ sơ cũ bị xoá
+   * mềm, ghi nhật ký `customer.merged`.
+   */
+  static async mergeIntoAccount(walkInId, accountCustomerId, context = {}) {
+    const transaction = await sequelize.transaction();
+    try {
+      // Khoá cả hai hồ sơ theo thứ tự id tăng dần — hai lần gộp chạy chéo nhau
+      // không khoá ngược chiều mà deadlock.
+      const rows = await Customer.findAll({
+        where: { id: [Number(walkInId), Number(accountCustomerId)] },
+        order: [['id', 'ASC']],
+        paranoid: false,
+        lock: transaction.LOCK.UPDATE,
+        transaction
+      });
+      const walkIn = rows.find((row) => row.id === Number(walkInId));
+      const account = rows.find((row) => row.id === Number(accountCustomerId));
+      const accountUser = account?.userId
+        ? await User.findByPk(account.userId, {
+          include: [{ model: Role, as: 'role', attributes: ['name'] }],
+          transaction
+        })
+        : null;
+      CustomerService.assertMergeable({ walkIn, account, accountUser });
+
+      // Chuyển cả dòng đã xoá mềm để không còn gì trỏ về hồ sơ sắp xoá.
+      const moved = {};
+      for (const [key, Model] of [['courtSessions', CourtSession], ['bookings', Booking], ['salesOrders', SalesOrder]]) {
+        const [count] = await Model.update(
+          { customerId: account.id },
+          { where: { customerId: walkIn.id }, paranoid: false, transaction }
+        );
+        moved[key] = count;
+      }
+
+      const totalSpentBefore = { walkIn: Number(walkIn.totalSpent), account: Number(account.totalSpent) };
+      const totalSpent = Math.round((totalSpentBefore.walkIn + totalSpentBefore.account) * 100) / 100;
+      const loyaltyTier = computeLoyaltyTier(totalSpent);
+      const phone = walkIn.phone;
+      const email = account.email || walkIn.email || null;
+
+      // customers.phone là unique: nhả số khỏi hồ sơ cũ trước rồi mới gắn sang hồ sơ tài khoản.
+      await walkIn.update({ phone: null }, { transaction });
+      await walkIn.destroy({ transaction });
+      await account.update({ phone, email, totalSpent, loyaltyTier }, { transaction });
+
+      await AuditService.record({
+        actor: context.actor,
+        branchId: context.branchId || null,
+        action: 'customer.merged',
+        targetType: 'customer',
+        targetId: account.id,
+        oldValues: { walkInCustomerId: walkIn.id, walkInFullName: walkIn.fullName, phone, totalSpent: totalSpentBefore },
+        newValues: { accountCustomerId: account.id, moved, totalSpent, loyaltyTier },
+        requestId: context.requestId,
+        transaction
+      });
+
+      await transaction.commit();
+      return { customer: account, mergedCustomerId: walkIn.id, moved };
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   }
 
   static assertOwnership(customer, actor) {

@@ -55,6 +55,19 @@ const getCustomerHistory = async (req, res, next) => {
   }
 };
 
+const mergeIntoAccount = async (req, res, next) => {
+  try {
+    const result = await CustomerService.mergeIntoAccount(req.params.id, req.body.accountCustomerId, {
+      actor: req.user,
+      branchId: req.branchId,
+      requestId: req.requestId,
+    });
+    return successResponse(res, result, "Đã gộp hồ sơ vào tài khoản");
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getCustomers,
   getCustomerById,
@@ -62,4 +75,5 @@ module.exports = {
   updateCustomer,
   deleteCustomer,
   getCustomerHistory,
+  mergeIntoAccount,
 };

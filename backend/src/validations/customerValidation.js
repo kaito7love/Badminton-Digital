@@ -38,7 +38,16 @@ const updateCustomerRules = [
   validate
 ];
 
+// Gộp hồ sơ tại quầy (`:id`) vào hồ sơ của tài khoản khách tự đăng ký cùng số.
+// Điều kiện nghiệp vụ do CustomerService.assertMergeable kiểm.
+const mergeIntoAccountRules = [
+  param('id').isInt({ min: 1 }).withMessage('Customer ID must be an integer'),
+  body('accountCustomerId').isInt({ min: 1 }).withMessage('accountCustomerId phải là mã hồ sơ của tài khoản'),
+  validate
+];
+
 module.exports = {
   createCustomerRules,
-  updateCustomerRules
+  updateCustomerRules,
+  mergeIntoAccountRules
 };

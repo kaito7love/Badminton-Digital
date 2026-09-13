@@ -207,7 +207,7 @@ paths:
         - '01 · Auth'
       summary: 'Register (khách tự đăng ký)'
       operationId: post_auth_register
-      description: "Chỉ tạo được tài khoản vai trò `customer`. Tài khoản nhân viên phải do admin tạo qua `/employees`.\n\n⚠️ Giới hạn 5 lần / giờ / IP."
+      description: "Chỉ tạo được tài khoản vai trò `customer`. Tài khoản nhân viên phải do admin tạo qua `/employees`.\n\n**Không tự gắn hồ sơ tại quầy cùng số điện thoại.** Tài khoản luôn nhận hồ sơ khách hàng mới; nếu số đã thuộc một hồ sơ khác thì hồ sơ của tài khoản để trống số điện thoại. Response giống hệt nhau dù số từng ra quầy hay chưa. Nhân viên xác minh khách rồi gộp lịch sử qua `POST /customers/:id/merge-into-account`.\n\n⚠️ Giới hạn 5 lần / giờ / IP."
       requestBody:
         required: true
         content:
@@ -507,7 +507,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -533,7 +533,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -558,7 +558,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -602,7 +602,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -634,7 +634,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -675,7 +675,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -701,7 +701,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -759,7 +759,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -801,7 +801,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -842,7 +842,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '201':
           $ref: '#/components/responses/Success'
@@ -875,7 +875,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -909,7 +909,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -934,7 +934,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -999,7 +999,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1032,7 +1032,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1049,7 +1049,7 @@ paths:
         - '05 · Bookings'
       summary: 'Cập nhật booking'
       operationId: put_bookings_id
-      description: 'Không đổi được `status` trực tiếp ở đây (validation chặn) — dùng `/confirm` hoặc `DELETE`.'
+      description: "Chỉ nhân viên (`admin`, `branch_manager`, `employee`) gọi được; khách muốn đổi lịch thì huỷ rồi đặt lại.\n\nBody chỉ nhận `courtId`, `bookingDate`, `startTime`, `endTime`. Gửi trường khác (`status`, `branchId`, `createdBy`, `customerId`, `customerName`...) → 400 `\"Không sửa được các trường: ...\"`. Đổi trạng thái dùng `/confirm` hoặc `DELETE`; đổi khách thì huỷ lịch và tạo lịch mới."
       parameters:
         -
           name: id
@@ -1064,7 +1064,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -1105,7 +1105,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1138,7 +1138,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1164,7 +1164,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1197,7 +1197,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1230,7 +1230,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1262,7 +1262,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -1304,7 +1304,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -1339,7 +1339,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1364,7 +1364,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -1407,7 +1407,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1439,7 +1439,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -1479,7 +1479,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1505,7 +1505,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1530,7 +1530,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -1576,7 +1576,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1608,7 +1608,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -1648,7 +1648,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1674,7 +1674,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1699,7 +1699,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -1746,7 +1746,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1772,7 +1772,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1798,7 +1798,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1824,7 +1824,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1850,7 +1850,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -1887,7 +1887,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -1912,7 +1912,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -1954,7 +1954,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -1994,7 +1994,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -2020,7 +2020,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -2045,7 +2045,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2094,7 +2094,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -2126,7 +2126,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2168,7 +2168,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2213,7 +2213,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2247,7 +2247,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -2272,7 +2272,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2321,7 +2321,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -2353,7 +2353,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2388,7 +2388,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2430,7 +2430,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '201':
           $ref: '#/components/responses/Success'
@@ -2456,7 +2456,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -2481,7 +2481,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2522,7 +2522,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -2555,7 +2555,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2604,7 +2604,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -2637,7 +2637,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2678,7 +2678,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2831,7 +2831,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -2856,7 +2856,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2899,7 +2899,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -2931,7 +2931,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -2971,7 +2971,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3004,9 +3004,48 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/customers/{id}/merge-into-account':
+    post:
+      tags:
+        - '16 · Customers'
+      summary: 'Gộp hồ sơ tại quầy vào tài khoản'
+      operationId: post_customers_id_merge_into_account
+      description: "Gộp hồ sơ tại quầy (`:id` — chưa gắn tài khoản, có số điện thoại) vào hồ sơ của tài khoản khách tự đăng ký **cùng số** (`accountCustomerId` — hồ sơ tài khoản chưa mang số). Mọi nhân viên gọi được; chỉ gộp sau khi đã xác minh khách tại quầy, vì `POST /auth/register` không tự gộp.\n\nMột transaction: chuyển `court_sessions` / `bookings` / `sales_orders` (kể cả dòng đã xoá mềm), cộng `totalSpent`, tính lại hạng, chuyển số điện thoại sang hồ sơ tài khoản, xoá mềm hồ sơ cũ, ghi nhật ký `customer.merged`.\n\n`GET /customers` gắn `pendingAccount: { customerId, fullName, registeredAt }` vào hồ sơ đang chờ gộp. Điều kiện không khớp → 400; hồ sơ đã gộp → 409.\n\nScript chuẩn bị (chỉ khi `runWrites=true`) tự dựng cặp hồ sơ: tạo hồ sơ tại quầy bằng một số QA mới rồi đăng ký tài khoản cùng số — tốn thêm 1 lượt rate limit của `/auth/register`."
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
           $ref: '#/components/responses/Success'
         '400':
           $ref: '#/components/responses/ValidationError'
@@ -3030,7 +3069,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3055,7 +3094,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -3101,7 +3140,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3133,7 +3172,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -3174,7 +3213,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3207,7 +3246,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3233,7 +3272,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -3307,7 +3346,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3340,7 +3379,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3373,7 +3412,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -3407,7 +3446,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3433,7 +3472,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3473,7 +3512,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3499,7 +3538,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3525,7 +3564,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3565,7 +3604,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3605,7 +3644,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3645,7 +3684,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3685,7 +3724,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3711,7 +3750,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       responses:
         '200':
           $ref: '#/components/responses/Success'
@@ -3736,7 +3775,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -3772,7 +3811,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -3807,7 +3846,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:
@@ -3842,7 +3881,7 @@ paths:
           required: false
           schema:
             type: integer
-          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       requestBody:
         required: true
         content:

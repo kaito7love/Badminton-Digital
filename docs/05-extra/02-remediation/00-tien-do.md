@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-09-13 (mục 13 đã merge; thêm nhóm sửa 2–6 vào phần chưa làm). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-09-13 (mục 13 đã merge; mục 15 — nhóm sửa 3 — xong trên nhánh, chờ duyệt merge). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -541,6 +541,33 @@ Nguồn: nhóm sửa 1/6 của đợt kiểm tra trước deploy 12/09/2026 (`SE
 
 Merge vào `main` bằng `--no-ff`, không conflict (`main` không đổi kể từ khi tách nhánh).
 
+### 15. `fix/customer-data-exposure` (xong trên nhánh ngày 13/09/2026 — chưa merge, chờ duyệt)
+Nguồn: nhóm sửa 3/6 của đợt kiểm tra trước deploy 12/09/2026 (`SEC-03`, `SEC-04`, `SEC-05`, `SEC-10`, kèm
+`SEC-11` và phần dành cho khách của `SEC-14`). Plan và kết quả đầy đủ: `15-ke-hoach-chan-lo-du-lieu-khach.md`.
+Nhánh tách từ `main` @ `8b45c89`, nên chưa gồm nhóm 2 (`fix/payment-money-flows`, cũng chưa merge).
+
+- **Tài khoản khách không đọc được dữ liệu vận hành:**
+  - `GET /courts`, `/courts/:id`, `/accessories`, `/accessories/:id`, `/products`, `/products/:id`,
+    `/product-categories` chỉ cho nhân viên.
+  - `branchContextMiddleware`: khách gửi `X-Branch-Id` → 403; `branch_manager`/`employee` thiếu dòng Employee → 403.
+  - Khách xem chi tiết lịch không còn nhận `creator`.
+- **Sửa lịch đặt:** chỉ nhân viên; body chỉ nhận sân/ngày/giờ, trường khác → 400 nêu tên trường. Form sửa lịch
+  khoá ô khách hàng.
+- **Đăng ký không tự nhận hồ sơ tại quầy trùng số:**
+  - Tài khoản luôn có hồ sơ riêng (để trống SĐT nếu số đã thuộc hồ sơ khác); response giống nhau trong mọi trường hợp.
+  - Nhân viên gộp tại quầy qua route mới `POST /customers/:id/merge-into-account`: nhãn + nút trên màn Khách hàng,
+    nhật ký `customer.merged`. Tổng 113 route.
+- **Bằng chứng test thật:**
+  - Code `main` trên bản sao DB dev: tái hiện đủ 6 lỗi (R1–R6), 10/10.
+  - Code nhánh:
+    - API 20/20 (lần đầu 19/20 do script so JSON sai thứ tự khoá; đánh giá lại đạt, đã sửa script);
+    - trình duyệt 4/4 kịch bản;
+    - newman 118 request / 331 assertion / 0 lỗi;
+    - smoke chỉ đọc trên DB dev 4/4, không thêm dòng nào.
+  - Jest 208/208, Vitest 49/49, build, `docs:build` 113 route.
+- **Còn hở đã biết:** kẻ gian đăng ký trước bằng một số chưa từng ra quầy — cần xác minh bằng OTP SMS.
+- Không có migration.
+
 ---
 
 ## Chưa làm — xem plan riêng từng phần
@@ -549,7 +576,7 @@ Merge vào `main` bằng `--no-ff`, không conflict (`main` không đổi kể t
 |---|---|---|
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
 | 3 việc còn lại cần quyết định chính sách kinh doanh trước (discount guardrail, onboarding branch_manager, cấu hình tài khoản ngân hàng — mục 3 "hoàn tiền/void" đã xong, xem mục 10 ở trên) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
-| Nhóm sửa 2–6 của đợt kiểm tra trước deploy 12/09/2026, theo thứ tự: luồng tiền (tài khoản ngân hàng VietQR còn là demo, webhook thanh toán chưa xác thực) → lộ dữ liệu → Docker → lỗi vận hành tại quầy → backup/log | Chưa có — mỗi nhóm một plan riêng | Bắt buộc trước khi deploy |
+| Nhóm sửa 2–6 của đợt kiểm tra trước deploy 12/09/2026. Nhóm 2 (luồng tiền, nhánh `fix/payment-money-flows`) và nhóm 3 (lộ dữ liệu, mục 15) đã code + test trên nhánh riêng, chờ merge. Còn lại theo thứ tự: Docker → lỗi vận hành tại quầy → backup/log | Nhóm 3: `15-ke-hoach-chan-lo-du-lieu-khach.md`; nhóm 4–6 chưa có plan | Bắt buộc trước khi deploy |
 
 ## Lỗi phát hiện qua kiểm thử hồi quy 21/08/2026 — đã ghi nhận, CHƯA sửa
 

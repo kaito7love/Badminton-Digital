@@ -9,9 +9,7 @@ class AuthController {
       res.status(201).json({
         success: true,
         data: result,
-        message: result.mergedHistory
-          ? 'Tạo tài khoản thành công. Lịch sử chơi trước đây của bạn đã được gắn vào tài khoản này.'
-          : 'Tạo tài khoản thành công.',
+        message: 'Tạo tài khoản thành công.',
         errors: null
       });
     } catch (error) {

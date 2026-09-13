@@ -11,6 +11,7 @@ const {
   verifyResetToken,
 } = require("../utils/jwt");
 const { sendPasswordResetEmail } = require("../utils/mailer");
+const CustomerService = require("./CustomerService");
 const { normalizePhone, looksLikePhone, isValidPhone } = require("../utils/phone");
 
 // Model User mặc định không nạp passwordHash/refreshToken (defaultScope). Chỉ
@@ -145,6 +146,10 @@ class AuthService {
       throw error;
     }
 
+    // Hồ sơ của tài khoản đăng ký trùng số với một hồ sơ tại quầy chưa gộp thì
+    // chưa mang số/email — hiện của tài khoản thay vào (xem register).
+    CustomerService.withAccountContact(user.customer, user);
+
     return user;
   }
 
@@ -246,10 +251,8 @@ class AuthService {
   /**
    * Khách tự đăng ký bằng số điện thoại.
    *
-   * Điểm mấu chốt: rất nhiều khách đã có hồ sơ trong hệ thống từ những lần ra
-   * chơi tại quầy. Nếu đăng ký mà tạo hồ sơ mới thì lịch sử chơi và mức chi
-   * tiêu tích luỹ của họ bị bỏ lại ở hồ sơ cũ. Nên ở đây tìm theo SĐT trước:
-   * có hồ sơ chưa gắn tài khoản nào thì gắn vào, chỉ khi không có mới tạo mới.
+   * Tài khoản luôn nhận một hồ sơ khách hàng mới. Số đã có hồ sơ tại quầy thì
+   * hồ sơ đó KHÔNG được gắn tự động — lý do ở ngay chỗ tạo hồ sơ bên dưới.
    */
   static async register({ fullName, phone, email = null, password }) {
     const normalizedPhone = normalizePhone(phone);
@@ -309,33 +312,31 @@ class AuthService {
         { transaction }
       );
 
-      // Gộp với hồ sơ cũ nếu khách từng ra chơi tại quầy — ở bất kỳ chi nhánh
-      // nào, vì hồ sơ khách hàng giờ dùng chung toàn chuỗi.
-      const existing = await Customer.findOne({
-        where: { phone: normalizedPhone, userId: null },
+      // Không tự gắn hồ sơ tại quầy cùng số vào tài khoản mới: hệ thống chưa
+      // xác minh được người đăng ký có đúng là chủ số không. Gắn luôn là trao
+      // lịch sử chơi, tổng chi tiêu và mọi buổi quầy nhập số đó về sau cho bất
+      // kỳ ai biết số. Hồ sơ cũ để nguyên; nhân viên xác minh rồi gộp tại quầy
+      // (CustomerService.mergeIntoAccount).
+      //
+      // customers.phone là unique (index tính cả hồ sơ đã xoá mềm), nên hồ sơ
+      // của tài khoản chỉ mang số khi chưa hồ sơ nào giữ số đó. Response giống
+      // hệt nhau trong mọi trường hợp — đăng ký không trả lời được câu "số này
+      // từng ra quầy chưa".
+      const phoneHeld = await Customer.findOne({
+        where: { phone: normalizedPhone },
+        paranoid: false,
         transaction,
-        lock: transaction.LOCK.UPDATE,
       });
 
-      let customer;
-      let mergedHistory = false;
-      if (existing) {
-        customer = await existing.update(
-          { userId: user.id, fullName: String(fullName).trim() },
-          { transaction }
-        );
-        mergedHistory = true;
-      } else {
-        customer = await Customer.create(
-          {
-            userId: user.id,
-            fullName: String(fullName).trim(),
-            phone: normalizedPhone,
-            email: normalizedEmail,
-          },
-          { transaction }
-        );
-      }
+      const customer = await Customer.create(
+        {
+          userId: user.id,
+          fullName: String(fullName).trim(),
+          phone: phoneHeld ? null : normalizedPhone,
+          email: normalizedEmail,
+        },
+        { transaction }
+      );
 
       await transaction.commit();
 
@@ -356,7 +357,6 @@ class AuthService {
           role: customerRole.name,
         },
         customerId: customer.id,
-        mergedHistory,
         accessToken,
         refreshToken,
       };

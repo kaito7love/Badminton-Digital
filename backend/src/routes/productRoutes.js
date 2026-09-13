@@ -13,10 +13,10 @@ const {
 
 router.use(authMiddleware, branchContextMiddleware);
 
-// Catalog dùng chung toàn chuỗi — mọi role đã đăng nhập đều đọc được (cần
-// cho POS/kho), chỉ admin/branch_manager mới sửa được danh mục.
-router.get('/', productController.getProducts);
-router.get('/:id', productController.getProductById);
+// Catalog dùng chung toàn chuỗi — nhân viên đọc được (cần cho POS/kho), chỉ
+// admin/branch_manager mới sửa được danh mục. Khách xem hàng qua /public/products.
+router.get('/', roleMiddleware(['admin', 'branch_manager', 'employee']), productController.getProducts);
+router.get('/:id', roleMiddleware(['admin', 'branch_manager', 'employee']), productController.getProductById);
 router.post('/', roleMiddleware(['admin', 'branch_manager']), createProductRules, productController.createProduct);
 router.put('/:id', roleMiddleware(['admin', 'branch_manager']), updateProductRules, productController.updateProduct);
 router.post('/:id/variants', roleMiddleware(['admin', 'branch_manager']), addVariantRules, productController.addVariant);

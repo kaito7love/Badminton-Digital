@@ -73,6 +73,9 @@ export function AuthProvider({ children }) {
 
   /** Khách tự đăng ký bằng SĐT — đăng ký xong là đã đăng nhập luôn. */
   const register = async (payload) => {
+    // Như login: không mang X-Branch-Id của phiên admin cũ sang tài khoản khách
+    // (backend trả 403 khi tài khoản khách gửi header này).
+    localStorage.removeItem("admin_selected_branch_id");
     const res = await apiClient.post("/auth/register", payload);
     if (res.data?.success) {
       const { user: userData, accessToken, refreshToken } = res.data.data;
@@ -80,7 +83,7 @@ export function AuthProvider({ children }) {
       localStorage.setItem("refresh_token", refreshToken);
       localStorage.setItem("user_info", JSON.stringify(userData));
       setUser(userData);
-      return { user: userData, mergedHistory: res.data.data.mergedHistory };
+      return { user: userData };
     }
     throw new Error(res.data?.message || "Đăng ký thất bại");
   };

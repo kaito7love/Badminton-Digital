@@ -87,19 +87,22 @@ export default function BookingsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
+      const schedule = {
         courtId: parseInt(formData.courtId),
-        customerName: formData.customerName,
-        customerPhone: formData.customerPhone,
         bookingDate: formData.bookingDate,
         startTime: formData.startTime,
         endTime: formData.endTime,
       };
 
       if (editingBooking) {
-        await bookingService.updateBooking(editingBooking.id, payload);
+        // Đổi lịch chỉ đổi sân/ngày/giờ — backend trả 400 nếu gửi thêm trường khác.
+        await bookingService.updateBooking(editingBooking.id, schedule);
       } else {
-        await bookingService.createBooking(payload);
+        await bookingService.createBooking({
+          ...schedule,
+          customerName: formData.customerName,
+          customerPhone: formData.customerPhone,
+        });
       }
 
       await fetchBookings();
@@ -231,12 +234,18 @@ export default function BookingsPage() {
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Tên khách hàng *</label>
             <input
               type="text"
-              required
+              required={!editingBooking}
+              disabled={Boolean(editingBooking)}
               value={formData.customerName}
               onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-white px-4 py-3 text-sm focus:border-emerald-400 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-white px-4 py-3 text-sm focus:border-emerald-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
               placeholder="Nguyễn Văn A"
             />
+            {editingBooking && (
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                Đổi lịch chỉ đổi được sân, ngày và giờ. Muốn đổi khách, hãy huỷ lịch này rồi tạo lịch mới.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -244,10 +253,11 @@ export default function BookingsPage() {
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Số điện thoại *</label>
               <input
                 type="text"
-                required
+                required={!editingBooking}
+                disabled={Boolean(editingBooking)}
                 value={formData.customerPhone}
                 onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-white px-4 py-3 text-sm focus:border-emerald-400 focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-white px-4 py-3 text-sm focus:border-emerald-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                 placeholder="090XXXXXXX"
               />
             </div>

@@ -44,6 +44,11 @@ Nhân viên / branch_manager / Admin
 Chỉ `['admin', 'branch_manager', 'employee']` gọi được danh sách này
 (`roleMiddleware` trên `GET /`); khách hàng không tự liệt kê được khách khác.
 
+Hồ sơ tại quầy (chưa gắn tài khoản, có SĐT) mà số đó đã có tài khoản khách tự đăng ký
+nhưng chưa gộp được trả kèm `pendingAccount: { customerId, fullName, registeredAt }` —
+màn Khách hàng hiện nhãn "Có tài khoản online chưa gộp" và nút "Gộp vào tài khoản"
+(mục F).
+
 ---
 
 ## B. Thêm khách hàng mới (UC-14)
@@ -59,9 +64,9 @@ Nhân viên / branch_manager / Admin
     │         │       → đã có hồ sơ → 400 "Số điện thoại này đã có hồ sơ khách hàng"
     │         │
     │         ├─→ Không có `password` → chỉ tạo hồ sơ Customer (không tài
-    │         │       khoản đăng nhập); khách có thể tự đăng ký sau bằng
-    │         │       đúng SĐT này qua UC tự đăng ký (xem WF-01-Login.md) —
-    │         │       không tạo hồ sơ mới, gắn liền vào hồ sơ có sẵn
+    │         │       khoản đăng nhập); khách tự đăng ký sau bằng đúng SĐT
+    │         │       này (WF-01-Login.md) thì tài khoản nhận hồ sơ riêng —
+    │         │       nhân viên xác minh rồi gộp lịch sử (mục F)
     │         │
     │         └─→ Có `password` → DB Transaction: kiểm tra SĐT/email chưa
     │                 dùng cho tài khoản đăng nhập nào khác (409 "Số điện
@@ -122,6 +127,10 @@ truy cập khách hàng này" (`CustomerService.assertOwnership`). Đây là ki�
 tra DUY NHẤT cho `GET /:id` và `/:id/history` — hai endpoint này không đòi
 role cụ thể ở tầng route, chỉ cần đã đăng nhập.
 
+Khi chính khách xem hồ sơ của mình mà hồ sơ chưa mang SĐT (đăng ký trùng số với một hồ
+sơ tại quầy chưa gộp — xem WF-01-Login.md), `phone` trả về là SĐT của tài khoản. Tài
+khoản khách gửi `X-Branch-Id` bị 403 ở cả hai endpoint.
+
 > Vì lịch sử không còn lọc theo chi nhánh, UI nên hiển thị cột "Chi nhánh"
 > trên mỗi dòng session/booking để nhân viên phân biệt được đâu là lượt chơi
 > tại chi nhánh mình, đâu là chi nhánh khác — tài liệu cũ (trước merge) không
@@ -143,3 +152,44 @@ Chỉ `['admin']` gọi được — khác với xem/tạo/sửa (`admin`/`branc
 `employee`), xóa khách hàng KHÔNG mở cho `branch_manager`. Vì Customer dùng
 chung toàn chuỗi, đây thực chất là xóa khỏi cả hệ thống chứ không phải khỏi
 riêng 1 chi nhánh — hợp lý khi giới hạn về đúng 1 vai trò cao nhất.
+
+---
+
+## F. Gộp hồ sơ tại quầy vào tài khoản online (từ 13/09/2026)
+
+Đăng ký online không tự nhận hồ sơ tại quầy trùng SĐT (WF-01-Login.md): hệ thống chưa
+xác minh được người đăng ký có đúng là chủ số, gắn tự động là trao lịch sử chơi, tổng
+chi tiêu và mọi buổi quầy nhập số đó về sau cho bất kỳ ai biết số. Việc gộp chuyển về
+quầy:
+
+```
+Nhân viên / branch_manager / Admin
+    │
+    ├─→ Tìm khách theo SĐT → hồ sơ có nhãn "Có tài khoản online chưa gộp"
+    │       (GET /customers trả `pendingAccount`)
+    │
+    ├─→ Xác minh người trước mặt vừa là chủ số vừa là chủ tài khoản
+    │       (ví dụ khách mở app đang đăng nhập bằng số đó)
+    │
+    ├─→ Bấm "Gộp vào tài khoản" → hộp xác nhận nhắc lại bước xác minh
+    │
+    └─→ [POST /api/v1/customers/:id/merge-into-account] { accountCustomerId }
+              │  (một transaction)
+              ├─→ Khoá hai hồ sơ. Điều kiện: hồ sơ tại quầy chưa gắn tài khoản và
+              │     có SĐT; hồ sơ đích thuộc tài khoản `customer`, chưa mang SĐT,
+              │     SĐT đăng nhập trùng SĐT hồ sơ tại quầy → sai: 400;
+              │     hồ sơ tại quầy đã gộp/đã gắn tài khoản: 409
+              ├─→ Chuyển court_sessions, bookings, sales_orders sang hồ sơ tài
+              │     khoản (kể cả dòng đã xoá mềm)
+              ├─→ Cộng totalSpent, tính lại loyaltyTier (utils/loyalty.js)
+              ├─→ Gỡ SĐT khỏi hồ sơ cũ rồi gắn sang hồ sơ tài khoản (phone unique);
+              │     lấy email cũ nếu tài khoản chưa có; xoá mềm hồ sơ cũ
+              └─→ Nhật ký `customer.merged` (người làm, hai hồ sơ, số dòng mỗi
+                    bảng, tổng chi tiêu trước/sau)
+```
+
+Mọi nhân viên đều gộp được vì việc xác minh diễn ra tại quầy; khách gọi route này → 403.
+
+**Còn hở:** kẻ gian đăng ký trước bằng một số *chưa từng* ra quầy thì hồ sơ tài khoản mang
+luôn số đó, và lần đầu chủ số thật ra quầy sẽ rơi vào tài khoản kẻ gian. Chặn hẳn cần xác
+minh số bằng OTP SMS — chưa làm.
