@@ -117,12 +117,12 @@ sân ở trạng thái bảo trì thì mọi lần chạy sau đó sẽ hỏng h
 | `runWrites` + `runDestructive` | test dùng một lần | 114 | 324 | **0** | 18.1 s |
 
 Lần chạy đầy đủ chạm tới **cả 112 endpoint** (114 request vì có thêm 2 lời gọi dựng trạng thái).
+Sau khi chạy xong: 5/5 sân về `active`, 0 phiên chơi còn treo — collection chạy lại nhiều lần được.
 
 **Chạy lại 13/09/2026** (nhánh `fix/customer-data-exposure`, 113 endpoint, bản sao DB dev dùng một lần rồi
 DROP): `runWrites` + `runDestructive` — **118 request, 331 assertion, 0 lỗi, 24.6 s**. Request gộp hồ sơ
 mới chạy đủ chuỗi: tạo hồ sơ tại quầy (201) → đăng ký cùng số (201) → gộp (200), 4/4 assertion. SSE bỏ qua
 theo `runStream=false`. `branch-1.json` bị ghi đè như cảnh báo ở trên và đã `git checkout` lại.
-Sau khi chạy xong: 5/5 sân về `active`, 0 phiên chơi còn treo — collection chạy lại nhiều lần được.
 
 > Lưu ý về chữ "tự dọn": nó dùng đúng API xoá của hệ thống, nghĩa là **xoá mềm** (`deleted_at`),
 > **huỷ** (`status = cancelled`) hoặc **ngừng** (`is_active = 0`) — dòng vẫn còn trong bảng. Voucher
