@@ -69,7 +69,8 @@ const checkout = async (req, res, next) => {
     const result = await SalesOrderService.checkout({
       orderId: req.params.id,
       paymentMethod: req.body.paymentMethod || 'cash',
-      discountAmount: req.body.discountAmount || 0,
+      discountAmount: Number(req.body.discountAmount) || 0,
+      discountReason: req.body.discountReason || null,
       employeeId: req.user?.employee?.id,
       branchId: req.branchId,
       actor: req.user,

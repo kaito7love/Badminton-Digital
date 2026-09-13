@@ -19,67 +19,90 @@ mình — 403 "Bạn không có quyền truy cập hóa đơn này" nếu khác;
 ```
 Nhân viên
     │
-    ├─→ [Màn hình Thanh toán] sau khi đóng sân
+    ├─→ Trang Sân → "Đóng Sân & Tính Tiền"
+    │         → [GET /api/v1/sessions/:sessionId] → checkoutPreview (server tính,
+    │           trình duyệt không tự nhân giờ chơi với giá nữa)
     │
-    │   Hiển thị bảng chi tiết:
+    │   Modal hiển thị:
     │   ┌────────────────────────────────────────┐
-    │   │ Phiên chơi: Sân 3 — 14:00 → 16:30     │
-    │   │ Thời gian: 150 phút                    │
-    │   │ Tiền sân:                 120.000đ     │
-    │   │ Phụ kiện:                              │
-    │   │   - Nước Aquafina × 2:    30.000đ      │
-    │   │   - Cầu lông × 1:         25.000đ      │
-    │   │ Tổng phụ kiện:            55.000đ      │
+    │   │ Khách hàng:               Anh Hùng     │
+    │   │ Thời gian chơi:           02:30:00     │
+    │   │ Tính đến:                 16:30:00     │
+    │   │ Tiền sân:                 150.000đ     │
+    │   │ Phụ kiện:                  55.000đ     │
     │   │ ─────────────────────────────────────  │
-    │   │ Tổng trước giảm giá:     175.000đ      │
+    │   │ TỔNG CỘNG:                205.000đ     │
     │   └────────────────────────────────────────┘
+    │   Tiền sân = accrued_court_fee (các đoạn trước khi đổi sân, theo giá sân cũ)
+    │            + đoạn cuối theo giá sân hiện tại, cắt đúng khung cao điểm theo giờ
+    │              chi nhánh, làm tròn 1.000đ một lần ở cuối.
     │
-    ├─→ Áp dụng giảm giá? (optional)
-    │         ├─→ Giảm theo %: VD 10% → -17.500đ
-    │         └─→ Giảm số tiền cố định: VD -20.000đ
+    ├─→ Áp dụng giảm giá? (optional, API — trang Sân hiện chỉ thu tiền mặt không giảm)
+    │         ├─→ Giảm theo %: VD 10% → -20.500đ
+    │         ├─→ Giảm số tiền cố định: VD -20.000đ
+    │         ├─→ Bắt buộc `discountReason` (tối đa 200 ký tự), thiếu → 400
+    │         └─→ `employee` tối đa `discount_policy.employeeMaxPercent` (mặc định 10%),
+    │               vượt → 403 "Nhờ quản lý chi nhánh thanh toán giúp";
+    │               `branch_manager`/`admin` không giới hạn
     │
     ├─→ Chọn phương thức thanh toán:
     │         ├─→ [Tiền mặt] → Nhận tiền thật → Nhấn "Xác nhận đã thu tiền"
     │         │       (payment được đánh dấu paid NGAY khi gọi checkout)
     │         │
-    │         └─→ [Chuyển khoản]
+    │         └─→ [Chuyển khoản] — chỉ nhận khi đã cấu hình PAYMENT_BANK_* +
+    │                 PAYMENT_WEBHOOK_SECRET, chưa có → 400 (giao diện ẩn lựa chọn này)
     │                 → Hệ thống hiển thị mã VietQR:
-    │                   Bank: MB | STK: 0987654321
-    │                   Số tiền: 157.500đ
-    │                   Nội dung: HOA DON BD9001
+    │                   Bank/STK: theo PAYMENT_BANK_ID / PAYMENT_BANK_ACCOUNT_NO
+    │                   Số tiền: 184.500đ
+    │                   Nội dung: HOA DON BD-1-00000009
     │                 → Khách quét QR → Chuyển khoản
     │                 (checkout vẫn được gọi ngay để chốt Invoice, nhưng
     │                  Payment tạo ra ở trạng thái 'pending' — KHÔNG có thao
     │                  tác "nhân viên bấm xác nhận đã nhận tiền" nào ở đây;
     │                  chỉ chuyển 'paid' khi ngân hàng gọi webhook, xem mục B)
     │
-    ├─→ [POST /api/v1/payments/checkout] { sessionId, paymentMethod, discountAmount?, isDiscountPercent? }
+    ├─→ [POST /api/v1/payments/checkout]
+    │         { sessionId, paymentMethod, discountAmount?, isDiscountPercent?, discountReason?, endTime? }
     │         │ Header tuỳ chọn `Idempotency-Key` (mặc định `session-{sessionId}`)
     │         │ — gọi lại với cùng key trả về đúng kết quả cũ, không tạo
     │         │ Invoice/Payment trùng
     │         │
     │         │ DB Transaction — PaymentService.checkout:
-    │         ├─→ Nếu session vẫn playing → auto endTime + tính courtFee
+    │         ├─→ Nếu session vẫn playing → endTime = `endTime` gửi lên (mốc của
+    │         │       checkoutPreview: không trước giờ mở sân/lần đổi sân gần nhất,
+    │         │       không ở tương lai, không cũ quá 10 phút — sai → 400) hoặc NOW;
+    │         │       tính courtFee bằng calculateSessionCourtFee
+    │         ├─→ Quy giảm giá tay ra đồng, kiểm lý do + trần theo vai trò
     │         ├─→ Tính Invoice totals
-    │         ├─→ Tạo / cập nhật Invoice { status: 'issued' }
+    │         ├─→ Tạo / cập nhật Invoice { status: 'issued' }; dòng `discount`
+    │         │       ghi "Giảm giá: <lý do>"
     │         ├─→ Tạo Payment:
     │         │       paymentMethod = 'cash'      → status = 'paid', paidAt = NOW()
     │         │       paymentMethod = 'transfer'  → status = 'pending' (chờ webhook)
     │         ├─→ CHỈ khi payment đã 'paid' ngay (tiền mặt):
     │         │       Invoice → 'paid'; UPDATE Customer.total_spent += totalAmount;
     │         │       cập nhật loyalty_tier nếu đạt ngưỡng
+    │         ├─→ Có giảm tay → nhật ký `payment.discount_applied` (người làm, vai trò,
+    │         │       số tiền, %, lý do)
     │         └─→ Phiên chơi đã có yêu cầu thanh toán rồi (payment tồn tại
     │               cho invoice này) → 409 "Phiên chơi này đã có yêu cầu thanh toán"
     │
     └─→ Response:
-          invoiceId, totalAmount, paymentStatus ('paid' | 'pending'),
-          qrCodeUrl (chỉ khi transfer)
+          invoiceId, invoiceNo, courtFee, extrasFee, discountAmount, totalAmount,
+          paymentStatus ('paid' | 'pending'), qrCodeUrl (chỉ khi transfer)
+          → Modal hiện hoá đơn vừa tạo trước khi đóng
 ```
 
 Với chuyển khoản, `total_spent`/`loyalty_tier` của khách **chưa** cập nhật lúc
 checkout — chỉ cập nhật khi `processWebhook` xác nhận thanh toán thành công
 (mục B). Không có endpoint nào để nhân viên tự tay đánh dấu một payment
 chuyển khoản là "đã nhận tiền" — xác nhận chỉ đến từ webhook ngân hàng.
+
+**Đổi sân giữa phiên** (`POST /courts/:id/transfer`): trước khi đổi `court_id`,
+`CourtService.transferCourt` chốt tiền đoạn vừa chơi theo giá **sân nguồn** vào
+`court_sessions.accrued_court_fee` (chưa làm tròn) và đặt `billed_from` = lúc đổi.
+Checkout, đóng sân và xem trước đều cộng phần này — không còn tính cả phiên theo
+giá sân đích.
 
 ---
 
@@ -88,37 +111,54 @@ chuyển khoản là "đã nhận tiền" — xác nhận chỉ đến từ webh
 ```
 paymentMethod = 'transfer'
     │
-    └─→ generateVietQRUrl({
-              bankId: 'MB',
-              accountNo: '0987654321',
-              accountName: 'BADMINTON DIGITAL',
-              amount: 157500,
-              addInfo: 'HOA DON BD9001'
-          })
+    ├─→ Chuyển khoản bật khi có ĐỦ (utils/paymentConfig.js):
+    │         PAYMENT_BANK_ID, PAYMENT_BANK_ACCOUNT_NO, PAYMENT_BANK_ACCOUNT_NAME
+    │         + PAYMENT_WEBHOOK_SECRET dài >= 32 ký tự
+    │   Thiếu → generateVietQRUrl trả null; checkout sân, POS và đặt đơn online
+    │   nhận `transfer` → 400; `GET /public/branches` báo `transferEnabled: false`.
+    │   Không còn tài khoản mặc định nào trong code.
     │
-    └─→ URL: https://img.vietqr.io/image/MB-0987654321-compact2.png
-              ?amount=157500
-              &addInfo=HOA%20DON%20BD9001
-              &accountName=BADMINTON%20DIGITAL
+    └─→ generateVietQRUrl({ amount: 184500, addInfo: 'HOA DON BD-1-00000009' })
+    │
+    └─→ URL: https://img.vietqr.io/image/<PAYMENT_BANK_ID>-<PAYMENT_BANK_ACCOUNT_NO>-compact2.png
+              ?amount=184500
+              &addInfo=HOA%20DON%20BD-1-00000009
+              &accountName=<PAYMENT_BANK_ACCOUNT_NAME>
 ```
+
+Nội dung chuyển khoản luôn là `HOA DON <invoiceNo>` — ở checkout sân, POS và cả
+đơn online (trước đây đơn online ghi `DH<orderId>`, webhook không khớp được).
 
 ### Xác nhận thanh toán chuyển khoản (webhook)
 
 ```
 [POST /api/v1/payments/webhook]  ← public, KHÔNG qua authMiddleware
-    │ Header X-Webhook-Secret phải khớp PAYMENT_WEBHOOK_SECRET, sai → 401
-    │ Body: { provider, providerReference, status, invoiceNo, ...payload }
+    │ middleware/paymentWebhookAuth.js (chạy trước validation):
+    │   PAYMENT_WEBHOOK_SECRET chưa cấu hình / ngắn hơn 32 ký tự → 503
+    │   Header X-Webhook-Secret thiếu hoặc sai (so bằng timingSafeEqual) → 401
+    │ Body: { provider, providerReference, invoiceNo, amount, status, ...payload }
+    │   thiếu `amount` (số nguyên VND >= 1) → 400
     │
     ├─→ status !== 'paid' → 400 "Trạng thái webhook không được hỗ trợ"
     ├─→ Không tìm thấy Invoice theo invoiceNo → 404 "Không tìm thấy hóa đơn"
-    ├─→ Payment đã 'paid' → trả về luôn (idempotent, không xử lý lại)
-    ├─→ Payment không ở 'pending'/'processing' → 409 "Giao dịch không thể
-    │       chuyển sang trạng thái paid"
+    ├─→ provider + providerReference đã xác nhận cho giao dịch KHÁC
+    │       → 409 + nhật ký `payment.webhook_rejected` (reference_reused)
+    │       (unique index uk_payments_provider_reference — có từ migration
+    │        20260805000004 — là chốt cuối khi hai webhook trùng mã tới cùng lúc)
+    ├─→ Payment đã 'paid' → 200, không xử lý lại
+    │       (mã giao dịch khác mã đã ghi → thêm nhật ký `already_paid`: khách
+    │        có thể đã chuyển hai lần, quầy cần hoàn tiền)
+    ├─→ Payment 'cancelled'/'refunded' (tiền về sau khi đơn huỷ/hết hạn)
+    │       → 409 + nhật ký `payment_not_pending`
+    ├─→ amount ≠ payment.amount → 409 + nhật ký `amount_mismatch`, giữ 'pending'
     └─→ DB Transaction: Payment → 'paid'; Invoice → 'paid';
           UPDATE Customer.total_spent += totalAmount; cập nhật loyalty_tier
           (đây mới là bước thật sự cộng total_spent cho thanh toán chuyển
           khoản — không phải lúc gọi checkout)
 ```
+
+Nhật ký từ chối được commit trước khi trả lỗi — xem ở màn hình Nhật ký hoạt
+động (action `payment.webhook_rejected`, `newValues.reason`).
 
 ---
 

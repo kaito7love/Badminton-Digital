@@ -15,6 +15,8 @@ import { CART_SELECTION_KEY } from './CartPage';
  * - Chuyển khoản: backend tạo hoá đơn ngay, trang chi tiết đơn hiện mã QR để
  *   khách trả trước — không cần nhân viên đứng đó xác nhận, webhook tự lo.
  *   Không chuyển khoản trong 30 phút thì đơn tự huỷ, hàng trả về kệ.
+ *   Chỉ hiện khi chi nhánh báo `transferEnabled` (quán đã cấu hình tài khoản
+ *   nhận tiền + webhook); chưa có thì chỉ còn tiền mặt.
  */
 
 export default function CheckoutPage() {
@@ -53,6 +55,7 @@ export default function CheckoutPage() {
   const totalQuantity = orderedItems.reduce((sum, item) => sum + item.quantity, 0);
   const discountAmount = voucher?.discountAmount || 0;
   const grandTotal = Math.max(0, total - discountAmount);
+  const transferEnabled = Boolean(branch?.transferEnabled);
 
   useEffect(() => {
     publicService
@@ -63,6 +66,12 @@ export default function CheckoutPage() {
       })
       .catch(() => setBranch(null));
   }, [branchId]);
+
+  useEffect(() => {
+    if (!transferEnabled && form.paymentMethod === 'transfer') {
+      setForm((prev) => ({ ...prev, paymentMethod: 'cash' }));
+    }
+  }, [transferEnabled, form.paymentMethod]);
 
   const handleApplyVoucher = async () => {
     const code = voucherInput.trim();
@@ -109,7 +118,7 @@ export default function CheckoutPage() {
         contactName: form.contactName.trim(),
         contactPhone: form.contactPhone.trim(),
         customerNote: form.customerNote.trim() || undefined,
-        paymentMethod: form.paymentMethod,
+        paymentMethod: transferEnabled ? form.paymentMethod : 'cash',
         voucherCode: voucher?.code || undefined
       });
 
@@ -259,30 +268,38 @@ export default function CheckoutPage() {
                 </div>
               </label>
 
-              <label
-                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
-                  form.paymentMethod === 'transfer'
-                    ? 'border-emerald-500/40 bg-emerald-500/5'
-                    : 'border-white/10 bg-slate-950/40 hover:border-white/20'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="transfer"
-                  checked={form.paymentMethod === 'transfer'}
-                  onChange={() => setForm({ ...form, paymentMethod: 'transfer' })}
-                  className="mt-1 h-4 w-4 accent-emerald-400"
-                />
-                <div>
-                  <p className="text-sm font-bold text-white">🏦 Chuyển khoản trước</p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Đặt xong hiện mã QR để quét trả ngay — không cần chờ nhân viên. Quét trong{' '}
-                    <span className="font-bold text-amber-300">30 phút</span>, quá giờ đơn tự huỷ và hàng trả
-                    về kệ.
+              {transferEnabled ? (
+                <label
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                    form.paymentMethod === 'transfer'
+                      ? 'border-emerald-500/40 bg-emerald-500/5'
+                      : 'border-white/10 bg-slate-950/40 hover:border-white/20'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="transfer"
+                    checked={form.paymentMethod === 'transfer'}
+                    onChange={() => setForm({ ...form, paymentMethod: 'transfer' })}
+                    className="mt-1 h-4 w-4 accent-emerald-400"
+                  />
+                  <div>
+                    <p className="text-sm font-bold text-white">🏦 Chuyển khoản trước</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Đặt xong hiện mã QR để quét trả ngay — không cần chờ nhân viên. Quét trong{' '}
+                      <span className="font-bold text-amber-300">30 phút</span>, quá giờ đơn tự huỷ và hàng trả
+                      về kệ.
+                    </p>
+                  </div>
+                </label>
+              ) : (
+                branch && (
+                  <p className="text-xs text-slate-500">
+                    Cửa hàng chưa nhận chuyển khoản trước — bạn thanh toán tiền mặt khi tới lấy hàng.
                   </p>
-                </div>
-              </label>
+                )
+              )}
             </div>
           </section>
 

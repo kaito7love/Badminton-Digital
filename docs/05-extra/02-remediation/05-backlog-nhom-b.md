@@ -7,9 +7,16 @@ Việc chưa quyết định rõ" của `../01-audit/ProjectGapsAndDirection.md`
 Thứ tự dưới đây không phải mức ưu tiên — làm mục nào trước tuỳ chủ dự án
 chọn khi sẵn sàng.
 
-## 1. `feat/checkout-discount-guardrails` — kiểm soát giảm giá lúc checkout
+## 1. `feat/checkout-discount-guardrails` — kiểm soát giảm giá lúc checkout — ✅ ĐÃ CHỐT, LÀM Ở NHÓM SỬA 2 (2026-09-13)
 
-**Hiện trạng:** `discountAmount`/`isDiscountPercent` là 2 tham số nhân viên
+Làm trong nhánh `fix/payment-money-flows` (plan `14-ke-hoach-luong-tien.md`, mục
+2.7). Câu trả lời đã chốt: có trần theo **vai trò** — `employee` tối đa 10% số còn
+phải trả (setting `discount_policy`, admin sửa trên trang Cài đặt),
+`branch_manager`/`admin` không giới hạn; vượt trần thì **chặn** (403), không làm
+luồng gửi duyệt; **mọi** lần giảm tay đều bắt buộc lý do, ghi vào dòng hoá đơn và
+nhật ký `payment.discount_applied`. Giữ nguyên nội dung gốc bên dưới để tham khảo.
+
+**Hiện trạng (trước khi làm):** `discountAmount`/`isDiscountPercent` là 2 tham số nhân viên
 nhập tay tự do ngay lúc checkout (`PaymentService.checkout`) — không có
 giới hạn số tiền/phần trăm tối đa, không cần cấp trên duyệt, không log lý do
 giảm giá riêng (chỉ có 1 dòng `discount` chung chung trong `invoice_lines`
@@ -67,9 +74,17 @@ hoặc hoàn tiền khi khách yêu cầu, ngoài sửa tay trực tiếp trong 
 - Có liên quan tới đặt cọc (booking deposit, nằm trong roadmap M6 nhưng
   chưa triển khai) không, hay hoàn toàn độc lập?
 
-## 4. `feat/bank-account-settings` — cấu hình số tài khoản ngân hàng thật
+## 4. `feat/bank-account-settings` — cấu hình số tài khoản ngân hàng thật — ✅ ĐÃ CHỐT, LÀM Ở NHÓM SỬA 2 (2026-09-13)
 
-**Hiện trạng:** mã QR chuyển khoản (`generateVietQRUrl`) hiện dùng
+Làm trong nhánh `fix/payment-money-flows` (plan `14-ke-hoach-luong-tien.md`, mục
+2.1). Câu trả lời đã chốt: **một tài khoản chung cả chuỗi**, lưu ở **biến môi
+trường** (`PAYMENT_BANK_ID`, `PAYMENT_BANK_ACCOUNT_NO`, `PAYMENT_BANK_ACCOUNT_NAME`)
+chứ không ở `Branch` hay `Setting`, nên **không ai sửa được qua giao diện** — đổi
+tài khoản nhận tiền phải có quyền vào server. Chuyển khoản chỉ bật khi có thêm
+`PAYMENT_WEBHOOK_SECRET`. Tài khoản riêng từng chi nhánh để sau, nếu cần.
+Giữ nguyên nội dung gốc bên dưới để tham khảo.
+
+**Hiện trạng (trước khi làm):** mã QR chuyển khoản (`generateVietQRUrl`) hiện dùng
 `bankId`/`accountNo`/`accountName` giá trị mặc định cứng trong code (dữ liệu
 demo/placeholder), không có bảng/API nào lưu thông tin ngân hàng thật của
 từng chi nhánh.

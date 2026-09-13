@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-09-13 (mục 13 đã merge; thêm nhóm sửa 2–6 vào phần chưa làm). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-09-13 (mục 13 đã merge; mục 14 — nhóm sửa 2, luồng tiền — đã code + test, chờ duyệt). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -543,13 +543,74 @@ Merge vào `main` bằng `--no-ff`, không conflict (`main` không đổi kể t
 
 ---
 
+## Đã code + test, CHƯA commit/merge — chờ duyệt
+
+### 14. `fix/payment-money-flows` (code + test ngày 13/09/2026)
+Nguồn: nhóm sửa 2/6 của đợt kiểm tra trước deploy (`PAY-01`, `PAY-02`, `PAY-03`, `PAY-04`, `PAY-06`,
+`PAY-09`), kèm `PAY-18`, phần CPU của `PAY-16` và một phần `PAY-13`/`PAY-19`. Plan và kết quả đầy đủ:
+`14-ke-hoach-luong-tien.md`. Chủ dự án nói "code đi" mà không trả lời Q1–Q5, nên áp nguyên các đề xuất
+của plan.
+
+- **Chuyển khoản chỉ bật khi đủ cấu hình:**
+  - cần đủ `PAYMENT_BANK_ID`, `PAYMENT_BANK_ACCOUNT_NO`, `PAYMENT_BANK_ACCOUNT_NAME` và
+    `PAYMENT_WEBHOOK_SECRET` ≥ 32 ký tự;
+  - thiếu thì QR không còn trỏ tài khoản demo nào, checkout sân/POS/đơn online nhận `transfer` → 400;
+  - `GET /public/branches` báo `transferEnabled`, trang đặt hàng và POS ẩn lựa chọn chuyển khoản.
+- **Webhook đóng khi chưa cấu hình:** 503; sai/thiếu `X-Webhook-Secret` → 401 (so bằng
+  `timingSafeEqual`, chạy trước validation). Bắt buộc `amount` khớp số tiền giao dịch. Mã giao dịch
+  ngân hàng đã dùng cho giao dịch khác → 409; tiền về cho giao dịch đã huỷ → 409. Mọi lần từ chối ghi
+  nhật ký `payment.webhook_rejected`.
+- **Modal thanh toán ở trang Sân:** số tiền do server tính (`GET /sessions/:id` → `checkoutPreview`),
+  checkout gửi lại `endTime` của số đó nên hoá đơn ra đúng số trên modal; modal hiện hoá đơn vừa tạo.
+  Thẻ sân bỏ số "tạm tính" luôn nhân giá cao điểm.
+- **Chuyển sân:** migration `20260913100001-court-session-billing-segments` (`billed_from`,
+  `accrued_court_fee`). Mỗi lần chuyển chốt tiền đoạn vừa chơi theo giá sân nguồn; checkout, đóng sân
+  và xem trước cùng dùng `calculateSessionCourtFee`.
+- **Tính tiền sân theo khoảng giao với khung cao điểm** (bỏ lát 5 phút): đúng ở phút lẻ quanh mốc
+  17:00/22:00, qua nửa đêm, múi giờ có DST; phiên 30 ngày tính xong dưới 50 ms.
+- **Voucher:** đơn online chuyển khoản đang chờ trả tiền giữ lượt dùng mã; huỷ hoặc hết hạn thì nhả.
+- **Giảm giá tay:** bắt buộc lý do (ghi vào dòng hoá đơn `Giảm giá: <lý do>` và nhật ký
+  `payment.discount_applied`); `employee` tối đa theo setting `discount_policy` (mặc định 10%, admin sửa
+  ở trang Cài đặt), vượt → 403; `branch_manager`/`admin` không giới hạn. Chuỗi `"false"` của
+  `isDiscountPercent` không còn bị hiểu là %.
+- **Khác plan:**
+  - Bỏ migration thêm unique index `(provider, provider_reference)`: index `uk_payments_provider_reference`
+    đã có từ migration `20260805000004`, migration mới vỡ "Duplicate key name" ngay lần chạy thử trên DB
+    trống. Service vẫn kiểm mã dùng lại trước để trả 409 rõ ràng + ghi nhật ký.
+  - POS không hiện con số trần cho `employee` (`GET /settings` chỉ admin đọc được); con số nằm trong
+    thông báo 403 hiện nguyên văn.
+  - Webhook tới giao dịch đã `paid` với mã giao dịch **khác**: 200, không cộng tiền, ghi nhật ký
+    `already_paid` (plan chỉ nói trường hợp cùng mã) — trả 2xx để dịch vụ báo có không gửi lại liên tục.
+  - Kiểm thử ghi/phá dữ liệu chạy trên **bản sao DB dev** (`bd_g2_clone`) thay vì DB dev, nên không có
+    dữ liệu test nào phải dọn khỏi DB dev.
+- **Bằng chứng test thật:**
+  - Tái hiện trên code cũ (bản sao DB): QR trỏ `MB-0987654321`; webhook trần chỉ có `invoiceNo` → đơn
+    thành đã trả; modal hiện 226.331đ trong khi hoá đơn 151.000đ; chuyển sang VIP bị tính 300.000đ thay
+    vì 180.000đ; một khách dùng mã `perCustomerLimit = 1` hai lần; employee ra hoá đơn 0đ và chuỗi
+    `"false"` bị tính 50%.
+  - Sau khi sửa: 23/23 kịch bản API khi bật chuyển khoản, 4/4 khi tắt, 3/3 migration trên DB trống
+    (40/40, undo/redo). Trình duyệt thật: modal 121.000đ = hoá đơn `BD-1-00000080`; POS vượt trần hiện
+    đúng thông báo, trong trần kèm lý do thì thanh toán được; trang Cài đặt đổi trần 15% có hiệu lực ngay;
+    lựa chọn chuyển khoản hiện/ẩn đúng theo cấu hình.
+  - newman toàn bộ collection (`runWrites` + `runDestructive` + `webhookSecret`): 116 request, 330
+    assertion, 0 lỗi.
+  - Jest 231/231, Vitest 49/49, build frontend, `docs:build` khớp 1-1 112 route.
+- **DB dev:** dump trước, rồi chạy migration `20260913100001` (40 migration). Smoke trên server dev 3/3:
+  chuyển khoản tắt, webhook 503, đọc phiên chơi qua cột mới; không thêm dòng nào ở các bảng tiền.
+- **Ghi nhận thêm, không sửa ở nhánh này:** script chuẩn bị của thư mục `18 · Payments` trong collection
+  Postman chạy trước **mọi** request của thư mục, nên sau bước webhook nó mở thêm một phiên chơi không ai
+  đóng (có từ trước nhánh này) — chỉ để lại một phiên treo trên DB dùng một lần.
+
+---
+
 ## Chưa làm — xem plan riêng từng phần
 
 | Việc | File plan | Ưu tiên gốc |
 |---|---|---|
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
-| 3 việc còn lại cần quyết định chính sách kinh doanh trước (discount guardrail, onboarding branch_manager, cấu hình tài khoản ngân hàng — mục 3 "hoàn tiền/void" đã xong, xem mục 10 ở trên) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
-| Nhóm sửa 2–6 của đợt kiểm tra trước deploy 12/09/2026, theo thứ tự: luồng tiền (tài khoản ngân hàng VietQR còn là demo, webhook thanh toán chưa xác thực) → lộ dữ liệu → Docker → lỗi vận hành tại quầy → backup/log | Chưa có — mỗi nhóm một plan riêng | Bắt buộc trước khi deploy |
+| 1 việc còn lại cần quyết định chính sách kinh doanh trước: onboarding `branch_manager` (mục 3 "hoàn tiền/void" đã xong ở mục 10; discount guardrail và tài khoản ngân hàng đã chốt, làm ở mục 14) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
+| Nhóm sửa 3–6 của đợt kiểm tra trước deploy 12/09/2026, theo thứ tự: lộ dữ liệu → Docker → lỗi vận hành tại quầy → backup/log (nhóm 2 "luồng tiền" xem mục 14) | Chưa có — mỗi nhóm một plan riêng | Bắt buộc trước khi deploy |
+| "Luồng tiền 2": quản lý xác nhận tay chuyển khoản / POS chuyển khoản bị đánh dấu `paid` ngay (`PAY-08`), báo cáo doanh thu cộng hoá đơn huỷ (`PAY-05`), void không đổi trạng thái đơn và không trả lượt voucher (`PAY-10`, `PAY-11`), sửa đơn sau khi phát QR (`PAY-12`), phần còn lại của `PAY-13`/`PAY-16`/`PAY-19`, giỏ POS hiện tổng khác số thực thu (`PAY-17`). Hai quầy giành lượt voucher cuối và deadlock checkout (`PAY-07`, `PAY-14`, `PAY-15`) để chung nhóm 6 | `14-ke-hoach-luong-tien.md` mục 5 | Sau nhóm 4 |
 
 ## Lỗi phát hiện qua kiểm thử hồi quy 21/08/2026 — đã ghi nhận, CHƯA sửa
 
@@ -572,8 +633,10 @@ báo cáo sai ngày ở vùng có DST, `compareBranches` gộp một múi giờ,
 
 ## Cố ý bỏ qua / đã hoãn — không tự ý làm lại nếu chưa hỏi lại chủ dự án
 
-- Bảo mật webhook thanh toán (secret, chống giả mạo) — cả module thanh toán
-  online chưa tích hợp, sẽ tách riêng sau.
+- ~~Bảo mật webhook thanh toán (secret, chống giả mạo)~~ — không còn hoãn: đã làm
+  ở mục 14 (secret bắt buộc, kiểm số tiền, chặn mã giao dịch dùng lại). Chỉ còn để
+  sau định dạng riêng (chữ ký, tên trường) của một dịch vụ báo có cụ thể, khi đã
+  chọn dịch vụ.
 - Refresh token hỗ trợ nhiều phiên đăng nhập cùng lúc (sửa được lỗi bị đăng
   xuất khi đăng nhập nơi thứ 2) — chủ dự án đã xem bằng chứng test thật và
   chủ động chọn "thôi không cần đâu" (xem `../01-audit/SessionRefreshIssue.md`).

@@ -12,7 +12,11 @@ const getSettings = async (req, res, next) => {
 
 const updateSetting = async (req, res, next) => {
   try {
-    const { key, value } = req.body;
+    const { key } = req.body;
+    // discount_policy chỉ lưu đúng một trường đã kiểm 0–100 ở settingValidation.
+    const value = key === 'discount_policy'
+      ? { employeeMaxPercent: Number(req.body.value.employeeMaxPercent) }
+      : req.body.value;
     const updated = await SettingService.updateSetting(key, value);
     return successResponse(res, { [key]: updated }, 'Setting updated successfully');
   } catch (err) {

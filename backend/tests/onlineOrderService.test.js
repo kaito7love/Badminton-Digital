@@ -91,47 +91,76 @@ describe('OnlineOrderService.isPaymentExpired', () => {
   });
 });
 
-describe('OnlineOrderService.buildQrCodeUrl', () => {
-  test('addInfo gắn mã đơn để quầy dò tay khi đối chiếu sao kê', () => {
-    const url = OnlineOrderService.buildQrCodeUrl(1042, 585000);
-
-    expect(url).toContain('amount=585000');
-    expect(url).toContain(encodeURIComponent('DH1042'));
+describe('QR chuyển khoản của đơn online', () => {
+  const PAYMENT_ENV = {
+    PAYMENT_BANK_ID: 'MB',
+    PAYMENT_BANK_ACCOUNT_NO: '0123456789',
+    PAYMENT_BANK_ACCOUNT_NAME: 'CLB CAU LONG',
+    PAYMENT_WEBHOOK_SECRET: 'w'.repeat(48)
+  };
+  let saved;
+  beforeEach(() => {
+    saved = Object.fromEntries(Object.keys(PAYMENT_ENV).map((key) => [key, process.env[key]]));
+    Object.assign(process.env, PAYMENT_ENV);
   });
-});
-
-describe('OnlineOrderService.qrCodeFor', () => {
-  test('không có QR khi thanh toán bằng tiền mặt', () => {
-    expect(OnlineOrderService.qrCodeFor({ id: 1, paymentMethod: 'cash', status: 'open' })).toBeNull();
-  });
-
-  test('không có QR khi đơn đã thanh toán xong', () => {
-    const order = { id: 1, paymentMethod: 'transfer', status: 'paid', invoice: { totalAmount: 100000 } };
-    expect(OnlineOrderService.qrCodeFor(order)).toBeNull();
-  });
-
-  test('không có QR khi đơn đã huỷ — hàng đã trả về kệ, không còn gì để trả', () => {
-    const order = { id: 1, paymentMethod: 'transfer', status: 'cancelled', invoice: { totalAmount: 100000 } };
-    expect(OnlineOrderService.qrCodeFor(order)).toBeNull();
+  afterEach(() => {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   });
 
-  test('đơn đang chờ chuyển khoản thì có QR đúng số tiền hoá đơn', () => {
-    const order = { id: 7, paymentMethod: 'transfer', status: 'open', invoice: { totalAmount: 650000 } };
-    const url = OnlineOrderService.qrCodeFor(order);
-
-    expect(url).toContain('amount=650000');
-    expect(url).toContain(encodeURIComponent('DH7'));
+  const now = new Date('2026-08-18T10:10:00.000Z');
+  const pending = (overrides = {}) => ({
+    id: 7,
+    paymentMethod: 'transfer',
+    status: 'open',
+    paymentDeadlineAt: '2026-08-18T10:30:00.000Z',
+    invoice: { invoiceNo: 'BD-1-00000042', totalAmount: '650000.00' },
+    ...overrides
   });
 
-  test('chưa kịp có invoice thì tính tạm theo tổng các dòng hàng', () => {
-    const order = {
-      id: 9,
-      paymentMethod: 'transfer',
-      status: 'open',
-      invoice: null,
-      lines: [{ lineTotal: '250000.00' }, { lineTotal: '25000.00' }]
-    };
+  describe('OnlineOrderService.buildQrCodeUrl', () => {
+    test('nội dung chuyển khoản là số hoá đơn — webhook tìm hoá đơn theo invoiceNo', () => {
+      const url = OnlineOrderService.buildQrCodeUrl('BD-1-00001042', 585000);
 
-    expect(OnlineOrderService.qrCodeFor(order)).toContain('amount=275000');
+      expect(url).toContain('amount=585000');
+      expect(url).toContain(`addInfo=${encodeURIComponent('HOA DON BD-1-00001042')}`);
+    });
+  });
+
+  describe('OnlineOrderService.qrCodeFor', () => {
+    test('không có QR khi thanh toán bằng tiền mặt', () => {
+      expect(OnlineOrderService.qrCodeFor({ id: 1, paymentMethod: 'cash', status: 'open' }, now)).toBeNull();
+    });
+
+    test('không có QR khi đơn đã thanh toán xong', () => {
+      expect(OnlineOrderService.qrCodeFor(pending({ status: 'paid' }), now)).toBeNull();
+    });
+
+    test('không có QR khi đơn đã huỷ — hàng đã trả về kệ, không còn gì để trả', () => {
+      expect(OnlineOrderService.qrCodeFor(pending({ status: 'cancelled' }), now)).toBeNull();
+    });
+
+    test('đơn đang chờ chuyển khoản thì có QR đúng số tiền và số hoá đơn', () => {
+      const url = OnlineOrderService.qrCodeFor(pending(), now);
+
+      expect(url).toContain('amount=650000');
+      expect(url).toContain(`addInfo=${encodeURIComponent('HOA DON BD-1-00000042')}`);
+      expect(url).not.toContain(encodeURIComponent('DH7'));
+    });
+
+    test('quá hạn 30 phút thì ẩn QR dù tác vụ quét chưa kịp huỷ đơn', () => {
+      expect(OnlineOrderService.qrCodeFor(pending(), new Date('2026-08-18T10:30:01.000Z'))).toBeNull();
+    });
+
+    test('chưa có hoá đơn thì không có gì để webhook đối chiếu, không phát QR', () => {
+      expect(OnlineOrderService.qrCodeFor(pending({ invoice: null }), now)).toBeNull();
+    });
+
+    test('chuyển khoản đã bị tắt thì đơn đang chờ cũng không còn QR', () => {
+      delete process.env.PAYMENT_WEBHOOK_SECRET;
+      expect(OnlineOrderService.qrCodeFor(pending(), now)).toBeNull();
+    });
   });
 });

@@ -12,11 +12,12 @@ const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
  * đang mở của mình rồi tự lưu `voucherId/voucherCode/voucherDiscountAmount`
  * vào đơn, không có state hay bảng "lượt đã dùng" nào tách riêng ở đây.
  *
- * Số lượt đã dùng đếm trực tiếp bằng COUNT trên `sales_orders.voucher_id`,
- * chỉ tính đơn `paid` — cùng nguyên tắc "huỷ/bỏ dở thì trả lại" đã dùng cho
- * tồn kho (InventoryService.postMovement type sale/sale_return). Nhờ vậy huỷ
- * hoặc bỏ dở không thanh toán một đơn cũng tự động nhả lại đúng 1 lượt dùng
- * mã, không cần dọn dẹp gì thêm.
+ * Số lượt đã dùng đếm trực tiếp bằng COUNT trên `sales_orders.voucher_id`:
+ * đơn `paid`, cộng đơn chuyển khoản đang chờ trả tiền (xem `countUsage`) —
+ * cùng nguyên tắc "huỷ/bỏ dở thì trả lại" đã dùng cho tồn kho
+ * (InventoryService.postMovement type sale/sale_return). Nhờ vậy huỷ, hết hạn
+ * hoặc bỏ dở một đơn cũng tự động nhả lại đúng 1 lượt dùng mã, không cần dọn
+ * dẹp gì thêm.
  */
 class VoucherService {
   static normalizeCode(code) {
@@ -66,21 +67,33 @@ class VoucherService {
    * ra thì đơn tự đếm chính mình là một lượt đã dùng và mã usageLimit=1 sẽ
    * báo "hết lượt" ngay trên đơn hợp lệ của nó.
    *
-   * Chỉ đếm đơn `paid` — trước đây đếm "khác cancelled" (tức tính cả `open`),
-   * nên một đơn quầy áp mã rồi bỏ dở, không thanh toán cũng chẳng huỷ, giữ
-   * một lượt dùng mã vĩnh viễn dù chưa hề "dùng" thật. Đúng nguyên tắc "huỷ
-   * thì trả lại" ghi ở đầu file: chỉ đơn đã thanh toán mới là một lượt dùng
-   * thật sự cần trừ.
+   * Đếm đơn `paid` và đơn chuyển khoản đang chờ trả tiền (`open` có
+   * `paymentDeadlineAt`):
+   * - Không đếm mọi đơn `open`: trước đây đếm "khác cancelled", nên một đơn
+   *   quầy áp mã rồi bỏ dở, không thanh toán cũng chẳng huỷ, giữ một lượt dùng
+   *   mã vĩnh viễn dù chưa hề "dùng" thật.
+   * - Nhưng phải đếm đơn chờ chuyển khoản: đơn đó đã chốt số tiền giảm lúc đặt
+   *   và webhook sẽ biến nó thành `paid` mà không kiểm lại mã. Chỉ đếm `paid`
+   *   thì một khách đặt liền 5 đơn chuyển khoản, lần nào cũng đếm ra 0, trả cả
+   *   5 là dùng mã `perCustomerLimit = 1` năm lần.
+   * Đơn chờ bị huỷ hoặc hết hạn thì thành `cancelled` (với `paymentDeadlineAt`
+   * về null), tự thôi được đếm.
    */
   static async countUsage(voucherId, customerId, transaction, excludeOrderId = null) {
     const notSelf = excludeOrderId ? { id: { [Op.ne]: excludeOrderId } } : {};
+    const holdsUsage = {
+      [Op.or]: [
+        { status: 'paid' },
+        { status: 'open', paymentDeadlineAt: { [Op.ne]: null } }
+      ]
+    };
     const total = await SalesOrder.count({
-      where: { voucherId, status: 'paid', ...notSelf },
+      where: { voucherId, ...holdsUsage, ...notSelf },
       transaction
     });
     const byCustomer = customerId
       ? await SalesOrder.count({
-        where: { voucherId, customerId, status: 'paid', ...notSelf },
+        where: { voucherId, customerId, ...holdsUsage, ...notSelf },
         transaction
       })
       : 0;

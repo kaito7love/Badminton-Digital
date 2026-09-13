@@ -16,6 +16,7 @@ const VoucherService = require('./VoucherService');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const { normalizePhone } = require('../utils/phone');
 const { generateVietQRUrl } = require('../utils/vietqr');
+const { assertTransferEnabled } = require('../utils/paymentConfig');
 const { nextInvoiceNumber } = require('../utils/documentNumber');
 
 // Khách chọn "chuyển khoản" thì có đúng 30 phút để quét mã trước khi hệ thống
@@ -91,23 +92,26 @@ class OnlineOrderService {
   }
 
   /**
-   * QR chuyển khoản cho một đơn — `addInfo` gắn mã đơn để quầy dò tay khi đối
-   * chiếu sao kê (webhook đối soát tự động cho đơn thật sự tích hợp cổng
-   * thanh toán ngân hàng; addInfo là lưới đỡ khi webhook không tới hoặc quầy
-   * cần tra thủ công).
+   * QR chuyển khoản cho hoá đơn của một đơn. Nội dung là `HOA DON <invoiceNo>` —
+   * cùng quy ước với POS và checkout sân — vì webhook tìm hoá đơn theo
+   * `invoiceNo`. Trước đây ghi `DH<orderId>`: khoản tiền về không khớp được với
+   * hoá đơn nào, quầy phải dò tay.
    */
-  static buildQrCodeUrl(orderId, amount) {
-    return generateVietQRUrl({ amount, addInfo: `DH${orderId}` });
+  static buildQrCodeUrl(invoiceNo, amount) {
+    return generateVietQRUrl({ amount, addInfo: `HOA DON ${invoiceNo}` });
   }
 
   /**
-   * QR để hiển thị cho khách ngay bây giờ — null nếu không còn gì để trả:
-   * chọn tiền mặt, đã thanh toán, hoặc đơn đã huỷ/hết hạn.
+   * QR để hiển thị cho khách ngay bây giờ — null nếu không còn gì để trả hoặc
+   * không nên trả nữa: chọn tiền mặt, đã thanh toán, đã huỷ, đã quá hạn 30 phút
+   * (tác vụ quét sắp huỷ đơn — chuyển lúc này là tiền về một đơn đã huỷ), chưa có
+   * hoá đơn để đối chiếu, hoặc chuyển khoản chưa được bật.
    */
-  static qrCodeFor(order) {
+  static qrCodeFor(order, now = new Date()) {
     if (order.paymentMethod !== 'transfer' || order.status !== 'open') return null;
-    const amount = order.invoice?.totalAmount ?? OnlineOrderService.totalOf(order.lines || []);
-    return OnlineOrderService.buildQrCodeUrl(order.id, amount);
+    if (OnlineOrderService.isPaymentExpired(order, now)) return null;
+    if (!order.invoice?.invoiceNo) return null;
+    return OnlineOrderService.buildQrCodeUrl(order.invoice.invoiceNo, order.invoice.totalAmount);
   }
 
   /**
@@ -137,6 +141,7 @@ class OnlineOrderService {
       error.statusCode = 400;
       throw error;
     }
+    if (paymentMethod === 'transfer') assertTransferEnabled();
 
     const branch = await Branch.findOne({ where: { id: branchId, isActive: true } });
     if (!branch) {

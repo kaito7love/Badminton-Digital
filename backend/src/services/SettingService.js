@@ -1,4 +1,5 @@
 const { Setting } = require('../models');
+const { normalizeDiscountPolicy } = require('../utils/discountPolicy');
 
 class SettingService {
   static async getAllSettings() {
@@ -43,6 +44,14 @@ class SettingService {
       peakStartHour: Number.isFinite(start) ? start : 17,
       peakEndHour: Number.isFinite(end) ? end : 22
     };
+  }
+
+  /**
+   * Trần giảm giá tay của nhân viên (`discount_policy`, admin sửa ở trang Cài
+   * đặt). Chưa cấu hình hoặc lưu sai thì 10% — xem utils/discountPolicy.
+   */
+  static async getDiscountPolicy() {
+    return normalizeDiscountPolicy(await SettingService.getSettingByKey('discount_policy'));
   }
 }
 

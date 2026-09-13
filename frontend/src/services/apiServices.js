@@ -79,6 +79,8 @@ export const accessoryService = {
 
 // ─── Session Extras (Vật tư trong phiên chơi) ───────────────────
 export const sessionService = {
+  // Phiên đang chơi kèm `checkoutPreview` — số tiền do server tính, dùng cho modal thanh toán.
+  getById: (sessionId) => apiClient.get(`/sessions/${sessionId}`),
   addExtra: (sessionId, data) => apiClient.post(`/sessions/${sessionId}/extras`, data),
   getExtras: (sessionId) => apiClient.get(`/sessions/${sessionId}/extras`),
   returnExtra: (sessionId, data) => apiClient.post(`/sessions/${sessionId}/extras/return`, data),
@@ -219,6 +221,7 @@ export const historyService = {
 // ─── Settings ────────────────────────────────────────────────────
 export const settingService = {
   getAll: () => apiClient.get('/settings'),
+  update: (key, value) => apiClient.put('/settings', { key, value }),
   updatePricing: (data) => apiClient.put('/settings/pricing', data),
   updateAccessoryPricing: (data) => apiClient.put('/settings/accessory-pricing', data),
   updateOperatingHours: (data) => apiClient.put('/settings/operating-hours', data),

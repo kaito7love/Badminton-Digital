@@ -51,6 +51,70 @@ describe('Price Calculator Utility Unit Tests', () => {
     });
   });
 
+  // Tính theo phần giao nhau với khung cao điểm thay cho các lát 5 phút: lát
+  // cũ lấy giá của phút đầu lát cho cả lát nên lệch quanh mốc 17:00/22:00, và
+  // một phiên bị bỏ quên nhiều ngày phải lặp hàng nghìn lần.
+  describe('tính theo khoảng thời gian', () => {
+    const peakRate = 120000;
+    const offpeakRate = 80000;
+
+    test('cắt đúng ở phút lẻ quanh mốc cao điểm', () => {
+      // 16:53–17:07 giờ VN: 7 phút thấp điểm (9.333,33) + 7 phút cao điểm (14.000)
+      // = 23.333,33 -> 23.000đ. Lát 5 phút cũ tính cả lát 16:58–17:03 là thấp điểm -> 21.000đ.
+      const r = calculateCourtFee(
+        new Date('2026-07-23T09:53:00Z'),
+        new Date('2026-07-23T10:07:00Z'),
+        peakRate, offpeakRate, 17, 22, 'Asia/Ho_Chi_Minh'
+      );
+      expect(r.courtFee).toBe(23000);
+      expect(r.rawFee).toBeCloseTo(23333.33, 2);
+    });
+
+    test('phiên qua nửa đêm cộng đủ khung cao điểm của cả hai ngày', () => {
+      // 21:30 ngày 23 -> 18:30 ngày 24 giờ VN: cao điểm 0,5h + 1,5h, thấp điểm 19h
+      // = 60.000 + 180.000 + 1.520.000.
+      const r = calculateCourtFee(
+        new Date('2026-07-23T14:30:00Z'),
+        new Date('2026-07-24T11:30:00Z'),
+        peakRate, offpeakRate, 17, 22, 'Asia/Ho_Chi_Minh'
+      );
+      expect(r.durationSeconds).toBe(21 * 3600);
+      expect(r.courtFee).toBe(1760000);
+    });
+
+    test('phiên bị bỏ quên 30 ngày vẫn tính xong dưới 50 ms', () => {
+      const started = performance.now();
+      const r = calculateCourtFee(
+        new Date('2026-07-01T00:00:00Z'),
+        new Date('2026-07-31T00:00:00Z'),
+        peakRate, offpeakRate, 17, 22, 'Asia/Ho_Chi_Minh'
+      );
+      const elapsedMs = performance.now() - started;
+
+      // Mỗi 24h (07:00–07:00 giờ VN) có đúng 5h cao điểm: 150h × 120k + 570h × 80k.
+      expect(r.courtFee).toBe(63600000);
+      expect(elapsedMs).toBeLessThan(50);
+    });
+
+    test('chi nhánh ở múi giờ có DST: khung cao điểm theo giờ treo tường cả sau khi đổi giờ', () => {
+      // New York đổi sang giờ mùa hè lúc 02:00 ngày 08/03/2026. Phiên 16:00 ngày 7 (EST)
+      // tới 18:00 ngày 8 (EDT) = 25h: cao điểm 5h ngày 7 + 1h ngày 8. Dùng lệch cố định
+      // của ngày 7 thì khung ngày 8 bị dời một tiếng và mất 1h cao điểm (2.200.000đ).
+      const r = calculateCourtFee(
+        new Date('2026-03-07T21:00:00Z'),
+        new Date('2026-03-08T22:00:00Z'),
+        peakRate, offpeakRate, 17, 22, 'America/New_York'
+      );
+      expect(r.durationSeconds).toBe(25 * 3600);
+      expect(r.courtFee).toBe(2240000);
+    });
+
+    test('kết thúc không sau lúc bắt đầu thì không tính tiền', () => {
+      const t = new Date('2026-07-23T10:00:00Z');
+      expect(calculateCourtFee(t, t, peakRate, offpeakRate)).toEqual({ durationSeconds: 0, courtFee: 0, rawFee: 0 });
+    });
+  });
+
   test('should calculate invoice totals with percentage discount', () => {
     const courtFee = 100000;
     const sessionExtras = [

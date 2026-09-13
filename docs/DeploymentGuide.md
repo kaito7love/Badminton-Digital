@@ -62,6 +62,13 @@ UPLOAD_DIR=/app/uploads
 # Seeder dữ liệu demo (tài khoản mật khẩu công khai) bị chặn khi NODE_ENV=production.
 # Chỉ đặt true cho bản demo công khai — xem mục 10.
 ALLOW_DEMO_SEED=false
+
+# Thanh toán chuyển khoản — chỉ bật khi đặt ĐỦ cả 4 biến (xem mục 10).
+# Thiếu biến nào: chuyển khoản tắt (backend từ chối, giao diện ẩn), webhook trả 503.
+PAYMENT_BANK_ID=<mã ngân hàng VietQR, VD MB hoặc BIN 970422>
+PAYMENT_BANK_ACCOUNT_NO=<số tài khoản nhận tiền của quán>
+PAYMENT_BANK_ACCOUNT_NAME=<tên chủ tài khoản, không dấu>
+PAYMENT_WEBHOOK_SECRET=<chuỗi ngẫu nhiên >= 32 ký tự, khai báo y hệt ở dịch vụ báo có>
 ```
 
 > Danh sách trên khớp với `backend/.env.example` (nguồn tham chiếu chính thức). Đăng nhập/đăng ký bằng số điện thoại, chuyển đổi chi nhánh (admin), và hệ thống kho hàng (nhà cung cấp/phiếu nhập kho/tồn kho) không cần thêm biến môi trường mới — đã kiểm tra qua `backend/src/config/config.js` và các `process.env.*` trong service/controller liên quan. Các biến `ADMIN_*` của `npm run create-admin` (mục 7.2) truyền thẳng khi chạy lệnh, không ghi vào `.env`.
@@ -254,6 +261,10 @@ Các bước sau được đề xuất bổ sung vào pipeline nhưng **chưa c�
 - [ ] 2 job CI hiện tại (`backend-test`, `frontend-build`) pass — xem mục 6.1. Integration test/Postman chưa có trong CI (mục 6.2), nên phần đó (nếu chạy) là thủ công ngoài CI.
 - [ ] Biến môi trường production đã cấu hình đúng, không dùng giá trị mặc định/dev. Hai JWT secret là chuỗi ngẫu nhiên khác nhau (server tự từ chối chuỗi mẫu hoặc hai secret trùng nhau).
 - [ ] Swagger UI truy cập được, phản ánh đúng API hiện tại.
+- [ ] Thanh toán chuyển khoản — chọn một:
+  - **Tắt** (chưa có dịch vụ báo có): để trống 4 biến `PAYMENT_*`. Kiểm `GET /api/v1/public/branches` trả `transferEnabled: false` và `POST /api/v1/payments/webhook` trả 503.
+  - **Bật:** đặt đủ `PAYMENT_BANK_ID`, `PAYMENT_BANK_ACCOUNT_NO`, `PAYMENT_BANK_ACCOUNT_NAME` (tài khoản thật của quán) và `PAYMENT_WEBHOOK_SECRET`; khai báo cùng secret ở dịch vụ báo có, gửi header `X-Webhook-Secret` và `amount`. Thử một đơn chuyển khoản nhỏ: QR mang đúng số tài khoản, tiền về thì đơn thành "đã thanh toán".
+- [ ] Trần giảm giá tay của nhân viên (Cài đặt → "Nhân viên giảm giá tay tối đa", mặc định 10%) đúng chính sách của quán.
 - [ ] Chọn đúng **một** chế độ và cấu hình khớp:
   - **Vận hành thật:** tạo admin bằng `npm run create-admin`, **không** seed, `VITE_SHOW_DEMO_ACCOUNTS=false`.
   - **Demo công khai cho người xem portfolio:** `ALLOW_DEMO_SEED=true` rồi seed dữ liệu demo (vài sân, vài khách hàng, vài booking mẫu), build frontend với `VITE_SHOW_DEMO_ACCOUNTS=true`. Trang đăng nhập không hiện tài khoản admin — người xem trước có quyền admin sẽ phá dữ liệu demo của người xem sau.

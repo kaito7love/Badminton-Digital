@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { Court, CourtSession, Customer, Booking, Employee, Branch, sequelize } = require('../models');
-const { calculateCourtFee } = require('../utils/priceCalculator');
+const { calculateCourtFee, calculateSessionCourtFee } = require('../utils/priceCalculator');
 const AuditService = require('./AuditService');
 const SettingService = require('./SettingService');
 const CustomerService = require('./CustomerService');
@@ -72,6 +72,21 @@ class CourtService {
       if (data[key] !== undefined) payload[key] = data[key];
       return payload;
     }, {});
+  }
+
+  /**
+   * Khung giờ cao điểm + múi giờ chi nhánh — đủ để tính tiền sân. Dùng chung cho
+   * đóng sân, chuyển sân, checkout và xem trước số tiền.
+   *
+   * Chi nhánh đọc riêng, KHÔNG gộp vào include của câu khoá dòng phiên chơi: thêm
+   * Branch vào một query FOR UPDATE sẽ khoá luôn dòng chi nhánh, biến mỗi lần
+   * thanh toán thành điểm nghẽn cho toàn bộ thao tác của chi nhánh đó.
+   */
+  static async loadPricingContext(branchId, transaction) {
+    const { peakStartHour, peakEndHour } = await SettingService.getPeakHours();
+    const branch = await Branch.findByPk(branchId, { attributes: ['timezone'], transaction });
+    // Khung giờ cao điểm là giờ treo tường tại chi nhánh, không phải giờ máy chủ.
+    return { peakStartHour, peakEndHour, timezone: branch?.timezone };
   }
 
   static unavailableReason(status) {
@@ -300,21 +315,9 @@ class CourtService {
       }
       const oldValues = activeSession.toJSON();
       const endTime = new Date();
-      const { peakStartHour, peakEndHour } = await SettingService.getPeakHours();
-      // Đọc riêng, KHÔNG gộp vào include của câu khoá dòng phía trên: thêm
-      // Branch vào một query FOR UPDATE sẽ khoá luôn dòng chi nhánh, biến mỗi
-      // lần đóng sân thành điểm nghẽn cho toàn bộ thao tác của chi nhánh đó.
-      const branch = await Branch.findByPk(court.branchId, { attributes: ['timezone'], transaction });
-      const { durationSeconds, courtFee } = calculateCourtFee(
-        activeSession.startTime,
-        endTime,
-        court.peakPricePerHour,
-        court.offpeakPricePerHour,
-        peakStartHour,
-        peakEndHour,
-        // Khung giờ cao điểm là giờ treo tường tại chi nhánh, không phải giờ máy chủ.
-        branch?.timezone
-      );
+      const pricing = await CourtService.loadPricingContext(court.branchId, transaction);
+      // Cộng cả tiền các đoạn đã chơi ở sân trước nếu phiên từng chuyển sân.
+      const { durationSeconds, courtFee } = calculateSessionCourtFee(activeSession, court, endTime, pricing);
 
       await activeSession.update({
         endTime,
@@ -384,7 +387,23 @@ class CourtService {
       }
 
       const oldValues = activeSession.toJSON();
-      await activeSession.update({ courtId: targetCourtId }, { transaction });
+      // Chốt tiền đoạn vừa chơi theo giá SÂN NGUỒN rồi mới đổi sân. Trước đây chỉ
+      // đổi court_id, nên checkout tính cả phiên theo giá sân đích. Cắt về giây
+      // tròn vì cột DATETIME không lưu mili giây — đoạn sau bắt đầu đúng chỗ đoạn
+      // này kết thúc.
+      const transferredAt = new Date(Math.floor(Date.now() / 1000) * 1000);
+      const pricing = await CourtService.loadPricingContext(sourceCourt.branchId, transaction);
+      const segment = calculateCourtFee(
+        activeSession.billedFrom || activeSession.startTime,
+        transferredAt,
+        sourceCourt.peakPricePerHour,
+        sourceCourt.offpeakPricePerHour,
+        pricing.peakStartHour,
+        pricing.peakEndHour,
+        pricing.timezone
+      );
+      const accruedCourtFee = Math.round((Number(activeSession.accruedCourtFee || 0) + segment.rawFee) * 100) / 100;
+      await activeSession.update({ courtId: targetCourtId, billedFrom: transferredAt, accruedCourtFee }, { transaction });
       await AuditService.record({ actor: context.actor, branchId: sourceCourt.branchId, action: 'court.session_transferred', targetType: 'court_session', targetId: activeSession.id, oldValues, newValues: activeSession.toJSON(), requestId: context.requestId, transaction });
 
       await transaction.commit();

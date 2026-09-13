@@ -14,6 +14,12 @@ const formatTime = (ms) => {
 
 const formatMoney = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n)) + 'đ';
 
+const formatRates = (court) =>
+  `Cao điểm ${formatMoney(court.peakPricePerHour)} · Thấp điểm ${formatMoney(court.offpeakPricePerHour)}/giờ`;
+
+const errorMessageOf = (err, fallback) =>
+  err.response?.data?.errors?.[0]?.message || err.response?.data?.message || err.message || fallback;
+
 // Backend trả về `state` đã gộp sẵn vòng đời sân + việc có phiên chơi đang mở
 const mapStatus = (c) => {
   if (c.state === 'PLAYING') return 'busy';
@@ -30,7 +36,6 @@ const mapCourt = (c) => {
     name: c.name,
     peakPricePerHour: Number(c.peakPricePerHour || 0),
     offpeakPricePerHour: Number(c.offpeakPricePerHour || 0),
-    pricePerHour: Number(c.peakPricePerHour || c.offpeakPricePerHour || 80000),
     note: c.note || '',
     status: mapStatus(c),
     session: activeSession ? {
@@ -44,7 +49,7 @@ const mapCourt = (c) => {
 };
 
 export default function CourtsPage() {
-  const { selectedBranchId } = useBranch() || {};
+  const { selectedBranchId, activeTimezone } = useBranch() || {};
   const [courts, setCourts] = useState([]);
   const [extrasList, setExtrasList] = useState([]);
   const [now, setNow] = useState(Date.now());
@@ -68,6 +73,10 @@ export default function CourtsPage() {
   const [extraQty, setExtraQty] = useState(1);
   const [returnItems, setReturnItems] = useState({});
   const [targetSwitchId, setTargetSwitchId] = useState('');
+  // Modal thanh toán: { loading, error, preview, submitting, receipt }. Số tiền
+  // luôn do server tính (GET /sessions/:id → checkoutPreview), không tự nhân giờ
+  // chơi với giá ở trình duyệt nữa.
+  const [checkout, setCheckout] = useState(null);
 
   // Fetch danh sách sân từ API
   const fetchCourts = async () => {
@@ -211,7 +220,7 @@ export default function CourtsPage() {
   // Operations
   const handleOpenCourt = (courtId) => {
     const court = courts.find((c) => c.id === courtId);
-    setActiveModal({ type: 'open', courtId, courtName: court.name, pricePerHour: court.pricePerHour });
+    setActiveModal({ type: 'open', courtId, courtName: court.name });
     setPlayerNameInput('');
     setPlayerPhoneInput('');
   };
@@ -231,22 +240,47 @@ export default function CourtsPage() {
     }
   };
 
+  // Hỏi server số tiền nếu thanh toán ngay bây giờ. Server chốt luôn giờ kết thúc
+  // của số này (`endTime`); xác nhận thì gửi lại đúng mốc đó, nên hoá đơn ra đúng
+  // số thu ngân vừa đọc cho khách — kể cả giờ cao/thấp điểm và các lần đổi sân.
+  const loadCheckoutPreview = async (court) => {
+    setCheckout({ loading: true, error: null, preview: null, submitting: false, receipt: null });
+    try {
+      const res = await sessionService.getById(court.session.id);
+      const preview = res.data?.data?.checkoutPreview;
+      if (!preview) {
+        throw new Error('Phiên chơi này đã được đóng ở thiết bị khác. Đóng cửa sổ để xem trạng thái sân mới nhất.');
+      }
+      setCheckout({ loading: false, error: null, preview, submitting: false, receipt: null });
+    } catch (err) {
+      setCheckout({ loading: false, error: errorMessageOf(err, 'Không tính được số tiền'), preview: null, submitting: false, receipt: null });
+    }
+  };
+
   const handleCheckout = (courtId) => {
     const court = courts.find(c => c.id === courtId);
     setActiveModal({ type: 'checkout', courtId, court });
+    loadCheckoutPreview(court);
+  };
+
+  const closeCheckout = () => {
+    setActiveModal(null);
+    setCheckout(null);
   };
 
   const confirmCheckout = async () => {
-    const court = activeModal.court;
+    const { court } = activeModal;
+    setCheckout((prev) => ({ ...prev, submitting: true, error: null }));
     try {
-      await paymentService.checkout({
+      const res = await paymentService.checkout({
         sessionId: court.session.id,
         paymentMethod: 'cash',
+        endTime: checkout.preview.endTime,
       });
-      await fetchCourts();
-      setActiveModal(null);
+      setCheckout((prev) => ({ ...prev, submitting: false, receipt: res.data.data }));
+      fetchCourts();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi thanh toán');
+      setCheckout((prev) => ({ ...prev, submitting: false, error: errorMessageOf(err, 'Lỗi thanh toán') }));
     }
   };
 
@@ -369,12 +403,11 @@ export default function CourtsPage() {
           const isInactive = court.status === 'inactive';
 
           // Kẹp về 0: đồng hồ trình duyệt có thể chậm hơn server vài giây, để âm
-          // thì tiền sân tạm tính hiện ra số âm ngay khi vừa mở sân.
+          // thì đồng hồ giờ chơi hiện ra số âm ngay khi vừa mở sân.
           const elapsed = isBusy && court.session ? Math.max(0, now - court.session.startTime) : 0;
-          const hours = elapsed / 3600000;
-          const courtFee = Math.ceil(hours * court.pricePerHour);
+          // Không tự tính tiền sân ở đây nữa: số cũ luôn nhân giá cao điểm và không biết
+          // đổi sân. Tiền sân chỉ hiện ở modal thanh toán, do server tính.
           const extrasFee = court.extras.reduce((sum, e) => sum + e.price * e.qty, 0);
-          const totalTemp = courtFee + extrasFee;
 
           return (
             <div
@@ -410,7 +443,7 @@ export default function CourtsPage() {
                         </button>
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{formatMoney(court.pricePerHour)}/giờ</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{formatRates(court)}</p>
                   </div>
                   <Badge variant={isBusy ? 'rose' : isOpen ? 'emerald' : isInactive ? 'slate' : 'amber'}>
                     {isBusy ? '🔴 Đang chơi' : isOpen ? '🟢 Trống' : isInactive ? '⚫ Ngưng khai thác' : '🟡 Bảo trì'}
@@ -434,9 +467,9 @@ export default function CourtsPage() {
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/60 p-4 space-y-2 text-xs">
-                      <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                        <span>Tiền sân (tạm tính):</span>
-                        <span className="font-semibold text-slate-700 dark:text-slate-200">{formatMoney(courtFee)}</span>
+                      <div className="flex justify-between gap-3 text-slate-500 dark:text-slate-400">
+                        <span>Tiền sân:</span>
+                        <span className="text-right text-slate-600 dark:text-slate-300">tính theo giờ cao/thấp điểm khi thanh toán</span>
                       </div>
 
                       {court.extras.length > 0 && (
@@ -459,10 +492,12 @@ export default function CourtsPage() {
                         </div>
                       )}
 
-                      <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                        <span>TỔNG TẠM TÍNH:</span>
-                        <span>{formatMoney(totalTemp)}</span>
-                      </div>
+                      {extrasFee > 0 && (
+                        <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between text-sm font-bold text-slate-700 dark:text-slate-200">
+                          <span>Phụ kiện đã gọi:</span>
+                          <span>{formatMoney(extrasFee)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -660,30 +695,87 @@ export default function CourtsPage() {
         </form>
       </Modal>
 
-      {activeModal?.type === 'checkout' && (() => {
+      {activeModal?.type === 'checkout' && checkout && (() => {
         const { court } = activeModal;
-        const elapsed = Math.max(0, now - court.session.startTime);
-        const hours = elapsed / 3600000;
-        const courtFee = Math.ceil(hours * court.pricePerHour);
-        const extrasFee = court.extras.reduce((sum, e) => sum + e.price * e.qty, 0);
-        const total = courtFee + extrasFee;
+        const { loading: previewLoading, error: checkoutError, preview, submitting, receipt } = checkout;
+        const secondaryButton = 'rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm';
+        const row = (label, value, valueClass = 'font-semibold text-slate-700 dark:text-slate-200') => (
+          <div className="flex justify-between gap-3"><span className="text-slate-500 dark:text-slate-400">{label}</span><span className={valueClass}>{value}</span></div>
+        );
+        const endedAt = preview
+          ? new Date(preview.endTime).toLocaleTimeString('vi-VN', activeTimezone ? { timeZone: activeTimezone } : undefined)
+          : null;
 
         return (
-          <Modal isOpen={true} onClose={() => setActiveModal(null)} title={`Thanh Toán & Đóng ${court.name}`}>
+          <Modal isOpen={true} onClose={closeCheckout} title={receipt ? `Đã thanh toán ${court.name}` : `Thanh Toán & Đóng ${court.name}`}>
             <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/80 p-4 space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Khách hàng:</span><span className="font-bold text-slate-900 dark:text-slate-100">{court.session.playerName}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Thời gian chơi:</span><span className="font-mono font-bold text-rose-600 dark:text-rose-400">{formatTime(elapsed)}</span></div>
-                <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-800"><span className="text-slate-500 dark:text-slate-400">Tiền sân:</span><span className="font-semibold text-slate-700 dark:text-slate-200">{formatMoney(courtFee)}</span></div>
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-base font-bold">
-                  <span className="text-slate-700 dark:text-slate-200">TỔNG CỘNG:</span>
-                  <span className="text-xl text-emerald-600 dark:text-emerald-400">{formatMoney(total)}</span>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm">Quay lại</button>
-                <button onClick={confirmCheckout} className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">💳 Xác Nhận Thanh Toán</button>
-              </div>
+              {previewLoading && <p className="text-sm text-slate-500 dark:text-slate-400">⏳ Đang tính tiền...</p>}
+
+              {!previewLoading && !preview && (
+                <>
+                  <p className="rounded-2xl border border-rose-500/30 bg-rose-50 dark:bg-rose-950/30 p-4 text-sm text-rose-700 dark:text-rose-300">{checkoutError}</p>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button onClick={closeCheckout} className={secondaryButton}>Đóng</button>
+                    <button onClick={() => loadCheckoutPreview(court)} className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">Tính lại</button>
+                  </div>
+                </>
+              )}
+
+              {preview && !receipt && (
+                <>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/80 p-4 space-y-2 text-sm">
+                    {row('Khách hàng:', court.session.playerName, 'font-bold text-slate-900 dark:text-slate-100')}
+                    {row('Thời gian chơi:', formatTime(preview.durationSeconds * 1000), 'font-mono font-bold text-rose-600 dark:text-rose-400')}
+                    {row('Tính đến:', endedAt, 'font-mono text-slate-600 dark:text-slate-300')}
+                    <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
+                      {row('Tiền sân:', formatMoney(preview.courtFee))}
+                      {preview.extrasFee > 0 && row('Phụ kiện:', formatMoney(preview.extrasFee))}
+                    </div>
+                    <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-base font-bold">
+                      <span className="text-slate-700 dark:text-slate-200">TỔNG CỘNG:</span>
+                      <span className="text-xl text-emerald-600 dark:text-emerald-400">{formatMoney(preview.totalAmount)}</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Tiền sân đã tính theo giờ cao điểm/thấp điểm và các lần đổi sân. Hoá đơn chốt đúng số này nếu xác nhận trong 10 phút.
+                  </p>
+                  {checkoutError && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-500/30 bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
+                      <span>{checkoutError}</span>
+                      <button onClick={() => loadCheckoutPreview(court)} className="font-semibold underline">Tính lại</button>
+                    </div>
+                  )}
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button onClick={closeCheckout} className={secondaryButton}>Quay lại</button>
+                    <button onClick={confirmCheckout} disabled={submitting} className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400 disabled:opacity-60">
+                      {submitting ? 'Đang thanh toán...' : '💳 Xác Nhận Thanh Toán'}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {receipt && (
+                <>
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20 p-4 space-y-2 text-sm">
+                    <p className="font-semibold text-emerald-700 dark:text-emerald-300">✅ Hoá đơn {receipt.invoiceNo}</p>
+                    {row('Tiền sân:', formatMoney(receipt.courtFee))}
+                    {receipt.extrasFee > 0 && row('Phụ kiện:', formatMoney(receipt.extrasFee))}
+                    {receipt.discountAmount > 0 && row('Giảm giá:', `-${formatMoney(receipt.discountAmount)}`)}
+                    <div className="pt-3 border-t border-emerald-500/20 flex justify-between items-center text-base font-bold">
+                      <span className="text-slate-700 dark:text-slate-200">ĐÃ THU:</span>
+                      <span className="text-xl text-emerald-600 dark:text-emerald-400">{formatMoney(receipt.totalAmount)}</span>
+                    </div>
+                  </div>
+                  {receipt.totalAmount !== preview?.totalAmount && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Khác số xem trước ({formatMoney(preview?.totalAmount || 0)}) vì phụ kiện của phiên vừa thay đổi — thu theo hoá đơn.
+                    </p>
+                  )}
+                  <div className="flex justify-end pt-2">
+                    <button onClick={closeCheckout} className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">Xong</button>
+                  </div>
+                </>
+              )}
             </div>
           </Modal>
         );
@@ -744,9 +836,12 @@ export default function CourtsPage() {
         <div className="space-y-4">
           <select value={targetSwitchId} onChange={(e) => setTargetSwitchId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 px-4 py-2.5 text-sm">
             {activeModal?.availableTargets?.map((c) => (
-              <option key={c.id} value={c.id}>{c.name} — {formatMoney(c.pricePerHour)}/giờ</option>
+              <option key={c.id} value={c.id}>{c.name} — {formatRates(c)}</option>
             ))}
           </select>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Thời gian đã chơi ở {activeModal?.court?.name} vẫn tính theo giá sân này; giá sân mới chỉ áp từ lúc đổi.
+          </p>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm">Hủy</button>
             <button onClick={confirmSwitchCourt} className="rounded-xl bg-sky-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-sky-400">🔄 Xác Nhận Đổi Sân</button>

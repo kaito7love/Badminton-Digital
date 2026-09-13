@@ -5,6 +5,8 @@ const {
 const { Op } = require('sequelize');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const { startOfLocalDay, endOfLocalDay } = require('../utils/dateTime');
+const { calculateSessionCourtFee, calculateInvoiceTotals } = require('../utils/priceCalculator');
+const CourtService = require('./CourtService');
 
 class SessionService {
   /**
@@ -95,7 +97,14 @@ class SessionService {
   }
 
   /**
-   * Lấy chi tiết một phiên chơi theo ID
+   * Lấy chi tiết một phiên chơi theo ID.
+   *
+   * Phiên đang chơi kèm `checkoutPreview` — số tiền nếu thanh toán ngay bây giờ,
+   * tính bằng đúng hàm checkout dùng (kể cả các đoạn trước khi chuyển sân). Modal
+   * thanh toán hiện số này rồi gửi lại `endTime` của nó khi xác nhận, nên số trên
+   * modal và số trên hoá đơn là một. Trước đây trang Sân tự nhân giờ chơi với giá
+   * cao điểm ở trình duyệt: chơi giờ thấp điểm vẫn hiện giá cao điểm, thu ngân
+   * thu theo modal là lệch quỹ.
    */
   static async getSessionById(id, context = {}) {
     const where = { id };
@@ -104,7 +113,7 @@ class SessionService {
     const session = await CourtSession.findOne({
       where,
       include: [
-        { model: Court,    as: 'court',    attributes: ['id', 'name', 'status'] },
+        { model: Court,    as: 'court',    attributes: ['id', 'name', 'status', 'peakPricePerHour', 'offpeakPricePerHour'] },
         { model: Customer, as: 'customer', attributes: ['id', 'fullName', 'phone', 'loyaltyTier'], required: false },
         { model: Employee, as: 'employee', attributes: ['id', 'position'], required: false },
         { model: Booking,  as: 'booking',  attributes: ['id', 'bookingDate', 'startTime', 'endTime', 'status'], required: false },
@@ -129,7 +138,23 @@ class SessionService {
       throw error;
     }
 
-    return session;
+    if (session.status !== 'playing') return session;
+
+    const endTime = new Date();
+    const pricing = await CourtService.loadPricingContext(session.branchId);
+    const fee = calculateSessionCourtFee(session, session.court, endTime, pricing);
+    const totals = calculateInvoiceTotals(fee.courtFee, session.sessionExtras || []);
+
+    return {
+      ...session.toJSON(),
+      checkoutPreview: {
+        endTime: endTime.toISOString(),
+        durationSeconds: fee.durationSeconds,
+        courtFee: totals.courtFee,
+        extrasFee: totals.extrasFee,
+        totalAmount: totals.totalBeforeDiscount
+      }
+    };
   }
 }
 
