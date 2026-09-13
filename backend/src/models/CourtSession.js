@@ -54,6 +54,21 @@ module.exports = (sequelize) => {
         allowNull: true,
         field: "court_fee",
       },
+      // Chuyển sân giữa phiên: tiền các đoạn đã chơi ở sân trước được chốt vào
+      // accruedCourtFee (chưa làm tròn), billedFrom là đầu đoạn đang tính theo
+      // giá sân hiện tại. null = chưa chuyển sân lần nào, tính từ startTime.
+      // Xem priceCalculator.calculateSessionCourtFee.
+      billedFrom: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: "billed_from",
+      },
+      accruedCourtFee: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0,
+        field: "accrued_court_fee",
+      },
       status: {
         type: DataTypes.ENUM("playing", "closed"),
         defaultValue: "playing",

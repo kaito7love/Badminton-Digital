@@ -9,6 +9,7 @@ const {
 } = require('../models');
 const BookingService = require('./BookingService');
 const SettingService = require('./SettingService');
+const { isTransferEnabled } = require('../utils/paymentConfig');
 
 /**
  * Dữ liệu cho trang chủ công khai — người xem CHƯA đăng nhập.
@@ -217,16 +218,24 @@ class PublicCatalogService {
    * Danh sách cửa hàng để khách chọn nơi mua/nhận hàng. Tồn kho và giá đã theo
    * chi nhánh, nên khách phải chọn được chi nhánh chứ không thể mặc định mãi
    * một nơi rồi tới lấy hàng ở chỗ không có hàng.
+   *
+   * `transferEnabled`: trang đặt hàng và POS dựa vào đây để ẩn lựa chọn chuyển
+   * khoản khi chưa cấu hình tài khoản nhận tiền + webhook (utils/paymentConfig).
+   * Hiện cả chuỗi dùng chung một cấu hình nên mọi chi nhánh cùng giá trị; để theo
+   * từng chi nhánh là chỗ sẵn nếu sau này mỗi chi nhánh có tài khoản riêng. Chỉ
+   * là cờ bật/tắt — số tài khoản không bao giờ đi qua route công khai này.
    */
   static async getBranches() {
     const branches = await Branch.findAll({
       where: { isActive: true },
       order: [['id', 'ASC']]
     });
+    const transferEnabled = isTransferEnabled();
     return branches.map((branch) => ({
       id: branch.id,
       name: branch.name,
-      address: branch.address
+      address: branch.address,
+      transferEnabled
     }));
   }
 }

@@ -110,6 +110,33 @@ describe('VoucherService.assertWithinWindow', () => {
   });
 });
 
+describe('VoucherService.countUsage — lượt nào đang bị giữ', () => {
+  const { Op } = require('sequelize');
+  const { SalesOrder } = require('../src/models');
+
+  afterEach(() => jest.restoreAllMocks());
+
+  test('đơn đã trả VÀ đơn chuyển khoản đang chờ trả tiền đều giữ lượt; đơn đang xét không tự đếm mình', async () => {
+    const count = jest.spyOn(SalesOrder, 'count').mockResolvedValueOnce(3).mockResolvedValueOnce(1);
+
+    const usage = await VoucherService.countUsage(5, 9, { id: 'trx' }, 77);
+
+    expect(usage).toEqual({ total: 3, byCustomer: 1 });
+    const [totalQuery, customerQuery] = count.mock.calls.map(([options]) => options);
+    const holdsUsage = [{ status: 'paid' }, { status: 'open', paymentDeadlineAt: { [Op.ne]: null } }];
+    expect(totalQuery.where).toEqual({ voucherId: 5, [Op.or]: holdsUsage, id: { [Op.ne]: 77 } });
+    expect(customerQuery.where).toEqual({ voucherId: 5, customerId: 9, [Op.or]: holdsUsage, id: { [Op.ne]: 77 } });
+    expect(totalQuery.transaction).toEqual({ id: 'trx' });
+  });
+
+  test('đơn không gắn khách thì không đếm theo khách', async () => {
+    const count = jest.spyOn(SalesOrder, 'count').mockResolvedValue(2);
+
+    expect(await VoucherService.countUsage(5, null, {})).toEqual({ total: 2, byCustomer: 0 });
+    expect(count).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('VoucherService.validateAndCompute', () => {
   test('gọi mà không truyền transaction thì ném lỗi lập trình ngay lập tức', async () => {
     await expect(

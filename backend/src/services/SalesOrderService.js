@@ -3,10 +3,13 @@ const { SalesOrder, SalesOrderLine, ProductVariant, Product, Invoice, InvoiceLin
 const InventoryService = require('./InventoryService');
 const { nextInvoiceNumber } = require('../utils/documentNumber');
 const { generateVietQRUrl } = require('../utils/vietqr');
+const { assertTransferEnabled } = require('../utils/paymentConfig');
+const { resolveManualDiscount, assertManualDiscountAllowed } = require('../utils/discountPolicy');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const { startOfLocalDay, endOfLocalDay } = require('../utils/dateTime');
 const { computeLoyaltyTier } = require('../utils/loyalty');
 const AuditService = require('./AuditService');
+const SettingService = require('./SettingService');
 const VoucherService = require('./VoucherService');
 
 const orderIncludes = [
@@ -292,12 +295,15 @@ class SalesOrderService {
     }
   }
 
-  static async checkout({ orderId, paymentMethod = 'cash', discountAmount = 0, employeeId, branchId, actor, requestId, idempotencyKey }) {
+  static async checkout({ orderId, paymentMethod = 'cash', discountAmount = 0, discountReason = null, employeeId, branchId, actor, requestId, idempotencyKey }) {
     if (!branchId || !employeeId) {
       const error = new Error('Không xác định được nhân viên hoặc chi nhánh thanh toán');
       error.statusCode = 403;
       throw error;
     }
+    if (paymentMethod === 'transfer') assertTransferEnabled();
+    // Đọc trần giảm giá trước khi khoá đơn — xem PaymentService.checkout.
+    const discountPolicy = Number(discountAmount) > 0 ? await SettingService.getDiscountPolicy() : null;
     const resolvedIdempotencyKey = idempotencyKey || `sales-order-${orderId}`;
     const transaction = await sequelize.transaction();
 
@@ -397,8 +403,17 @@ class SalesOrderService {
 
       // Giảm giá tay cũng phải nằm trong phần còn lại của đơn — trước đây
       // discount_amount lưu số thô nên nhập 999.999đ cho đơn 25.000đ vẫn ghi
-      // thẳng vào hoá đơn, làm báo cáo doanh thu đọc ra số vô nghĩa.
-      const manualDiscount = Math.max(0, Math.min(Number(discountAmount || 0), extrasFee - voucherDiscount));
+      // thẳng vào hoá đơn, làm báo cáo doanh thu đọc ra số vô nghĩa. Trần theo
+      // vai trò và lý do tính trên phần còn lại sau khi trừ mã giảm giá.
+      const discountBase = extrasFee - voucherDiscount;
+      const manualDiscount = resolveManualDiscount({ baseAmount: discountBase, discountAmount });
+      const discount = assertManualDiscountAllowed({
+        actor,
+        baseAmount: discountBase,
+        discountAmount: manualDiscount,
+        reason: discountReason,
+        policy: discountPolicy
+      });
       const totalDiscountAmount = manualDiscount + voucherDiscount;
       const totalAmount = Math.max(0, extrasFee - totalDiscountAmount);
 
@@ -443,7 +458,7 @@ class SalesOrderService {
         invoiceLines.push({
           invoiceId: invoice.id,
           lineKind: 'discount',
-          description: 'Giảm giá',
+          description: `Giảm giá: ${discount.reason}`.slice(0, 255),
           quantity: 1,
           unitPrice: -manualDiscount,
           amount: -manualDiscount
@@ -482,6 +497,27 @@ class SalesOrderService {
       if (isImmediatelyConfirmed) await invoice.update({ status: 'paid' }, { transaction });
       await order.update({ status: 'paid' }, { transaction });
       await AuditService.record({ actor, branchId, action: isImmediatelyConfirmed ? 'payment.completed' : 'payment.pending', targetType: 'payment', targetId: payment.id, newValues: payment.toJSON(), requestId, transaction });
+      if (manualDiscount > 0) {
+        await AuditService.record({
+          actor,
+          branchId,
+          action: 'payment.discount_applied',
+          targetType: 'invoice',
+          targetId: invoice.id,
+          newValues: {
+            invoiceNo: invoice.invoiceNo,
+            salesOrderId: order.id,
+            role: actor?.role?.name || null,
+            amountAfterVoucher: discountBase,
+            discountAmount: manualDiscount,
+            percent: discount.percent,
+            reason: discount.reason,
+            input: { discountAmount }
+          },
+          requestId,
+          transaction
+        });
+      }
 
       await transaction.commit();
 

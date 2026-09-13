@@ -1,20 +1,65 @@
-const { Invoice, InvoiceLine, Payment, CourtSession, SessionExtra, Extra, Customer, Court, Employee, SalesOrder, SalesOrderLine, Branch, sequelize } = require('../models');
-const { calculateCourtFee, calculateInvoiceTotals } = require('../utils/priceCalculator');
+const { Op } = require('sequelize');
+const { Invoice, InvoiceLine, Payment, CourtSession, SessionExtra, Extra, Customer, Court, Employee, SalesOrder, SalesOrderLine, sequelize } = require('../models');
+const { calculateSessionCourtFee, calculateInvoiceTotals } = require('../utils/priceCalculator');
 const { generateVietQRUrl } = require('../utils/vietqr');
+const { assertTransferEnabled } = require('../utils/paymentConfig');
+const { resolveManualDiscount, assertManualDiscountAllowed } = require('../utils/discountPolicy');
 const { nextInvoiceNumber } = require('../utils/documentNumber');
 const { computeLoyaltyTier } = require('../utils/loyalty');
 const AuditService = require('./AuditService');
 const SettingService = require('./SettingService');
 const InventoryService = require('./InventoryService');
+const CourtService = require('./CourtService');
 const realtimeBus = require('../utils/realtimeBus');
 
+// Modal thanh toán gửi lại `endTime` của số tiền đã xem trước. Cũ hơn 10 phút là
+// thu ngân để modal mở quá lâu — lùi giờ kết thúc xa hơn là thu thiếu tiền giờ.
+const CHECKOUT_PREVIEW_MAX_AGE_MS = 10 * 60 * 1000;
+// Mốc do chính server phát ra ở bước xem trước, chỉ chừa vài giây lệch đồng hồ
+// khi chạy nhiều instance.
+const CLOCK_SKEW_MS = 5 * 1000;
+
+const httpError = (message, statusCode) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
 class PaymentService {
-  static async checkout({ sessionId, paymentMethod = 'cash', discountAmount = 0, isDiscountPercent = false, employeeId, branchId, actor, requestId, idempotencyKey }) {
+  /**
+   * Giờ kết thúc phiên lúc checkout. Không truyền thì là "bây giờ" như trước.
+   *
+   * Modal "Thanh Toán & Đóng sân" gửi lại đúng `endTime` của số tiền đã xem trước
+   * (`GET /sessions/:id` → `checkoutPreview`), nên số trên modal và số trên hoá đơn
+   * là một, không lệch vì vài phút thu ngân đứng đếm tiền. Chỉ nhận mốc không
+   * trước giờ mở sân (hay lần chuyển sân gần nhất), không ở tương lai và không cũ
+   * quá 10 phút.
+   */
+  static resolveCheckoutEndTime(session, requestedEndTime, now = new Date()) {
+    if (!requestedEndTime) return now;
+    const endTime = new Date(requestedEndTime);
+    if (Number.isNaN(endTime.getTime())) throw httpError('Giờ kết thúc không hợp lệ', 400);
+    if (endTime < new Date(session.startTime)) throw httpError('Giờ kết thúc không được trước giờ mở sân', 400);
+    if (session.billedFrom && endTime < new Date(session.billedFrom)) {
+      throw httpError('Phiên vừa được chuyển sân sau lúc xem trước — vui lòng tính lại', 400);
+    }
+    if (endTime.getTime() > now.getTime() + CLOCK_SKEW_MS) throw httpError('Giờ kết thúc không được ở tương lai', 400);
+    if (now.getTime() - endTime.getTime() > CHECKOUT_PREVIEW_MAX_AGE_MS) {
+      throw httpError('Số tiền xem trước đã quá 10 phút — vui lòng tính lại trước khi thanh toán', 400);
+    }
+    return endTime;
+  }
+
+  static async checkout({ sessionId, paymentMethod = 'cash', discountAmount = 0, isDiscountPercent = false, discountReason = null, endTime: requestedEndTime = null, employeeId, branchId, actor, requestId, idempotencyKey }) {
     if (!branchId || !employeeId) {
       const error = new Error('Không xác định được nhân viên hoặc chi nhánh thanh toán');
       error.statusCode = 403;
       throw error;
     }
+    if (paymentMethod === 'transfer') assertTransferEnabled();
+    // Đọc trần giảm giá TRƯỚC khi mở transaction: không kéo dài thời gian giữ
+    // khoá dòng phiên chơi chỉ để đọc một setting.
+    const discountPolicy = Number(discountAmount) > 0 ? await SettingService.getDiscountPolicy() : null;
     const resolvedIdempotencyKey = idempotencyKey || `session-${sessionId}`;
     const transaction = await sequelize.transaction();
 
@@ -54,22 +99,12 @@ class PaymentService {
       // If session is still playing, auto-close it
       let courtFee = Number(session.courtFee) || 0;
       if (session.status === 'playing') {
-        const endTime = new Date();
-        const { peakStartHour, peakEndHour } = await SettingService.getPeakHours();
-        // Đọc riêng, KHÔNG gộp vào include của câu khoá dòng phía trên: thêm
-        // Branch vào một query FOR UPDATE sẽ khoá luôn dòng chi nhánh, biến mỗi
-        // lần thanh toán thành điểm nghẽn cho toàn bộ thao tác của chi nhánh đó.
-        const branch = await Branch.findByPk(branchId, { attributes: ['timezone'], transaction });
-        const feeCalc = calculateCourtFee(
-          session.startTime,
-          endTime,
-          session.court.peakPricePerHour,
-          session.court.offpeakPricePerHour,
-          peakStartHour,
-          peakEndHour,
-          // Khung giờ cao điểm là giờ treo tường tại chi nhánh, không phải giờ máy chủ.
-          branch?.timezone
-        );
+        const endTime = PaymentService.resolveCheckoutEndTime(session, requestedEndTime);
+        // Giờ cao điểm + múi giờ chi nhánh đọc riêng, không gộp vào include của
+        // câu khoá dòng phía trên (xem CourtService.loadPricingContext).
+        const pricing = await CourtService.loadPricingContext(branchId, transaction);
+        // Cộng cả tiền các đoạn đã chơi ở sân trước nếu phiên từng chuyển sân.
+        const feeCalc = calculateSessionCourtFee(session, session.court, endTime, pricing);
         courtFee = feeCalc.courtFee;
 
         // Đóng phiên là đủ để sân trở lại trạng thái trống — courts.status chỉ nói
@@ -82,13 +117,19 @@ class PaymentService {
         }, { transaction });
       }
 
+      // Giảm giá tay: quy ra đồng trên tổng trước giảm, kiểm lý do + trần theo vai trò.
+      const totalBeforeDiscount = calculateInvoiceTotals(courtFee, session.sessionExtras).totalBeforeDiscount;
+      const manualDiscount = resolveManualDiscount({ baseAmount: totalBeforeDiscount, discountAmount, isDiscountPercent });
+      const discount = assertManualDiscountAllowed({
+        actor,
+        baseAmount: totalBeforeDiscount,
+        discountAmount: manualDiscount,
+        reason: discountReason,
+        policy: discountPolicy
+      });
+
       // Calculate Invoice Totals
-      const totals = calculateInvoiceTotals(
-        courtFee,
-        session.sessionExtras,
-        discountAmount,
-        isDiscountPercent
-      );
+      const totals = calculateInvoiceTotals(courtFee, session.sessionExtras, manualDiscount);
 
       // Check if invoice already exists for this session
       let invoice = await Invoice.findOne({ where: { sessionId, branchId }, transaction, lock: transaction.LOCK.UPDATE });
@@ -144,7 +185,7 @@ class PaymentService {
         invoiceLines.push({
           invoiceId: invoice.id,
           lineKind: 'discount',
-          description: 'Giảm giá',
+          description: `Giảm giá: ${discount.reason}`.slice(0, 255),
           quantity: 1,
           unitPrice: -totals.discountAmount,
           amount: -totals.discountAmount
@@ -186,6 +227,27 @@ class PaymentService {
 
       if (isImmediatelyConfirmed) await invoice.update({ status: 'paid' }, { transaction });
       await AuditService.record({ actor, branchId, action: isImmediatelyConfirmed ? 'payment.completed' : 'payment.pending', targetType: 'payment', targetId: payment.id, newValues: payment.toJSON(), requestId, transaction });
+      if (totals.discountAmount > 0) {
+        await AuditService.record({
+          actor,
+          branchId,
+          action: 'payment.discount_applied',
+          targetType: 'invoice',
+          targetId: invoice.id,
+          newValues: {
+            invoiceNo: invoice.invoiceNo,
+            sessionId: session.id,
+            role: actor?.role?.name || null,
+            totalBeforeDiscount: totals.totalBeforeDiscount,
+            discountAmount: totals.discountAmount,
+            percent: discount.percent,
+            reason: discount.reason,
+            input: { discountAmount, isDiscountPercent }
+          },
+          requestId,
+          transaction
+        });
+      }
 
       await transaction.commit();
       // Checkout thường đi kèm tự động đóng sân (session đang 'playing' —
@@ -410,7 +472,22 @@ class PaymentService {
     }
   }
 
-  static async processWebhook({ provider, providerReference, status, invoiceNo, payload, requestId }) {
+  /**
+   * Dịch vụ báo có gọi vào khi tiền về. Đã qua `paymentWebhookAuth` (secret) và
+   * `webhookRules` (bắt buộc `amount`) trước khi tới đây.
+   *
+   * | Tình huống | Kết quả |
+   * |---|---|
+   * | Mã giao dịch ngân hàng đã xác nhận cho giao dịch KHÁC | 409 + nhật ký `reference_reused` |
+   * | Giao dịch đã `paid`, cùng mã (dịch vụ gửi lại) | 200, không cộng tiền lần hai |
+   * | Giao dịch đã `paid`, mã khác (khách chuyển hai lần) | 200, không cộng tiền, nhật ký `already_paid` |
+   * | Giao dịch đã `cancelled`/`refunded` (tiền về sau khi đơn huỷ) | 409 + nhật ký `payment_not_pending` |
+   * | `amount` khác số tiền của giao dịch | 409 + nhật ký `amount_mismatch`, giữ `pending` |
+   *
+   * Nhật ký từ chối (`payment.webhook_rejected`) được commit trước khi báo lỗi —
+   * nó là dấu vết duy nhất để quầy biết có khoản tiền phải đối soát/hoàn trả.
+   */
+  static async processWebhook({ provider, providerReference, status, invoiceNo, amount, payload, requestId }) {
     if (status !== 'paid') {
       const error = new Error('Trạng thái webhook không được hỗ trợ');
       error.statusCode = 400;
@@ -430,15 +507,55 @@ class PaymentService {
         error.statusCode = 404;
         throw error;
       }
+
+      const recordRejection = (reason, extra = {}) => AuditService.record({
+        branchId: invoice.branchId,
+        action: 'payment.webhook_rejected',
+        targetType: 'payment',
+        targetId: payment.id,
+        newValues: {
+          reason,
+          invoiceNo,
+          provider,
+          providerReference,
+          amount,
+          expectedAmount: Number(payment.amount),
+          paymentStatus: payment.status,
+          payload,
+          ...extra
+        },
+        requestId,
+        transaction
+      });
+      const reject = async (reason, statusCode, message, extra) => {
+        await recordRejection(reason, extra);
+        await transaction.commit();
+        throw httpError(message, statusCode);
+      };
+
+      const reusedBy = await Payment.findOne({
+        where: { provider, providerReference, id: { [Op.ne]: payment.id } },
+        attributes: ['id'],
+        transaction
+      });
+      if (reusedBy) {
+        await reject('reference_reused', 409, 'Mã giao dịch ngân hàng này đã được dùng để xác nhận một hoá đơn khác', { otherPaymentId: reusedBy.id });
+      }
+
       if (payment.status === 'paid') {
+        if (payment.provider !== provider || payment.providerReference !== providerReference) {
+          await recordRejection('already_paid');
+        }
         await transaction.commit();
         return payment;
       }
       if (!['pending', 'processing'].includes(payment.status)) {
-        const error = new Error('Giao dịch không thể chuyển sang trạng thái paid');
-        error.statusCode = 409;
-        throw error;
+        await reject('payment_not_pending', 409, 'Giao dịch không còn chờ thanh toán (đã huỷ hoặc đã hoàn tiền) — quầy cần đối soát và hoàn tiền thủ công');
       }
+      if (Number(amount) !== Number(payment.amount)) {
+        await reject('amount_mismatch', 409, 'Số tiền nhận được không khớp số tiền của hoá đơn');
+      }
+
       const oldValues = payment.toJSON();
       await payment.update({ status: 'paid', provider, providerReference, paidAt: new Date(), confirmedAt: new Date(), webhookPayload: payload }, { transaction });
       await invoice.update({ status: 'paid' }, { transaction });
@@ -475,7 +592,10 @@ class PaymentService {
       await transaction.commit();
       return payment;
     } catch (error) {
-      await transaction.rollback();
+      // Nhánh từ chối đã tự commit nhật ký rồi mới ném lỗi — không rollback lại.
+      if (!transaction.finished) {
+        await transaction.rollback().catch(() => {});
+      }
       throw error;
     }
   }

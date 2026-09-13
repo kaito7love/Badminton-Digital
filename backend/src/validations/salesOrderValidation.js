@@ -1,5 +1,6 @@
 const { body, param, validationResult } = require('express-validator');
 const { errorResponse } = require('../utils/responseHandler');
+const { DISCOUNT_REASON_MAX_LENGTH } = require('../utils/discountPolicy');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -37,7 +38,12 @@ const applyVoucherRules = [
 const checkoutRules = [
   param('id').isInt().withMessage('Sales order ID must be an integer'),
   body('paymentMethod').optional().isIn(['cash', 'transfer']),
-  body('discountAmount').optional().isFloat({ min: 0 }),
+  body('discountAmount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('Số tiền giảm giá phải là số không âm').toFloat(),
+  body('discountReason')
+    .optional({ nullable: true })
+    .isString().withMessage('Lý do giảm giá không hợp lệ')
+    .trim()
+    .isLength({ max: DISCOUNT_REASON_MAX_LENGTH }).withMessage(`Lý do giảm giá tối đa ${DISCOUNT_REASON_MAX_LENGTH} ký tự`),
   validate
 ];
 

@@ -2663,7 +2663,7 @@ paths:
         - '14 · Sales Orders (POS bán lẻ tại quầy)'
       summary: 'Thanh toán đơn'
       operationId: post_sales_orders_id_checkout
-      description: '`paymentMethod`: `cash` | `transfer`. Trừ tồn kho, sinh hoá đơn, cộng `totalSpent` cho khách (ảnh hưởng hạng thành viên).'
+      description: "`paymentMethod`: `cash` | `transfer` — `transfer` chỉ nhận khi server đã cấu hình tài khoản nhận tiền + webhook (`PAYMENT_BANK_*`, `PAYMENT_WEBHOOK_SECRET`), chưa có thì 400. Trừ tồn kho, sinh hoá đơn, cộng `totalSpent` cho khách (ảnh hưởng hạng thành viên).\n\nGiảm giá tay `discountAmount` > 0 phải kèm `discountReason` (tối đa 200 ký tự); `employee` bị chặn 403 khi vượt trần `discount_policy` (mặc định 10% phần còn lại sau mã giảm giá)."
       parameters:
         -
           name: id
@@ -3225,7 +3225,7 @@ paths:
         - '18 · Payments'
       summary: 'Thanh toán phiên chơi'
       operationId: post_payments_checkout
-      description: "Đóng phiên, sinh hoá đơn + bản ghi thanh toán, cộng `totalSpent` và cập nhật hạng thành viên.\n\nCần một phiên **đang mở** — script chuẩn bị của thư mục tự mở nếu chưa có."
+      description: "Đóng phiên, sinh hoá đơn + bản ghi thanh toán, cộng `totalSpent` và cập nhật hạng thành viên.\n\nCần một phiên **đang mở** — script chuẩn bị của thư mục tự mở nếu chưa có.\n\n- `endTime` (tuỳ chọn): mốc `checkoutPreview.endTime` của `GET /sessions/:sessionId`, để hoá đơn chốt đúng số tiền đã xem trước. Không được trước giờ mở sân, ở tương lai hay cũ quá 10 phút (400).\n- Giảm giá tay `discountAmount` > 0 phải kèm `discountReason`; `isDiscountPercent` chỉ nhận `true`/`false` (chuỗi `\"false\"` là giảm theo số tiền). `employee` vượt trần `discount_policy` (mặc định 10%) → 403.\n- `transfer` chỉ nhận khi server đã cấu hình chuyển khoản, chưa có thì 400."
       parameters:
         -
           name: X-Branch-Id
@@ -3262,7 +3262,7 @@ paths:
         - '18 · Payments'
       summary: 'Webhook xác nhận chuyển khoản'
       operationId: post_payments_webhook
-      description: "Không qua authMiddleware — do cổng thanh toán gọi vào. `status` bắt buộc là `paid`.\n\n⚠️ `invoiceNo` phải là số hoá đơn **có thật**; định dạng thực tế là `BD-<chi nhánh>-<8 chữ số>` (vd `BD-1-00000009`), không phải `INV-…`. Biến `{{invoiceNo}}` được các bước thanh toán phía trước điền vào."
+      description: "Không qua authMiddleware — dịch vụ báo có gọi vào khi tiền về. `status` bắt buộc là `paid`.\n\n- Header `X-Webhook-Secret` phải khớp `PAYMENT_WEBHOOK_SECRET` của server: server chưa cấu hình → 503, thiếu/sai → 401. Truyền bằng `--env-var webhookSecret=...`, không ghi vào file environment.\n- `amount` (số nguyên VND) bắt buộc và phải khớp số tiền của giao dịch; sai → 409, giao dịch giữ `pending`.\n- Mã `providerReference` đã xác nhận cho giao dịch khác → 409. Giao dịch đã huỷ/hoàn tiền → 409. Mọi lần từ chối ghi nhật ký `payment.webhook_rejected` để quầy đối soát.\n- Giao dịch đã `paid` → 200, không cộng tiền lần hai.\n\n⚠️ `invoiceNo` phải là số hoá đơn **có thật**; định dạng thực tế là `BD-<chi nhánh>-<8 chữ số>` (vd `BD-1-00000009`), không phải `INV-…`. Biến `{{webhookInvoiceNo}}`/`{{invoiceTotal}}` được các bước thanh toán phía trước điền vào (hoá đơn đó đã trả tiền mặt, nên request này kiểm luồng \"đã paid → 200 không cộng lần hai\")."
       requestBody:
         required: true
         content:
@@ -3273,6 +3273,7 @@ paths:
               provider: sepay
               providerReference: 'FT{{$timestamp}}'
               invoiceNo: string
+              amount: string
               status: paid
       security: []
       responses:

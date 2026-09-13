@@ -4,7 +4,8 @@
 
 - Branch-scoped APIs support `X-Branch-Id`. `employee`/`branch_manager` are locked to their own branch (a different value is rejected with 403); `admin` has no home branch and may send `X-Branch-Id` for any active branch to view/operate on it (see `GET /branches`). If omitted, the branch assigned to the logged-in employee is used.
 - `POST /payments/checkout` supports the `Idempotency-Key` header. Reuse the key when retrying a request.
-- `POST /payments/webhook` accepts `provider`, `providerReference`, `invoiceNo`, and `status: "paid"`. Configure `PAYMENT_WEBHOOK_SECRET` and pass it as `X-Webhook-Secret` in production.
+- `POST /payments/webhook` accepts `provider`, `providerReference`, `invoiceNo`, `amount` (integer VND, must match the payment), and `status: "paid"`. It is fail-closed: without a `PAYMENT_WEBHOOK_SECRET` of 32+ chars it answers 503, and a missing/wrong `X-Webhook-Secret` header is 401 (see §9.1).
+- Bank transfer (`paymentMethod: "transfer"`) is only accepted when `PAYMENT_BANK_ID`, `PAYMENT_BANK_ACCOUNT_NO`, `PAYMENT_BANK_ACCOUNT_NAME` and `PAYMENT_WEBHOOK_SECRET` are all set; otherwise checkout, POS and online orders return 400 and `GET /public/branches` reports `transferEnabled: false`.
 
 ## Multi-branch & inventory additions (`2ca2672`)
 
@@ -410,14 +411,21 @@ thiếu `note` → 400 `"note (lý do điều chỉnh) is required"`; điều ch
 
 | Method | Endpoint | Role | Mô tả |
 |---|---|---|---|
+| GET | `/sessions/:sessionId` | Admin, BranchManager, Employee | Chi tiết phiên chơi; phiên đang chơi kèm `checkoutPreview` |
 | POST | `/sessions/:sessionId/extras` | Admin, BranchManager, Employee | Thêm phụ kiện vào phiên chơi đang diễn ra |
 | GET | `/sessions/:sessionId/extras` | Admin, BranchManager, Employee | Danh sách phụ kiện đã gọi trong phiên |
 | POST | `/sessions/:sessionId/extras/return` | Admin, BranchManager, Employee | Trả lại phụ kiện chưa dùng (mới, từ merge quản lý kho) |
 
 ```json
+// GET /sessions/:sessionId (phiên đang chơi) — thêm trường:
+"checkoutPreview": { "endTime": "2026-09-13T09:30:00.000Z", "durationSeconds": 9000, "courtFee": 150000, "extrasFee": 20000, "totalAmount": 170000 }
 // POST /sessions/:sessionId/extras — { extraId, quantity }
 // POST /sessions/:sessionId/extras/return — { extraId, returnQuantity }
 ```
+`checkoutPreview` là số tiền nếu thanh toán ngay lúc gọi, tính bằng đúng hàm của
+checkout (khung cao điểm theo giờ chi nhánh, cộng các đoạn trước khi đổi sân),
+chưa trừ giảm giá. Modal thanh toán ở trang Sân hiện số này rồi gửi lại `endTime`
+trong `POST /payments/checkout` để hoá đơn chốt đúng số đó.
 Cả hai đều trừ/hoàn trực tiếp qua `InventoryService.postMovement` (`type: sale`
 / `sale_return`) trên tồn kho của **chi nhánh phiên chơi** (`session.branchId`),
 không phải chi nhánh trong header request. Không đủ tồn kho → 400
@@ -433,7 +441,7 @@ lại `GET /accessories`.
 | Method | Endpoint | Role | Mô tả |
 |---|---|---|---|
 | POST | `/payments/checkout` | Admin, BranchManager, Employee | Tính tổng và tạo Payment (UC-18) |
-| POST | `/payments/webhook` | Public (bảo vệ bằng `X-Webhook-Secret` nếu cấu hình `PAYMENT_WEBHOOK_SECRET`) | Xác nhận thanh toán chuyển khoản từ cổng VietQR |
+| POST | `/payments/webhook` | Public — bắt buộc `X-Webhook-Secret` khớp `PAYMENT_WEBHOOK_SECRET` (chưa cấu hình → 503) | Dịch vụ báo có xác nhận tiền chuyển khoản đã về (§9.1) |
 | GET | `/invoices/:id` | Authenticated (Customer chỉ xem hóa đơn của mình) | Xem chi tiết hóa đơn |
 | GET | `/invoices/:id/export-pdf` | Admin, BranchManager, Employee | Xuất hóa đơn PDF |
 
@@ -441,8 +449,20 @@ lại `GET /accessories`.
 nhân viên nhập trực tiếp tại quầy, không có hệ thống mã giảm giá:
 ```json
 // Request
-{ "sessionId": 501, "paymentMethod": "transfer", "discountAmount": 10, "isDiscountPercent": true }
-// paymentMethod ∈ ["cash", "transfer"]; discountAmount/isDiscountPercent optional (mặc định 0/false)
+{
+  "sessionId": 501,
+  "paymentMethod": "transfer",
+  "discountAmount": 10,
+  "isDiscountPercent": true,
+  "discountReason": "Khách quen, sân có sự cố đèn",
+  "endTime": "2026-09-13T09:30:00.000Z"
+}
+// paymentMethod ∈ ["cash", "transfer"]; transfer chỉ nhận khi đã cấu hình chuyển khoản (không thì 400)
+// discountAmount/isDiscountPercent optional (mặc định 0/false); isDiscountPercent chỉ nhận true/false —
+//   chuỗi "false" là giảm theo số tiền; giảm theo % tối đa 100
+// discountReason: bắt buộc khi có giảm giá tay (tối đa 200 ký tự), thiếu → 400
+// endTime optional: mốc checkoutPreview.endTime của GET /sessions/:sessionId — không trước giờ mở sân,
+//   không ở tương lai, không cũ quá 10 phút (400)
 // Header tuỳ chọn: Idempotency-Key — dùng lại khi retry cùng 1 lần checkout
 
 // Response 201
@@ -470,6 +490,35 @@ nhân viên nhập trực tiếp tại quầy, không có hệ thống mã giả
 mô tả ở bản tài liệu trước **không tồn tại** trong code — giảm giá nằm luôn
 trong request `checkout` (`discountAmount`/`isDiscountPercent`), không phải
 một bước riêng sau khi đã tạo Payment.
+
+**Giảm giá tay** (checkout sân và `POST /sales-orders/:id/checkout`): số giảm quy
+ra đồng nguyên, luôn phải có `discountReason`. Vai trò `employee` bị chặn 403 khi
+vượt `discount_policy.employeeMaxPercent` (mặc định 10%, tính trên số còn phải trả —
+ở POS là sau khi trừ mã giảm giá); `branch_manager`/`admin` không giới hạn. Dòng
+hoá đơn ghi `Giảm giá: <lý do>` và có nhật ký `payment.discount_applied`.
+
+**Tiền sân** tính theo phần giao với khung cao điểm của từng ngày theo giờ chi
+nhánh (không chia lát 5 phút), cộng `court_sessions.accrued_court_fee` của các
+đoạn trước khi đổi sân, làm tròn 1.000đ một lần.
+
+### 9.1 Webhook xác nhận chuyển khoản
+
+```json
+// POST /payments/webhook
+// Header: X-Webhook-Secret: <PAYMENT_WEBHOOK_SECRET>
+{ "provider": "sepay", "providerReference": "FT26091300123", "invoiceNo": "BD-1-00000009", "amount": 108000, "status": "paid" }
+```
+
+| Tình huống | Kết quả |
+|---|---|
+| Server chưa cấu hình secret (hoặc < 32 ký tự) | 503 |
+| Thiếu/sai `X-Webhook-Secret` | 401 (trước cả validation) |
+| Thiếu `amount` hoặc không phải số nguyên ≥ 1 | 400 |
+| `providerReference` đã xác nhận cho giao dịch khác | 409 + nhật ký `payment.webhook_rejected` (`reference_reused`) |
+| Giao dịch đã `paid` | 200, không cộng tiền lần hai (mã giao dịch khác thì thêm nhật ký `already_paid`) |
+| Giao dịch `cancelled`/`refunded` | 409 + nhật ký (`payment_not_pending`) |
+| `amount` khác số tiền giao dịch | 409 + nhật ký (`amount_mismatch`), giao dịch giữ `pending` |
+| Hợp lệ | 200, giao dịch + hoá đơn `paid`, đơn online `open` → `paid`, cộng `totalSpent` |
 
 ---
 
@@ -503,6 +552,11 @@ Endpoint `PUT /settings/accessory-pricing` mô tả ở bản tài liệu trư�
 route riêng trong `settingRoutes.js` — giá phụ kiện được sửa qua
 `PUT /accessories/:id` (§8.1).
 
+Trần giảm giá tay của nhân viên lưu qua route generic:
+`PUT /settings { "key": "discount_policy", "value": { "employeeMaxPercent": 10 } }` —
+`employeeMaxPercent` phải là số 0–100 (400 nếu sai), chỉ trường này được lưu. Chưa
+có setting thì mặc định 10%.
+
 ---
 
 ## 12. Storefront khách hàng (public catalog & đơn đặt online)
@@ -518,7 +572,7 @@ Không đi qua `authMiddleware`. Giá và tồn kho tính theo chi nhánh trong 
 
 | Method | Endpoint | Role | Mô tả |
 |---|---|---|---|
-| GET | `/public/branches` | Public | Danh sách chi nhánh đang hoạt động (id, tên, địa chỉ) |
+| GET | `/public/branches` | Public | Danh sách chi nhánh đang hoạt động (id, tên, địa chỉ, `transferEnabled` — có nhận chuyển khoản trước không; số tài khoản không bao giờ lộ ở đây) |
 | GET | `/public/courts` | Public | Danh mục sân + bảng giá + khung giờ cao điểm |
 | GET | `/public/availability` | Public | Kiểm tra một khung giờ còn trống không |
 | GET | `/public/products` | Public | Catalog bán lẻ đang mở bán (`isActive`, `productType = 'retail'`) |
@@ -595,14 +649,19 @@ Hai đường khác hẳn nhau kể từ migration `20260818100001-online-order-
 không có invoice, khách trả tiền mặt khi tới quầy, nhân viên chốt bằng
 `POST /sales-orders/:id/checkout` như trước giờ.
 
-**`paymentMethod: 'transfer'`** — thanh toán online thật, không cần nhân viên:
+**`paymentMethod: 'transfer'`** — thanh toán online thật, không cần nhân viên.
+Chỉ nhận khi đã cấu hình chuyển khoản (§9); chưa có thì `POST /my-orders` trả 400
+và trang đặt hàng ẩn lựa chọn này.
 1. `placeOrder` tạo luôn `Invoice(status='issued')` + `Payment(status='pending',
    method='transfer', employeeId=null)` trong cùng transaction với đơn, và đặt
    `sales_orders.payment_deadline_at` = lúc đặt + 30 phút.
-2. Response kèm `qrCodeUrl` (ảnh VietQR, `addInfo` gắn `DH{orderId}` để quầy
-   dò tay khi cần đối chiếu sao kê) — cũng có sẵn ở `GET /my-orders` và
-   `GET /my-orders/:id` (null nếu không còn gì để trả: cash, đã `paid`, hoặc
-   đã `cancelled`).
+2. Response kèm `qrCodeUrl` (ảnh VietQR, `addInfo` = `HOA DON <invoiceNo>` — cùng
+   quy ước với POS để webhook khớp được hoá đơn) — cũng có sẵn ở `GET /my-orders`
+   và `GET /my-orders/:id`. `qrCodeUrl` là null khi không còn gì để trả hoặc không
+   nên trả nữa: cash, đã `paid`, đã `cancelled`, đã quá hạn 30 phút (dù tác vụ quét
+   chưa kịp huỷ), hoặc chuyển khoản đã bị tắt.
+   Đơn chuyển khoản đang chờ (`open` + `payment_deadline_at`) **giữ một lượt dùng
+   mã giảm giá** (`VoucherService.countUsage`): huỷ hoặc hết hạn thì nhả lượt.
 3. `POST /payments/webhook` (đã sửa để nhận diện `invoice.salesOrderId`, trước
    đây chỉ xử lý invoice của phiên sân) xác nhận thanh toán → `Payment` và
    `Invoice` chuyển `paid`, `SalesOrder.status` tự chuyển `paid`,
@@ -615,12 +674,11 @@ không có invoice, khách trả tiền mặt khi tới quầy, nhân viên ch�
 5. Khách vẫn huỷ tay được trong lúc đang chờ chuyển khoản; ngược lại, đơn đã
    `paid` hoặc `cancelled` thì không huỷ được nữa (đã có sẵn từ trước).
 
-**Rủi ro đã biết, chưa xử lý ở giai đoạn này**: nếu đơn bị tự huỷ (hết hạn hoặc
-khách tự huỷ) đúng lúc webhook báo tiền đã về, hệ thống vẫn đánh dấu
-`Payment`/`Invoice` là `paid` (tiền là sự thật) nhưng **không** hồi `SalesOrder`
-về `paid` (hàng đã trả về kệ, có thể đã bán cho người khác) — trường hợp này
-cần quầy tự đối chiếu và hoàn tiền thủ công, hệ thống chưa có cảnh báo tự động
-cho ca này.
+**Tiền về sau khi đơn đã huỷ** (hết hạn hoặc khách tự huỷ): huỷ đơn đã chuyển
+`Payment` sang `cancelled`, nên webhook tới sau trả 409 và ghi nhật ký
+`payment.webhook_rejected` (lý do `payment_not_pending`, kèm số tiền và mã giao
+dịch). Hàng đã trả về kệ nên hệ thống không hồi đơn — quầy đọc nhật ký hoạt động
+để hoàn tiền thủ công. Chưa có màn hình/cảnh báo riêng cho ca này.
 
 ---
 

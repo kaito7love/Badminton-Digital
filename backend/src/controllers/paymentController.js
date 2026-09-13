@@ -7,8 +7,11 @@ const checkout = async (req, res, next) => {
     const result = await PaymentService.checkout({
       sessionId: req.body.sessionId,
       paymentMethod: req.body.paymentMethod || 'cash',
-      discountAmount: req.body.discountAmount || 0,
-      isDiscountPercent: req.body.isDiscountPercent || false,
+      discountAmount: Number(req.body.discountAmount) || 0,
+      // Đã qua `.toBoolean(true)` ở paymentValidation — so đúng `true`, không dùng truthy.
+      isDiscountPercent: req.body.isDiscountPercent === true,
+      discountReason: req.body.discountReason || null,
+      endTime: req.body.endTime || null,
       employeeId: req.user?.employee?.id,
       branchId: req.branchId,
       actor: req.user,
@@ -60,16 +63,15 @@ const exportPdf = async (req, res, next) => {
   }
 };
 
+// Secret đã được kiểm ở middleware/paymentWebhookAuth trước khi tới đây.
 const processWebhook = async (req, res, next) => {
   try {
-    if (process.env.PAYMENT_WEBHOOK_SECRET && req.get('X-Webhook-Secret') !== process.env.PAYMENT_WEBHOOK_SECRET) {
-      return res.status(401).json({ success: false, data: null, message: 'Webhook không hợp lệ', errors: null });
-    }
     const payment = await PaymentService.processWebhook({
       provider: req.body.provider,
       providerReference: req.body.providerReference,
       status: req.body.status,
       invoiceNo: req.body.invoiceNo,
+      amount: req.body.amount,
       payload: req.body,
       requestId: req.requestId
     });

@@ -44,6 +44,17 @@ npx newman run postman/badminton_api_collection.json \
 
 Request bị bỏ qua sẽ in `SKIP (...)` ra console kèm lý do, không tính là lỗi.
 
+`POST /payments/webhook` còn cần biến `webhookSecret` trùng `PAYMENT_WEBHOOK_SECRET` của backend
+đang chạy. Environment để trống biến này — truyền lúc chạy, đừng ghi secret vào file:
+
+```bash
+npx newman run postman/badminton_api_collection.json \
+  -e postman/badminton_local.postman_environment.json \
+  --env-var runDestructive=true --env-var webhookSecret="$PAYMENT_WEBHOOK_SECRET"
+```
+
+Không truyền thì request webhook tự `SKIP`; backend chưa cấu hình secret thì webhook luôn trả 503.
+
 > ⚠️ `runDestructive=true` sẽ **thay đổi dữ liệu thật** và không tự hoàn tác: nó đóng phiên chơi,
 > huỷ hoá đơn, sửa cấu hình cửa hàng và xoá bản ghi có sẵn. Chỉ bật trên CSDL dùng một lần.
 
@@ -131,7 +142,8 @@ sinh ra số quá ngắn và bị trả về 400.
 3. **`POST /sales-orders/:id/lines` trả về cả đơn hàng**, không phải dòng vừa thêm — id dòng nằm ở
    `data.lines[...]`, còn `data.id` là id đơn.
 4. **`invoiceNo` có dạng `BD-<chi nhánh>-<8 chữ số>`** (vd `BD-1-00000009`), không phải `INV-…`.
-   Gửi số bịa vào webhook sẽ ra 404 *"Không tìm thấy hóa đơn"*.
+   Gửi số bịa vào webhook sẽ ra 404 *"Không tìm thấy hóa đơn"*. Webhook cũng bắt buộc `amount` khớp
+   số tiền giao dịch: phiên vừa mở rồi checkout ngay ra hoá đơn 0đ, không dùng để thử webhook được.
 
 ## Nhóm request
 

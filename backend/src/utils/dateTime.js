@@ -11,18 +11,28 @@ const DEFAULT_TIMEZONE = 'Asia/Ho_Chi_Minh';
 
 const pad = (n) => String(n).padStart(2, '0');
 
+// Dựng Intl.DateTimeFormat tốn hơn nhiều so với format, và mỗi lần tính tiền
+// sân gọi hàm dưới đây vài chục lần — giữ lại một bộ format cho mỗi múi giờ.
+const formatters = new Map();
+const formatterFor = (timezone) => {
+  if (!formatters.has(timezone)) {
+    formatters.set(timezone, new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }));
+  }
+  return formatters.get(timezone);
+};
+
 /** Lấy các thành phần ngày/giờ của `date` theo múi giờ chỉ định. */
 const getZonedParts = (date, timezone) => {
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
+  const dtf = formatterFor(timezone);
   const parts = dtf.formatToParts(date).reduce((acc, p) => {
     if (p.type !== 'literal') acc[p.type] = p.value;
     return acc;
@@ -115,6 +125,8 @@ const hasDst = (timezone = DEFAULT_TIMEZONE) => {
 };
 
 module.exports = {
+  getZonedParts,
+  zonedTimeToUtc,
   localDateString,
   localTimeString,
   startOfLocalDay,

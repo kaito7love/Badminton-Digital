@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { productCategoryService, productService, salesOrderService } from '../../services/apiServices';
+import { productCategoryService, productService, publicService, salesOrderService } from '../../services/apiServices';
+import { useAuth } from '../../contexts/AuthContext';
+import { useBranch } from '../../contexts/BranchContext';
+import { roleOf } from '../../utils/roles';
 
 const formatMoney = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0)) + 'đ';
 
+const errorMessageOf = (err, fallback) =>
+  err.response?.data?.errors?.[0]?.message || err.response?.data?.message || fallback;
+
 export default function PosTab() {
+  const { user } = useAuth();
+  const { selectedBranchId } = useBranch() || {};
+  const isEmployee = roleOf(user) === 'employee';
+
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [filterCategoryId, setFilterCategoryId] = useState('all');
@@ -12,8 +22,13 @@ export default function PosTab() {
   const [order, setOrder] = useState(null);
   const [busyVariantId, setBusyVariantId] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  // Chuyển khoản chỉ bật khi backend đã cấu hình tài khoản nhận tiền + webhook.
+  // Chưa biết thì coi như tắt — không bao giờ để thu ngân phát một mã QR hỏng.
+  const [transferEnabled, setTransferEnabled] = useState(false);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [discountReason, setDiscountReason] = useState('');
   const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState(null);
   const [checkoutResult, setCheckoutResult] = useState(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
 
@@ -38,6 +53,21 @@ export default function PosTab() {
     };
     init();
   }, []);
+
+  useEffect(() => {
+    const branchId = Number(selectedBranchId || user?.employee?.branchId);
+    publicService.getBranches()
+      .then((res) => {
+        const branches = res.data?.data || [];
+        const current = branches.find((b) => b.id === branchId) || branches[0];
+        setTransferEnabled(Boolean(current?.transferEnabled));
+      })
+      .catch(() => setTransferEnabled(false));
+  }, [selectedBranchId, user?.employee?.branchId]);
+
+  useEffect(() => {
+    if (!transferEnabled && paymentMethod === 'transfer') setPaymentMethod('cash');
+  }, [transferEnabled, paymentMethod]);
 
   const ensureOrder = async () => {
     if (order) return order;
@@ -86,6 +116,7 @@ export default function PosTab() {
 
   const cartTotal = (order?.lines || []).reduce((sum, l) => sum + Number(l.lineTotal), 0);
   const voucherDiscount = Number(order?.voucherDiscountAmount) || 0;
+  const hasManualDiscount = Number(discountAmount) > 0;
   const grandTotal = Math.max(0, cartTotal - (Number(discountAmount) || 0) - voucherDiscount);
 
   const applyVoucher = async () => {
@@ -98,7 +129,7 @@ export default function PosTab() {
       const res = await salesOrderService.applyVoucher(currentOrder.id, code);
       setOrder(res.data.data);
     } catch (err) {
-      setVoucherError(err.response?.data?.errors?.[0]?.message || err.response?.data?.message || 'Mã giảm giá không hợp lệ');
+      setVoucherError(errorMessageOf(err, 'Mã giảm giá không hợp lệ'));
     } finally {
       setVoucherBusy(false);
     }
@@ -121,20 +152,28 @@ export default function PosTab() {
 
   const handleCheckout = async () => {
     if (!order || !order.lines.length) return;
+    if (hasManualDiscount && !discountReason.trim()) {
+      setCheckoutError('Nhập lý do giảm giá trước khi thanh toán.');
+      return;
+    }
     setCheckingOut(true);
+    setCheckoutError(null);
     try {
       const res = await salesOrderService.checkout(order.id, {
         paymentMethod,
         discountAmount: Number(discountAmount) || 0,
+        discountReason: hasManualDiscount ? discountReason.trim() : undefined,
       });
       setCheckoutResult(res.data.data);
       setOrder(null);
       setDiscountAmount(0);
+      setDiscountReason('');
       setPaymentMethod('cash');
       setVoucherInput('');
       setVoucherError(null);
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi thanh toán');
+      // Nguyên văn thông báo của server — với nhân viên giảm vượt trần, câu đó nói rõ mức trần.
+      setCheckoutError(errorMessageOf(err, 'Lỗi thanh toán'));
     } finally {
       setCheckingOut(false);
     }
@@ -263,17 +302,29 @@ export default function PosTab() {
             )}
             {voucherError && <p className="mt-1 text-xs font-semibold text-rose-600 dark:text-rose-400">{voucherError}</p>}
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Giảm giá thêm (đ)</label>
-            <input type="number" min={0} value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)}
+          <div className="space-y-2">
+            <label htmlFor="pos-discount" className="block text-xs font-medium text-slate-500 dark:text-slate-400">Giảm giá thêm (đ)</label>
+            <input id="pos-discount" type="number" min={0} value={discountAmount}
+              onChange={(e) => { setDiscountAmount(e.target.value); setCheckoutError(null); }}
               className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none" />
+            {hasManualDiscount && (
+              <input aria-label="Lý do giảm giá" value={discountReason} maxLength={200}
+                onChange={(e) => { setDiscountReason(e.target.value); setCheckoutError(null); }}
+                placeholder="Lý do giảm giá (bắt buộc)"
+                className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none" />
+            )}
+            {isEmployee && hasManualDiscount && (
+              <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                Nhân viên chỉ được giảm tay trong mức quản lý cho phép. Vượt mức thì nhờ quản lý chi nhánh thanh toán giúp.
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Phương thức thanh toán</label>
             <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
               <option value="cash">Tiền mặt</option>
-              <option value="transfer">Chuyển khoản</option>
+              {transferEnabled && <option value="transfer">Chuyển khoản</option>}
             </select>
           </div>
 
@@ -281,6 +332,10 @@ export default function PosTab() {
             <span className="text-slate-500 dark:text-slate-400">Tổng cộng</span>
             <span className="text-xl font-bold text-slate-900 dark:text-slate-100">{formatMoney(grandTotal)}</span>
           </div>
+
+          {checkoutError && (
+            <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300">{checkoutError}</p>
+          )}
 
           <button
             onClick={handleCheckout}
