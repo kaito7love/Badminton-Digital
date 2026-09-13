@@ -26,9 +26,9 @@
 ```
 
 Khách hàng cũng có thể **tự đăng ký** tài khoản mới (không cần nhân viên lập
-hộ) bằng SĐT hoặc email — nếu SĐT trùng với một hồ sơ khách vãng lai đã có
-sẵn (ví dụ đã từng chơi tại quầy), tài khoản mới được gắn vào đúng hồ sơ đó
-thay vì tạo hồ sơ trùng, giữ liền lịch sử chi tiêu cũ. Chi tiết đầy đủ (chuẩn
+hộ) bằng SĐT hoặc email. Tài khoản luôn nhận hồ sơ riêng: nếu SĐT trùng với một
+hồ sơ đã chơi tại quầy, lịch sử cũ chỉ được nối vào tài khoản sau khi nhân viên
+xác minh khách tại quầy và bấm "Gộp vào tài khoản". Chi tiết đầy đủ (chuẩn
 hoá SĐT, thông báo lỗi, refresh token, luồng tự đăng ký) xem `flows/WF-01-Login.md`.
 
 Use Cases: UC-01 (Đăng nhập), UC-03 (Quên mật khẩu), UC-04 (Đổi mật khẩu)

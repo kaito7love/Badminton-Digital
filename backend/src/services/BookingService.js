@@ -99,14 +99,30 @@ class BookingService {
     return getPagingData(data, page, limit);
   }
 
+  /**
+   * Các trường được đổi khi sửa lịch — cùng danh sách với EDITABLE_BOOKING_FIELDS
+   * ở bookingValidation.js. Validator đã trả 400 cho trường khác; lọc lại ở đây
+   * để service vẫn an toàn khi có nơi gọi thẳng không qua route.
+   */
+  static pickEditableFields(data = {}) {
+    const editable = ["courtId", "bookingDate", "startTime", "endTime"];
+    return editable.reduce((payload, key) => {
+      if (data[key] !== undefined) payload[key] = data[key];
+      return payload;
+    }, {});
+  }
+
   static async getBookingById(id, context = {}) {
-    const booking = await Booking.findByPk(id, {
-      include: [
-        { model: Court, as: "court" },
-        { model: Customer, as: "customer" },
-        { model: User, as: "creator", attributes: ["id", "email", "fullName"] },
-      ],
-    });
+    const include = [
+      { model: Court, as: "court" },
+      { model: Customer, as: "customer" },
+    ];
+    // Ai tạo lịch (họ tên, email nhân viên) là thông tin nội bộ — khách xem lịch
+    // của chính mình không cần tới.
+    if (context.actor?.role?.name !== "customer") {
+      include.push({ model: User, as: "creator", attributes: ["id", "email", "fullName"] });
+    }
+    const booking = await Booking.findByPk(id, { include });
     if (!booking) {
       const error = new Error("Booking not found");
       error.statusCode = 404;
@@ -193,6 +209,7 @@ class BookingService {
   }
 
   static async updateBooking(id, data, context) {
+    const changes = BookingService.pickEditableFields(data);
     const transaction = await sequelize.transaction({ isolationLevel: "SERIALIZABLE" });
     try {
       const booking = await Booking.findOne({
@@ -206,24 +223,15 @@ class BookingService {
         throw error;
       }
       BookingService.assertOwnership(booking, context.actor, context.branchId);
-      if (
-        context.actor?.role?.name === "customer" &&
-        data.customerId !== undefined &&
-        data.customerId !== booking.customerId
-      ) {
-        const error = new Error("Khách hàng không thể chuyển booking sang hồ sơ khác");
-        error.statusCode = 403;
-        throw error;
-      }
       if (!["pending", "confirmed"].includes(booking.status)) {
         const error = new Error("Booking ở trạng thái hiện tại không thể chỉnh sửa");
         error.statusCode = 400;
         throw error;
       }
-      const courtId = data.courtId || booking.courtId;
-      const bookingDate = data.bookingDate || booking.bookingDate;
-      const startTime = data.startTime || booking.startTime;
-      const endTime = data.endTime || booking.endTime;
+      const courtId = changes.courtId || booking.courtId;
+      const bookingDate = changes.bookingDate || booking.bookingDate;
+      const startTime = changes.startTime || booking.startTime;
+      const endTime = changes.endTime || booking.endTime;
       if (toMinutes(startTime) >= toMinutes(endTime)) {
         const error = new Error("Giờ kết thúc phải sau giờ bắt đầu");
         error.statusCode = 400;
@@ -259,7 +267,7 @@ class BookingService {
         throw error;
       }
       const oldValues = booking.toJSON();
-      const updated = await booking.update(data, { transaction });
+      const updated = await booking.update(changes, { transaction });
       await AuditService.record({
         actor: context.actor,
         branchId: booking.branchId,

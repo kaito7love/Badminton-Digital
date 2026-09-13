@@ -8,7 +8,7 @@ const { createCategoryRules, updateCategoryRules } = require('../validations/pro
 
 router.use(authMiddleware, branchContextMiddleware);
 
-router.get('/', productController.getCategories);
+router.get('/', roleMiddleware(['admin', 'branch_manager', 'employee']), productController.getCategories);
 router.post('/', roleMiddleware(['admin', 'branch_manager']), createCategoryRules, productController.createCategory);
 router.put('/:id', roleMiddleware(['admin', 'branch_manager']), updateCategoryRules, productController.updateCategory);
 router.delete('/:id', roleMiddleware(['admin', 'branch_manager']), productController.deleteCategory);

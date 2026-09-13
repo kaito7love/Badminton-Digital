@@ -80,10 +80,11 @@ Nhân viên
     └─→ Hiển thị xác nhận đặt sân thành công
 ```
 
-`POST`/`PUT`/`DELETE /api/v1/bookings` chấp nhận cả `customer` tự đặt cho
-chính mình (`roleMiddleware(['admin', 'branch_manager', 'employee', 'customer'])`
-trong `bookingRoutes.js`) — khách không thể gán `customerId` khác hồ sơ của
-mình (403 "Khách hàng không thể chuyển booking sang hồ sơ khác" nếu cố).
+`POST`/`DELETE /api/v1/bookings` chấp nhận cả `customer` tự đặt/hủy cho chính
+mình (`roleMiddleware(['admin', 'branch_manager', 'employee', 'customer'])` trong
+`bookingRoutes.js`); booking khách tự đặt luôn gắn hồ sơ của chính khách.
+`PUT /api/v1/bookings/:id` (đổi lịch) chỉ mở cho nhân viên — khách muốn đổi thì
+hủy rồi đặt lại, đúng như trang "Lịch của tôi".
 
 ---
 
@@ -132,9 +133,12 @@ xác nhận booking của chính mình.
 ```
 Nhân viên/branch_manager/Admin, hoặc Khách hàng (chỉ booking của chính mình)
     │
-    ├─→ [A. Sửa booking]
+    ├─→ [A. Sửa booking — chỉ nhân viên/branch_manager/Admin; khách → 403]
     │         ├─→ [PUT /api/v1/bookings/:id]
-    │         ├─→ Gửi ngày/giờ mới
+    │         ├─→ Chỉ gửi sân/ngày/giờ mới (courtId, bookingDate, startTime,
+    │         │     endTime); trường khác (status, branchId, createdBy,
+    │         │     customerId, customerName...) → 400 "Không sửa được các
+    │         │     trường: ..."; đổi khách thì hủy lịch và tạo lịch mới
     │         ├─→ Chỉ sửa được khi status ∈ {pending, confirmed}; khác thì
     │         │     400 "Booking ở trạng thái hiện tại không thể chỉnh sửa"
     │         ├─→ Hệ thống re-check UC-11 (exclude chính booking đó)

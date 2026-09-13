@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-09-13 (mục 13 đã merge; mục 14 — nhóm sửa 2, luồng tiền — đã code + test, chờ duyệt). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-09-13 (mục 13 đã merge; mục 14 — nhóm sửa 2, luồng tiền — và mục 15 — nhóm sửa 3, lộ dữ liệu — đã code + test trên nhánh riêng, chờ duyệt merge). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -543,7 +543,7 @@ Merge vào `main` bằng `--no-ff`, không conflict (`main` không đổi kể t
 
 ---
 
-## Đã code + test, CHƯA commit/merge — chờ duyệt
+## Đã code + test trên nhánh riêng, CHƯA merge vào `main` — chờ duyệt
 
 ### 14. `fix/payment-money-flows` (code + test ngày 13/09/2026)
 Nguồn: nhóm sửa 2/6 của đợt kiểm tra trước deploy (`PAY-01`, `PAY-02`, `PAY-03`, `PAY-04`, `PAY-06`,
@@ -601,6 +601,33 @@ của plan.
   Postman chạy trước **mọi** request của thư mục, nên sau bước webhook nó mở thêm một phiên chơi không ai
   đóng (có từ trước nhánh này) — chỉ để lại một phiên treo trên DB dùng một lần.
 
+### 15. `fix/customer-data-exposure` (code + test ngày 13/09/2026)
+Nguồn: nhóm sửa 3/6 của đợt kiểm tra trước deploy 12/09/2026 (`SEC-03`, `SEC-04`, `SEC-05`, `SEC-10`, kèm
+`SEC-11` và phần dành cho khách của `SEC-14`). Plan và kết quả đầy đủ: `15-ke-hoach-chan-lo-du-lieu-khach.md`.
+Nhánh tách từ `main` @ `8b45c89`, nên chưa gồm nhóm 2 (mục 14).
+
+- **Tài khoản khách không đọc được dữ liệu vận hành:**
+  - `GET /courts`, `/courts/:id`, `/accessories`, `/accessories/:id`, `/products`, `/products/:id`,
+    `/product-categories` chỉ cho nhân viên.
+  - `branchContextMiddleware`: khách gửi `X-Branch-Id` → 403; `branch_manager`/`employee` thiếu dòng Employee → 403.
+  - Khách xem chi tiết lịch không còn nhận `creator`.
+- **Sửa lịch đặt:** chỉ nhân viên; body chỉ nhận sân/ngày/giờ, trường khác → 400 nêu tên trường. Form sửa lịch
+  khoá ô khách hàng.
+- **Đăng ký không tự nhận hồ sơ tại quầy trùng số:**
+  - Tài khoản luôn có hồ sơ riêng (để trống SĐT nếu số đã thuộc hồ sơ khác); response giống nhau trong mọi trường hợp.
+  - Nhân viên gộp tại quầy qua route mới `POST /customers/:id/merge-into-account`: nhãn + nút trên màn Khách hàng,
+    nhật ký `customer.merged`. Tổng 113 route.
+- **Bằng chứng test thật:**
+  - Code `main` trên bản sao DB dev: tái hiện đủ 6 lỗi (R1–R6), 10/10.
+  - Code nhánh:
+    - API 20/20 (lần đầu 19/20 do script so JSON sai thứ tự khoá; đánh giá lại đạt, đã sửa script);
+    - trình duyệt 4/4 kịch bản;
+    - newman 118 request / 331 assertion / 0 lỗi;
+    - smoke chỉ đọc trên DB dev 4/4, không thêm dòng nào.
+  - Jest 208/208, Vitest 49/49, build, `docs:build` 113 route.
+- **Còn hở đã biết:** kẻ gian đăng ký trước bằng một số chưa từng ra quầy — cần xác minh bằng OTP SMS.
+- Không có migration.
+
 ---
 
 ## Chưa làm — xem plan riêng từng phần
@@ -609,7 +636,7 @@ của plan.
 |---|---|---|
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
 | 1 việc còn lại cần quyết định chính sách kinh doanh trước: onboarding `branch_manager` (mục 3 "hoàn tiền/void" đã xong ở mục 10; discount guardrail và tài khoản ngân hàng đã chốt, làm ở mục 14) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
-| Nhóm sửa 3–6 của đợt kiểm tra trước deploy 12/09/2026, theo thứ tự: lộ dữ liệu → Docker → lỗi vận hành tại quầy → backup/log (nhóm 2 "luồng tiền" xem mục 14) | Chưa có — mỗi nhóm một plan riêng | Bắt buộc trước khi deploy |
+| Nhóm sửa 4–6 của đợt kiểm tra trước deploy 12/09/2026, theo thứ tự: Docker → lỗi vận hành tại quầy → backup/log (nhóm 2 "luồng tiền" xem mục 14, nhóm 3 "lộ dữ liệu" xem mục 15) | Chưa có — mỗi nhóm một plan riêng | Bắt buộc trước khi deploy |
 | "Luồng tiền 2": quản lý xác nhận tay chuyển khoản / POS chuyển khoản bị đánh dấu `paid` ngay (`PAY-08`), báo cáo doanh thu cộng hoá đơn huỷ (`PAY-05`), void không đổi trạng thái đơn và không trả lượt voucher (`PAY-10`, `PAY-11`), sửa đơn sau khi phát QR (`PAY-12`), phần còn lại của `PAY-13`/`PAY-16`/`PAY-19`, giỏ POS hiện tổng khác số thực thu (`PAY-17`). Hai quầy giành lượt voucher cuối và deadlock checkout (`PAY-07`, `PAY-14`, `PAY-15`) để chung nhóm 6 | `14-ke-hoach-luong-tien.md` mục 5 | Sau nhóm 4 |
 
 ## Lỗi phát hiện qua kiểm thử hồi quy 21/08/2026 — đã ghi nhận, CHƯA sửa

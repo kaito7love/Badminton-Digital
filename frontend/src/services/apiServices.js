@@ -163,6 +163,8 @@ export const customerService = {
   updateCustomer: (id, data) => apiClient.put(`/customers/${id}`, data),
   deleteCustomer: (id) => apiClient.delete(`/customers/${id}`),
   getHistory: (id) => apiClient.get(`/customers/${id}/history`),
+  mergeIntoAccount: (id, accountCustomerId) =>
+    apiClient.post(`/customers/${id}/merge-into-account`, { accountCustomerId }),
 };
 
 // ─── Employees ───────────────────────────────────────────────────

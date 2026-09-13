@@ -155,7 +155,8 @@ function build() {
         name: 'X-Branch-Id', in: 'header', required: false,
         schema: { type: 'integer' },
         description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; '
-          + '`employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản.'
+          + '`employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. '
+          + 'Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
       });
     }
 

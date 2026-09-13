@@ -17,7 +17,8 @@ router.get('/availability', checkAvailabilityRules, bookingController.checkAvail
 router.get('/:id', bookingController.getBookingById);
 
 router.post('/', roleMiddleware(['admin', 'branch_manager', 'employee', 'customer']), createBookingRules, bookingController.createBooking);
-router.put('/:id', roleMiddleware(['admin', 'branch_manager', 'employee', 'customer']), updateBookingRules, bookingController.updateBooking);
+// Khách không tự sửa lịch: muốn đổi thì huỷ rồi đặt lại, như trang "Lịch của tôi".
+router.put('/:id', roleMiddleware(['admin', 'branch_manager', 'employee']), updateBookingRules, bookingController.updateBooking);
 router.delete('/:id', roleMiddleware(['admin', 'branch_manager', 'employee', 'customer']), bookingController.cancelBooking);
 router.put('/:id/confirm', roleMiddleware(['admin', 'branch_manager', 'employee']), bookingController.confirmBooking);
 

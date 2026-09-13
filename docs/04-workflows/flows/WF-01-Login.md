@@ -83,13 +83,14 @@ Khách hàng (chưa có tài khoản)
     │         ├─→ Chuẩn hoá SĐT, kiểm tra chưa có tài khoản nào dùng số này
     │         ├─→ Tạo User (role: customer, email có thể NULL)
     │         │
-    │         ├─→ Tìm Customer cùng (branch, SĐT) mà chưa gắn tài khoản:
-    │         │     ├─→ CÓ  → gắn userId vào hồ sơ đó  ⇒ mergedHistory: true
-    │         │     │        (khách từng ra chơi tại quầy giữ nguyên lịch sử
-    │         │     │         chơi và mức chi tiêu tích luỹ)
-    │         │     └─→ KHÔNG → tạo hồ sơ Customer mới
+    │         ├─→ LUÔN tạo hồ sơ Customer mới gắn userId — KHÔNG tự gắn hồ sơ
+    │         │     tại quầy trùng SĐT (chưa xác minh được người đăng ký là chủ số):
+    │         │     ├─→ SĐT đã thuộc một hồ sơ khác → hồ sơ mới để trống phone
+    │         │     │        (unique); khách tự xem hồ sơ thì thấy SĐT của tài khoản
+    │         │     └─→ SĐT chưa ai giữ → hồ sơ mới mang luôn SĐT đó
     │         │
-    │         └─→ Trả về token luôn — đăng ký xong là đã đăng nhập
+    │         └─→ Trả về token luôn — đăng ký xong là đã đăng nhập; response
+    │               giống hệt nhau ở cả hai nhánh (không lộ "số này từng ra quầy")
     │
     └─→ Về /my-bookings
 ```
@@ -97,13 +98,21 @@ Khách hàng (chưa có tài khoản)
 **Chỉ mở cho vai trò khách hàng.** Tài khoản nhân viên vẫn phải do admin tạo
 qua `/employees` — không có đường nào tự nâng quyền ở endpoint này.
 
-Hai đường tạo tài khoản khách, kết quả như nhau:
+Các đường tạo tài khoản/hồ sơ khách:
 
 | Đường | Ai làm | Kết quả |
 |---|---|---|
-| `POST /auth/register` | Khách tự làm trên web | Gắn vào hồ sơ cũ nếu trùng SĐT |
+| `POST /auth/register` | Khách tự làm trên web | Luôn tạo hồ sơ mới; lịch sử tại quầy trùng SĐT chờ nhân viên gộp |
 | `POST /customers` kèm `password` | Nhân viên nhập tại quầy | Tạo hồ sơ + tài khoản cùng lúc |
-| `POST /customers` không `password` | Nhân viên nhập tại quầy | Chỉ hồ sơ; khách tự đăng ký sau sẽ nhận lại đúng hồ sơ này |
+| `POST /customers` không `password` | Nhân viên nhập tại quầy | Chỉ hồ sơ; khách tự đăng ký sau bằng SĐT này thì nhân viên gộp tại quầy |
+
+**Gộp lịch sử tại quầy.** Khách đã chơi tại quầy trước khi đăng ký online thì hồ sơ cũ
+vẫn giữ nguyên lịch sử. Màn Khách hàng gắn nhãn "Có tài khoản online chưa gộp" lên hồ sơ
+đó; nhân viên xác minh người trước mặt vừa là chủ số vừa là chủ tài khoản rồi bấm "Gộp
+vào tài khoản" (`POST /api/v1/customers/:id/merge-into-account`, chi tiết ở
+`WF-05-CustomerManagement.md` mục F). Trang Tài khoản của khách chưa có buổi chơi nào
+nhắc: "Từng chơi tại quầy trước khi có tài khoản? Nhờ nhân viên gộp lịch sử vào tài
+khoản của bạn."
 
 ---
 

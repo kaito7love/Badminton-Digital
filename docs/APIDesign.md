@@ -2,7 +2,7 @@
 
 ## Phase 1 production-safety additions
 
-- Branch-scoped APIs support `X-Branch-Id`. `employee`/`branch_manager` are locked to their own branch (a different value is rejected with 403); `admin` has no home branch and may send `X-Branch-Id` for any active branch to view/operate on it (see `GET /branches`). If omitted, the branch assigned to the logged-in employee is used.
+- Branch-scoped APIs support `X-Branch-Id`. `employee`/`branch_manager` are locked to their own branch (a different value is rejected with 403); `admin` has no home branch and may send `X-Branch-Id` for any active branch to view/operate on it (see `GET /branches`). If omitted, the branch assigned to the logged-in employee is used. Only staff accounts may send the header: a `customer` token with `X-Branch-Id` gets 403, and a `branch_manager`/`employee` account without an employee row (no branch) gets 403 on every branch-scoped route.
 - `POST /payments/checkout` supports the `Idempotency-Key` header. Reuse the key when retrying a request.
 - `POST /payments/webhook` accepts `provider`, `providerReference`, `invoiceNo`, `amount` (integer VND, must match the payment), and `status: "paid"`. It is fail-closed: without a `PAYMENT_WEBHOOK_SECRET` of 32+ chars it answers 503, and a missing/wrong `X-Webhook-Secret` header is 401 (see §9.1).
 - Bank transfer (`paymentMethod: "transfer"`) is only accepted when `PAYMENT_BANK_ID`, `PAYMENT_BANK_ACCOUNT_NO`, `PAYMENT_BANK_ACCOUNT_NAME` and `PAYMENT_WEBHOOK_SECRET` are all set; otherwise checkout, POS and online orders return 400 and `GET /public/branches` reports `transferEnabled: false`.
@@ -136,25 +136,30 @@ trường hợp để tránh lộ số nào đã có tài khoản.
 { "fullName": "Nguyễn Văn A", "phone": "0901234567", "email": "a@example.com", "password": "••••••" }
 // email là optional
 
-// Response 201 — mergedHistory=true nếu số điện thoại này đã có hồ sơ khách vãng
-// lai (đặt sân tại quầy) ở bất kỳ chi nhánh nào; hồ sơ đó được gắn vào tài khoản
-// mới thay vì tạo hồ sơ trùng, giữ lại lịch sử chơi cũ
+// Response 201 — giống hệt nhau dù số điện thoại đã có hồ sơ tại quầy hay chưa
 {
   "success": true,
   "data": {
     "user": { "id": 42, "email": "a@example.com", "fullName": "Nguyễn Văn A", "phone": "0901234567", "avatarUrl": null, "role": "customer" },
     "customerId": 17,
-    "mergedHistory": true,
     "accessToken": "eyJhbGciOi...",
     "refreshToken": "eyJhbGciOi..."
   },
-  "message": "Tạo tài khoản thành công. Lịch sử chơi trước đây của bạn đã được gắn vào tài khoản này.",
+  "message": "Tạo tài khoản thành công.",
   "errors": null
 }
 ```
 SĐT đã có tài khoản → 409 `"Số điện thoại này đã có tài khoản. Bạn hãy đăng
 nhập hoặc dùng chức năng quên mật khẩu."`; email đã dùng cho tài khoản khác →
 409 `"Email này đã được dùng cho tài khoản khác."`
+
+Đăng ký **không** tự gắn hồ sơ khách tại quầy trùng số điện thoại — hệ thống chưa
+xác minh được người đăng ký là chủ số. Tài khoản luôn nhận một hồ sơ mới
+(`customerId`); nếu số đã thuộc một hồ sơ khác thì hồ sơ mới để trống `phone`
+(`customers.phone` là unique), và khi khách tự xem hồ sơ của mình (`/auth/me`,
+`/customers/:id`, `/customers/:id/history`) API trả số của tài khoản vào chỗ trống.
+Nhân viên xác minh khách tại quầy rồi gộp lịch sử bằng
+`POST /customers/:id/merge-into-account` (§6).
 
 ---
 
@@ -187,8 +192,8 @@ không cần chọn chi nhánh vì đã bị khoá cố định vào chi nhánh 
 
 | Method | Endpoint | Role | Mô tả |
 |---|---|---|---|
-| GET | `/courts` | Authenticated | Danh sách sân (kèm trạng thái) — chi nhánh xác định bởi `X-Branch-Id` |
-| GET | `/courts/:id` | Authenticated | Chi tiết một sân |
+| GET | `/courts` | Admin, BranchManager, Employee | Danh sách sân (kèm trạng thái và phiên đang chơi — họ tên, SĐT khách) — chi nhánh xác định bởi `X-Branch-Id`. Trang khách dùng `/public/courts` |
+| GET | `/courts/:id` | Admin, BranchManager, Employee | Chi tiết một sân |
 | POST | `/courts` | Admin, BranchManager | Tạo sân mới |
 | PUT | `/courts/:id` | Admin, BranchManager | Cập nhật thông tin sân |
 | DELETE | `/courts/:id` | Admin, BranchManager | Xóa sân |
@@ -235,10 +240,10 @@ không cần chọn chi nhánh vì đã bị khoá cố định vào chi nhánh 
 
 | Method | Endpoint | Role | Mô tả |
 |---|---|---|---|
-| GET | `/bookings` | Authenticated | Danh sách booking (filter theo ngày/sân/trạng thái) |
-| GET | `/bookings/:id` | Authenticated | Chi tiết booking |
+| GET | `/bookings` | Authenticated (Customer chỉ thấy booking của mình) | Danh sách booking (filter theo ngày/sân/trạng thái) |
+| GET | `/bookings/:id` | Authenticated (Customer chỉ xem booking của mình, không kèm `creator`) | Chi tiết booking |
 | POST | `/bookings` | Admin, BranchManager, Employee, Customer | Tạo booking mới (UC-10) |
-| PUT | `/bookings/:id` | Admin, BranchManager, Employee, Customer (chỉ booking của mình) | Sửa booking |
+| PUT | `/bookings/:id` | Admin, BranchManager, Employee | Đổi sân/ngày/giờ — body chỉ nhận `courtId`, `bookingDate`, `startTime`, `endTime`; trường khác → 400 `"Không sửa được các trường: ..."`. Khách muốn đổi thì hủy rồi đặt lại |
 | DELETE | `/bookings/:id` | Admin, BranchManager, Employee, Customer (chỉ booking của mình) | Hủy booking |
 | PUT | `/bookings/:id/confirm` | Admin, BranchManager, Employee | Xác nhận booking (UC-13) |
 | GET | `/bookings/availability` | Authenticated | Kiểm tra khung giờ trống (UC-11) |
@@ -272,6 +277,35 @@ phải hồ sơ của chính mình → 403 "Bạn không có quyền truy cập 
 | PUT | `/customers/:id` | Admin, BranchManager, Employee | Cập nhật thông tin |
 | DELETE | `/customers/:id` | Admin | Xóa khách hàng |
 | GET | `/customers/:id/history` | Authenticated (Customer chỉ xem chính mình) | Lịch sử chơi & chi tiêu |
+| POST | `/customers/:id/merge-into-account` | Admin, BranchManager, Employee | Gộp hồ sơ tại quầy vào hồ sơ của tài khoản online cùng SĐT, sau khi xác minh khách tại quầy |
+
+`GET /customers` gắn `pendingAccount: { customerId, fullName, registeredAt }` vào hồ sơ
+tại quầy (chưa gắn tài khoản, có SĐT) khi số đó đã có tài khoản khách tự đăng ký mà hồ
+sơ của tài khoản chưa mang số; các hồ sơ khác có `pendingAccount: null`.
+
+**POST /customers/:id/merge-into-account** — `:id` là hồ sơ tại quầy
+```json
+// Request
+{ "accountCustomerId": 120 }
+
+// Response 200
+{
+  "success": true,
+  "data": {
+    "customer": { "id": 120, "userId": 58, "phone": "0925408224", "totalSpent": "5025000.00", "loyaltyTier": "gold", "...": "..." },
+    "mergedCustomerId": 34,
+    "moved": { "courtSessions": 3, "bookings": 2, "salesOrders": 1 }
+  },
+  "message": "Đã gộp hồ sơ vào tài khoản",
+  "errors": null
+}
+```
+Một transaction: chuyển `court_sessions`/`bookings`/`sales_orders` (kể cả dòng đã xoá
+mềm) sang hồ sơ tài khoản, cộng `totalSpent`, tính lại `loyaltyTier`, gỡ số khỏi hồ sơ
+cũ rồi gắn sang hồ sơ tài khoản, xoá mềm hồ sơ cũ, ghi nhật ký `customer.merged`.
+Điều kiện không khớp (hồ sơ tại quầy không có số, hồ sơ đích không thuộc tài khoản
+`customer`, hồ sơ tài khoản đã mang số, số đăng nhập khác số hồ sơ tại quầy) → 400;
+hồ sơ tại quầy đã gộp hoặc đã gắn tài khoản → 409; khách gọi → 403.
 
 ---
 
@@ -307,8 +341,8 @@ lượng tồn/giá vốn mới tách theo chi nhánh. Chi tiết đầy đủ �
 
 | Method | Endpoint | Role | Mô tả |
 |---|---|---|---|
-| GET | `/accessories` | Authenticated | Danh sách phụ kiện, kèm tồn kho + giá vốn bình quân **của chi nhánh hiện tại** (`X-Branch-Id`) |
-| GET | `/accessories/:id` | Authenticated | Chi tiết một phụ kiện |
+| GET | `/accessories` | Admin, BranchManager, Employee | Danh sách phụ kiện, kèm tồn kho + giá vốn bình quân **của chi nhánh hiện tại** (`X-Branch-Id`) |
+| GET | `/accessories/:id` | Admin, BranchManager, Employee | Chi tiết một phụ kiện |
 | POST | `/accessories` | Admin | Thêm phụ kiện mới (tồn kho khởi tạo = 0, xem §8.2 để nhập kho) |
 | PUT | `/accessories/:id` | Admin | Cập nhật tên/giá/ngưỡng cảnh báo (**không** còn sửa trực tiếp tồn kho ở đây) |
 | DELETE | `/accessories/:id` | Admin | Xóa phụ kiện |
@@ -691,6 +725,9 @@ dịch). Hàng đã trả về kệ nên hệ thống không hồi đơn — qu�
 | Đóng sân chưa mở | 400 | "Sân chưa có phiên chơi nào đang diễn ra" |
 | Không đủ tồn kho (gọi phụ kiện / nhập kho / điều chỉnh) | 400 | "Không đủ tồn kho tại chi nhánh này. Hiện có: {N}" |
 | Nhân viên gửi `X-Branch-Id` khác chi nhánh của mình | 403 | "Nhân viên không được phép thao tác tại chi nhánh này." |
+| Tài khoản khách gửi `X-Branch-Id` | 403 | "Chỉ tài khoản nhân viên được chọn chi nhánh." |
+| `branch_manager`/`employee` không có dòng Employee (chưa gán chi nhánh) | 403 | "Tài khoản nhân viên chưa được gán chi nhánh." |
+| `PUT /bookings/:id` gửi trường ngoài sân/ngày/giờ | 400 | "Không sửa được các trường: branchId, createdBy" |
 | Không đủ quyền (VD: Employee gọi API Admin) | 403 | "Bạn không có quyền thực hiện thao tác này" |
 | Token hết hạn | 401 | "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại" |
 

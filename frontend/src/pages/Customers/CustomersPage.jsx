@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Pagination } from '../../components/UIComponents';
 import { customerService } from '../../services/apiServices';
+import { formatDate } from '../../utils/datetime';
 
 const formatMoney = (n) => {
   if (n == null) return '₫0';
@@ -82,7 +83,7 @@ export default function CustomersPage() {
           phone: formData.phone,
           email: formData.email || null,
           // Bỏ trống thì chỉ lập hồ sơ; khách tự đăng ký sau bằng chính số này
-          // sẽ được gắn vào hồ sơ có sẵn nên lịch sử không bị chẻ đôi.
+          // thì nhân viên xác minh rồi bấm "Gộp vào tài khoản" để nối lịch sử.
           password: formData.password || undefined,
         });
       }
@@ -90,6 +91,27 @@ export default function CustomersPage() {
       fetchCustomers(search, page);
     } catch (err) {
       alert(err.response?.data?.message || 'Lỗi lưu thông tin khách hàng');
+    }
+  };
+
+  // Đăng ký online không tự nhận hồ sơ tại quầy cùng số — nhân viên phải xác
+  // minh người trước mặt rồi mới gộp (backend ghi nhật ký customer.merged).
+  const handleMerge = async (customer) => {
+    const account = customer.pendingAccount;
+    const confirmed = window.confirm(
+      `Gộp hồ sơ "${customer.fullName}" (${customer.phone}) vào tài khoản online "${account.fullName}" `
+      + `(đăng ký ngày ${formatDate(account.registeredAt)})?\n\n`
+      + 'Chỉ gộp khi đã xác minh người trước mặt vừa là chủ số điện thoại này vừa là chủ tài khoản '
+      + '(ví dụ khách mở app đang đăng nhập bằng số đó).\n\n'
+      + 'Lịch sử chơi, tổng chi tiêu, hạng và số điện thoại sẽ chuyển sang tài khoản. Không hoàn tác được.'
+    );
+    if (!confirmed) return;
+    try {
+      await customerService.mergeIntoAccount(customer.id, account.customerId);
+      alert(`Đã gộp hồ sơ vào tài khoản "${account.fullName}".`);
+      fetchCustomers(search, page);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Lỗi gộp hồ sơ');
     }
   };
 
@@ -161,7 +183,14 @@ export default function CustomersPage() {
                 const name = customer.fullName || customer.name || 'N/A';
                 return (
                   <tr key={customer.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/80">
-                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">{name}</td>
+                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
+                      {name}
+                      {customer.pendingAccount && (
+                        <span className="mt-1 block w-fit rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-700 dark:text-sky-300">
+                          Có tài khoản online chưa gộp
+                        </span>
+                      )}
+                    </td>
                     <td className="px-6 py-4">{customer.phone || 'N/A'}</td>
                     <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">{customer.email || '—'}</td>
                     <td className="px-6 py-4 font-mono font-semibold text-slate-700 dark:text-slate-200">{formatMoney(customer.totalSpent)}</td>
@@ -175,6 +204,14 @@ export default function CustomersPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right space-x-2">
+                      {customer.pendingAccount && (
+                        <button
+                          onClick={() => handleMerge(customer)}
+                          className="text-sky-600 dark:text-sky-400 hover:underline text-xs font-medium"
+                        >
+                          🔗 Gộp vào tài khoản
+                        </button>
+                      )}
                       <button
                         onClick={() => handleOpenEditModal(customer)}
                         className="text-emerald-600 dark:text-emerald-400 hover:underline text-xs font-medium"
