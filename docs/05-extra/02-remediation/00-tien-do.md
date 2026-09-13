@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-09-13 (thêm mục 13, chờ duyệt merge). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-09-13 (mục 13 đã merge; thêm nhóm sửa 2–6 vào phần chưa làm). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -502,11 +502,7 @@ Merge vào `main` bằng `--no-ff` (`a7c21ad`) — không conflict (nhánh này 
 đụng file nào mà mục 10/11 đã sửa). `npm test` sau merge: backend 121/121,
 frontend 46/46.
 
----
-
-## Đã code + test, chờ duyệt merge
-
-### 13. `fix/account-takeover-secret-leaks` (chưa commit, chờ duyệt)
+### 13. `fix/account-takeover-secret-leaks` (merge vào `main` ngày 13/09/2026)
 Nguồn: nhóm sửa 1/6 của đợt kiểm tra trước deploy 12/09/2026 (`SEC-01`, `SEC-02`, `AUTH-01`,
 `CFG-01`, `CFG-02`). Plan và kết quả đầy đủ: `13-ke-hoach-chan-chiem-tai-khoan.md`.
 
@@ -534,6 +530,18 @@ Nguồn: nhóm sửa 1/6 của đợt kiểm tra trước deploy 12/09/2026 (`SE
     `create-admin`, chặn seed demo, khách đăng ký khi chưa seed, từ chối khởi động với secret yếu).
   - Jest 164/164, Vitest 49/49.
   - Đã dọn sạch dữ liệu test; DB tạm đã DROP.
+- **Kiểm tra lại trước khi merge (13/09):**
+  - Bản checkout sạch của commit, không có `.env` (giống CI): Jest 164/164, Vitest 49/49, build thành
+    công, bundle không chứa mật khẩu demo.
+  - Smoke trên server dev bằng tài khoản seed, 5/5 đạt, không ghi dòng dữ liệu nào:
+    - đổi email nhân viên → 400;
+    - lỗi trùng SĐT thật từ MySQL → 409 sạch;
+    - tự sửa/xoá tài khoản → 403;
+    - đọc danh sách và refresh không lộ bí mật, token lưu dạng hash.
+
+Merge vào `main` bằng `--no-ff`, không conflict (`main` không đổi kể từ khi tách nhánh).
+
+---
 
 ## Chưa làm — xem plan riêng từng phần
 
@@ -541,6 +549,7 @@ Nguồn: nhóm sửa 1/6 của đợt kiểm tra trước deploy 12/09/2026 (`SE
 |---|---|---|
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
 | 3 việc còn lại cần quyết định chính sách kinh doanh trước (discount guardrail, onboarding branch_manager, cấu hình tài khoản ngân hàng — mục 3 "hoàn tiền/void" đã xong, xem mục 10 ở trên) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
+| Nhóm sửa 2–6 của đợt kiểm tra trước deploy 12/09/2026, theo thứ tự: luồng tiền (tài khoản ngân hàng VietQR còn là demo, webhook thanh toán chưa xác thực) → lộ dữ liệu → Docker → lỗi vận hành tại quầy → backup/log | Chưa có — mỗi nhóm một plan riêng | Bắt buộc trước khi deploy |
 
 ## Lỗi phát hiện qua kiểm thử hồi quy 21/08/2026 — đã ghi nhận, CHƯA sửa
 
