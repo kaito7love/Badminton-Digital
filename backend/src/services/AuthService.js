@@ -4,12 +4,18 @@ const {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
+  hashRefreshToken,
+  refreshTokenMatches,
   generateResetToken,
   decodeResetToken,
   verifyResetToken,
 } = require("../utils/jwt");
 const { sendPasswordResetEmail } = require("../utils/mailer");
 const { normalizePhone, looksLikePhone, isValidPhone } = require("../utils/phone");
+
+// Model User mặc định không nạp passwordHash/refreshToken (defaultScope). Chỉ
+// các hàm ở file này thật sự cần so mật khẩu, so refresh token hay ký reset
+// token mới gọi User.scope("withSecrets").
 
 class AuthService {
   /**
@@ -31,7 +37,7 @@ class AuthService {
       ? { phone: normalizePhone(rawIdentity) }
       : { email: rawIdentity.toLowerCase() };
 
-    const user = await User.findOne({
+    const user = await User.scope("withSecrets").findOne({
       where,
       include: [{ model: Role, as: "role" }],
     });
@@ -66,8 +72,10 @@ class AuthService {
     // không được bắt -> lọt ra HTTP 500. Không có lý do nghiệp vụ để coi đăng
     // nhập đồng thời là xung đột cần chặn — "ai lưu sau thắng" là đúng cho
     // refresh token.
-    await User.update({ refreshToken }, { where: { id: user.id } });
-    user.refreshToken = refreshToken;
+    await User.update(
+      { refreshToken: hashRefreshToken(refreshToken) },
+      { where: { id: user.id } }
+    );
 
     const userData = {
       id: user.id,
@@ -101,11 +109,11 @@ class AuthService {
       throw error;
     }
 
-    const user = await User.findByPk(decoded.id, {
+    const user = await User.scope("withSecrets").findByPk(decoded.id, {
       include: [{ model: Role, as: "role" }],
     });
 
-    if (!user || user.refreshToken !== refreshTokenInput || !user.isActive) {
+    if (!user || !refreshTokenMatches(refreshTokenInput, user.refreshToken) || !user.isActive) {
       const error = new Error(
         "Refresh Token không hợp lệ hoặc tài khoản đã bị khóa.",
       );
@@ -141,16 +149,12 @@ class AuthService {
   }
 
   static async logout(userId) {
-    const user = await User.findByPk(userId);
-    if (user) {
-      user.refreshToken = null;
-      await user.save();
-    }
+    await User.update({ refreshToken: null }, { where: { id: userId } });
     return { message: 'Đăng xuất thành công.' };
   }
 
   static async changePassword(userId, { oldPassword, newPassword }) {
-    const user = await User.findByPk(userId);
+    const user = await User.scope("withSecrets").findByPk(userId);
     if (!user) {
       const error = new Error("Người dùng không tồn tại.");
       error.statusCode = 404;
@@ -175,7 +179,8 @@ class AuthService {
     const genericMessage =
       "Nếu email tồn tại trong hệ thống, link đặt lại mật khẩu đã được gửi tới hộp thư của bạn.";
 
-    const user = await User.findOne({ where: { email } });
+    // Cần passwordHash: reset token được ký bằng secret gắn với mật khẩu hiện tại.
+    const user = await User.scope("withSecrets").findOne({ where: { email } });
     if (!user || !user.isActive) {
       return { message: genericMessage };
     }
@@ -220,7 +225,7 @@ class AuthService {
       throw invalidTokenError();
     }
 
-    const user = await User.findByPk(decoded.id);
+    const user = await User.scope("withSecrets").findByPk(decoded.id);
     if (!user || !user.isActive) {
       throw invalidTokenError();
     }
@@ -336,8 +341,10 @@ class AuthService {
 
       const accessToken = generateAccessToken(user);
       const refreshToken = generateRefreshToken(user);
-      user.refreshToken = refreshToken;
-      await user.save();
+      await User.update(
+        { refreshToken: hashRefreshToken(refreshToken) },
+        { where: { id: user.id } }
+      );
 
       return {
         user: {

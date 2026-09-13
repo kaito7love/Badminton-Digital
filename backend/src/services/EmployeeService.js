@@ -6,6 +6,69 @@ const { normalizePhone, isValidPhone } = require("../utils/phone");
 const AuditService = require('./AuditService');
 
 class EmployeeService {
+  /**
+   * Ai được sửa (`update`) hay xoá (`delete`) tài khoản nhân viên nào. Lọc theo
+   * chi nhánh thôi là chưa đủ: quản lý chi nhánh chính từng sửa được cả tài
+   * khoản admin (đổi email sang hộp thư của mình rồi "quên mật khẩu") và xoá
+   * được chủ sân khỏi hệ thống.
+   *
+   * | Người thao tác | Sửa SĐT/vị trí/ca          | Xoá                                      |
+   * |----------------|----------------------------|------------------------------------------|
+   * | admin          | mọi người                  | employee, branch_manager — trừ chính mình |
+   * | branch_manager | employee cùng chi nhánh    | employee cùng chi nhánh                   |
+   *
+   * Hàm thuần: nhận `actor`/`targetUser` đã nạp sẵn `role.name`, không chạm DB.
+   * Frontend có bản sao cùng bảng ở `utils/roles.js#canManageStaff`.
+   */
+  static assertCanManage({ actor, targetUser, action }) {
+    if (action !== "update" && action !== "delete") {
+      throw new Error(`assertCanManage: action không hợp lệ "${action}"`);
+    }
+    const deny = (message) => {
+      const error = new Error(message);
+      error.statusCode = 403;
+      throw error;
+    };
+
+    const actorRole = actor?.role?.name;
+    const targetRole = targetUser?.role?.name;
+    const isSelf = Boolean(actor?.id) && actor.id === targetUser?.id;
+
+    if (actorRole === "admin") {
+      if (action === "update") return;
+      if (isSelf) deny("Không thể tự xoá tài khoản của chính mình.");
+      if (targetRole === "admin") deny("Không thể xoá tài khoản admin.");
+      if (!["employee", "branch_manager"].includes(targetRole)) {
+        deny("Không xác định được vai trò của tài khoản này nên không xoá.");
+      }
+      return;
+    }
+
+    if (actorRole === "branch_manager") {
+      if (isSelf) deny("Không thể tự sửa hoặc xoá tài khoản của chính mình — nhờ admin thực hiện.");
+      if (targetRole !== "employee") {
+        deny("Quản lý chi nhánh chỉ được sửa hoặc xoá tài khoản nhân viên, không đụng tới admin hay quản lý khác.");
+      }
+      return;
+    }
+
+    deny("Bạn không có quyền quản lý tài khoản nhân viên.");
+  }
+
+  /**
+   * Tài khoản gắn với hồ sơ nhân viên, kèm vai trò — đọc riêng, không join vào
+   * câu SELECT ... FOR UPDATE: join bảng roles vào đó là khoá luôn dòng role
+   * dùng chung, mọi lượt sửa nhân viên khác phải xếp hàng chờ.
+   */
+  static async findAccountWithRole(userId, transaction) {
+    if (!userId) return null;
+    return User.findByPk(userId, {
+      attributes: ["id"],
+      include: [{ model: Role, as: "role", attributes: ["id", "name"] }],
+      transaction,
+    });
+  }
+
   static async getAllEmployees(query, branchId = null) {
     const { page, limit, offset } = getPagination(query);
 
@@ -130,7 +193,9 @@ class EmployeeService {
     try {
       const employee = await Employee.findOne({
         where: { id, ...(context.branchId ? { branchId: context.branchId } : {}) },
-        include: [{ model: User, as: "user" }],
+        // `version` phải có: User bật optimistic locking, thiếu cột này thì lệnh
+        // cập nhật SĐT bên dưới luôn ném OptimisticLockError.
+        include: [{ model: User, as: "user", attributes: ["id", "fullName", "email", "phone", "version"] }],
         transaction,
         lock: transaction.LOCK.UPDATE
       });
@@ -139,12 +204,19 @@ class EmployeeService {
         error.statusCode = 404;
         throw error;
       }
+      EmployeeService.assertCanManage({
+        actor: context.actor,
+        targetUser: await EmployeeService.findAccountWithRole(employee.userId, transaction),
+        action: "update",
+      });
       const oldValues = employee.toJSON();
       await employee.update({
         position: data.position !== undefined ? data.position : employee.position,
         shift: data.shift !== undefined ? data.shift : employee.shift,
       }, { transaction });
-      if (data.email && employee.user) await employee.user.update({ email: data.email }, { transaction });
+      // Không nhận `email` nữa (validation trả 400): email là danh tính đăng nhập
+      // và là nơi nhận link đặt lại mật khẩu — đổi được qua đây là chiếm được
+      // tài khoản.
       if (data.phone !== undefined && employee.user) {
         const phone = normalizePhone(data.phone);
         if (!isValidPhone(phone)) {
@@ -181,6 +253,11 @@ class EmployeeService {
         error.statusCode = 404;
         throw error;
       }
+      EmployeeService.assertCanManage({
+        actor: context.actor,
+        targetUser: await EmployeeService.findAccountWithRole(employee.userId, transaction),
+        action: "delete",
+      });
       const userId = employee.userId;
       const oldValues = employee.toJSON();
       await employee.destroy({ transaction });

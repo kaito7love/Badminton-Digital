@@ -166,11 +166,15 @@ npm install
 cp .env.example .env
 # Chỉnh sửa .env với thông tin database của bạn
 
-# 3. Chạy migration (tạo bảng)
+# 3. Chạy migration (tạo bảng, kèm 4 vai trò admin/employee/customer/branch_manager)
 npm run migrate
 
-# 4. (Tuỳ chọn) Seed dữ liệu mẫu
+# 4a. Máy dev hoặc bản demo: seed dữ liệu mẫu. Tài khoản mẫu dùng mật khẩu công khai,
+#     nên seeder tự dừng khi NODE_ENV=production, trừ khi đặt ALLOW_DEMO_SEED=true.
 npm run seed
+
+# 4b. Production: không seed — tạo admin đầu tiên (mật khẩu tối thiểu 12 ký tự)
+ADMIN_EMAIL=chu.san@example.com ADMIN_PASSWORD='<mật khẩu mạnh>' ADMIN_FULL_NAME='Nguyễn Văn A' npm run create-admin
 
 # 5. Chạy server ở chế độ development
 npm run dev
@@ -205,9 +209,11 @@ DB_NAME=badminton_digital_management
 DB_USER=root
 DB_PASSWORD=
 
-# JWT
-JWT_ACCESS_SECRET=change_me
-JWT_REFRESH_SECRET=change_me_too
+# JWT — hai chuỗi ngẫu nhiên KHÁC NHAU, tối thiểu 32 ký tự. Sinh mỗi chuỗi bằng:
+#   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+# Server từ chối khởi động nếu thiếu, quá ngắn, trùng nhau hoặc còn là chuỗi mẫu.
+JWT_ACCESS_SECRET=
+JWT_REFRESH_SECRET=
 JWT_ACCESS_EXPIRES=15m
 JWT_REFRESH_EXPIRES=7d
 JWT_RESET_EXPIRES=15m
@@ -224,6 +230,9 @@ MAIL_FROM=Badminton Digital <no-reply@badminton.com>
 
 # Upload
 UPLOAD_DIR=./src/uploads
+
+# Seeder dữ liệu demo bị chặn khi NODE_ENV=production. Chỉ đặt true cho bản demo công khai.
+ALLOW_DEMO_SEED=false
 ```
 
 ---
@@ -479,8 +488,9 @@ Hệ thống có 4 vai trò:
 npm run dev       # Chạy server development với nodemon (hot reload)
 npm start         # Chạy server production
 npm test          # Chạy unit tests với Jest
-npm run migrate   # Chạy Sequelize migrations
-npm run seed      # Seed dữ liệu mẫu vào database
+npm run migrate   # Chạy Sequelize migrations (kèm tạo 4 vai trò)
+npm run seed      # Seed dữ liệu mẫu — tài khoản mật khẩu công khai, tự dừng khi NODE_ENV=production
+npm run create-admin  # Tạo admin đầu tiên cho bản cài production (ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_FULL_NAME)
 ```
 
 ---

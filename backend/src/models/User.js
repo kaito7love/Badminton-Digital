@@ -21,7 +21,9 @@ module.exports = (sequelize) => {
         // đăng nhập vào được.
         type: DataTypes.STRING(100),
         allowNull: true,
-        unique: true,
+        // `name` phải trùng tên index thật trong DB: Sequelize dựa vào đó để
+        // biết lỗi trùng thuộc cột nào, nhờ vậy response 409 báo đúng field.
+        unique: { name: "email", msg: "Email này đã được dùng cho tài khoản khác." },
         validate: {
           isEmail: true,
         },
@@ -41,7 +43,7 @@ module.exports = (sequelize) => {
         // nhân viên cũ chưa khai số vẫn dùng email như cũ.
         type: DataTypes.STRING(20),
         allowNull: true,
-        unique: true,
+        unique: { name: "uq_users_phone", msg: "Số điện thoại này đã có tài khoản khác." },
       },
       avatarUrl: {
         type: DataTypes.STRING(255),
@@ -54,6 +56,7 @@ module.exports = (sequelize) => {
         field: "is_active",
       },
       refreshToken: {
+        // Chỉ lưu sha256 của refresh token (xem hashRefreshToken trong utils/jwt.js).
         type: DataTypes.TEXT,
         allowNull: true,
         field: "refresh_token",
@@ -65,6 +68,16 @@ module.exports = (sequelize) => {
       underscored: true,
       paranoid: true,
       version: true,
+      // passwordHash/refreshToken không bao giờ theo bản ghi đi ra ngoài, kể cả
+      // khi User được include từ model khác (Sequelize áp default scope cho cả
+      // include). Có lỗi nào khác làm lộ bản ghi thì cũng không còn gì để lộ.
+      // Chỗ nào thật sự cần hai trường này thì gọi User.scope("withSecrets").
+      defaultScope: {
+        attributes: { exclude: ["passwordHash", "refreshToken"] },
+      },
+      scopes: {
+        withSecrets: {},
+      },
     },
   );
 

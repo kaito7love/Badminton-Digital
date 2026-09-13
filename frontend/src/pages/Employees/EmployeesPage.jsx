@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Badge, Pagination } from '../../components/UIComponents';
 import { employeeService } from '../../services/apiServices';
+import { useAuth } from '../../contexts/AuthContext';
+import { roleOf, canManageStaff } from '../../utils/roles';
+
+// Nhãn cho những tài khoản không phải nhân viên thường, để người xem hiểu vì
+// sao thẻ đó không có nút sửa/xoá.
+const ACCOUNT_ROLE_BADGES = {
+  admin: { text: 'Admin', variant: 'violet' },
+  branch_manager: { text: 'Quản lý chi nhánh', variant: 'sky' },
+};
 
 export default function EmployeesPage() {
+  const { user: currentUser } = useAuth();
   const [employees, setEmployees] = useState([]);
   const [meta, setMeta] = useState(null);
   const [page, setPage] = useState(1);
@@ -137,6 +147,10 @@ export default function EmployeesPage() {
               const phone = emp.phone || emp.user?.phone || '';
               const role = emp.position || emp.role || 'Nhân viên';
               const shift = emp.shift || 'Ca sáng';
+              const accountBadge = ACCOUNT_ROLE_BADGES[roleOf(emp.user)];
+              const isSelf = currentUser?.id != null && currentUser.id === emp.user?.id;
+              const canEdit = canManageStaff(currentUser, emp.user, 'update');
+              const canDelete = canManageStaff(currentUser, emp.user, 'delete');
 
               return (
                 <div
@@ -149,24 +163,42 @@ export default function EmployeesPage() {
                       <Badge variant="emerald">{shift}</Badge>
                     </div>
                     <h2 className="mt-3 text-xl font-bold text-slate-900 dark:text-slate-100">{name}</h2>
+                    {(accountBadge || isSelf) && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {accountBadge && <Badge variant={accountBadge.variant}>{accountBadge.text}</Badge>}
+                        {isSelf && <Badge>Tài khoản của bạn</Badge>}
+                      </div>
+                    )}
                     {email && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">📧 {email}</p>}
                     {phone && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">📞 {phone}</p>}
                   </div>
 
-                  <div className="flex gap-2 pt-3 border-t border-slate-200 dark:border-slate-800/80 text-xs">
-                    <button
-                      onClick={() => handleOpenEditModal(emp)}
-                      className="flex-1 rounded-xl border border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100 py-2 font-medium transition"
-                    >
-                      ✏️ Chỉnh sửa
-                    </button>
-                    <button
-                      onClick={() => handleDelete(emp.id, name)}
-                      className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition"
-                    >
-                      🗑️ Xóa
-                    </button>
-                  </div>
+                  {canEdit || canDelete ? (
+                    <div className="flex gap-2 pt-3 border-t border-slate-200 dark:border-slate-800/80 text-xs">
+                      {canEdit && (
+                        <button
+                          onClick={() => handleOpenEditModal(emp)}
+                          className="flex-1 rounded-xl border border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100 py-2 font-medium transition"
+                        >
+                          ✏️ Chỉnh sửa
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(emp.id, name)}
+                          className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition"
+                        >
+                          🗑️ Xóa
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="pt-3 border-t border-slate-200 dark:border-slate-800/80 text-xs text-slate-500 dark:text-slate-400">
+                      {isSelf
+                        ? 'Tài khoản của chính bạn chỉ admin mới sửa hoặc xoá được.'
+                        : 'Chỉ admin mới sửa hoặc xoá được tài khoản này.'}
+                    </p>
+                  )}
                 </div>
               );
             })}

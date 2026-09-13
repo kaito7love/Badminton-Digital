@@ -1,5 +1,7 @@
 'use strict';
 
+const { assertDemoSeedAllowed } = require('../utils/demoSeedGuard');
+
 // Dữ liệu mẫu cho trụ "bán lẻ dụng cụ cầu lông" (feat/retail-catalog-inventory)
 // — vài danh mục/sản phẩm/biến thể thật để test tay UI catalog/POS/kho mới,
 // theo đúng mẫu seeder trước đó (20260815100001-seed-inventory-sample-data.js):
@@ -81,6 +83,7 @@ const PRODUCTS = [
 
 module.exports = {
   async up(queryInterface) {
+    assertDemoSeedAllowed();
     const now = new Date();
 
     const [existing] = await queryInterface.sequelize.query(

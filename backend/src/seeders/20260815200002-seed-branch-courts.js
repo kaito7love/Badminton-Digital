@@ -1,5 +1,7 @@
 'use strict';
 
+const { assertDemoSeedAllowed } = require('../utils/demoSeedGuard');
+
 // Mỗi chi nhánh có hệ thống sân riêng (courts.branch_id đã cách ly đầy đủ ở
 // tầng service — xem CourtService). Vấn đề chỉ là 2 chi nhánh demo (Quận 3,
 // Quận 7) tạo ở 20260815200001 chưa có sân nào nên trang "Quản Lý Sân" trống
@@ -22,6 +24,7 @@ const COURTS_BY_BRANCH_CODE = {
 
 module.exports = {
   async up(queryInterface) {
+    assertDemoSeedAllowed();
     const now = new Date();
     const codes = Object.keys(COURTS_BY_BRANCH_CODE);
 

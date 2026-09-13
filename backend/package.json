@@ -9,6 +9,7 @@
     "test": "jest",
     "migrate": "sequelize-cli db:migrate",
     "seed": "sequelize-cli db:seed:all",
+    "create-admin": "node scripts/create-admin.js",
     "docs:build": "node scripts/collection-to-openapi.js"
   },
   "dependencies": {

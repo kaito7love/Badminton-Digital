@@ -1,5 +1,6 @@
 'use strict';
 const bcrypt = require('bcrypt');
+const { assertDemoSeedAllowed } = require('../utils/demoSeedGuard');
 
 // Tạo thêm 2 chi nhánh demo (branch 2, 3) + 1 tài khoản nhân viên riêng cho
 // mỗi chi nhánh + vài phiếu nhập kho khác nhau, để thấy trực quan tồn kho là
@@ -49,6 +50,7 @@ const PASSWORD = 'Employee@123';
 
 module.exports = {
   async up(queryInterface) {
+    assertDemoSeedAllowed();
     const now = new Date();
 
     const [existing] = await queryInterface.sequelize.query(
