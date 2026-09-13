@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-09-13 (mục 13 đã merge; mục 14 — nhóm sửa 2, luồng tiền — và mục 15 — nhóm sửa 3, lộ dữ liệu — đã code + test trên nhánh riêng, chờ duyệt merge). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-09-14 (mục 14 — nhóm sửa 2, luồng tiền — và mục 15 — nhóm sửa 3, lộ dữ liệu — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-1-3`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -13,6 +13,8 @@ thật (chạy server thật, gọi API thật, truy vấn DB thật — không 
 `main` đã được push lên `origin` (đồng bộ tới commit `2ea7ae2` — mục 10 + 11
 bên dưới) — cập nhật so với ghi chú "chưa push" ở các mục trước đó trong file
 này, vốn đúng tại thời điểm viết nhưng chủ dự án đã quyết định push sau đó.
+Các mục 13–15 đã merge vào `main` cục bộ nhưng **chưa push** (tính tới 14/09/2026) — push là quyết định
+của chủ dự án.
 
 ---
 
@@ -541,11 +543,7 @@ Nguồn: nhóm sửa 1/6 của đợt kiểm tra trước deploy 12/09/2026 (`SE
 
 Merge vào `main` bằng `--no-ff`, không conflict (`main` không đổi kể từ khi tách nhánh).
 
----
-
-## Đã code + test trên nhánh riêng, CHƯA merge vào `main` — chờ duyệt
-
-### 14. `fix/payment-money-flows` (code + test ngày 13/09/2026)
+### 14. `fix/payment-money-flows` (commit `085996f`, merge vào `main` ngày 14/09/2026 cùng mục 15)
 Nguồn: nhóm sửa 2/6 của đợt kiểm tra trước deploy (`PAY-01`, `PAY-02`, `PAY-03`, `PAY-04`, `PAY-06`,
 `PAY-09`), kèm `PAY-18`, phần CPU của `PAY-16` và một phần `PAY-13`/`PAY-19`. Plan và kết quả đầy đủ:
 `14-ke-hoach-luong-tien.md`. Chủ dự án nói "code đi" mà không trả lời Q1–Q5, nên áp nguyên các đề xuất
@@ -601,7 +599,7 @@ của plan.
   Postman chạy trước **mọi** request của thư mục, nên sau bước webhook nó mở thêm một phiên chơi không ai
   đóng (có từ trước nhánh này) — chỉ để lại một phiên treo trên DB dùng một lần.
 
-### 15. `fix/customer-data-exposure` (code + test ngày 13/09/2026)
+### 15. `fix/customer-data-exposure` (commit `3b9185b`, merge vào `main` ngày 14/09/2026 cùng mục 14)
 Nguồn: nhóm sửa 3/6 của đợt kiểm tra trước deploy 12/09/2026 (`SEC-03`, `SEC-04`, `SEC-05`, `SEC-10`, kèm
 `SEC-11` và phần dành cho khách của `SEC-14`). Plan và kết quả đầy đủ: `15-ke-hoach-chan-lo-du-lieu-khach.md`.
 Nhánh tách từ `main` @ `8b45c89`, nên chưa gồm nhóm 2 (mục 14).
@@ -628,6 +626,27 @@ Nhánh tách từ `main` @ `8b45c89`, nên chưa gồm nhóm 2 (mục 14).
 - **Còn hở đã biết:** kẻ gian đăng ký trước bằng một số chưa từng ra quầy — cần xác minh bằng OTP SMS.
 - Không có migration.
 
+**Gộp mục 14 + 15 rồi mới merge vào `main` (13–14/09/2026).** Hai nhánh cùng tách từ `8b45c89` và chưa từng
+chạy chung, nên được gộp và test lại trên một nhánh riêng trước khi đụng tới `main`:
+- **Nhánh `test/merge-fix-groups-1-3` tách từ `main`:**
+  - nhóm 1 đã có sẵn trong `main` (merge không đổi gì);
+  - merge `--no-ff` `fix/payment-money-flows` sạch;
+  - merge `--no-ff` `fix/customer-data-exposure` xung đột ở đúng 2 file tài liệu: `CLAUDE.md` giữ cả hai đoạn,
+    file này gộp dòng cập nhật và bảng "Chưa làm". Không file code nào xung đột; `openapi.yaml` sinh lại
+    (113 route). Kèm một commit sửa thứ tự câu trong README Postman.
+- **Test lại trên code gộp** (bản sao DB dev, DROP sau khi xong):
+  - Jest 275/275 (231 + 44), Vitest 49/49, build, `docs:build` khớp 1-1 113 route;
+  - DB trống: 40/40 migration, undo/redo migration của mục 14;
+  - API mục 14: 23/23 khi bật chuyển khoản, 4/4 khi tắt; API mục 15: 20/20;
+  - trình duyệt: modal thanh toán sân lấy số của server, nhãn chờ gộp ở màn Khách hàng, ô trần giảm giá ở trang
+    Cài đặt, lựa chọn chuyển khoản ở trang Đặt hàng, dòng nhắc gộp ở trang Tài khoản — mọi request 200, không
+    lỗi console;
+  - newman trọn bộ kèm `webhookSecret`: 118 request, 331 assertion, 0 lỗi. Request "Chi tiết voucher" tự bỏ qua
+    vì DB dev hiện không có voucher nào (gọi tay danh sách + chi tiết → 200);
+  - smoke chỉ đọc trên server dev + DB dev: 3/3 (mục 14) + 4/4 (mục 15), không thêm dòng nào.
+- **`main` được fast-forward lên nhánh tích hợp:** các merge `--no-ff` của từng nhóm nằm sẵn trong đó, nên
+  `main` có đúng cây code đã test.
+
 ---
 
 ## Chưa làm — xem plan riêng từng phần
@@ -636,7 +655,8 @@ Nhánh tách từ `main` @ `8b45c89`, nên chưa gồm nhóm 2 (mục 14).
 |---|---|---|
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
 | 1 việc còn lại cần quyết định chính sách kinh doanh trước: onboarding `branch_manager` (mục 3 "hoàn tiền/void" đã xong ở mục 10; discount guardrail và tài khoản ngân hàng đã chốt, làm ở mục 14) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
-| Nhóm sửa 4–6 của đợt kiểm tra trước deploy 12/09/2026, theo thứ tự: Docker → lỗi vận hành tại quầy → backup/log (nhóm 2 "luồng tiền" xem mục 14, nhóm 3 "lộ dữ liệu" xem mục 15) | Chưa có — mỗi nhóm một plan riêng | Bắt buộc trước khi deploy |
+| Nhóm sửa 4–6 của đợt kiểm tra trước deploy 12/09/2026, theo thứ tự: Docker → lỗi vận hành tại quầy → backup/log (nhóm 1–3 đã merge — mục 13, 14, 15) | Chưa có — mỗi nhóm một plan riêng | Bắt buộc trước khi deploy |
+| Các phát hiện `SEC-*` chưa thuộc nhóm sửa nào: `SEC-06`, `SEC-07`, `SEC-08`, `SEC-09`, `SEC-12`, `SEC-13`, `SEC-15`, `SEC-16` và phần còn lại của `SEC-14`; xác minh SĐT bằng OTP SMS cho đăng ký | `15-ke-hoach-chan-lo-du-lieu-khach.md` mục 5 (đề xuất gom thành đợt "phân quyền và chống lạm dụng") | Sau nhóm 6 |
 | "Luồng tiền 2": quản lý xác nhận tay chuyển khoản / POS chuyển khoản bị đánh dấu `paid` ngay (`PAY-08`), báo cáo doanh thu cộng hoá đơn huỷ (`PAY-05`), void không đổi trạng thái đơn và không trả lượt voucher (`PAY-10`, `PAY-11`), sửa đơn sau khi phát QR (`PAY-12`), phần còn lại của `PAY-13`/`PAY-16`/`PAY-19`, giỏ POS hiện tổng khác số thực thu (`PAY-17`). Hai quầy giành lượt voucher cuối và deadlock checkout (`PAY-07`, `PAY-14`, `PAY-15`) để chung nhóm 6 | `14-ke-hoach-luong-tien.md` mục 5 | Sau nhóm 4 |
 
 ## Lỗi phát hiện qua kiểm thử hồi quy 21/08/2026 — đã ghi nhận, CHƯA sửa

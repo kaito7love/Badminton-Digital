@@ -253,7 +253,9 @@ thao tác tại quầy `FE-01/02/03`, `DATA-01`, `RUN-01`, nhóm 6 là vận hà
 
 Chủ dự án nói "code đi" mà không trả lời riêng Q1–Q4, nên áp dụng đúng các đề xuất ở mục 1: Q1-A, Q2 mọi
 nhân viên gộp được, Q3 khách không sửa lịch, Q4 làm kèm `SEC-11` và phần dành cho khách của `SEC-14`.
-Không có migration. Code chưa commit.
+Không có migration. Commit `3b9185b`; merge vào `main` ngày 14/09/2026 cùng nhóm 2 sau khi gộp và test chung trên
+nhánh `test/merge-fix-groups-1-3` — khi gộp, xung đột chỉ ở `CLAUDE.md` và `00-tien-do.md` (xem `00-tien-do.md`
+mục 14–15).
 
 ### 6.1 Khác với kế hoạch
 

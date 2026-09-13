@@ -124,6 +124,10 @@ DROP): `runWrites` + `runDestructive` — **118 request, 331 assertion, 0 lỗi,
 mới chạy đủ chuỗi: tạo hồ sơ tại quầy (201) → đăng ký cùng số (201) → gộp (200), 4/4 assertion. SSE bỏ qua
 theo `runStream=false`. `branch-1.json` bị ghi đè như cảnh báo ở trên và đã `git checkout` lại.
 
+**Chạy trên code gộp nhóm sửa 2 + 3** (13/09/2026, nhánh `test/merge-fix-groups-1-3`, trước khi merge vào `main`):
+`runWrites` + `runDestructive` + `webhookSecret` — **118 request, 331 assertion, 0 lỗi, 21.3 s**. Request webhook
+chạy thật (200). "Chi tiết voucher" tự `SKIP` vì bản dump DB dev lúc đó không có voucher nào.
+
 > Lưu ý về chữ "tự dọn": nó dùng đúng API xoá của hệ thống, nghĩa là **xoá mềm** (`deleted_at`),
 > **huỷ** (`status = cancelled`) hoặc **ngừng** (`is_active = 0`) — dòng vẫn còn trong bảng. Voucher
 > không có endpoint xoá nên mỗi lần chạy để lại một mã `QAPOSTMAN…` đã tắt.

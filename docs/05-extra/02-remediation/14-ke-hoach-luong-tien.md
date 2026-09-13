@@ -335,7 +335,8 @@ một đợt "luồng tiền 2" sau nhóm 4.
 
 ## 6. Kết quả thực hiện (13/09/2026)
 
-**Trạng thái:** đã code + test thật, **chưa commit, chưa merge**. Chủ dự án duyệt "code đi" mà không trả
+**Trạng thái:** đã code + test thật; commit `085996f`, merge vào `main` ngày 14/09/2026 cùng nhóm 3 sau khi gộp
+và test chung trên nhánh `test/merge-fix-groups-1-3` (xem `00-tien-do.md` mục 14–15). Chủ dự án duyệt "code đi" mà không trả
 lời Q1–Q5, nên áp nguyên các đề xuất ở mục 1.
 
 ### 6.1 Khác với thiết kế ở mục 2–3
