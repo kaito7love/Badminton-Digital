@@ -8,11 +8,18 @@ const authRoutes = require('./routes/authRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const requestContextMiddleware = require('./middleware/requestContextMiddleware');
 const OnlineOrderService = require('./services/OnlineOrderService');
+const { resolveCorsOrigin, resolveTrustProxy } = require('./utils/serverConfig');
+const { createFrontendHandlers } = require('./utils/frontendStatic');
 
 const app = express();
 
+// Số proxy đứng trước Express — không đặt thì rate limit đếm theo IP của proxy
+// (xem utils/serverConfig.js).
+app.set('trust proxy', resolveTrustProxy());
+app.disable('x-powered-by');
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: resolveCorsOrigin(),
   credentials: true,
   // Cho phép frontend đọc tên file khi tải báo cáo Excel/PDF
   exposedHeaders: ['Content-Disposition']
@@ -23,7 +30,9 @@ app.use(requestContextMiddleware);
 
 // Health Check Endpoints
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
-app.get('/api/v1/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
+// `ip` là IP của chính người gọi như server nhìn thấy — dùng để kiểm
+// TRUST_PROXY_HOPS trên môi trường thật (phải ra IP của bạn, không phải của proxy).
+app.get('/api/v1/health', (req, res) => res.json({ status: 'ok', time: new Date(), ip: req.ip }));
 
 // Sơ đồ mặt bằng sân theo chi nhánh: file JSON tĩnh, cập nhật bằng cách sửa
 // file trực tiếp (không qua DB) — chỉ chứa toạ độ hình học, không dữ liệu
@@ -96,6 +105,14 @@ app.use('/api/v1/invoices', require('./routes/invoiceRoutes'));
 app.use('/api/v1/activity-logs', require('./routes/activityLogRoutes'));
 app.use('/api/v1/reports', require('./routes/reportRoutes'));
 app.use('/api/v1/settings', require('./routes/settingRoutes'));
+
+// Image 1 container (Render): backend phục vụ luôn bản build frontend, cùng
+// origin với API. Không đặt FRONTEND_DIST_DIR (dev, cụm compose) thì bỏ qua.
+const frontend = createFrontendHandlers(process.env.FRONTEND_DIST_DIR);
+if (frontend) {
+  app.use(frontend.staticFiles);
+  app.use(frontend.spaFallback);
+}
 
 // Route không khớp bất kỳ mount nào ở trên — trả đúng envelope chuẩn thay
 // vì để Express tự render trang lỗi HTML mặc định.

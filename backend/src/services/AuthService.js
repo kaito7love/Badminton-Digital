@@ -13,6 +13,7 @@ const {
 const { sendPasswordResetEmail } = require("../utils/mailer");
 const CustomerService = require("./CustomerService");
 const { normalizePhone, looksLikePhone, isValidPhone } = require("../utils/phone");
+const { assertNotLockedDemoAccount } = require("../utils/demoMode");
 
 // Model User mặc định không nạp passwordHash/refreshToken (defaultScope). Chỉ
 // các hàm ở file này thật sự cần so mật khẩu, so refresh token hay ký reset
@@ -165,6 +166,9 @@ class AuthService {
       error.statusCode = 404;
       throw error;
     }
+    // Bản demo công khai: tài khoản in trên trang đăng nhập dùng chung cho mọi
+    // người xem — đổi được mật khẩu là khoá người xem sau ra ngoài.
+    assertNotLockedDemoAccount(user);
 
     const isMatch = await bcrypt.compare(oldPassword, user.passwordHash);
     if (!isMatch) {
@@ -191,7 +195,8 @@ class AuthService {
     }
 
     const token = generateResetToken(user);
-    const baseUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+    // RENDER_EXTERNAL_URL do Render tự đặt — bản demo không phải khai FRONTEND_URL.
+    const baseUrl = (process.env.FRONTEND_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:5173").replace(/\/+$/, "");
     const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
     // Lỗi gửi mail KHÔNG được vọt ra ngoài thành 5xx.
@@ -240,6 +245,7 @@ class AuthService {
     } catch (err) {
       throw invalidTokenError();
     }
+    assertNotLockedDemoAccount(user);
 
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     user.refreshToken = null; // đăng xuất mọi phiên đang mở

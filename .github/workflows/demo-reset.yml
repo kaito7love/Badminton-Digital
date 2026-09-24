@@ -1,0 +1,71 @@
+# Đưa DB của bản demo công khai (Aiven) về trạng thái seed mỗi đêm, và seed lần
+# đầu khi deploy (tab Actions → "Demo reset" → Run workflow).
+#
+# Runner nối thẳng vào DB — app trên Render không có endpoint reset nào.
+# Cần các secret ở Settings → Secrets and variables → Actions: DB_HOST, DB_PORT,
+# DB_NAME, DB_USER, DB_PASSWORD, DB_SSL_CA, DEMO_ADMIN_PASSWORD. Thiếu thì job
+# bỏ qua (fork, repo chưa deploy).
+#
+# GitHub tự tắt workflow theo lịch nếu repo công khai không có commit nào trong
+# 60 ngày — khi đó bật lại ở tab Actions.
+name: Demo reset
+
+on:
+  schedule:
+    - cron: '0 20 * * *' # 03:00 giờ Việt Nam
+  workflow_dispatch:
+
+concurrency:
+  group: demo-reset
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_ENV: production
+      ALLOW_DEMO_SEED: 'true'
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_SSL: 'true'
+      DB_SSL_CA: ${{ secrets.DB_SSL_CA }}
+      DEMO_ADMIN_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD }}
+      # Xác nhận tên DB sẽ bị xoá sạch — scripts/demo-reset.js từ chối nếu lệch.
+      DEMO_RESET_CONFIRM: ${{ secrets.DB_NAME }}
+    steps:
+      - name: Kiểm tra đã cấu hình secrets
+        id: config
+        run: |
+          if [ -z "$DB_HOST" ] || [ -z "$DB_NAME" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Chưa cấu hình secrets cho bản demo — bỏ qua."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.configured == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.configured == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Cài dependency backend
+        if: steps.config.outputs.configured == 'true'
+        working-directory: backend
+        run: npm ci --omit=dev
+
+      - name: Xoá bảng → migrate → seed
+        if: steps.config.outputs.configured == 'true'
+        working-directory: backend
+        run: node scripts/demo-reset.js

@@ -4,3 +4,10 @@ node_modules
 npm-debug.log
 *.log
 .git
+coverage
+# Dump SQL thật (dữ liệu khách, hash mật khẩu) — không bao giờ vào image (DEP-06).
+backups
+*.sql
+# Không cần ở runtime. KHÔNG loại scripts/: create-admin.js và demo-reset.js chạy trong container.
+tests
+docs

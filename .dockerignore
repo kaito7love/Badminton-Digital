@@ -1,0 +1,19 @@
+# Dùng khi build context là gốc repo: docker/app.Dockerfile (Render) và
+# docker/frontend.Dockerfile (compose). Cho vào đúng những gì image cần; mọi thứ
+# khác (portfolio/, docs/, postman/, k6/, .git...) không bao giờ vào image.
+*
+!backend
+!frontend
+!docker/nginx.conf
+
+# Trong các thư mục được cho vào, vẫn loại:
+**/node_modules
+**/.env
+**/.env.*
+**/*.log
+**/dist
+**/coverage
+**/*.sql
+backend/backups
+backend/tests
+backend/docs

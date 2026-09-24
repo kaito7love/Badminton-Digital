@@ -3,6 +3,7 @@ const { Employee, User, Role, ActivityLog, sequelize } = require("../models");
 const bcrypt = require("bcrypt");
 const { getPagination, getPagingData } = require("../utils/pagination");
 const { normalizePhone, isValidPhone } = require("../utils/phone");
+const { assertNotLockedDemoAccount } = require("../utils/demoMode");
 const AuditService = require('./AuditService');
 
 class EmployeeService {
@@ -63,7 +64,8 @@ class EmployeeService {
   static async findAccountWithRole(userId, transaction) {
     if (!userId) return null;
     return User.findByPk(userId, {
-      attributes: ["id"],
+      // email: để nhận ra tài khoản demo dùng chung (utils/demoMode.js).
+      attributes: ["id", "email"],
       include: [{ model: Role, as: "role", attributes: ["id", "name"] }],
       transaction,
     });
@@ -218,6 +220,7 @@ class EmployeeService {
       // và là nơi nhận link đặt lại mật khẩu — đổi được qua đây là chiếm được
       // tài khoản.
       if (data.phone !== undefined && employee.user) {
+        assertNotLockedDemoAccount(employee.user);
         const phone = normalizePhone(data.phone);
         if (!isValidPhone(phone)) {
           const error = new Error("Số điện thoại nhân viên không hợp lệ");
@@ -253,11 +256,9 @@ class EmployeeService {
         error.statusCode = 404;
         throw error;
       }
-      EmployeeService.assertCanManage({
-        actor: context.actor,
-        targetUser: await EmployeeService.findAccountWithRole(employee.userId, transaction),
-        action: "delete",
-      });
+      const targetUser = await EmployeeService.findAccountWithRole(employee.userId, transaction);
+      EmployeeService.assertCanManage({ actor: context.actor, targetUser, action: "delete" });
+      assertNotLockedDemoAccount(targetUser);
       const userId = employee.userId;
       const oldValues = employee.toJSON();
       await employee.destroy({ transaction });

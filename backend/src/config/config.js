@@ -1,4 +1,9 @@
 require('dotenv').config();
+const { buildSslOptions } = require('./dbSsl');
+
+// TLS tới MySQL khi đặt DB_SSL=true (Aiven bắt buộc) — xem dbSsl.js.
+const ssl = buildSslOptions();
+const dialectOptions = ssl ? { dialectOptions: { ssl } } : {};
 
 // `timezone: '+00:00'` — BẮT BUỘC, đi kèm migration 20260821400001.
 // Không đặt thì driver ghi/đọc DATETIME theo giờ LOCAL của tiến trình Node,
@@ -17,6 +22,7 @@ module.exports = {
     host: process.env.DB_HOST || '127.0.0.1',
     port: process.env.DB_PORT || 3306,
     dialect: 'mysql',
+    ...dialectOptions,
     timezone: TIMEZONE,
     logging: console.log,
     define: {
@@ -41,6 +47,7 @@ module.exports = {
     host: process.env.DB_HOST || '127.0.0.1',
     port: process.env.DB_PORT || 3306,
     dialect: 'mysql',
+    ...dialectOptions,
     timezone: TIMEZONE,
     logging: false,
     define: {
@@ -56,6 +63,7 @@ module.exports = {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     dialect: 'mysql',
+    ...dialectOptions,
     timezone: TIMEZONE,
     logging: false,
     define: {

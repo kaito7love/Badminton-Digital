@@ -3,3 +3,7 @@
 # cây git "bẩn" dù nội dung không đổi một byte nào — và một bước kiểm tra kiểu
 # `git diff --exit-code` trong CI sẽ đỏ oan.
 backend/src/docs/openapi.yaml text eol=lf
+
+# Script shell chạy trong container Linux: CRLF làm dòng `#!/bin/sh` hỏng
+# ("/bin/sh^M: not found"), nên luôn giữ LF kể cả khi checkout trên Windows.
+*.sh text eol=lf
