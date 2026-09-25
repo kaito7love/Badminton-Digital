@@ -8,7 +8,9 @@ import {
   canSwitchBranch,
   switchBranch,
   totalQuantityOf,
-  totalAmountOf
+  totalAmountOf,
+  mergeGuestCart,
+  resolveCartSwitch
 } from './cartReducer';
 
 const empty = () => ({ branchId: null, items: [] });
@@ -134,5 +136,55 @@ describe('cartReducer.totalQuantityOf / totalAmountOf', () => {
   test('giỏ rỗng thì tổng bằng 0', () => {
     expect(totalQuantityOf([])).toBe(0);
     expect(totalAmountOf([])).toBe(0);
+  });
+});
+
+describe('mergeGuestCart — giỏ chọn lúc chưa đăng nhập không được mất (FE-03)', () => {
+  const productC = { variantId: 20, name: 'Vợt Q7', price: 3800000, branchId: 3 };
+
+  test('giỏ tài khoản rỗng → lấy nguyên giỏ khách', () => {
+    const guest = addItem(empty(), productA, 2);
+    expect(mergeGuestCart(empty(), guest)).toEqual(guest);
+  });
+
+  test('giỏ khách rỗng → giữ giỏ tài khoản', () => {
+    const saved = addItem(empty(), productB, 1);
+    expect(mergeGuestCart(saved, empty())).toEqual(saved);
+  });
+
+  test('cùng chi nhánh → cộng dồn, món trùng thì cộng số lượng (trần 99)', () => {
+    const saved = addItem(addItem(empty(), productA, 98), productB, 1);
+    const guest = addItem(empty(), productA, 5);
+    const merged = mergeGuestCart(saved, guest);
+    expect(merged.branchId).toBe(1);
+    expect(merged.items.find((i) => i.variantId === productA.variantId).quantity).toBe(99);
+    expect(merged.items.find((i) => i.variantId === productB.variantId).quantity).toBe(1);
+  });
+
+  test('khác chi nhánh → giỏ khách thắng (thứ khách đang mua), không trộn hai chi nhánh', () => {
+    const saved = addItem(empty(), productA, 1);
+    const guest = addItem(empty(), productC, 1);
+    expect(mergeGuestCart(saved, guest)).toEqual(guest);
+  });
+});
+
+describe('resolveCartSwitch — đổi key lưu giỏ khi đăng nhập/đăng xuất', () => {
+  const GUEST = 'cart_guest';
+  const guestCart = addItem(empty(), productA, 2);
+
+  test('khách → tài khoản: gộp và xoá giỏ khách', () => {
+    const result = resolveCartSwitch({ fromKey: GUEST, fromCart: guestCart, toKey: 'cart_user_7', storedToCart: empty(), guestKey: GUEST });
+    expect(result).toEqual({ cart: guestCart, removeGuestCart: true });
+  });
+
+  test('tài khoản → khách (đăng xuất): không mang giỏ của tài khoản ra ngoài', () => {
+    const result = resolveCartSwitch({ fromKey: 'cart_user_7', fromCart: guestCart, toKey: GUEST, storedToCart: empty(), guestKey: GUEST });
+    expect(result).toEqual({ cart: empty(), removeGuestCart: false });
+  });
+
+  test('tài khoản A → tài khoản B: giỏ của B, không gộp giỏ của A', () => {
+    const bCart = addItem(empty(), productB, 1);
+    const result = resolveCartSwitch({ fromKey: 'cart_user_7', fromCart: guestCart, toKey: 'cart_user_8', storedToCart: bCart, guestKey: GUEST });
+    expect(result).toEqual({ cart: bCart, removeGuestCart: false });
   });
 });

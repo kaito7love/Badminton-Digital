@@ -66,5 +66,39 @@ export const switchBranch = (state, branchId, { force = false } = {}) => {
   return { branchId, items: force ? [] : state.items };
 };
 
+/**
+ * Gộp giỏ khách (chưa đăng nhập) vào giỏ của tài khoản vừa đăng nhập/đăng ký
+ * (FE-03). Trước đây đăng nhập là nạp giỏ của tài khoản (thường rỗng) và bỏ
+ * luôn những món khách vừa chọn — đúng lúc khách bấm "Đặt hàng".
+ *
+ * - Giỏ khách rỗng → giữ giỏ tài khoản.
+ * - Giỏ tài khoản rỗng → lấy giỏ khách.
+ * - Cùng chi nhánh → cộng dồn từng món (trần số lượng như addItem).
+ * - Khác chi nhánh → giỏ khách thắng: đó là thứ khách đang mua ngay lúc này;
+ *   một giỏ không được trộn hai chi nhánh (xem CartContext).
+ */
+export const mergeGuestCart = (userCart, guestCart) => {
+  if (!guestCart?.items?.length) return userCart;
+  if (!userCart?.items?.length) return guestCart;
+  if (userCart.branchId && guestCart.branchId && userCart.branchId !== guestCart.branchId) return guestCart;
+  return guestCart.items.reduce(
+    (state, item) => addItem(state, item, item.quantity),
+    { branchId: userCart.branchId ?? guestCart.branchId ?? null, items: userCart.items }
+  );
+};
+
+/**
+ * Giỏ phải dùng sau khi đổi key lưu trữ (đăng nhập, đăng xuất, đổi tài khoản).
+ * Chỉ gộp khi đi từ khách sang tài khoản — đăng xuất hay đổi sang người khác
+ * thì không mang giỏ của người này sang người kia. `removeGuestCart` báo
+ * CartContext xoá giỏ khách đã gộp để lần sau không gộp lại lần nữa.
+ */
+export const resolveCartSwitch = ({ fromKey, fromCart, toKey, storedToCart, guestKey }) => {
+  const fromGuestToAccount = fromKey === guestKey && toKey !== guestKey;
+  return fromGuestToAccount
+    ? { cart: mergeGuestCart(storedToCart, fromCart), removeGuestCart: true }
+    : { cart: storedToCart, removeGuestCart: false };
+};
+
 export const totalQuantityOf = (items) => items.reduce((sum, item) => sum + item.quantity, 0);
 export const totalAmountOf = (items) => items.reduce((sum, item) => sum + item.quantity * item.price, 0);

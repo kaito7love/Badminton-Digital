@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const requestContextMiddleware = require('./middleware/requestContextMiddleware');
 const OnlineOrderService = require('./services/OnlineOrderService');
+const SalesOrderService = require('./services/SalesOrderService');
 const { resolveCorsOrigin, resolveTrustProxy } = require('./utils/serverConfig');
 const { createFrontendHandlers } = require('./utils/frontendStatic');
 
@@ -148,9 +149,14 @@ app.listen(PORT, () => {
 // trả hàng về kệ — quét mỗi 5 phút là đủ nhặt kịp (khách chờ tối đa ~35 phút,
 // không cần chính xác tới giây). Không chạy khi test require trực tiếp từng
 // service/route — chỉ chạy khi chính server.js này được khởi động.
+// Cùng nhịp đó: đơn tại quầy bỏ dở quá 6 giờ (tab đóng, máy tắt giữa lúc quét
+// hàng) được huỷ để hàng về lại kho (FE-02).
 setInterval(() => {
   OnlineOrderService.expireStalePendingOrders().catch((err) => {
     console.error('❌ Lỗi khi quét đơn online quá hạn thanh toán:', err.message);
+  });
+  SalesOrderService.releaseAbandonedPosOrders().catch((err) => {
+    console.error('❌ Lỗi khi dọn đơn tại quầy bỏ dở:', err.message);
   });
 }, 5 * 60 * 1000);
 

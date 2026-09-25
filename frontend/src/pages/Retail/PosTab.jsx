@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { productCategoryService, productService, publicService, salesOrderService } from '../../services/apiServices';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBranch } from '../../contexts/BranchContext';
@@ -21,6 +21,42 @@ export default function PosTab() {
 
   const [order, setOrder] = useState(null);
   const [busyVariantId, setBusyVariantId] = useState(null);
+
+  // Đơn đang mở sống ngoài component (FE-02): đổi sang tab "Kho bán lẻ" là
+  // PosTab bị unmount — trước đây giỏ mất trong khi hàng đã quét vẫn bị trừ kho.
+  // Lưu id đơn theo chi nhánh trong sessionStorage (mỗi tab trình duyệt một giỏ).
+  const branchKey = selectedBranchId || user?.employee?.branchId || 'default';
+  const storageKey = `pos_open_order:${branchKey}`;
+  const orderRef = useRef(null);
+  const orderPromiseRef = useRef(null);
+
+  const applyOrder = (next) => {
+    orderRef.current = next;
+    setOrder(next);
+    try {
+      if (next && next.status === 'open') sessionStorage.setItem(storageKey, String(next.id));
+      else sessionStorage.removeItem(storageKey);
+    } catch { /* sessionStorage bị chặn — giỏ vẫn chạy, chỉ không nhớ qua F5 */ }
+  };
+
+  // Mở lại tab/F5/đổi chi nhánh: nạp lại đơn đang mở của chi nhánh này nếu còn.
+  useEffect(() => {
+    orderRef.current = null;
+    setOrder(null);
+    let storedId = null;
+    try { storedId = sessionStorage.getItem(storageKey); } catch { /* bỏ qua */ }
+    if (!storedId) return;
+    let cancelled = false;
+    salesOrderService.getById(storedId)
+      .then((res) => {
+        if (cancelled) return;
+        const saved = res.data?.data;
+        if (saved?.status === 'open') applyOrder(saved);
+        else sessionStorage.removeItem(storageKey);
+      })
+      .catch(() => { if (!cancelled) sessionStorage.removeItem(storageKey); });
+    return () => { cancelled = true; };
+  }, [storageKey]);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   // Chuyển khoản chỉ bật khi backend đã cấu hình tài khoản nhận tiền + webhook.
   // Chưa biết thì coi như tắt — không bao giờ để thu ngân phát một mã QR hỏng.
@@ -69,12 +105,19 @@ export default function PosTab() {
     if (!transferEnabled && paymentMethod === 'transfer') setPaymentMethod('cash');
   }, [transferEnabled, paymentMethod]);
 
-  const ensureOrder = async () => {
-    if (order) return order;
-    const res = await salesOrderService.create({});
-    const created = res.data.data;
-    setOrder(created);
-    return created;
+  // Bấm nhanh hai sản phẩm khi chưa có đơn từng tạo HAI đơn (FE-02): mọi lần
+  // gọi trong lúc đang tạo dùng chung đúng một promise.
+  const ensureOrder = () => {
+    if (orderRef.current) return Promise.resolve(orderRef.current);
+    if (!orderPromiseRef.current) {
+      orderPromiseRef.current = salesOrderService.create({})
+        .then((res) => {
+          applyOrder(res.data.data);
+          return res.data.data;
+        })
+        .finally(() => { orderPromiseRef.current = null; });
+    }
+    return orderPromiseRef.current;
   };
 
   const addToCart = async (variantId) => {
@@ -82,7 +125,7 @@ export default function PosTab() {
     try {
       const currentOrder = await ensureOrder();
       const res = await salesOrderService.addLine(currentOrder.id, { variantId, quantity: 1 });
-      setOrder(res.data.data);
+      applyOrder(res.data.data);
     } catch (err) {
       alert(err.response?.data?.message || 'Không thêm được sản phẩm vào giỏ');
     } finally {
@@ -93,22 +136,20 @@ export default function PosTab() {
   const removeLine = async (lineId) => {
     try {
       const res = await salesOrderService.removeLine(order.id, lineId);
-      setOrder(res.data.data);
+      applyOrder(res.data.data);
     } catch (err) {
       alert(err.response?.data?.message || 'Lỗi xoá dòng sản phẩm');
     }
   };
 
+  // Một request huỷ cả đơn — backend hoàn kho mọi dòng và đóng đơn, không để
+  // lại đơn rỗng `open` như cách xoá từng dòng trước đây.
   const clearCart = async () => {
-    if (!order || !order.lines.length) { setOrder(null); return; }
-    if (!window.confirm('Huỷ toàn bộ giỏ hàng hiện tại? Tồn kho sẽ được hoàn lại.')) return;
+    if (!order) return;
+    if (order.lines.length && !window.confirm('Huỷ toàn bộ giỏ hàng hiện tại? Tồn kho sẽ được hoàn lại.')) return;
     try {
-      let current = order;
-      for (const line of [...current.lines]) {
-        const res = await salesOrderService.removeLine(current.id, line.id);
-        current = res.data.data;
-      }
-      setOrder(null);
+      await salesOrderService.cancel(order.id);
+      applyOrder(null);
     } catch (err) {
       alert(err.response?.data?.message || 'Lỗi huỷ giỏ hàng');
     }
@@ -127,7 +168,7 @@ export default function PosTab() {
     try {
       const currentOrder = await ensureOrder();
       const res = await salesOrderService.applyVoucher(currentOrder.id, code);
-      setOrder(res.data.data);
+      applyOrder(res.data.data);
     } catch (err) {
       setVoucherError(errorMessageOf(err, 'Mã giảm giá không hợp lệ'));
     } finally {
@@ -140,7 +181,7 @@ export default function PosTab() {
     setVoucherBusy(true);
     try {
       const res = await salesOrderService.applyVoucher(order.id, null);
-      setOrder(res.data.data);
+      applyOrder(res.data.data);
       setVoucherInput('');
       setVoucherError(null);
     } catch (err) {
@@ -165,7 +206,7 @@ export default function PosTab() {
         discountReason: hasManualDiscount ? discountReason.trim() : undefined,
       });
       setCheckoutResult(res.data.data);
-      setOrder(null);
+      applyOrder(null);
       setDiscountAmount(0);
       setDiscountReason('');
       setPaymentMethod('cash');

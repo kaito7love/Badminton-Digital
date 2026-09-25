@@ -15,9 +15,9 @@ import * as cartReducer from './cartReducer';
  * đang có hàng phải hỏi khách trước (`switchBranch` trả về false để trang gọi
  * tự xử lý).
  *
- * Các phép biến đổi trạng thái (thêm, sửa số lượng, đổi chi nhánh...) nằm ở
- * `cartReducer.js` dưới dạng hàm thuần — file này chỉ lo phần có tác dụng phụ:
- * đọc/ghi localStorage và expose qua React context.
+ * Các phép biến đổi trạng thái (thêm, sửa số lượng, đổi chi nhánh, gộp giỏ khi
+ * đăng nhập...) nằm ở `cartReducer.js` dưới dạng hàm thuần — file này chỉ lo
+ * phần có tác dụng phụ: đọc/ghi localStorage và expose qua React context.
  */
 
 const CartContext = createContext(null);
@@ -38,17 +38,37 @@ const readCart = (storageKey) => {
 export function CartProvider({ children }) {
   const { user } = useAuth();
   const storageKey = keyFor(user);
-  const [cart, setCart] = useState(() => readCart(storageKey));
+  // Giỏ luôn đi kèm key của nó. Trước đây giỏ và key là hai thứ riêng: đúng
+  // lúc đăng nhập, effect ghi localStorage chạy với key MỚI nhưng giỏ CŨ, rồi
+  // giỏ của tài khoản (rỗng) đè lên — món khách vừa chọn biến mất (FE-03).
+  const [state, setState] = useState(() => ({ key: storageKey, cart: readCart(storageKey) }));
 
-  // Đổi tài khoản trên cùng trình duyệt thì đổi luôn giỏ: giỏ của người này
-  // không được hiện ra dưới tên người kia.
+  // Đổi tài khoản trên cùng trình duyệt thì đổi giỏ; từ khách sang tài khoản
+  // thì gộp giỏ khách vào (resolveCartSwitch).
   useEffect(() => {
-    setCart(readCart(storageKey));
-  }, [storageKey]);
+    if (state.key === storageKey) return;
+    const { cart, removeGuestCart } = cartReducer.resolveCartSwitch({
+      fromKey: state.key,
+      fromCart: state.cart,
+      toKey: storageKey,
+      storedToCart: readCart(storageKey),
+      guestKey: GUEST_KEY
+    });
+    if (removeGuestCart) localStorage.removeItem(GUEST_KEY);
+    setState({ key: storageKey, cart });
+  }, [storageKey, state]);
 
+  // Chỉ ghi khi giỏ đúng là của key hiện tại.
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(cart));
-  }, [storageKey, cart]);
+    if (state.key !== storageKey) return;
+    localStorage.setItem(state.key, JSON.stringify(state.cart));
+  }, [state, storageKey]);
+
+  const { cart } = state;
+  const setCart = (update) => setState((current) => ({
+    ...current,
+    cart: typeof update === 'function' ? update(current.cart) : update
+  }));
 
   const value = useMemo(() => {
     const items = cart.items;

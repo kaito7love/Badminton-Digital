@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Badge } from '../../components/UIComponents';
 import { courtService, sessionService, accessoryService, paymentService } from '../../services/apiServices';
 import { connectRealtimeStream } from '../../services/realtimeClient';
@@ -78,6 +78,26 @@ export default function CourtsPage() {
   // chơi với giá ở trình duyệt nữa.
   const [checkout, setCheckout] = useState(null);
 
+  // Khoá thao tác đang gửi (FE-01): double-click "Thêm món"/"Trả đồ" từng gửi
+  // hai request — tính tiền và trừ/cộng kho hai lần. Ref chặn ngay trong cùng
+  // tick (state `submitting` chỉ có hiệu lực sau lần render kế tiếp).
+  const submitLock = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+  const runOnce = async (task) => {
+    if (submitLock.current) return;
+    submitLock.current = true;
+    setSubmitting(true);
+    try {
+      await task();
+    } finally {
+      submitLock.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  // 'live' | 'reconnecting' — hiện dòng báo khi mất kết nối realtime (RUN-01).
+  const [realtimeStatus, setRealtimeStatus] = useState('live');
+
   // Fetch danh sách sân từ API
   const fetchCourts = async () => {
     try {
@@ -145,7 +165,10 @@ export default function CourtsPage() {
   useEffect(() => {
     const close = connectRealtimeStream({
       branchId: selectedBranchId,
-      onEvent: () => fetchCourts()
+      onEvent: () => fetchCourts(),
+      // Kết nối lại sau khi mất: có thể đã lỡ sự kiện trong lúc đó.
+      onReconnect: () => fetchCourts(),
+      onStatusChange: setRealtimeStatus
     });
     // Tab quay lại foreground trên di động: trình duyệt di động thường tạm
     // ngưng kết nối SSE nền khi chuyển app, có thể đã bỏ lỡ sự kiện trong
@@ -225,19 +248,21 @@ export default function CourtsPage() {
     setPlayerPhoneInput('');
   };
 
-  const confirmOpen = async (e) => {
+  const confirmOpen = (e) => {
     e.preventDefault();
     if (!playerNameInput.trim()) return;
-    try {
-      await courtService.openCourt(activeModal.courtId, {
-        guestName: playerNameInput.trim(),
-        guestPhone: playerPhoneInput.trim() || undefined
-      });
-      await fetchCourts();
-      setActiveModal(null);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi mở sân');
-    }
+    return runOnce(async () => {
+      try {
+        await courtService.openCourt(activeModal.courtId, {
+          guestName: playerNameInput.trim(),
+          guestPhone: playerPhoneInput.trim() || undefined
+        });
+        await fetchCourts();
+        setActiveModal(null);
+      } catch (err) {
+        alert(err.response?.data?.message || 'Lỗi mở sân');
+      }
+    });
   };
 
   // Hỏi server số tiền nếu thanh toán ngay bây giờ. Server chốt luôn giờ kết thúc
@@ -291,19 +316,21 @@ export default function CourtsPage() {
     setExtraQty(1);
   };
 
-  const confirmAddExtra = async () => {
+  const confirmAddExtra = () => {
     if (!selectedExtra) return;
     const court = courts.find(c => c.id === activeModal.courtId);
-    try {
-      await sessionService.addExtra(court.session.id, {
-        extraId: selectedExtra.id,
-        quantity: extraQty,
-      });
-      await Promise.all([fetchCourts(), fetchExtras()]);
-      setActiveModal(null);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi thêm phụ kiện');
-    }
+    return runOnce(async () => {
+      try {
+        await sessionService.addExtra(court.session.id, {
+          extraId: selectedExtra.id,
+          quantity: extraQty,
+        });
+        await Promise.all([fetchCourts(), fetchExtras()]);
+        setActiveModal(null);
+      } catch (err) {
+        alert(err.response?.data?.message || 'Lỗi thêm phụ kiện');
+      }
+    });
   };
 
   const handleReturnExtra = (courtId) => {
@@ -314,23 +341,25 @@ export default function CourtsPage() {
     setActiveModal({ type: 'return', courtId, court });
   };
 
-  const confirmReturnExtra = async () => {
+  const confirmReturnExtra = () => {
     const court = courts.find(c => c.id === activeModal.courtId);
-    try {
-      const promises = Object.entries(returnItems)
-        .filter(([, qty]) => qty > 0)
-        .map(([extraId, returnQuantity]) =>
-          sessionService.returnExtra(court.session.id, {
+    return runOnce(async () => {
+      try {
+        // Tuần tự: một dòng lỗi thì dừng ở đó, không để nửa được nửa không.
+        for (const [extraId, returnQuantity] of Object.entries(returnItems)) {
+          if (returnQuantity <= 0) continue;
+          await sessionService.returnExtra(court.session.id, {
             extraId: parseInt(extraId),
             returnQuantity,
-          })
-        );
-      await Promise.all(promises);
-      await Promise.all([fetchCourts(), fetchExtras()]);
-      setActiveModal(null);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi trả đồ');
-    }
+          });
+        }
+        setActiveModal(null);
+      } catch (err) {
+        alert(err.response?.data?.message || 'Lỗi trả đồ');
+      } finally {
+        await Promise.all([fetchCourts(), fetchExtras()]);
+      }
+    });
   };
 
   const changeCourtStatus = async (courtId, status) => {
@@ -349,17 +378,19 @@ export default function CourtsPage() {
     setTargetSwitchId(availableTargets[0]?.id || '');
   };
 
-  const confirmSwitchCourt = async () => {
+  const confirmSwitchCourt = () => {
     if (!targetSwitchId) return;
-    try {
-      await courtService.transferCourt(activeModal.courtId, {
-        targetCourtId: parseInt(targetSwitchId),
-      });
-      await fetchCourts();
-      setActiveModal(null);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi đổi sân');
-    }
+    return runOnce(async () => {
+      try {
+        await courtService.transferCourt(activeModal.courtId, {
+          targetCourtId: parseInt(targetSwitchId),
+        });
+        await fetchCourts();
+        setActiveModal(null);
+      } catch (err) {
+        alert(err.response?.data?.message || 'Lỗi đổi sân');
+      }
+    });
   };
 
   if (loading) return <div className="p-8 text-slate-600 dark:text-slate-300">⏳ Đang tải danh sách sân...</div>;
@@ -373,6 +404,11 @@ export default function CourtsPage() {
           <p className="text-sm uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400 font-medium">Realtime Court Matrix</p>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-1">Sơ đồ quản lý sân thời gian thực</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tự động đếm giờ, tính tiền sân, gọi đồ, trả đồ dư & cập nhật thông tin sân.</p>
+          {realtimeStatus === 'reconnecting' && (
+            <p role="status" className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
+              ⚠️ Mất kết nối realtime — đang kết nối lại, trạng thái sân có thể chưa mới nhất
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex shrink-0 gap-3">
@@ -690,7 +726,7 @@ export default function CourtsPage() {
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm">Hủy</button>
-            <button type="submit" className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">▶️ Bắt Đầu Tính Giờ</button>
+            <button type="submit" disabled={submitting} className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400 disabled:opacity-60 disabled:cursor-wait">{submitting ? 'Đang mở sân…' : '▶️ Bắt Đầu Tính Giờ'}</button>
           </div>
         </form>
       </Modal>
@@ -803,7 +839,7 @@ export default function CourtsPage() {
           )}
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm">Hủy</button>
-            <button onClick={confirmAddExtra} className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400">➕ Thêm Món</button>
+            <button onClick={confirmAddExtra} disabled={submitting} className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400 disabled:opacity-60 disabled:cursor-wait">{submitting ? 'Đang thêm…' : '➕ Thêm Món'}</button>
           </div>
         </div>
       </Modal>
@@ -827,7 +863,7 @@ export default function CourtsPage() {
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm">Hủy</button>
-            <button onClick={confirmReturnExtra} className="rounded-xl bg-amber-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400">↩️ Xác Nhận Trả Đồ</button>
+            <button onClick={confirmReturnExtra} disabled={submitting} className="rounded-xl bg-amber-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-60 disabled:cursor-wait">{submitting ? 'Đang trả…' : '↩️ Xác Nhận Trả Đồ'}</button>
           </div>
         </div>
       </Modal>
@@ -844,7 +880,7 @@ export default function CourtsPage() {
           </p>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setActiveModal(null)} className="rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 px-4 py-2 text-sm">Hủy</button>
-            <button onClick={confirmSwitchCourt} className="rounded-xl bg-sky-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-sky-400">🔄 Xác Nhận Đổi Sân</button>
+            <button onClick={confirmSwitchCourt} disabled={submitting} className="rounded-xl bg-sky-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-sky-400 disabled:opacity-60 disabled:cursor-wait">{submitting ? 'Đang đổi sân…' : '🔄 Xác Nhận Đổi Sân'}</button>
           </div>
         </div>
       </Modal>

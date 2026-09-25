@@ -2699,6 +2699,39 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  '/api/v1/sales-orders/{id}/cancel':
+    post:
+      tags:
+        - '14 · Sales Orders (POS bán lẻ tại quầy)'
+      summary: 'Huỷ đơn bán lẻ'
+      operationId: post_sales_orders_id_cancel
+      description: 'Huỷ đơn tại quầy chưa thanh toán: backend hoàn kho mọi dòng và đánh dấu đơn cancelled trong một transaction (thay cho việc xoá từng dòng). Đơn đã thanh toán → 400; đơn online hoặc chi nhánh khác → 404. Script chuẩn bị tạo một đơn riêng (không đụng tmpSalesOrderId của các request trên).'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+        -
+          name: X-Branch-Id
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: 'Chi nhánh đang thao tác. `admin` có thể gửi bất kỳ chi nhánh nào; `employee`/`branch_manager` bị khoá vào chi nhánh của mình. Bỏ trống thì dùng chi nhánh của tài khoản. Chỉ tài khoản nhân viên được gửi header này — tài khoản `customer` gửi sẽ nhận 403.'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/my-orders:
     get:
       tags:

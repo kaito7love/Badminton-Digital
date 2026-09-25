@@ -47,6 +47,41 @@ const requestRefresh = () => {
   return refreshPromise;
 };
 
+/**
+ * Lấy access token mới bằng refresh token — dùng chung cho interceptor dưới
+ * đây và cho kết nối realtime (EventSource không đi qua axios nên không tự
+ * refresh được, xem realtimeClient.js). Trả về token mới.
+ *
+ * Chỉ coi là HẾT PHIÊN (xoá phiên, báo AuthContext, lỗi mang `authExpired`)
+ * khi server từ chối thật: không có refresh token, hoặc server trả 400/401/403.
+ * Lỗi mạng / 5xx (server đang khởi động lại, Render đang "ngủ dậy") chỉ ném
+ * lỗi cho nơi gọi thử lại — không đá người dùng ra trang đăng nhập vì một lần
+ * server tạm vắng mặt.
+ */
+export const refreshAccessToken = async () => {
+  try {
+    const res = await requestRefresh();
+    const newAccessToken = res.data?.success ? res.data?.data?.accessToken : null;
+    if (!newAccessToken) throw Object.assign(new Error('Refresh token không trả về access token'), { rejected: true });
+    localStorage.setItem('access_token', newAccessToken);
+    return newAccessToken;
+  } catch (err) {
+    const status = err.response?.status;
+    const rejected = err.rejected || !localStorage.getItem('refresh_token') || [400, 401, 403].includes(status);
+    if (rejected) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user_info');
+      // Báo AuthContext biết phiên đã hết hiệu lực thật để cập nhật UI
+      // ngay (ProtectedRoute chuyển về /login) thay vì giữ giao diện
+      // "đang đăng nhập" cũ cho tới khi người dùng tự F5.
+      emitAuthExpired();
+      err.authExpired = true;
+    }
+    throw err;
+  }
+};
+
 // Response Interceptor: Auto Refresh Token on 401
 apiClient.interceptors.response.use(
   (response) => response,
@@ -55,21 +90,11 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const res = await requestRefresh();
-        if (res.data?.success && res.data?.data?.accessToken) {
-          const newAccessToken = res.data.data.accessToken;
-          localStorage.setItem('access_token', newAccessToken);
-          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-          return apiClient(originalRequest);
-        }
-      } catch (refreshErr) {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user_info');
-        // Báo AuthContext biết phiên đã hết hiệu lực thật để cập nhật UI
-        // ngay (ProtectedRoute chuyển về /login) thay vì giữ giao diện
-        // "đang đăng nhập" cũ cho tới khi người dùng tự F5.
-        emitAuthExpired();
+        const newAccessToken = await refreshAccessToken();
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        return apiClient(originalRequest);
+      } catch {
+        // refreshAccessToken đã xoá phiên và báo hết hạn — trả lỗi gốc.
       }
     }
     return Promise.reject(error);

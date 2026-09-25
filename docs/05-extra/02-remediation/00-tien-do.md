@@ -671,6 +671,31 @@ Nguồn: nhóm sửa 4/6 của đợt kiểm tra trước deploy (`DEP-01`–`DE
   `sql_require_primary_key=ON`: migrate + seed chạy được, CA sai/thiếu bị từ chối, `create-admin` chạy
   được; reset 26–40 s. Jest 322/322, Vitest 49/49, build, `docs:build` 113 route; smoke dev không đổi.
 
+### 17. `fix/counter-ops-bugs` (chưa merge — chờ duyệt)
+Nguồn: nhóm sửa 5/6 của đợt kiểm tra trước deploy (`FE-01`, `FE-02`, `FE-03`, `DATA-01`, `RUN-01`). Plan
+và kết quả đầy đủ: `17-ke-hoach-loi-thao-tac-tai-quay.md`.
+
+- **Trang Sân:** khoá nút "Mở sân", "Thêm món", "Trả đồ", "Đổi sân" khi đang gửi (ref khoá ngay trong
+  cùng tick); trả đồ gửi tuần tự.
+- **Bán lẻ tại quầy:** tạo đơn tuần tự (1 đơn dù bấm nhanh nhiều sản phẩm); nhớ đơn đang mở qua đổi tab/F5
+  (`sessionStorage` theo chi nhánh); route mới `POST /sales-orders/:id/cancel` hoàn kho cả đơn; job 5 phút
+  huỷ + hoàn kho đơn POS bỏ dở quá 6 giờ. 114 route.
+- **Giỏ hàng khách:** gộp giỏ chọn lúc chưa đăng nhập vào giỏ tài khoản khi đăng nhập/đăng ký (khác chi
+  nhánh thì giỏ khách thắng); đăng ký quay lại đúng trang đang dở.
+- **Hồ sơ khách đã xoá:** nhả số điện thoại (số cũ ghi nhật ký) — kể cả hồ sơ xoá từ trước còn kẹt số —
+  nên mở sân/đặt sân/đăng ký bằng số đó chạy được; không xoá được hồ sơ đang gắn tài khoản (409).
+- **Realtime:** server gửi sự kiện `ping` mỗi 25 giây; client refresh token trước khi mở lại, giãn cách
+  thử lại 2 → 30 giây, tự phát hiện kết nối câm (60 giây), fetch lại khi kết nối được lại, hiện trạng thái
+  mất kết nối. Kèm: server tạm vắng mặt (lỗi mạng/5xx) không còn làm người dùng bị đăng xuất.
+- **Bằng chứng test thật:** tái hiện 4/4 trên code `main` (bản sao DB dev); sau khi sửa: API trên bản sao
+  (huỷ đơn hoàn kho, các ca bị từ chối, job dọn đơn, số của hồ sơ đã xoá), trình duyệt thật (double-click và
+  3 click cùng một tick đều ra đúng 1 request, POS qua đổi tab/F5/huỷ giỏ, tắt backend ~100 giây rồi bật
+  lại: không bị đăng xuất, tự kết nối lại, nhận cập nhật từ máy khác), newman trọn bộ 120 request / 334
+  assertion / 0 lỗi. Jest 291/291, Vitest 61/61, build, `docs:build` 114 route; smoke DB dev không ghi dòng
+  nào. Chưa kiểm được trên trình duyệt: gộp giỏ lúc đăng nhập (cần gõ mật khẩu vào form).
+- **Phát hiện có sẵn, chưa sửa:** mỗi tài khoản chỉ giữ một refresh token — đăng nhập ở máy khác làm máy
+  trước bị đăng xuất sau ≤ 15 phút (bản demo dùng chung tài khoản sẽ gặp).
+
 ---
 
 ## Chưa làm — xem plan riêng từng phần
@@ -679,7 +704,7 @@ Nguồn: nhóm sửa 4/6 của đợt kiểm tra trước deploy (`DEP-01`–`DE
 |---|---|---|
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
 | 1 việc còn lại cần quyết định chính sách kinh doanh trước: onboarding `branch_manager` (mục 3 "hoàn tiền/void" đã xong ở mục 10; discount guardrail và tài khoản ngân hàng đã chốt, làm ở mục 14) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
-| Nhóm sửa 5–6 của đợt kiểm tra trước deploy 12/09/2026: lỗi vận hành tại quầy → backup/log (nhóm 1–3 đã merge — mục 13, 14, 15; nhóm 4 chờ duyệt — mục 16) | Nhóm 5: `17-ke-hoach-loi-thao-tac-tai-quay.md`; nhóm 6: chưa có | Nhóm 5 trước khi lên demo; nhóm 6 trước khi vận hành thật |
+| Nhóm sửa 6 của đợt kiểm tra trước deploy 12/09/2026: backup/log (nhóm 1–3 đã merge — mục 13, 14, 15; nhóm 4 và 5 chờ duyệt — mục 16, 17) | Chưa có | Trước khi vận hành thật |
 | Các phát hiện `SEC-*` chưa thuộc nhóm sửa nào: `SEC-06`, `SEC-07`, `SEC-08`, `SEC-09`, `SEC-12`, `SEC-13`, `SEC-15`, `SEC-16` và phần còn lại của `SEC-14`; xác minh SĐT bằng OTP SMS cho đăng ký | `15-ke-hoach-chan-lo-du-lieu-khach.md` mục 5 (đề xuất gom thành đợt "phân quyền và chống lạm dụng") | Sau nhóm 6 |
 | "Luồng tiền 2": quản lý xác nhận tay chuyển khoản / POS chuyển khoản bị đánh dấu `paid` ngay (`PAY-08`), báo cáo doanh thu cộng hoá đơn huỷ (`PAY-05`), void không đổi trạng thái đơn và không trả lượt voucher (`PAY-10`, `PAY-11`), sửa đơn sau khi phát QR (`PAY-12`), phần còn lại của `PAY-13`/`PAY-16`/`PAY-19`, giỏ POS hiện tổng khác số thực thu (`PAY-17`). Hai quầy giành lượt voucher cuối và deadlock checkout (`PAY-07`, `PAY-14`, `PAY-15`) để chung nhóm 6 | `14-ke-hoach-luong-tien.md` mục 5 | Sau nhóm 4 |
 

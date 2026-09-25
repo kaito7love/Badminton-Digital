@@ -64,6 +64,15 @@ const applyVoucher = async (req, res, next) => {
   }
 };
 
+const cancelOrder = async (req, res, next) => {
+  try {
+    const order = await SalesOrderService.cancelOrder(req.params.id, { actor: req.user, branchId: req.branchId, requestId: req.requestId });
+    return successResponse(res, order, 'Đã huỷ đơn và hoàn kho');
+  } catch (err) {
+    next(err);
+  }
+};
+
 const checkout = async (req, res, next) => {
   try {
     const result = await SalesOrderService.checkout({
@@ -84,6 +93,7 @@ const checkout = async (req, res, next) => {
 };
 
 module.exports = {
+  cancelOrder,
   getOrders,
   createOrder,
   getOrderById,

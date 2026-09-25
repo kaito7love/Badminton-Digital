@@ -124,6 +124,7 @@ class CustomerService {
     // này thì tài khoản nhận hồ sơ riêng; nhân viên xác minh rồi gộp tại quầy
     // (mergeIntoAccount) để lịch sử không bị chẻ đôi.
     if (!data.password) {
+      await CustomerService.releaseDeletedPhoneHolder(phone, { actor: context?.actor });
       return await Customer.create({
         ...CustomerService.pickEditableFields(data),
         phone,
@@ -155,6 +156,7 @@ class CustomerService {
         throw error;
       }
 
+      await CustomerService.releaseDeletedPhoneHolder(phone, { transaction, actor: context?.actor });
       const user = await User.create({
         roleId: customerRole.id,
         email,
@@ -201,12 +203,44 @@ class CustomerService {
         transaction
       });
       if (existing) return existing;
+      // Số chỉ còn nằm trên một hồ sơ đã xoá: nhả ra để người này nhận hồ sơ
+      // mới, thay vì mở sân/đặt sân đụng unique index mãi (DATA-01).
+      await CustomerService.releaseDeletedPhoneHolder(normalizedPhone, { transaction });
     }
 
     return await Customer.create({
       fullName: name || 'Khách vãng lai',
       phone: normalizedPhone
     }, { transaction });
+  }
+
+  /**
+   * `customers.phone` là unique TÍNH CẢ hồ sơ đã xoá mềm, còn truy vấn thường
+   * không thấy hồ sơ đã xoá — nên số của một hồ sơ đã xoá bị khoá mãi: code
+   * tưởng số còn trống, `create` thì đụng index (DATA-01). Trước khi gán một số
+   * cho hồ sơ khác, nhả số khỏi hồ sơ đã xoá đang giữ nó; số cũ ghi vào nhật ký.
+   * Không khôi phục hồ sơ đã xoá — admin xoá là có chủ đích.
+   */
+  static async releaseDeletedPhoneHolder(phone, { transaction = null, actor = null } = {}) {
+    if (!phone) return false;
+    const holder = await Customer.findOne({
+      where: { phone, deletedAt: { [Op.ne]: null } },
+      attributes: ['id'],
+      paranoid: false,
+      transaction
+    });
+    if (!holder) return false;
+    await Customer.update({ phone: null }, { where: { id: holder.id }, paranoid: false, transaction });
+    await AuditService.record({
+      actor,
+      action: 'customer.phone_released',
+      targetType: 'customer',
+      targetId: holder.id,
+      oldValues: { phone },
+      newValues: { phone: null },
+      transaction
+    });
+    return true;
   }
 
   static async updateCustomer(id, data, context) {
@@ -239,6 +273,7 @@ class CustomerService {
           error.statusCode = 400;
           throw error;
         }
+        await CustomerService.releaseDeletedPhoneHolder(payload.phone, { transaction, actor: context?.actor });
         // Hồ sơ đã gắn tài khoản thì SĐT còn là danh tính đăng nhập — đổi ở đây
         // mà quên đổi bên users là khách mất đường vào hệ thống. Cùng transaction
         // với việc sửa customer bên dưới để không lệch nhau nếu 1 trong 2 lỗi.
@@ -264,15 +299,44 @@ class CustomerService {
     }
   }
 
-  static async deleteCustomer(id) {
-    const customer = await Customer.findByPk(id);
-    if (!customer) {
-      const error = new Error('Customer not found');
-      error.statusCode = 404;
+  /**
+   * Xoá mềm hồ sơ khách. Nhả số điện thoại ngay lúc xoá (số cũ lưu trong nhật
+   * ký) để người đó quay lại vẫn mở sân/đặt sân được (DATA-01). Hồ sơ đang gắn
+   * tài khoản đăng nhập thì không xoá: khách vẫn đăng nhập được nhưng mất hồ sơ,
+   * mọi trang của họ hỏng.
+   */
+  static async deleteCustomer(id, context = {}) {
+    const transaction = await sequelize.transaction();
+    try {
+      const customer = await Customer.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
+      if (!customer) {
+        const error = new Error('Customer not found');
+        error.statusCode = 404;
+        throw error;
+      }
+      if (customer.userId) {
+        const error = new Error('Hồ sơ này đang gắn với tài khoản đăng nhập của khách nên không xoá được.');
+        error.statusCode = 409;
+        throw error;
+      }
+      const oldValues = customer.toJSON();
+      if (customer.phone) await customer.update({ phone: null }, { transaction });
+      await customer.destroy({ transaction });
+      await AuditService.record({
+        actor: context.actor,
+        action: 'customer.deleted',
+        targetType: 'customer',
+        targetId: customer.id,
+        oldValues,
+        requestId: context.requestId,
+        transaction
+      });
+      await transaction.commit();
+      return true;
+    } catch (error) {
+      if (!transaction.finished) await transaction.rollback().catch(() => {});
       throw error;
     }
-    await customer.destroy();
-    return true;
   }
 
   static async getCustomerHistory(id, context = {}) {

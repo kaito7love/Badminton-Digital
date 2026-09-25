@@ -11,6 +11,11 @@ const { computeLoyaltyTier } = require('../utils/loyalty');
 const AuditService = require('./AuditService');
 const SettingService = require('./SettingService');
 const VoucherService = require('./VoucherService');
+const OnlineOrderService = require('./OnlineOrderService');
+
+// Đơn tại quầy không đổi gì quá khoảng này coi như bị bỏ dở (tab đóng, máy tắt)
+// — tự huỷ để hàng đã quét quay về kho. Một lượt bán tại quầy chỉ vài phút.
+const ABANDONED_POS_ORDER_MS = 6 * 60 * 60 * 1000;
 
 const orderIncludes = [
   {
@@ -217,6 +222,109 @@ class SalesOrderService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Huỷ đơn tại quầy chưa thanh toán: hoàn kho mọi dòng và đánh dấu `cancelled`
+   * trong một transaction (FE-02). Trước đây "Huỷ giỏ" xoá từng dòng rồi bỏ lại
+   * một đơn rỗng `open` mãi mãi — và không có đường nào huỷ một đơn còn hàng.
+   */
+  static async cancelOrder(orderId, context = {}) {
+    const transaction = await sequelize.transaction();
+    try {
+      const order = await SalesOrder.findOne({
+        where: { id: orderId, channel: 'pos', ...(context.branchId ? { branchId: context.branchId } : {}) },
+        include: [{ model: SalesOrderLine, as: 'lines' }],
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+      if (!order) {
+        const error = new Error('Sales order not found');
+        error.statusCode = 404;
+        throw error;
+      }
+      if (order.status !== 'open') {
+        const error = new Error(`Đơn hàng ở trạng thái '${order.status}', không huỷ được`);
+        error.statusCode = 400;
+        throw error;
+      }
+
+      await OnlineOrderService._releaseOrder(order, transaction, context);
+      await AuditService.record({
+        actor: context.actor,
+        branchId: order.branchId,
+        action: 'sales_order.cancelled',
+        targetType: 'sales_order',
+        targetId: order.id,
+        oldValues: { status: 'open', lines: order.lines.length },
+        newValues: { status: 'cancelled' },
+        requestId: context.requestId,
+        transaction
+      });
+
+      await transaction.commit();
+      return SalesOrderService.getOrderById(order.id, order.branchId);
+    } catch (error) {
+      if (!transaction.finished) {
+        await transaction.rollback().catch(() => {});
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Quét nền: đơn tại quầy còn `open` mà cả đơn lẫn dòng hàng mới nhất đều
+   * không đổi quá ABANDONED_POS_ORDER_MS → hoàn kho + huỷ. Mỗi đơn một
+   * transaction riêng, khoá xong mới kiểm lại (đơn có thể vừa được thanh toán).
+   * Gọi từ setInterval trong server.js cùng job huỷ đơn online quá hạn.
+   */
+  static async releaseAbandonedPosOrders(now = new Date()) {
+    const cutoff = new Date(now.getTime() - ABANDONED_POS_ORDER_MS);
+    const candidates = await SalesOrder.findAll({
+      where: { channel: 'pos', status: 'open', updatedAt: { [Op.lt]: cutoff } },
+      attributes: ['id']
+    });
+
+    let released = 0;
+    for (const { id } of candidates) {
+      const transaction = await sequelize.transaction();
+      try {
+        const order = await SalesOrder.findOne({
+          where: { id },
+          include: [{ model: SalesOrderLine, as: 'lines' }],
+          transaction,
+          lock: transaction.LOCK.UPDATE
+        });
+        const lastActivity = Math.max(
+          new Date(order?.updatedAt || 0).getTime(),
+          ...(order?.lines || []).map((line) => new Date(line.createdAt).getTime())
+        );
+        if (!order || order.status !== 'open' || lastActivity >= cutoff.getTime()) {
+          await transaction.commit();
+          continue;
+        }
+
+        await OnlineOrderService._releaseOrder(order, transaction);
+        await AuditService.record({
+          branchId: order.branchId,
+          action: 'sales_order.abandoned_released',
+          targetType: 'sales_order',
+          targetId: order.id,
+          oldValues: { status: 'open', lines: order.lines.length },
+          newValues: { status: 'cancelled' },
+          transaction
+        });
+
+        await transaction.commit();
+        released += 1;
+      } catch (error) {
+        if (!transaction.finished) {
+          await transaction.rollback().catch(() => {});
+        }
+        console.error(`[SalesOrderService] Lỗi khi huỷ đơn tại quầy bỏ dở #${id}:`, error.message);
+      }
+    }
+    return { released, checked: candidates.length };
   }
 
   /**
@@ -566,5 +674,7 @@ class SalesOrderService {
     };
   }
 }
+
+SalesOrderService.ABANDONED_POS_ORDER_MS = ABANDONED_POS_ORDER_MS;
 
 module.exports = SalesOrderService;

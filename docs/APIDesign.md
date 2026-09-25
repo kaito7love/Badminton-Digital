@@ -714,6 +714,17 @@ và trang đặt hàng ẩn lựa chọn này.
 dịch). Hàng đã trả về kệ nên hệ thống không hồi đơn — quầy đọc nhật ký hoạt động
 để hoàn tiền thủ công. Chưa có màn hình/cảnh báo riêng cho ca này.
 
+### 12.4 Đơn tại quầy (POS) — huỷ và dọn đơn bỏ dở
+
+- `POST /sales-orders/:id/cancel` (nhân viên, đúng chi nhánh): chỉ đơn `channel='pos'`
+  đang `open` — hoàn kho mọi dòng và chuyển `cancelled` trong một transaction, nhật
+  ký `sales_order.cancelled`. Đơn đã thanh toán/đã huỷ → 400; đơn online hoặc chi
+  nhánh khác → 404. Nút "Huỷ giỏ" ở màn Bán lẻ gọi route này.
+- Đơn POS `open` không đổi gì quá 6 giờ (cả đơn lẫn dòng hàng mới nhất) được job
+  5 phút trong `server.js` tự huỷ + hoàn kho, nhật ký `sales_order.abandoned_released`.
+- Màn Bán lẻ nhớ id đơn đang mở theo chi nhánh trong `sessionStorage`: đổi tab
+  hay F5 không làm mất giỏ (và không bỏ lại hàng đã trừ kho).
+
 ---
 
 ## 13. Xử lý lỗi đặc thù theo nghiệp vụ
@@ -728,6 +739,8 @@ dịch). Hàng đã trả về kệ nên hệ thống không hồi đơn — qu�
 | Tài khoản khách gửi `X-Branch-Id` | 403 | "Chỉ tài khoản nhân viên được chọn chi nhánh." |
 | `branch_manager`/`employee` không có dòng Employee (chưa gán chi nhánh) | 403 | "Tài khoản nhân viên chưa được gán chi nhánh." |
 | `PUT /bookings/:id` gửi trường ngoài sân/ngày/giờ | 400 | "Không sửa được các trường: branchId, createdBy" |
+| `DELETE /customers/:id` với hồ sơ đang gắn tài khoản đăng nhập | 409 | "Hồ sơ này đang gắn với tài khoản đăng nhập của khách nên không xoá được." |
+| Huỷ đơn POS đã thanh toán | 400 | "Đơn hàng ở trạng thái 'paid', không huỷ được" |
 | Không đủ quyền (VD: Employee gọi API Admin) | 403 | "Bạn không có quyền thực hiện thao tác này" |
 | Token hết hạn | 401 | "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại" |
 

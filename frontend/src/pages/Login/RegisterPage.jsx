@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 // Đăng ký bằng số điện thoại. Email để tuỳ chọn — phần lớn khách đặt sân chỉ
 // có số, nhưng ai điền email thì sau này lấy lại mật khẩu được qua thư.
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { register } = useAuth();
+  // Tới đây từ bước "Đặt hàng" (giỏ → đăng nhập → đăng ký) thì đăng ký xong quay
+  // lại đúng trang đang dở, như LoginPage — trước đây luôn bị đẩy sang /my-bookings.
+  const from = location.state?.from?.pathname || null;
   const [form, setForm] = useState({ fullName: '', phone: '', email: '', password: '', confirm: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -30,8 +34,9 @@ export default function RegisterPage() {
         email: form.email.trim() || undefined,
         password: form.password
       });
-      // Đăng ký xong là đã đăng nhập — đưa thẳng sang trang lịch để đặt sân.
-      navigate('/my-bookings', { replace: true });
+      // Đăng ký xong là đã đăng nhập — quay lại trang đang dở, không thì sang
+      // trang lịch để đặt sân.
+      navigate(from || '/my-bookings', { replace: true });
     } catch (err) {
       const detail = err.response?.data?.errors?.[0]?.msg || err.response?.data?.errors?.[0]?.message;
       setError(detail || err.response?.data?.message || err.message || 'Đăng ký không thành công');
@@ -110,7 +115,7 @@ export default function RegisterPage() {
 
         <p className="text-center text-sm text-slate-400">
           Đã có tài khoản?{' '}
-          <Link to="/login" className="font-bold text-emerald-400 hover:underline">Đăng nhập</Link>
+          <Link to="/login" state={location.state} className="font-bold text-emerald-400 hover:underline">Đăng nhập</Link>
         </p>
       </div>
     </div>
