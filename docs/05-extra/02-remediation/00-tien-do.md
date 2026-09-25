@@ -696,6 +696,19 @@ và kết quả đầy đủ: `17-ke-hoach-loi-thao-tac-tai-quay.md`.
 - **Phát hiện có sẵn, chưa sửa:** mỗi tài khoản chỉ giữ một refresh token — đăng nhập ở máy khác làm máy
   trước bị đăng xuất sau ≤ 15 phút (bản demo dùng chung tài khoản sẽ gặp).
 
+**Gộp mục 16 + 17 rồi test chung (25/09/2026, chưa merge vào `main`).** Nhánh `test/merge-fix-groups-4-5` tách
+từ `main`: merge `--no-ff` nhóm 4 (sạch) rồi nhóm 5 — xung đột ở đúng 2 chỗ: phần `require` đầu `server.js`
+(giữ cả hai) và file này (giữ cả hai mục). `AuthService`, `CustomerService`, `LoginPage`, `CLAUDE.md` tự gộp;
+đã đọc lại: thay đổi của cả hai nhóm còn đủ, đúng thứ tự (vd `updateCustomer` kiểm khoá tài khoản demo trước
+rồi mới nhả số của hồ sơ đã xoá).
+- Jest 338/338 (275 + 47 + 16), Vitest 61/61, build, `docs:build` khớp 1-1 114 route.
+- Image Render (`docker/app.Dockerfile`) trên MySQL 8.4 bắt TLS + `sql_require_primary_key=ON`: chờ DB →
+  migrate → chạy; `demo-reset.js` 28 s; bộ kiểm tra deploy 31/31 (lần này cả ca `X-Forwarded-For` tự đặt
+  khi gọi thẳng không qua proxy); huỷ đơn POS hoàn kho (7 → 5 → 7); mở sân bằng số của hồ sơ vừa xoá 201;
+  xoá hồ sơ khách demo (gắn tài khoản) 409; SSE có sự kiện `ping` ở giây 25.
+- Cụm compose: lên sạch 0 restart, reset 27 s, 31/31 qua nginx, `ping` đi qua nginx.
+- Đã dọn: container/volume/image test, DB tạm, file dump.
+
 ---
 
 ## Chưa làm — xem plan riêng từng phần
