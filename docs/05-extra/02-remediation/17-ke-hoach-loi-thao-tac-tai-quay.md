@@ -1,7 +1,8 @@
 # Kế hoạch: sửa các thao tác tại quầy làm lệch hoá đơn, kho và bảng sân (nhóm sửa 5/6)
 
 - **Nhánh:** `fix/counter-ops-bugs`, tách từ `main` @ `eeafeda`. Nhánh nhóm 4
-  (`fix/docker-deploy-readiness`, commit `1fc2aa1`) chưa merge nên không có ở đây.
+  (`fix/docker-deploy-readiness`, commit `1fc2aa1`) chưa merge nên không có ở đây. Commit `932887e`,
+  merge vào `main` ngày 25/09/2026 cùng nhóm 4 qua nhánh tích hợp `test/merge-fix-groups-4-5`.
 - **Ngày:** 25/09/2026
 - **Bối cảnh:** nhóm thứ năm của đợt kiểm tra trước deploy 12/09 — `FE-01`, `FE-02`, `FE-03`,
   `DATA-01`, `RUN-01`. Chủ dự án chốt làm nhóm này trước khi lên bản demo công khai (plan 16, Q3): đây

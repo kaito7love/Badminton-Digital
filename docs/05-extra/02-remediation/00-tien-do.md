@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-09-14 (mục 14 — nhóm sửa 2, luồng tiền — và mục 15 — nhóm sửa 3, lộ dữ liệu — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-1-3`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-09-25 (mục 16 — nhóm sửa 4, hạ tầng deploy + bản demo công khai — và mục 17 — nhóm sửa 5, thao tác tại quầy — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-4-5`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -10,11 +10,9 @@ thật (chạy server thật, gọi API thật, truy vấn DB thật — không 
 → báo cáo kết quả → chờ duyệt merge ("merge vào main đi") → merge cục bộ vào
 `main`. **Không có nhánh nào tự merge khi chưa được duyệt.**
 
-`main` đã được push lên `origin` (đồng bộ tới commit `2ea7ae2` — mục 10 + 11
-bên dưới) — cập nhật so với ghi chú "chưa push" ở các mục trước đó trong file
-này, vốn đúng tại thời điểm viết nhưng chủ dự án đã quyết định push sau đó.
-Các mục 13–15 đã merge vào `main` cục bộ nhưng **chưa push** (tính tới 14/09/2026) — push là quyết định
-của chủ dự án.
+`main` đã được push lên `origin` tới hết mục 17 (25/09/2026) — các ghi chú "chưa
+push" ở những mục cũ hơn trong file này đúng tại thời điểm viết, chủ dự án đã
+quyết định push sau đó. Push là quyết định của chủ dự án ở mỗi lần merge.
 
 ---
 
@@ -647,7 +645,7 @@ chạy chung, nên được gộp và test lại trên một nhánh riêng trư�
 - **`main` được fast-forward lên nhánh tích hợp:** các merge `--no-ff` của từng nhóm nằm sẵn trong đó, nên
   `main` có đúng cây code đã test.
 
-### 16. `fix/docker-deploy-readiness` (chưa merge — chờ duyệt)
+### 16. `fix/docker-deploy-readiness` (commit `1fc2aa1`, merge vào `main` ngày 25/09/2026 cùng mục 17)
 Nguồn: nhóm sửa 4/6 của đợt kiểm tra trước deploy (`DEP-01`–`DEP-06`, `DEP-08`, `DEP-09`, `AUTH-02`, kèm
 `DEP-07` vốn chưa được gán nhóm nào) + phần bảo vệ bản demo công khai. Plan và kết quả đầy đủ:
 `16-ke-hoach-ha-tang-deploy.md`.
@@ -671,7 +669,7 @@ Nguồn: nhóm sửa 4/6 của đợt kiểm tra trước deploy (`DEP-01`–`DE
   `sql_require_primary_key=ON`: migrate + seed chạy được, CA sai/thiếu bị từ chối, `create-admin` chạy
   được; reset 26–40 s. Jest 322/322, Vitest 49/49, build, `docs:build` 113 route; smoke dev không đổi.
 
-### 17. `fix/counter-ops-bugs` (chưa merge — chờ duyệt)
+### 17. `fix/counter-ops-bugs` (commit `932887e`, merge vào `main` ngày 25/09/2026 cùng mục 16)
 Nguồn: nhóm sửa 5/6 của đợt kiểm tra trước deploy (`FE-01`, `FE-02`, `FE-03`, `DATA-01`, `RUN-01`). Plan
 và kết quả đầy đủ: `17-ke-hoach-loi-thao-tac-tai-quay.md`.
 
@@ -696,7 +694,7 @@ và kết quả đầy đủ: `17-ke-hoach-loi-thao-tac-tai-quay.md`.
 - **Phát hiện có sẵn, chưa sửa:** mỗi tài khoản chỉ giữ một refresh token — đăng nhập ở máy khác làm máy
   trước bị đăng xuất sau ≤ 15 phút (bản demo dùng chung tài khoản sẽ gặp).
 
-**Gộp mục 16 + 17 rồi test chung (25/09/2026, chưa merge vào `main`).** Nhánh `test/merge-fix-groups-4-5` tách
+**Gộp mục 16 + 17 rồi mới merge vào `main` (25/09/2026).** Nhánh `test/merge-fix-groups-4-5` tách
 từ `main`: merge `--no-ff` nhóm 4 (sạch) rồi nhóm 5 — xung đột ở đúng 2 chỗ: phần `require` đầu `server.js`
 (giữ cả hai) và file này (giữ cả hai mục). `AuthService`, `CustomerService`, `LoginPage`, `CLAUDE.md` tự gộp;
 đã đọc lại: thay đổi của cả hai nhóm còn đủ, đúng thứ tự (vd `updateCustomer` kiểm khoá tài khoản demo trước
@@ -708,6 +706,27 @@ rồi mới nhả số của hồ sơ đã xoá).
   xoá hồ sơ khách demo (gắn tài khoản) 409; SSE có sự kiện `ping` ở giây 25.
 - Cụm compose: lên sạch 0 restart, reset 27 s, 31/31 qua nginx, `ping` đi qua nginx.
 - Đã dọn: container/volume/image test, DB tạm, file dump.
+- **Test lại toàn bộ trước khi merge** (theo yêu cầu chủ dự án, cùng commit `657b196`):
+  - Jest 338/338, Vitest 61/61, build, `docs:build` không lệch.
+  - Image Render build lại không cache, chạy như trên Render (`PORT=10000`, `TRUST_PROXY_HOPS=1`, CA dạng
+    base64) sau một proxy đóng vai load balancer của Render, trên MySQL 8.4 bắt TLS:
+    - bộ kiểm tra deploy 31/31;
+    - nhóm 5 15/15 (gồm job dọn đơn POS > 6 giờ và `ping` qua proxy ở giây 25).
+  - `demo-reset.js` chạy như job GitHub Actions (`npm ci --omit=dev` trên Node 22):
+    - lần đầu 23 s;
+    - 5 cấu hình sai đều thoát mã 1, không đụng dữ liệu: sai `DEMO_RESET_CONFIRM`, thiếu `ALLOW_DEMO_SEED`,
+      thiếu `DEMO_ADMIN_PASSWORD`, dùng `Admin@123`, dùng `Customer@123`;
+    - reset thật khi app đang chạy: 24 s, dữ liệu test bị xoá, app phục vụ tiếp ngay.
+  - Compose làm theo đúng `DeploymentGuide.md` §5: 31/31, `ping` qua nginx, sơ đồ sân còn sau `down`/`up`.
+  - Trình duyệt (bản Render):
+    - khối tài khoản demo hiện đúng;
+    - cập nhật từ máy khác hiện trong 2 giây;
+    - bấm đúp "Bắt đầu tính giờ" và bấm đúp món ở POS đều chỉ 1 request;
+    - POS còn đơn sau F5, "Huỷ giỏ" hoàn kho;
+    - tắt app 30 giây: hiện banner mất kết nối, không bị đăng xuất, tự nối lại và nhận cập nhật.
+  - newman trọn bộ trên bản sao DB dev: 120 request, 334 assertion, 0 lỗi; log server sạch.
+  - DB dev không đổi dòng nào.
+- **`main` được fast-forward lên nhánh tích hợp** (như lần mục 14 + 15), rồi push.
 
 ---
 
@@ -717,7 +736,8 @@ rồi mới nhả số của hồ sơ đã xoá).
 |---|---|---|
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
 | 1 việc còn lại cần quyết định chính sách kinh doanh trước: onboarding `branch_manager` (mục 3 "hoàn tiền/void" đã xong ở mục 10; discount guardrail và tài khoản ngân hàng đã chốt, làm ở mục 14) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
-| Nhóm sửa 6 của đợt kiểm tra trước deploy 12/09/2026: backup/log (nhóm 1–3 đã merge — mục 13, 14, 15; nhóm 4 và 5 chờ duyệt — mục 16, 17) | Chưa có | Trước khi vận hành thật |
+| Nhóm sửa 6 của đợt kiểm tra trước deploy 12/09/2026: backup/log (nhóm 1–5 đã merge — mục 13–17) | Chưa có | Trước khi vận hành thật |
+| Mỗi tài khoản chỉ giữ một refresh token: đăng nhập ở máy khác làm máy trước bị đăng xuất sau ≤ 15 phút — bản demo dùng chung tài khoản sẽ gặp. Sửa cần bảng refresh token riêng (migration); chờ chủ dự án quyết | `17-ke-hoach-loi-thao-tac-tai-quay.md` | Chờ quyết định |
 | Các phát hiện `SEC-*` chưa thuộc nhóm sửa nào: `SEC-06`, `SEC-07`, `SEC-08`, `SEC-09`, `SEC-12`, `SEC-13`, `SEC-15`, `SEC-16` và phần còn lại của `SEC-14`; xác minh SĐT bằng OTP SMS cho đăng ký | `15-ke-hoach-chan-lo-du-lieu-khach.md` mục 5 (đề xuất gom thành đợt "phân quyền và chống lạm dụng") | Sau nhóm 6 |
 | "Luồng tiền 2": quản lý xác nhận tay chuyển khoản / POS chuyển khoản bị đánh dấu `paid` ngay (`PAY-08`), báo cáo doanh thu cộng hoá đơn huỷ (`PAY-05`), void không đổi trạng thái đơn và không trả lượt voucher (`PAY-10`, `PAY-11`), sửa đơn sau khi phát QR (`PAY-12`), phần còn lại của `PAY-13`/`PAY-16`/`PAY-19`, giỏ POS hiện tổng khác số thực thu (`PAY-17`). Hai quầy giành lượt voucher cuối và deadlock checkout (`PAY-07`, `PAY-14`, `PAY-15`) để chung nhóm 6 | `14-ke-hoach-luong-tien.md` mục 5 | Sau nhóm 4 |
 

@@ -1,6 +1,7 @@
 # Kế hoạch: hạ tầng deploy + bản demo công khai (nhóm sửa 4/6)
 
-- **Nhánh:** `fix/docker-deploy-readiness`, tách từ `main` @ `eeafeda` (đã có nhóm 1–3).
+- **Nhánh:** `fix/docker-deploy-readiness`, tách từ `main` @ `eeafeda` (đã có nhóm 1–3). Commit `1fc2aa1`,
+  merge vào `main` ngày 25/09/2026 cùng nhóm 5 qua nhánh tích hợp `test/merge-fix-groups-4-5`.
 - **Ngày:** 14/09/2026 (bản đầu), chốt lại 25/09/2026.
 - **Bối cảnh:** nhóm thứ tư trong thứ tự sửa của đợt kiểm tra trước deploy 12/09/2026 — `DEP-01` đến
   `DEP-06`, `DEP-08`, `DEP-09`, `AUTH-02`, cộng `DEP-07` (không HTTPS, cổng mở thẳng ra ngoài): phát
