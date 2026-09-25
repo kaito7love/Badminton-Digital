@@ -4376,6 +4376,62 @@
               }
             }
           ]
+        },
+        {
+          "name": "Huỷ đơn bán lẻ",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Branch-Id",
+                "value": "{{branchId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales-orders/{{tmpCancelOrderId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales-orders",
+                "{{tmpCancelOrderId}}",
+                "cancel"
+              ]
+            },
+            "description": "Huỷ đơn tại quầy chưa thanh toán: backend hoàn kho mọi dòng và đánh dấu đơn cancelled trong một transaction (thay cho việc xoá từng dòng). Đơn đã thanh toán → 400; đơn online hoặc chi nhánh khác → 404. Script chuẩn bị tạo một đơn riêng (không đụng tmpSalesOrderId của các request trên)."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request nay tac dong len DU LIEU CO SAN (xoa/sua ban ghi seed, checkout, doi cau hinh)",
+                  "// hoac lam hong phien chay (vd: logout huy token). Chi bat khi that su muon:",
+                  "// newman run ... --env-var runDestructive=true",
+                  "if (String(pm.variables.get('runDestructive')) !== 'true') {",
+                  "  console.log('SKIP (runDestructive=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "const _h = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + pm.variables.get('accessToken'), 'X-Branch-Id': String(pm.variables.get('branchId') || 1) };",
+                  "pm.sendRequest({ url: pm.variables.get('baseUrl') + '/sales-orders', method: 'POST', header: _h, body: { mode: 'raw', raw: '{}' } }, function (err, res) {",
+                  "  if (!err && res.code === 201) pm.collectionVariables.set('tmpCancelOrderId', res.json().data.id);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.expect(pm.response.code).to.eql(200); });",
+                  "const b = pm.response.json();",
+                  "pm.test(pm.info.requestName + ' -> đơn cancelled', function () { pm.expect(b.data.status).to.eql('cancelled'); });"
+                ]
+              }
+            }
+          ]
         }
       ],
       "event": [

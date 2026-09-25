@@ -136,6 +136,8 @@ export const salesOrderService = {
   addLine: (id, data) => apiClient.post(`/sales-orders/${id}/lines`, data),
   removeLine: (id, lineId) => apiClient.delete(`/sales-orders/${id}/lines/${lineId}`),
   applyVoucher: (id, voucherCode) => apiClient.post(`/sales-orders/${id}/voucher`, { voucherCode }),
+  // Huỷ đơn tại quầy chưa thanh toán — backend hoàn kho cả đơn trong một lần.
+  cancel: (id) => apiClient.post(`/sales-orders/${id}/cancel`),
   checkout: (id, data) => {
     const { idempotencyKey, ...payload } = data;
     const requestKey = idempotencyKey || crypto.randomUUID();

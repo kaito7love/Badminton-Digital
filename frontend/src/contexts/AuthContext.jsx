@@ -25,10 +25,17 @@ export function AuthProvider({ children }) {
         localStorage.setItem("user_info", JSON.stringify(res.data.data));
       }
     } catch (err) {
-      setUser(null);
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      localStorage.removeItem("user_info");
+      // Chỉ đăng xuất khi server thật sự từ chối phiên (401/403 — apiClient đã
+      // thử refresh và thất bại). Server tạm vắng mặt (đang khởi động lại, bản
+      // demo trên Render đang "ngủ dậy", DB đang reset) thì giữ phiên đã lưu:
+      // tải lại trang lúc đó không được đá người dùng ra trang đăng nhập.
+      const status = err.response?.status;
+      if (status === 401 || status === 403) {
+        setUser(null);
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user_info");
+      }
     } finally {
       setLoading(false);
     }

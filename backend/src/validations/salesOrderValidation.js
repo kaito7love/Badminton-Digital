@@ -35,6 +35,11 @@ const applyVoucherRules = [
   validate
 ];
 
+const cancelOrderRules = [
+  param('id').isInt().withMessage('Sales order ID must be an integer'),
+  validate
+];
+
 const checkoutRules = [
   param('id').isInt().withMessage('Sales order ID must be an integer'),
   body('paymentMethod').optional().isIn(['cash', 'transfer']),
@@ -52,5 +57,6 @@ module.exports = {
   addLineRules,
   removeLineRules,
   applyVoucherRules,
+  cancelOrderRules,
   checkoutRules
 };

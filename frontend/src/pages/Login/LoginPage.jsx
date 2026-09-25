@@ -134,7 +134,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-slate-400">
           Chưa có tài khoản?{' '}
-          <Link to="/register" className="font-bold text-emerald-400 hover:underline">
+          <Link to="/register" state={location.state} className="font-bold text-emerald-400 hover:underline">
             Đăng ký bằng số điện thoại
           </Link>
         </p>

@@ -318,15 +318,17 @@ class AuthService {
       // kỳ ai biết số. Hồ sơ cũ để nguyên; nhân viên xác minh rồi gộp tại quầy
       // (CustomerService.mergeIntoAccount).
       //
-      // customers.phone là unique (index tính cả hồ sơ đã xoá mềm), nên hồ sơ
-      // của tài khoản chỉ mang số khi chưa hồ sơ nào giữ số đó. Response giống
-      // hệt nhau trong mọi trường hợp — đăng ký không trả lời được câu "số này
-      // từng ra quầy chưa".
+      // customers.phone là unique, nên hồ sơ của tài khoản chỉ mang số khi chưa
+      // hồ sơ đang hoạt động nào giữ số đó. Số chỉ còn nằm trên hồ sơ đã xoá thì
+      // nhả ra cho tài khoản mới (DATA-01). Response giống hệt nhau trong mọi
+      // trường hợp — đăng ký không trả lời được câu "số này từng ra quầy chưa".
       const phoneHeld = await Customer.findOne({
         where: { phone: normalizedPhone },
-        paranoid: false,
         transaction,
       });
+      if (!phoneHeld) {
+        await CustomerService.releaseDeletedPhoneHolder(normalizedPhone, { transaction });
+      }
 
       const customer = await Customer.create(
         {

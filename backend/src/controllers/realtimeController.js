@@ -5,6 +5,15 @@ const { subscribe } = require('../utils/realtimeBus');
 // sống mãi bằng quyền của lúc mở kết nối (mục (d), RealtimeCourtSync.md).
 const MAX_CONNECTION_MS = 20 * 60 * 1000;
 
+// Sự kiện `ping` định kỳ (RUN-01), hai tác dụng:
+// - proxy (nginx, load balancer của Render) không cắt kết nối vì im lặng quá lâu;
+// - client biết kết nối còn sống: không nhận được ping nào quá lâu là kết nối
+//   đã chết mà không báo (proxy vẫn giữ phía trình duyệt mở) → tự mở lại.
+//   Dùng sự kiện có tên chứ không dùng dòng comment ':' vì EventSource nuốt
+//   comment, code phía client không thấy được.
+const HEARTBEAT_MS = 25 * 1000;
+const HEARTBEAT_FRAME = 'event: ping\ndata: {}\n\n';
+
 /**
  * SSE dùng chung cho mọi loại sự kiện realtime, lọc theo branchId của kết
  * nối — không route riêng cho từng loại sự kiện, thêm loại mới (đặt sân,
@@ -43,12 +52,18 @@ const stream = (req, res) => {
     if (payload.branchId === branchId) send('court:updated', payload);
   });
 
-  const closeTimer = setTimeout(() => res.end(), MAX_CONNECTION_MS);
-
-  req.on('close', () => {
+  const heartbeat = setInterval(() => res.write(HEARTBEAT_FRAME), HEARTBEAT_MS);
+  const stop = () => {
+    clearInterval(heartbeat);
     clearTimeout(closeTimer);
     unsubscribeCourtUpdated();
-  });
+  };
+  const closeTimer = setTimeout(() => {
+    stop();
+    res.end();
+  }, MAX_CONNECTION_MS);
+
+  req.on('close', stop);
 };
 
-module.exports = { stream };
+module.exports = { stream, HEARTBEAT_MS, HEARTBEAT_FRAME, MAX_CONNECTION_MS };
