@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Badminton Digital Management Frontend (React)",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

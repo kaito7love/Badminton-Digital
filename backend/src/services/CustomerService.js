@@ -4,6 +4,7 @@ const { Op } = require('sequelize');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const { normalizePhone } = require('../utils/phone');
 const { computeLoyaltyTier } = require('../utils/loyalty');
+const { assertNotLockedDemoAccount } = require('../utils/demoMode');
 const AuditService = require('./AuditService');
 
 const httpError = (message, statusCode) => {
@@ -221,6 +222,15 @@ class CustomerService {
       // khách cùng để trống sẽ đụng nhau, còn NULL thì bao nhiêu cũng được.
       const payload = CustomerService.pickEditableFields(data);
       if ('phone' in payload) payload.phone = normalizePhone(payload.phone);
+
+      // Hồ sơ của tài khoản khách demo: SĐT là danh tính đăng nhập in trên trang
+      // đăng nhập — đổi đi là người xem sau không vào được (utils/demoMode.js).
+      const changesContact = ('phone' in payload && payload.phone !== customer.phone)
+        || ('email' in payload && payload.email !== customer.email);
+      if (changesContact && customer.userId) {
+        const account = await User.findByPk(customer.userId, { attributes: ['id', 'email'], transaction });
+        assertNotLockedDemoAccount(account);
+      }
 
       if (payload.phone && payload.phone !== customer.phone) {
         const existing = await Customer.findOne({ where: { phone: payload.phone }, transaction });

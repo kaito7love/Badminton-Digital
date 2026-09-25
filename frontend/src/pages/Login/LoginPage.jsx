@@ -29,6 +29,12 @@ function DemoAccounts() {
           {account.label}: <span className="text-emerald-400 font-mono">{account.identifier}</span> / <span className="text-emerald-400 font-mono">{account.password}</span>
         </p>
       ))}
+      {/* Chỉ bản demo công khai có reset hằng đêm và khoá tài khoản (DEMO_MODE) — máy dev thì không. */}
+      {!import.meta.env.DEV && (
+        <p className="pt-1 text-slate-500">
+          Dữ liệu demo tự khôi phục mỗi đêm; tài khoản demo không đổi được mật khẩu.
+        </p>
+      )}
     </div>
   );
 }

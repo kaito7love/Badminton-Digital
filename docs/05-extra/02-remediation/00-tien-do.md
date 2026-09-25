@@ -647,6 +647,30 @@ chạy chung, nên được gộp và test lại trên một nhánh riêng trư�
 - **`main` được fast-forward lên nhánh tích hợp:** các merge `--no-ff` của từng nhóm nằm sẵn trong đó, nên
   `main` có đúng cây code đã test.
 
+### 16. `fix/docker-deploy-readiness` (chưa merge — chờ duyệt)
+Nguồn: nhóm sửa 4/6 của đợt kiểm tra trước deploy (`DEP-01`–`DEP-06`, `DEP-08`, `DEP-09`, `AUTH-02`, kèm
+`DEP-07` vốn chưa được gán nhóm nào) + phần bảo vệ bản demo công khai. Plan và kết quả đầy đủ:
+`16-ke-hoach-ha-tang-deploy.md`.
+
+- **Đích deploy đã chốt:** bản demo portfolio, miễn phí, không gắn thẻ → 1 web service Render
+  (`docker/app.Dockerfile`, backend phục vụ luôn frontend) + MySQL free của Aiven qua TLS. Oracle Free
+  (bắt buộc thẻ) và Supabase (chỉ Postgres) đã loại. Cụm `docker compose` vẫn sửa cho chạy đúng.
+- **Docker:** nginx proxy `/api` `/static` + SSE + SPA fallback; image tự chờ DB rồi migrate trước khi
+  nhận request; luôn `NODE_ENV=production`; chạy bằng user `node`, ghi được sơ đồ sân (volume ở compose);
+  dump SQL/`tests`/`docs` không vào image; Node 22 ở image và CI; compose không mở cổng ra ngoài
+  `127.0.0.1`; `docker/.env.example`. Healthcheck MySQL cũ (`-h localhost`) làm backend restart lặp lúc
+  khởi tạo lần đầu — đã sửa.
+- **HTTP:** `trust proxy` theo `TRUST_PROXY_HOPS` (mặc định 0, compose/Render khai 1); CORS production
+  mặc định đóng; kết nối DB TLS (`DB_SSL`, `DB_SSL_CA`, luôn kiểm chứng chứng chỉ).
+- **Bản demo:** admin dùng mật khẩu bí mật `DEMO_ADMIN_PASSWORD` (repo công khai `Admin@123`);
+  `DEMO_MODE` khoá đổi mật khẩu/SĐT/xoá của 6 tài khoản in trên trang đăng nhập; reset dữ liệu 03:00 mỗi
+  đêm bằng GitHub Actions (`scripts/demo-reset.js`: xoá bảng → migrate → seed), app không có endpoint reset.
+- **Bằng chứng test thật (Docker Desktop, MySQL 8.4):** tái hiện 4/4 lỗi trên code `main`; cụm compose:
+  API qua nginx 31/31, rate limit A/B (tự đặt `X-Forwarded-For` không né được; code cũ làm client khác
+  cũng bị 429), sơ đồ sân sống qua `down`/`up`; image Render trên MySQL bắt TLS +
+  `sql_require_primary_key=ON`: migrate + seed chạy được, CA sai/thiếu bị từ chối, `create-admin` chạy
+  được; reset 26–40 s. Jest 322/322, Vitest 49/49, build, `docs:build` 113 route; smoke dev không đổi.
+
 ---
 
 ## Chưa làm — xem plan riêng từng phần
@@ -655,7 +679,7 @@ chạy chung, nên được gộp và test lại trên một nhánh riêng trư�
 |---|---|---|
 | Dọn 3 hàm API mồ côi ở frontend (đã đính chính — không còn xoá bảng catalog, xem đầu file) | `01-ke-hoach-dead-code-cleanup.md` | Nhóm A — kế tiếp |
 | 1 việc còn lại cần quyết định chính sách kinh doanh trước: onboarding `branch_manager` (mục 3 "hoàn tiền/void" đã xong ở mục 10; discount guardrail và tài khoản ngân hàng đã chốt, làm ở mục 14) | `05-backlog-nhom-b.md` | Nhóm B — cuối cùng, chưa lên plan chi tiết |
-| Nhóm sửa 4–6 của đợt kiểm tra trước deploy 12/09/2026, theo thứ tự: Docker → lỗi vận hành tại quầy → backup/log (nhóm 1–3 đã merge — mục 13, 14, 15) | Chưa có — mỗi nhóm một plan riêng | Bắt buộc trước khi deploy |
+| Nhóm sửa 5–6 của đợt kiểm tra trước deploy 12/09/2026: lỗi vận hành tại quầy → backup/log (nhóm 1–3 đã merge — mục 13, 14, 15; nhóm 4 chờ duyệt — mục 16) | Nhóm 5: `17-ke-hoach-loi-thao-tac-tai-quay.md`; nhóm 6: chưa có | Nhóm 5 trước khi lên demo; nhóm 6 trước khi vận hành thật |
 | Các phát hiện `SEC-*` chưa thuộc nhóm sửa nào: `SEC-06`, `SEC-07`, `SEC-08`, `SEC-09`, `SEC-12`, `SEC-13`, `SEC-15`, `SEC-16` và phần còn lại của `SEC-14`; xác minh SĐT bằng OTP SMS cho đăng ký | `15-ke-hoach-chan-lo-du-lieu-khach.md` mục 5 (đề xuất gom thành đợt "phân quyền và chống lạm dụng") | Sau nhóm 6 |
 | "Luồng tiền 2": quản lý xác nhận tay chuyển khoản / POS chuyển khoản bị đánh dấu `paid` ngay (`PAY-08`), báo cáo doanh thu cộng hoá đơn huỷ (`PAY-05`), void không đổi trạng thái đơn và không trả lượt voucher (`PAY-10`, `PAY-11`), sửa đơn sau khi phát QR (`PAY-12`), phần còn lại của `PAY-13`/`PAY-16`/`PAY-19`, giỏ POS hiện tổng khác số thực thu (`PAY-17`). Hai quầy giành lượt voucher cuối và deadlock checkout (`PAY-07`, `PAY-14`, `PAY-15`) để chung nhóm 6 | `14-ke-hoach-luong-tien.md` mục 5 | Sau nhóm 4 |
 

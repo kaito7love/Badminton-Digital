@@ -14,10 +14,8 @@
 const path = require('path');
 const { Op } = require('sequelize');
 const { normalizePhone, isValidPhone } = require('../src/utils/phone');
+const { findAdminPasswordProblems, MIN_ADMIN_PASSWORD_LENGTH: MIN_PASSWORD_LENGTH } = require('../src/utils/demoSeedGuard');
 
-const MIN_PASSWORD_LENGTH = 12;
-// Mật khẩu các tài khoản demo đã in trong repo, trang đăng nhập, Postman và k6.
-const PUBLISHED_DEMO_PASSWORDS = ['admin@123', 'manager@123', 'employee@123', 'customer@123'];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Kiểm đầu vào trước khi chạm DB. Hàm thuần để test được. */
@@ -32,11 +30,7 @@ const validateAdminInput = (env) => {
 
   const problems = [];
   if (!EMAIL_PATTERN.test(input.email)) problems.push('ADMIN_EMAIL bắt buộc và phải là email hợp lệ.');
-  if (input.password.length < MIN_PASSWORD_LENGTH) {
-    problems.push(`ADMIN_PASSWORD phải có tối thiểu ${MIN_PASSWORD_LENGTH} ký tự.`);
-  } else if (PUBLISHED_DEMO_PASSWORDS.includes(input.password.toLowerCase())) {
-    problems.push('ADMIN_PASSWORD trùng mật khẩu tài khoản demo đã công khai trong repo — chọn mật khẩu khác.');
-  }
+  problems.push(...findAdminPasswordProblems(input.password, 'ADMIN_PASSWORD'));
   if (!input.fullName) problems.push('ADMIN_FULL_NAME bắt buộc.');
   if (env.ADMIN_PHONE && !isValidPhone(input.phone)) {
     problems.push('ADMIN_PHONE không phải số điện thoại Việt Nam hợp lệ.');

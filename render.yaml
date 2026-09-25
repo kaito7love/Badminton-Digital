@@ -1,0 +1,54 @@
+# Blueprint cho bản demo công khai trên Render (New → Blueprint → chọn repo).
+# 1 web service chạy docker/app.Dockerfile: backend phục vụ luôn bản build
+# frontend. DB là MySQL free của Aiven. Từng bước: docs/DeploymentGuide.md,
+# mục "Bản demo công khai: Render + Aiven".
+#
+# Seed dữ liệu KHÔNG chạy trong service này — do .github/workflows/demo-reset.yml
+# lo (mỗi đêm + chạy tay lần đầu), nên ở đây không có DEMO_ADMIN_PASSWORD hay
+# ALLOW_DEMO_SEED.
+services:
+  - type: web
+    name: badminton-digital-demo
+    runtime: docker
+    plan: free
+    # Đặt gần DB: tạo Aiven trước, nếu Aiven free không có khu vực châu Á thì đổi
+    # region ở đây cho gần DB (oregon, ohio, virginia, frankfurt, singapore).
+    region: singapore
+    branch: main
+    dockerfilePath: ./docker/app.Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Request tới app đi qua đúng 1 load balancer của Render. Kiểm sau khi
+      # deploy: GET /api/v1/health → "ip" phải là IP của bạn (không thì đặt 2).
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      # Khoá mật khẩu/SĐT/xoá của các tài khoản demo in trên trang đăng nhập.
+      - key: DEMO_MODE
+        value: "true"
+      # Render truyền thành build-arg → bản build có khối tài khoản thử nghiệm.
+      - key: VITE_SHOW_DEMO_ACCOUNTS
+        value: "true"
+      # Render tự sinh chuỗi ngẫu nhiên 256 bit, mỗi biến một chuỗi khác nhau.
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      # Thông số Aiven — Render hỏi lúc tạo Blueprint.
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL
+        value: "true"
+      # Nội dung CA certificate của Aiven (PEM, hoặc base64 của PEM).
+      - key: DB_SSL_CA
+        sync: false

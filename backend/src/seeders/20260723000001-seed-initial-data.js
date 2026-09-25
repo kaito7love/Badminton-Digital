@@ -1,6 +1,6 @@
 'use strict';
 const bcrypt = require('bcrypt');
-const { assertDemoSeedAllowed } = require('../utils/demoSeedGuard');
+const { assertDemoSeedAllowed, resolveDemoAdminPassword } = require('../utils/demoSeedGuard');
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
@@ -12,8 +12,9 @@ module.exports = {
     // 20260912100001-ensure-core-roles.js tạo, để bản cài production chỉ
     // migrate (không seed demo) vẫn đủ vai trò.
 
-    // 2. Users (Admin@123, Employee@123, Customer@123)
-    const adminPassword = await bcrypt.hash('Admin@123', 10);
+    // 2. Users (Admin@123 trên máy dev, Employee@123, Customer@123). Production
+    // (bản demo công khai) lấy mật khẩu admin bí mật từ DEMO_ADMIN_PASSWORD.
+    const adminPassword = await bcrypt.hash(resolveDemoAdminPassword(), 10);
     const employeePassword = await bcrypt.hash('Employee@123', 10);
     const customerPassword = await bcrypt.hash('Customer@123', 10);
 
