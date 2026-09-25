@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "competition-service/events/envelope",
+  "title": "Vỏ sự kiện (CloudEvents 1.0, JSON) do competition-service phát ra",
+  "type": "object",
+  "required": ["specversion", "id", "type", "source", "time", "tenant", "subject", "dataschema", "data"],
+  "properties": {
+    "specversion": { "const": "1.0" },
+    "id": { "type": "string", "format": "uuid" },
+    "type": { "type": "string", "pattern": "^competition\\.[a-z_]+\\.[a-z_]+$" },
+    "source": { "const": "competition-service" },
+    "time": { "type": "string", "format": "date-time" },
+    "tenant": { "type": "string", "minLength": 1 },
+    "subject": { "type": "string" },
+    "dataschema": { "type": "string" },
+    "datacontenttype": { "const": "application/json" },
+    "data": { "type": "object" }
+  }
+}

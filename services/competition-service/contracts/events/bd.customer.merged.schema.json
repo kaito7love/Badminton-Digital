@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "bd.customer.merged/v1",
+  "title": "(Nhận vào) App chính: gộp khách vãng lai vào tài khoản",
+  "type": "object",
+  "required": ["sourceRef", "targetRef"],
+  "properties": {
+    "sourceRef": { "type": "string" },
+    "targetRef": { "type": "string" }
+  }
+}

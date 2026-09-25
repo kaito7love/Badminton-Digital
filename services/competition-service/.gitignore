@@ -1,0 +1,3 @@
+# Khoá dev do `npm run keys:generate` sinh ra — không bao giờ commit
+.keys/
+coverage/

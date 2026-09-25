@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "bd.customer.updated/v1",
+  "title": "(Nhận vào) App chính: khách hàng đổi thông tin",
+  "type": "object",
+  "required": ["externalRef", "fullName"],
+  "properties": {
+    "externalRef": { "type": "string" },
+    "fullName": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "version": { "type": "integer", "description": "Phiên bản bản ghi phía app chính — bỏ qua bản cũ hơn bản đã áp" }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "competition.assessment.submitted/v1",
+  "title": "Có bài chấm trình mới (tự chấm / nhân viên / chấm nhanh / AI)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["assessmentId", "playerId", "externalRef", "source", "status", "needsVerification"],
+  "properties": {
+    "assessmentId": { "type": "string", "format": "uuid" },
+    "playerId": { "type": "string", "format": "uuid" },
+    "externalRef": { "type": ["string", "null"] },
+    "source": { "enum": ["self", "staff", "staff_quick", "video_ai"] },
+    "status": { "enum": ["applied", "recorded", "pending_review"] },
+    "needsVerification": { "type": "boolean" }
+  }
+}

@@ -730,6 +730,19 @@ rồi mới nhả số của hồ sơ đã xoá).
 
 ---
 
+## Đang làm
+
+### 18. `feat/competition-service` — module mới, service độc lập (chưa merge)
+
+- **Nội dung:** chấm trình, điểm trình, xếp hạng, xếp cặp, giải đấu, giao lưu.
+- **Plan + kết quả:** `18-ke-hoach-cham-trinh-xep-cap.md`; thiết kế ở `services/competition-service/docs/`.
+- **Tiến độ:** bước 1/4 xong ngày 26/09/2026 (khung service, người chơi, chấm trình, BXH trình độ, thuật toán xếp cặp).
+  123 test xanh trên MySQL 9.5 và MySQL 8.4 kiểu Aiven.
+- **Tiếp theo:** chờ duyệt để làm bước 2 (giải đấu).
+- **App chính chưa bị sửa dòng nào** (chỉ thêm job CI).
+
+---
+
 ## Chưa làm — xem plan riêng từng phần
 
 | Việc | File plan | Ưu tiên gốc |

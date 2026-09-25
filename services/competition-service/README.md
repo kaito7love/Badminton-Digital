@@ -1,0 +1,98 @@
+# competition-service — Dịch vụ Thi đấu
+
+Service độc lập của Badminton Digital:
+- chấm trình (form 12 tiêu chí);
+- điểm trình Đơn / Đôi 1.0–7.0, thay đổi theo kết quả thi đấu;
+- bảng xếp hạng;
+- thuật toán xếp cặp / chia bảng / sơ đồ / xếp sân giao lưu.
+
+Có thể chạy và test **một mình**, không cần app chính. Kết nối với app chính qua hợp đồng API
+(`openapi/`) và sự kiện (`contracts/events/`), không chung code hay DB.
+
+- Thiết kế: [`docs/`](docs/)
+  - [01 kiến trúc](docs/01-kien-truc.md)
+  - [02 hợp đồng](docs/02-hop-dong-api-va-su-kien.md)
+  - [03 form + điểm trình](docs/03-nghiep-vu-va-thuat-toan.md)
+  - [05 hồ sơ + BXH](docs/05-ho-so-nguoi-choi-va-bang-xep-hang.md)
+  - [06 trận / giải / giao lưu](docs/06-tran-dau-giai-dau-giao-luu.md)
+  - [07 giao diện](docs/07-giao-dien.md)
+  - [04 AI video](docs/04-video-analysis-service.md)
+- Kế hoạch và tiến độ: `docs/05-extra/02-remediation/18-ke-hoach-cham-trinh-xep-cap.md` (ở gốc repo)
+
+## Trạng thái
+
+| Bước | Nội dung | Trạng thái |
+|---|---|---|
+| 1 | Khung service, `player`, `rating`, `matchmaking`, BXH trình độ | Xong trên nhánh `feat/competition-service` |
+| 2 | `match`, `tournament`, BXH thành tích, thống kê | Chưa làm |
+| 3 | `session` (buổi giao lưu) | Chưa làm |
+| 4 | Tích hợp app chính + giao diện (nhánh riêng) | Chưa làm |
+
+## Chạy một mình (dev)
+
+Cần Node ≥ 22, MySQL ≥ 8.
+
+```bash
+cp .env.example .env
+npm install
+npm run keys:generate
+npm run migrate
+npm run dev
+```
+
+- Bước `cp` xong thì điền `DB_*` trong `.env`, và tạo DB rỗng `competition_service` trước khi migrate.
+- `keys:generate` tạo cặp khoá ES256 dev trong `.keys/`.
+- `migrate` tạo 10 bảng trong DB riêng.
+- `dev` chạy ở http://127.0.0.1:5100; Swagger UI ở `/docs`.
+
+Gọi API bằng token dev (không cần app chính):
+
+```bash
+TOKEN=$(npm run -s token:dev -- --scope "rating:self ranking:read" --player bd:customer:1 --name "Nguyễn Văn An" --sub bd:user:1)
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:5100/v1/me
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:5100/v1/rubrics/current
+```
+
+Scope có sẵn:
+- `rating:self`, `rating:read`, `rating:assess`, `rating:assess:any`, `rating:adjust`;
+- `player:write`, `ranking:read`, `matchmaking:compute`;
+- `assessment:submit-ai`, `ops:admin`.
+
+Ý nghĩa từng scope và bảng vai trò → scope: xem `docs/02` mục 5.
+
+## Test
+
+```bash
+npm run check-boundaries
+npm run test:unit
+npm run test:integration
+npm test
+```
+
+- `check-boundaries`: luật ranh giới B1 / B7 (không require chéo service; module chỉ gọi nhau qua `index.js`).
+- `test:unit`: hàm thuần, không cần DB.
+- `test:integration`: Express + MySQL thật trên DB `competition_service_test` (tự drop / migrate lại); response
+  được kiểm theo OpenAPI, sự kiện theo JSON Schema.
+- `npm test`: chạy cả hai.
+
+## Docker
+
+```bash
+docker build -t competition-service .
+docker run --rm -p 5100:5100 -e DB_HOST=... -e DB_NAME=competition_service -e DB_USER=... -e DB_PASSWORD=... \
+  -e TRUSTED_ISSUERS='[{"issuer":"...","jwks":{"keys":[...]}}]' competition-service
+```
+
+Entrypoint: chờ DB → migrate → chạy. Health check: `GET /health/ready`.
+
+## Cấu trúc
+
+```
+openapi/                 hợp đồng REST (nguồn sự thật)
+contracts/events/        JSON Schema sự kiện phát ra / nhận vào
+src/platform/            kỹ thuật dùng chung (config, auth, idempotency, outbox/inbox, health, jobs)
+src/modules/<m>/         domain/ (hàm thuần) · application/ · infrastructure/ · index.js
+src/shared/              kiểu lỗi nghiệp vụ, hàm số học
+src/{db,app,main}.js     composition root — nơi duy nhất biết mọi module
+scripts/                 keys-generate, token-dev, check-boundaries, snapshot, wait-for-db, bench-pairing
+```

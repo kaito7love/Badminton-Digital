@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "competition.player.rating_changed/v1",
+  "title": "Điểm trình của một người chơi đổi (một nội dung)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["playerId", "externalRef", "discipline", "before", "after", "reason"],
+  "properties": {
+    "playerId": { "type": "string", "format": "uuid" },
+    "externalRef": { "type": ["string", "null"] },
+    "discipline": { "enum": ["singles", "doubles"] },
+    "before": { "type": ["number", "null"], "description": "null = lần đầu có điểm" },
+    "after": { "type": "number", "minimum": 1, "maximum": 7 },
+    "reason": { "enum": ["assessment", "tournament", "session", "adjustment", "rollback", "merge"] },
+    "assessmentId": { "type": ["string", "null"] },
+    "contextType": { "type": ["string", "null"] },
+    "contextId": { "type": ["string", "null"] }
+  }
+}
