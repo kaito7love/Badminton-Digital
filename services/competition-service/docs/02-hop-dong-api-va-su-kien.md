@@ -112,7 +112,7 @@ Scope viết tắt:
 | `POST /v1/matchmaking/groups` | `mm` | Chia bảng `seeded` / `level` (06, mục 4.4) |
 | `POST /v1/matchmaking/round-robin` · `POST /v1/matchmaking/schedule` | `mm` | Lịch vòng tròn · xếp trận vào lượt theo số sân (06, mục 4.5) |
 | `POST /v1/matchmaking/bracket` | `mm` | Sơ đồ loại trực tiếp từ danh sách hạt giống (06, mục 5) |
-| `POST /v1/matchmaking/session-round` | `mm` | Xếp sân giao lưu (06, mục 8.3) |
+| `POST /v1/matchmaking/session-round` | `mm` | Xếp sân giao lưu (06, mục 8.3). Người chơi có thể kèm `newcomer` (chưa đánh trận nào trong buổi — không bị kéo lên trước); kết quả có thêm `order` (thứ tự ưu tiên đầy đủ) |
 
 Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào cũng dùng được.
 
@@ -155,7 +155,7 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 | `GET /v1/sessions/{id}/players` · `POST …/players` · `DELETE …/players/{playerId}` | `s:read` / `s:operate` | Danh sách điểm danh / điểm danh (kèm `quickLevel` nếu chưa có điểm — cần thêm `rating:assess`) / rời buổi (đang ở sân → 409 `PLAYER_ON_COURT`) |
 | `POST /v1/sessions/{id}/fill-courts/preview` · `POST …/fill-courts` | `s:operate` | Xếp sân trống: xem trước (đổi tay được, có `repeatPartners`) / xác nhận bản gửi lại nguyên văn hoặc để hệ thống tự xếp → sinh trận đang đánh. Bản cũ → 409 `FILL_STALE`; không có gì để xếp → 422 `NOTHING_TO_FILL` |
 | `GET /v1/sessions/{id}/matches` | `s:read` | Các trận của buổi theo lượt |
-| `GET /v1/sessions/{id}/board` | `s:read` | Dữ liệu màn hình lớn: sân – ai với ai – từ lúc nào (kèm `serverTime`), hàng chờ theo thứ tự ưu tiên (đánh dấu lượt tới), kết quả gần nhất |
+| `GET /v1/sessions/{id}/board` | `s:read` | Dữ liệu màn hình lớn: sân – ai với ai – từ lúc nào (kèm `serverTime`); `upcoming` = ai sẽ vào các sân đang trống nếu bấm "Xếp sân trống" ngay (cùng hàm, cùng seed — rỗng khi không có sân trống); hàng chờ theo thứ tự ưu tiên của thuật toán, `next` = nằm trong `upcoming`; kết quả gần nhất |
 | `GET /v1/sessions/{id}/close-preview` · `POST …/close` · `POST …/cancel` | `s:read` / `s:operate` | Xem trước khi đóng / đóng (trận chưa tỉ số bị huỷ, áp điểm hệ số 0.5 nếu bật, cộng thống kê "giao lưu") / huỷ buổi |
 
 ### 2.8 Tích hợp & vận hành

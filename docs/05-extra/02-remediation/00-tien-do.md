@@ -742,8 +742,11 @@ rồi mới nhả số của hồ sơ đã xoá).
   - bước 3: buổi giao lưu (điểm danh, xếp sân trống, màn hình lớn, đóng buổi); sửa thuật toán xếp sân (bản bước 1
     để nhóm 4 người dính nhau khi các sân xong lệch giờ); gộp hồ sơ chuyển đủ trận / giải / BXH / giao lưu (bước 2 sót).
   - 224 test xanh trên MySQL 9.5 và MySQL 8.4 kiểu Aiven.
-- **Tiếp theo:** chờ duyệt merge bước 1–3 vào `main` (an toàn: app chính chưa gọi service); sau đó bước 4 (tích hợp
-  app chính + giao diện) ở nhánh riêng.
+- **Sửa sau khi bấm thử bước 3** (27/09/2026, plan 18 mục 9): màn hình lớn báo "chuẩn bị vào sân" bằng chính thuật
+  toán xếp sân; người vừa đến không chen trước người chờ lâu; chen hàng giảm 30%; seed demo tái lập được. 231 test xanh
+  trên MySQL 9.5 và 8.4.
+- **Tiếp theo:** chờ duyệt merge bước 1–3 vào `main` (an toàn: app chính chưa gọi service); rồi bước 4 (tích hợp app
+  chính + giao diện) ở nhánh riêng.
 - **App chính chưa bị sửa dòng nào** (chỉ thêm job CI).
 
 ---

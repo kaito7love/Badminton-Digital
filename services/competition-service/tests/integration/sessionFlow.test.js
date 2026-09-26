@@ -142,6 +142,8 @@ describe('xếp sân trống', () => {
     expect(board.courts[0].match.teamA.players[0].name).toMatch(/^Khách s/);
     expect(board.queue).toHaveLength(2);
     expect(board.counts).toEqual({ present: 10, onCourt: 8, waiting: 2 });
+    expect(board.upcoming).toEqual([]);
+    expect(board.queue.every((q) => !q.next)).toBe(true);
   });
 
   test('sân c1 xong → chỉ c1 được xếp; 2 người chờ từ đầu buổi được ưu tiên; bản xem trước cũ → 409 FILL_STALE', async () => {
@@ -236,6 +238,85 @@ describe('xếp sân trống', () => {
   });
 });
 
+describe('màn hình lớn báo đúng người sắp vào sân (plan 18 mục 9)', () => {
+  const board = async (sid) => (await op.get(`/v1/sessions/${sid}/board`)).body.data;
+  const upcomingByCourt = (b) => new Map(b.upcoming.map((u) => [u.courtRef, [...u.sideA, ...u.sideB].map((p) => p.id).sort()]));
+  const createdByCourt = (res) => new Map(res.body.data.matches.map((m) => [m.courtRef, [...m.teamA.players, ...m.teamB.players].map((p) => p.id).sort()]));
+
+  test('có sân trống: "sắp vào sân" trùng khớp kết quả bấm "Xếp sân trống" ngay sau đó (2 sân, rồi 1 sân, rồi 2 sân); hết sân trống thì không hứa ai', async () => {
+    const s = await createSession();
+    for (const r of [4.1, 3.9, 3.7, 3.5, 3.3, 3.1, 2.9, 2.7, 2.5, 2.3]) await checkIn(s.id, await newPlayer(r));
+
+    let b = await board(s.id);
+    expect(b.upcoming.map((u) => u.courtRef)).toEqual(['c1', 'c2']);
+    expect(b.queue.filter((q) => q.next)).toHaveLength(8);
+    let res = await op.post(`/v1/sessions/${s.id}/fill-courts`).send({});
+    expect(res.status).toBe(201);
+    expect(createdByCourt(res)).toEqual(upcomingByCourt(b));
+
+    b = await board(s.id);
+    expect(b.upcoming).toEqual([]);
+    expect(b.queue.map((q) => q.next)).toEqual([false, false]);
+
+    const [c1] = res.body.data.matches.filter((m) => m.courtRef === 'c1');
+    await score(c1);
+    b = await board(s.id);
+    expect(b.upcoming.map((u) => u.courtRef)).toEqual(['c1']);
+    expect(b.queue.filter((q) => q.next)).toHaveLength(4);
+    res = await op.post(`/v1/sessions/${s.id}/fill-courts`).send({});
+    expect(createdByCourt(res)).toEqual(upcomingByCourt(b));
+
+    // Hai sân trống cùng lúc: một sân có tỉ số, một sân "xong không tỉ số".
+    for (const m of (await sessionMatches(s.id)).filter((x) => x.status === 'in_play')) {
+      if (m.courtRef === 'c1') await score(m, [[18, 21]]);
+      else await op.post(`/v1/matches/${m.id}/end`).send();
+    }
+    b = await board(s.id);
+    expect(b.upcoming.map((u) => u.courtRef)).toEqual(['c1', 'c2']);
+    res = await op.post(`/v1/sessions/${s.id}/fill-courts`).send({});
+    expect(createdByCourt(res)).toEqual(upcomingByCourt(b));
+  });
+
+  test('người vừa đến (được bù trận) không chen trước người chờ lâu hơn, kể cả khi chen vào thì hai đội cân hơn nhiều', async () => {
+    const s = await createSession({ courtRefs: ['c1'] });
+    const waiting = [];
+    for (const r of [4.5, 4.4, 4.3, 2.0]) {
+      waiting.push(await newPlayer(r));
+      await checkIn(s.id, waiting[waiting.length - 1]);
+    }
+    // Dựng trạng thái: 4 người đã đánh 1 trận, chờ từ 10 phút trước (chia cách nào cũng lệch ≥ 1.1).
+    await ctx.models.PlaySessionPlayer.update(
+      { gamesPlayed: 1, waitingSince: new Date(Date.now() - 10 * 60000) },
+      { where: { sessionId: s.id, playerId: waiting } }
+    );
+    // Hai người vừa đến được bù 1 trận (bằng trận). Thay một người 4.x bằng người 2.1 → hai đội lệch 0.
+    const fresh = [await newPlayer(2.1), await newPlayer(2.2)];
+    for (const pid of fresh) {
+      const res = await checkIn(s.id, pid);
+      expect(res.body.data.items.find((r) => r.playerId === pid)).toMatchObject({ gamesPlayed: 0, gamesCredit: 1 });
+    }
+    const b = await board(s.id);
+    expect(upcomingByCourt(b).get('c1')).toEqual([...waiting].sort());
+    expect(b.queue.filter((q) => fresh.includes(q.playerId)).map((q) => q.next)).toEqual([false, false]);
+    const res = await op.post(`/v1/sessions/${s.id}/fill-courts`).send({});
+    expect(createdByCourt(res).get('c1')).toEqual([...waiting].sort());
+  });
+
+  test('hàng chờ trên màn hình theo đúng thứ tự của thuật toán: ít trận trước, rồi chờ lâu trước', async () => {
+    const s = await createSession({ courtRefs: ['c1'] });
+    const [more, less, newest] = [await newPlayer(3.0), await newPlayer(3.1), await newPlayer(3.2)];
+    for (const pid of [more, less, newest]) await checkIn(s.id, pid);
+    const { PlaySessionPlayer } = ctx.models;
+    await PlaySessionPlayer.update({ gamesPlayed: 2, waitingSince: new Date(Date.now() - 15 * 60000) }, { where: { sessionId: s.id, playerId: more } });
+    await PlaySessionPlayer.update({ gamesPlayed: 1, waitingSince: new Date(Date.now() - 5 * 60000) }, { where: { sessionId: s.id, playerId: less } });
+    // 3 người < 4 → chưa đủ một sân: chỉ có thứ tự ưu tiên, không ai "sắp vào sân".
+    const b = await board(s.id);
+    expect(b.upcoming).toEqual([]);
+    expect(b.queue.map((q) => q.playerId)).toEqual([newest, less, more]);
+    expect(b.queue.map((q) => q.position)).toEqual([1, 2, 3]);
+  });
+});
+
 describe('đóng / huỷ buổi', () => {
   test('buổi có tính điểm: hệ số 0.5 khớp tính độc lập; trận chưa tỉ số bị huỷ; thống kê "giao lưu"; sự kiện', async () => {
     const s = await createSession({ rated: true });
@@ -290,6 +371,8 @@ describe('đóng / huỷ buổi', () => {
     expect(ev.payload.data).toMatchObject({ sessionId: s.id, rated: true, matches: 2 });
     expect(ev.payload.data.ratingChanges).toHaveLength(expected.length);
 
+    const closedBoard = (await op.get(`/v1/sessions/${s.id}/board`)).body.data;
+    expect([closedBoard.queue, closedBoard.upcoming, closedBoard.counts.waiting]).toEqual([[], [], 0]);
     const late = await score(completed[0], [[21, 10]]);
     expect([late.status, late.body.code]).toEqual([409, 'SESSION_CLOSED']);
     expect((await checkIn(s.id, await newPlayer(3))).body.code).toBe('SESSION_CLOSED');

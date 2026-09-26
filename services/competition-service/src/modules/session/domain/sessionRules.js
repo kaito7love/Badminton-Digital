@@ -27,15 +27,6 @@ const lateCredit = ({ gamesPlayed = 0, currentCredit = 0, presentEffective = [] 
   return Math.max(currentCredit, Math.min(...presentEffective) - gamesPlayed, 0);
 };
 
-// Thứ tự hàng chờ — cùng tiêu chí với fillCourts: chờ lâu nhất → ít trận nhất → đến
-// sớm nhất (mục 8.3 bước 2). Dùng cho màn hình lớn.
-const toTime = (v) => (v ? new Date(v).getTime() : Number.MAX_SAFE_INTEGER);
-const queueOrder = (a, b) =>
-  toTime(a.waitingSince) - toTime(b.waitingSince) ||
-  a.effectiveGames - b.effectiveGames ||
-  toTime(a.joinedAt) - toTime(b.joinedAt) ||
-  (a.playerId < b.playerId ? -1 : a.playerId > b.playerId ? 1 : 0);
-
 // Lịch sử trong buổi: ai từng là đồng đội / đối thủ của ai, bao nhiêu lần.
 // matches: [{ sideA: [id], sideB: [id] }] — các trận đã xếp, trừ trận bị huỷ.
 const pairKey = (a, b) => (a < b ? `${a}|${b}` : `${b}|${a}`);
@@ -92,7 +83,6 @@ module.exports = {
   discipline,
   validateCourts,
   lateCredit,
-  queueOrder,
   historyFrom,
   validateAssignments,
   isManualEdit

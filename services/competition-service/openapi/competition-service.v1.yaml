@@ -943,7 +943,8 @@ paths:
                     properties:
                       id: { type: string }
                       rating: { type: number }
-                      gamesPlayed: { type: integer, minimum: 0 }
+                      gamesPlayed: { type: integer, minimum: 0, description: 'Số trận dùng để ưu tiên (đã đánh + số trận được bù khi đến muộn)' }
+                      newcomer: { type: boolean, description: 'Chưa đánh trận nào trong buổi — không bị kéo lên trước người chờ lâu hơn' }
                       waitingSince: { type: string, format: date-time }
                       joinedAt: { type: string, format: date-time }
       responses:
@@ -958,9 +959,10 @@ paths:
                     properties:
                       data:
                         type: object
-                        required: [seed, assignments, waiting]
+                        required: [seed, assignments, waiting, order]
                         properties:
                           seed: { type: string }
+                          order: { type: array, description: 'Thứ tự ưu tiên đầy đủ của mọi người được gửi lên', items: { type: string } }
                           assignments:
                             type: array
                             items:
@@ -3059,6 +3061,13 @@ components:
                 completed: { type: integer }
                 ended: { type: integer }
             freeCourts: { type: integer }
+    PlayerName:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, nullable: true }
     SessionPlayer:
       type: object
       additionalProperties: false
@@ -3122,7 +3131,7 @@ components:
     SessionBoard:
       type: object
       additionalProperties: false
-      required: [session, serverTime, courts, queue, recent, counts]
+      required: [session, serverTime, courts, upcoming, queue, recent, counts]
       properties:
         session:
           type: object
@@ -3146,8 +3155,20 @@ components:
               courtRef: { type: string }
               status: { type: string, enum: [busy, free] }
               match: { $ref: '#/components/schemas/MatchViewOrNull' }
+        upcoming:
+          type: array
+          description: 'Sẽ vào các sân đang trống nếu bấm "Xếp sân trống" ngay (cùng hàm, cùng seed của lượt tới). Rỗng khi không có sân trống hoặc chưa đủ người.'
+          items:
+            type: object
+            additionalProperties: false
+            required: [courtRef, sideA, sideB]
+            properties:
+              courtRef: { type: string }
+              sideA: { type: array, items: { $ref: '#/components/schemas/PlayerName' } }
+              sideB: { type: array, items: { $ref: '#/components/schemas/PlayerName' } }
         queue:
           type: array
+          description: 'Người có mặt đang rảnh, đúng thứ tự ưu tiên của thuật toán xếp sân (ít trận nhất → chờ lâu nhất → đến sớm).'
           items:
             type: object
             additionalProperties: false
@@ -3158,7 +3179,7 @@ components:
               name: { type: string, nullable: true }
               gamesPlayed: { type: integer }
               waitingSince: { type: string, format: date-time, nullable: true }
-              next: { type: boolean, description: 'Sẽ ra sân ở lượt tới' }
+              next: { type: boolean, description: 'Nằm trong upcoming — chỉ có khi đang có sân trống; không có sân trống thì không hứa ai vào lượt tới' }
         recent: { type: array, items: { $ref: '#/components/schemas/MatchView' } }
         counts:
           type: object

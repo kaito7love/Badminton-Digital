@@ -77,6 +77,8 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
       id: r.playerId,
       rating: rated.has(r.playerId) ? rated.get(r.playerId).pairingRating : fallback,
       gamesPlayed: r.gamesPlayed + r.gamesCredit,
+      // Chưa đánh trận nào trong buổi → không bị kéo lên trước người chờ lâu hơn (plan 18 mục 9).
+      newcomer: r.gamesPlayed === 0,
       waitingSince: r.waitingSince,
       joinedAt: r.joinedAt
     }));
@@ -84,7 +86,17 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
 
   const roundSeed = (s) => `${s.seed}:${s.rounds + 1}`;
   const propose = (s, snap, inputs, seed) =>
-    fillCourts({ players: inputs, courts: snap.freeCourts, format: s.format, mode: s.mode, history: snap.history, seed, now: new Date() });
+    fillCourts({
+      players: inputs, courts: s.status === 'open' ? snap.freeCourts : [], format: s.format, mode: s.mode, history: snap.history, seed, now: new Date()
+    });
+
+  // Đề xuất cho lượt tới với seed mặc định — CÙNG hàm, cùng dữ liệu, cùng seed với "Xếp sân
+  // trống" (xem trước không seed / xác nhận không gửi bản xếp) → màn hình lớn báo đúng người
+  // sẽ vào sân. Không có sân trống thì chỉ có thứ tự ưu tiên (`order`), không ai được xếp.
+  const nextProposal = async (tenant, s, snap) => {
+    const inputs = await fillInputs(tenant, s, snap);
+    return { inputs, result: propose(s, snap, inputs, roundSeed(s)) };
+  };
 
   // ---------- tạo / sửa ----------
   const create = async ({ auth, body, requestId }) => {
@@ -399,7 +411,7 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
     return { sessions };
   };
 
-  return { create, update, checkIn, leave, previewFill, confirmFill, onMatchStatus, previewClose, close, cancel, mergeHandler, snapshot };
+  return { create, update, checkIn, leave, previewFill, confirmFill, onMatchStatus, previewClose, close, cancel, mergeHandler, snapshot, nextProposal };
 };
 
 module.exports = { createSessionService };

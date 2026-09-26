@@ -19,7 +19,8 @@
     "token:dev": "node scripts/token-dev.js",
     "check-boundaries": "node scripts/check-boundaries.js",
     "snapshot": "node scripts/snapshot.js",
-    "seed:demo": "node scripts/seed-demo.js"
+    "seed:demo": "node scripts/seed-demo.js",
+    "sim:session": "node scripts/sim-session.js"
   },
   "dependencies": {
     "ajv": "^8.20.0",

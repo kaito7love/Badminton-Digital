@@ -5,7 +5,8 @@
 // Kết quả: 25 người chơi, 2 giải đã chốt (có lịch sử điểm, BXH có dữ liệu), 1 giải đang
 // mở đủ người để bấm "Bốc thăm", 1 buổi giao lưu đã đóng (tính điểm) và 1 buổi đang diễn
 // ra (3 sân đang đánh). bd:customer:1 (tài khoản khách demo của app chính) cố ý CHƯA có
-// điểm để khách xem demo tự làm form tự chấm.
+// điểm để khách xem demo tự làm form tự chấm. Chạy lần nào cũng ra cùng dữ liệu (chỉ khác
+// giờ tuyệt đối, vì mọi thứ lùi ngày tính từ lúc seed).
 require('dotenv').config();
 const { loadConfig } = require('../src/platform/config');
 const { createLogger } = require('../src/platform/logging/logger');
@@ -81,6 +82,17 @@ const main = async () => {
   }
   // Tài khoản khách demo: có hồ sơ nhưng chưa chấm trình — để tự làm form.
   await player.service.upsertByRef({ tenant: TENANT, externalRef: 'bd:customer:1', displayName: 'Nguyễn Văn Khách', actorRef: auth.sub });
+
+  // Bài chấm ban đầu lùi về 60 ngày trước — trước giải đầu tiên — để sổ điểm đúng thứ tự thời
+  // gian (plan 18 mục 9: trước đây bài chấm mang ngày seed, nằm sau các giải đã lùi ngày).
+  const assessedAt = Date.now() - 60 * DAY;
+  for (const [i, pid] of Object.values(ids).entries()) {
+    const at = new Date(assessedAt + i * 5 * 60 * 1000);
+    await models.Assessment.update({ createdAt: at, updatedAt: at }, { where: { playerId: pid }, silent: true });
+    await models.RatingChange.update({ createdAt: at }, { where: { playerId: pid, reason: 'assessment' } });
+    await models.PlayerRating.update({ verifiedAt: at }, { where: { playerId: pid }, silent: true });
+    await models.Player.update({ createdAt: at }, { where: { id: pid }, silent: true });
+  }
 
   const ratingOf = async (discipline, pid) => (await rating.queries.disciplineRatings(TENANT, [pid], discipline)).get(pid).rating;
 
@@ -165,44 +177,93 @@ const main = async () => {
     { daysAgo: 12 }
   );
 
-  // Buổi giao lưu đã đóng (có tính điểm, hệ số 0.5): 14 người, 3 sân, 6 lượt "Xếp sân trống".
-  // Khác giải: hàng chờ dùng giờ thật lúc điểm danh / nhập tỉ số (tính tới giây) nên ai ra
-  // sân lượt nào có thể khác nhau giữa các lần seed; số trận / số người đổi điểm thì như nhau.
-  const mixed = [...men.slice(0, 8), ...women.slice(0, 6)];
-  const runSession = async (body, players, rounds) => {
-    const s = await session.service.create({ auth, body });
-    for (const pid of players) await session.service.checkIn({ auth, id: s.id, playerId: pid });
-    for (let r = 0; r < rounds; r += 1) {
-      await session.service.confirmFill({ auth, id: s.id, body: {} });
-      const live = (await match.service.listForContext(TENANT, 'session', s.id)).filter((m) => m.status === 'in_play');
-      // Một trận mỗi lượt "xong không nhập tỉ số" cho giống thực tế.
-      for (const [i, m] of live.entries()) {
-        if (i === 0 && r % 3 === 2) await match.service.endMatch({ auth, matchId: m.id });
-        else await playMatch(m, 'doubles', s.scoring.bestOf);
+  // Buổi giao lưu chạy theo ĐỒNG HỒ GIẢ LẬP (plan 18 mục 9): gọi đúng các service thật (điểm
+  // danh, "Xếp sân trống", nhập tỉ số, rời buổi, đóng buổi), rồi đặt lại giờ điểm danh / vào
+  // sân / xong theo đồng hồ giả lập. Hàng chờ xếp theo các giờ này nên không phụ thuộc giờ thật
+  // lúc seed → seed lần nào cũng ra giống hệt; mỗi trận 12–18 phút như thật.
+  const MIN = 60 * 1000;
+  const simulateSession = async ({ body, arrivals, leaves = {}, start, until, finishAll = false }) => {
+    const s = await session.service.create({ auth, body: { ...body, startsAt: new Date(start).toISOString() } });
+    const courtIndex = new Map(s.courtRefs.map((c, i) => [c, i]));
+    const setRows = (playerIds, values) => models.PlaySessionPlayer.update(values, { where: { sessionId: s.id, playerId: playerIds } });
+    const playing = new Map(); // courtRef → { matchId, players, end }
+    const queue = [...arrivals];
+    const leaving = { ...leaves };
+    let finished = 0;
+    let lastEnd = start;
+    const byEnd = () => [...playing].sort((a, b) => a[1].end - b[1].end || courtIndex.get(a[0]) - courtIndex.get(b[0]));
+    const finish = async (courtRef, x) => {
+      finished += 1;
+      const m = await models.Match.findByPk(x.matchId);
+      // Cứ 7 trận có 1 trận "xong, không nhập tỉ số" cho giống thực tế.
+      if (finished % 7 === 0) await match.service.endMatch({ auth, matchId: m.id });
+      else await playMatch(m, 'doubles', s.scoring.bestOf);
+      await models.Match.update({ completedAt: new Date(x.end) }, { where: { id: m.id } });
+      await setRows(x.players, { waitingSince: new Date(x.end) });
+      playing.delete(courtRef);
+      lastEnd = Math.max(lastEnd, x.end);
+    };
+    for (let t = start; t <= until; t += MIN) {
+      for (const [courtRef, x] of byEnd()) if (x.end <= t) await finish(courtRef, x);
+      while (queue.length && queue[0].at <= t) {
+        const { playerId, at } = queue.shift();
+        await session.service.checkIn({ auth, id: s.id, playerId });
+        await setRows([playerId], { joinedAt: new Date(at), waitingSince: new Date(at) });
+      }
+      for (const [playerId, at] of Object.entries(leaving)) {
+        if (at > t || [...playing.values()].some((x) => x.players.includes(playerId))) continue;
+        await session.service.leave({ auth, id: s.id, playerId });
+        await setRows([playerId], { leftAt: new Date(t) });
+        delete leaving[playerId];
+      }
+      if (playing.size === s.courtRefs.length) continue;
+      try {
+        const { matchIds } = await session.service.confirmFill({ auth, id: s.id, body: {} });
+        await models.Match.update({ calledAt: new Date(t) }, { where: { id: matchIds } });
+        const created = await models.Match.findAll({ where: { id: matchIds } });
+        const parts = await match.service.participantsOf(matchIds);
+        for (const m of created.sort((a, b) => courtIndex.get(a.courtRef) - courtIndex.get(b.courtRef))) {
+          playing.set(m.courtRef, { matchId: m.id, players: parts.get(m.id).map((p) => p.playerId), end: t + (12 + rng.int(7)) * MIN });
+        }
+      } catch (err) {
+        if (err.code !== 'NOTHING_TO_FILL') throw err; // chưa đủ người rảnh cho một sân
       }
     }
-    return s;
+    if (finishAll) for (const [courtRef, x] of byEnd()) await finish(courtRef, x);
+    return { s, lastEnd, playing };
   };
-  const past = await runSession(
-    { organizerRef: 'bd:branch:1', name: 'Giao lưu tối thứ Sáu — Chi nhánh 1', startsAt: new Date(Date.now() - 5 * DAY).toISOString(), courtRefs: ['bd:court:1', 'bd:court:2', 'bd:court:3'], rated: true, seed: 'demo-giao-luu-thu-sau' },
-    mixed,
-    6
-  );
-  const closed = await session.service.close({ auth, id: past.id });
-  const at = new Date(Date.now() - 5 * DAY);
-  await models.PlaySession.update({ closedAt: at }, { where: { id: past.id } });
-  await models.Match.update({ completedAt: at, calledAt: at }, { where: { contextId: past.id } });
-  await models.RatingChange.update({ createdAt: at }, { where: { contextId: past.id } });
+  const arriving = (playerIds, from, gapSeconds) => playerIds.map((playerId, i) => ({ playerId, at: from + i * gapSeconds * 1000 }));
+
+  // Buổi đã đóng (có tính điểm, hệ số 0.5): tối thứ Sáu gần nhất (ít nhất 2 ngày trước), 19:00
+  // giờ Việt Nam, 3 sân, 14 người đến đúng giờ, 2 người đến muộn 40 phút, 1 người về sớm.
+  const mixed = [...men.slice(0, 8), ...women.slice(0, 6)];
+  const friday = new Date(Date.now() - 2 * DAY);
+  while (friday.getUTCDay() !== 5) friday.setTime(friday.getTime() - DAY);
+  friday.setUTCHours(12, 0, 0, 0);
+  const pastStart = friday.getTime();
+  const past = await simulateSession({
+    body: { organizerRef: 'bd:branch:1', name: 'Giao lưu tối thứ Sáu — Chi nhánh 1', courtRefs: ['bd:court:1', 'bd:court:2', 'bd:court:3'], rated: true, seed: 'demo-giao-luu-thu-sau' },
+    arrivals: [...arriving(mixed, pastStart, 40), ...arriving([men[8], women[6]], pastStart + 40 * MIN, 20)],
+    leaves: { [women[0]]: pastStart + 90 * MIN },
+    start: pastStart,
+    until: pastStart + 120 * MIN,
+    finishAll: true
+  });
+  const closed = await session.service.close({ auth, id: past.s.id });
+  const closedAt = new Date(past.lastEnd + 2 * MIN);
+  await models.PlaySession.update({ closedAt }, { where: { id: past.s.id } });
+  await models.RatingChange.update({ createdAt: closedAt }, { where: { contextId: past.s.id } });
   await modules.ranking.service.dailySnapshot(new Date());
 
-  // Buổi giao lưu đang diễn ra: 3 sân đang đánh, 2 người chờ — màn hình lớn có dữ liệu,
-  // khách xem demo nhập tỉ số rồi bấm "Xếp sân trống".
-  const live = await session.service.create({
-    auth,
-    body: { organizerRef: 'bd:branch:1', name: 'Giao lưu tối nay — Chi nhánh 1 (demo)', courtRefs: ['bd:court:1', 'bd:court:2', 'bd:court:3'], seed: 'demo-giao-luu-toi-nay' }
+  // Buổi đang diễn ra: bắt đầu 26 phút trước lúc seed, 14 người đến lần lượt — sân đang đánh,
+  // có người chờ, có kết quả gần đây. Khách xem demo nhập tỉ số rồi bấm "Xếp sân trống".
+  const liveStart = Math.floor((Date.now() - 26 * MIN) / MIN) * MIN;
+  const live = await simulateSession({
+    body: { organizerRef: 'bd:branch:1', name: 'Giao lưu tối nay — Chi nhánh 1 (demo)', courtRefs: ['bd:court:1', 'bd:court:2', 'bd:court:3'], seed: 'demo-giao-luu-toi-nay' },
+    arrivals: arriving(mixed, liveStart, 30),
+    start: liveStart,
+    until: Math.floor(Date.now() / MIN) * MIN
   });
-  for (const pid of mixed) await session.service.checkIn({ auth, id: live.id, playerId: pid });
-  await session.service.confirmFill({ auth, id: live.id, body: {} });
 
   // Giải đang mở, đủ người để khách xem demo bấm "Bốc thăm".
   const open = await tournament.service.create({
@@ -230,8 +291,8 @@ const main = async () => {
   console.log(`  Giải 1 "${t1.t.name}": ${t1.result.placements.length} đội, vô địch ${champion.players.map((p) => p.name).join(' + ')}, ${t1.result.ratingChanges.length} người đổi điểm`);
   console.log(`  Giải 2 "${t2.t.name}": ${t2.result.placements.length} người, ${t2.result.rankingPoints.length} kết quả điểm BXH`);
   console.log(`  Giải 3 "${open.name}": đang mở, ${registered} người đủ điều kiện đã đăng ký — sẵn sàng bốc thăm`);
-  console.log(`  Buổi giao lưu "${past.name}": đã đóng, ${closed.result.completedMatches} trận có tỉ số, ${closed.result.ratingChanges.length} người đổi điểm (hệ số 0.5)`);
-  console.log(`  Buổi giao lưu "${live.name}": đang diễn ra, 3 sân đang đánh — xem /v1/sessions/${live.id}/board`);
+  console.log(`  Buổi giao lưu "${past.s.name}": đã đóng, ${closed.result.completedMatches} trận có tỉ số, ${closed.result.unscoredMatches} trận không tỉ số, ${closed.result.ratingChanges.length} người đổi điểm (hệ số 0.5)`);
+  console.log(`  Buổi giao lưu "${live.s.name}": đang diễn ra, ${live.playing.size} sân đang đánh — xem /v1/sessions/${live.s.id}/board`);
   await sequelize.close();
 };
 

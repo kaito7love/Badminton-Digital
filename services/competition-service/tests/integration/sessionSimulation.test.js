@@ -39,6 +39,7 @@ test('3 giờ, 20 người, 4 sân: công bằng số trận, đồng đội l�
   const live = new Map(); // courtRef → { match, endsAt }
   let earlyLeft = false;
   let fills = 0;
+  let boardMismatches = 0;
   let ended = 0;
   for (let t = 0; t < 180; t += 1) {
     for (const [court, x] of [...live].sort((a, b) => a[1].endsAt - b[1].endsAt)) {
@@ -57,9 +58,17 @@ test('3 giờ, 20 người, 4 sân: công bằng số trận, đồng đội l�
       earlyLeft = true;
     }
     if (live.size < COURTS.length) {
+      // Màn hình lớn báo trước ai sẽ vào sân — phải khớp đúng kết quả bấm "Xếp sân trống" ngay sau đó.
+      const upcoming = (await op.get(`/v1/sessions/${session.id}/board`)).body.data.upcoming;
       const res = await op.post(`/v1/sessions/${session.id}/fill-courts`).send({});
-      if (res.status === 422) continue; // chưa đủ người rảnh
+      if (res.status === 422) { // chưa đủ người rảnh
+        expect(upcoming).toEqual([]);
+        continue;
+      }
       expect(res.status).toBe(201);
+      const created = res.body.data.matches.map((m) => [m.courtRef, [...m.teamA.players, ...m.teamB.players].map((p) => p.id).sort()]);
+      const promised = upcoming.map((u) => [u.courtRef, [...u.sideA, ...u.sideB].map((p) => p.id).sort()]);
+      if (JSON.stringify(created) !== JSON.stringify(promised)) boardMismatches += 1;
       fills += 1;
       for (const m of res.body.data.matches) live.set(m.courtRef, { match: m, endsAt: t + 12 + rng.int(7) });
     }
@@ -82,6 +91,7 @@ test('3 giờ, 20 người, 4 sân: công bằng số trận, đồng đội l�
     expect(r.gamesPlayed + r.gamesCredit).toBeLessThanOrEqual(Math.max(...full) + 1);
   }
   expect(byId.get(ids[EARLY]).status).toBe('left');
+  expect(boardMismatches).toBe(0);
 
   // Số trận trong DB khớp bảng điểm danh; không cặp đồng đội nào lặp quá 2 lần.
   const matches = (await op.get(`/v1/sessions/${session.id}/matches`)).body.data.items.filter((m) => m.status !== 'cancelled');
@@ -126,5 +136,5 @@ test('3 giờ, 20 người, 4 sân: công bằng số trận, đồng đội l�
   for (const st of stats) expect(st.matches).toBe(scored.get(st.playerId) || 0);
 
   // Ghi lại để báo cáo (chạy với --verbose sẽ thấy).
-  console.log(JSON.stringify({ fills, matches: matches.length, completed: completed.length, ended, games: { min: Math.min(...full), max: Math.max(...full) }, maxFour: Math.max(...fours.values()), maxPartnerRepeat: Math.max(...partners.values()), late: LATE.map((i) => byId.get(ids[i])).map((r) => ({ played: r.gamesPlayed, credit: r.gamesCredit })) }));
+  console.log(JSON.stringify({ fills, boardMismatches, matches: matches.length, completed: completed.length, ended, games: { min: Math.min(...full), max: Math.max(...full) }, maxFour: Math.max(...fours.values()), maxPartnerRepeat: Math.max(...partners.values()), late: LATE.map((i) => byId.get(ids[i])).map((r) => ({ played: r.gamesPlayed, credit: r.gamesCredit })) }));
 });

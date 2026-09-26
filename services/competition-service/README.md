@@ -44,7 +44,7 @@ npm run dev
 - Bước `cp` xong thì điền `DB_*` trong `.env`, và tạo DB rỗng `competition_service` trước khi migrate.
 - `keys:generate` tạo cặp khoá ES256 dev trong `.keys/`.
 - `migrate` tạo 19 bảng trong DB riêng.
-- `npm run seed:demo` (tuỳ chọn) tạo dữ liệu demo bằng chính các service: 25 người chơi, 2 giải đã chốt, 1 giải đang mở để thử bốc thăm, 1 buổi giao lưu đã đóng và 1 buổi đang diễn ra (xem màn hình lớn ở `/v1/sessions/{id}/board`). Chỉ chạy trên DB trống; production cần `ALLOW_DEMO_SEED=true`.
+- `npm run seed:demo` (tuỳ chọn) tạo dữ liệu demo bằng chính các service: 25 người chơi, 2 giải đã chốt, 1 giải đang mở để thử bốc thăm, 1 buổi giao lưu đã đóng và 1 buổi đang diễn ra (xem màn hình lớn ở `/v1/sessions/{id}/board`). Buổi giao lưu chạy theo đồng hồ giả lập nên seed lần nào cũng ra cùng dữ liệu. Chỉ chạy trên DB trống; production cần `ALLOW_DEMO_SEED=true`.
 - `dev` chạy ở http://127.0.0.1:5100; Swagger UI ở `/docs`.
 
 Gọi API bằng token dev (không cần app chính):
@@ -78,6 +78,7 @@ npm test
 - `test:integration`: Express + MySQL thật trên DB `competition_service_test` (tự drop / migrate lại); response
   được kiểm theo OpenAPI, sự kiện theo JSON Schema.
 - `npm test`: chạy cả hai.
+- `npm run sim:session`: đo thuật toán xếp sân giao lưu (200 lần chạy × 7 kịch bản) — số liệu ở docs/06 mục 8.3.
 
 ## Docker
 

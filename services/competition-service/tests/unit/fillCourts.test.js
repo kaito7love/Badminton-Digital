@@ -16,7 +16,7 @@ const simulate = ({ count, courts, minutes, mode = 'balanced', seed = 'sim', lat
   for (let i = 0; i < count; i += 1) {
     const id = `p${String(i).padStart(2, '0')}`;
     const joinAt = late.includes(id) ? start + 60 * MIN : start;
-    players.set(id, { id, rating: Math.round((2 + rng.next() * 2.5) * 100) / 100, gamesPlayed: 0, joinedAt: joinAt, waitingSince: joinAt });
+    players.set(id, { id, rating: Math.round((2 + rng.next() * 2.5) * 100) / 100, gamesPlayed: 0, played: 0, joinedAt: joinAt, waitingSince: joinAt });
   }
   const partners = new Map();
   const opponents = new Map();
@@ -39,7 +39,7 @@ const simulate = ({ count, courts, minutes, mode = 'balanced', seed = 'sim', lat
       }
     }
     const { assignments } = fillCourts({
-      players: present.map((p) => ({ ...p, waitingSince: new Date(p.waitingSince), joinedAt: new Date(p.joinedAt) })),
+      players: present.map((p) => ({ ...p, newcomer: p.played === 0, waitingSince: new Date(p.waitingSince), joinedAt: new Date(p.joinedAt) })),
       courts: freeCourts,
       mode,
       history: {
@@ -65,6 +65,7 @@ const simulate = ({ count, courts, minutes, mode = 'balanced', seed = 'sim', lat
       for (const id of [...a.sideA, ...a.sideB]) {
         const p = players.get(id);
         p.gamesPlayed += 1;
+        p.played += 1;
         busyUntil.set(id, t + duration * MIN);
         p.waitingSince = t + duration * MIN;
       }
@@ -174,5 +175,65 @@ describe('fillCourts (docs/06 mục 8.3)', () => {
     // Không có lịch sử lặp → giữ đúng thứ tự hàng (người chờ lâu ra trước).
     const plain = fillCourts({ players: [...waited, ...fresh], courts: ['c1'], seed: 'mix', now });
     expect(onCourtOf(plain.assignments[0]).sort()).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  // ---- plan 18 mục 9: người mới không chen, kéo lên chỉ khi đáng, thứ tự ưu tiên ----
+  const at = (min) => new Date(Date.UTC(2026, 8, 26, 13, 0) - min * MIN);
+  const NOW = at(0);
+  const p = (id, rating, gamesPlayed, waitedMin, extra = {}) => ({ id, rating, gamesPlayed, waitingSince: at(waitedMin), joinedAt: at(60), ...extra });
+
+  test('tái hiện ca chủ dự án bấm thử: 2 người vừa đến (được bù 1 trận) không chen trước người chờ lâu hơn', () => {
+    // Đúng dữ liệu buổi demo: Võ, Bùi chờ 2 phút; 4 người chờ 1.4 phút; 2 người vừa đến
+    // (0.9 và 0.3 phút) được bù nên cũng "1 trận". Bản trước chọn 2 người vừa đến vì hai đội cân hơn.
+    const players = [
+      p('vo', 3.09, 1, 2), p('bui', 1.88, 1, 2),
+      p('le', 3.57, 1, 1.4), p('mai', 4.42, 1, 1.4), p('lan', 2.64, 1, 1.4), p('vy', 1.79, 1, 1.4),
+      p('khach', 3.25, 1, 0.9, { newcomer: true, joinedAt: at(0.9) }), p('moi', 4.25, 1, 0.3, { newcomer: true, joinedAt: at(0.3) })
+    ];
+    const history = {
+      partners: [['vy', 'mai', 1], ['le', 'lan', 1]],
+      opponents: [['vo', 'bui', 1], ['vy', 'le', 1], ['vy', 'lan', 1], ['mai', 'le', 1], ['mai', 'lan', 1]]
+    };
+    const [court] = fillCourts({ players, courts: ['c1'], history, seed: 'demo-giao-luu-toi-nay:3', now: NOW }).assignments;
+    const chosen = onCourtOf(court);
+    expect(chosen).toEqual(expect.arrayContaining(['vo', 'bui']));
+    expect(chosen).not.toContain('khach');
+    expect(chosen).not.toContain('moi');
+  });
+
+  test('người chưa đánh trận nào trong buổi không bao giờ bị kéo lên, kể cả khi nhóm đang chờ sẽ lặp đồng đội', () => {
+    const waited = ['a', 'b', 'c', 'd'].map((id) => p(id, 3, 2, 5));
+    const partners = [['a', 'b', 1], ['c', 'd', 1], ['a', 'c', 1], ['b', 'd', 1], ['a', 'd', 1], ['b', 'c', 1]];
+    const newcomers = ['e', 'f', 'g', 'h'].map((id) => p(id, 3, 2, 1, { newcomer: true }));
+    const [court] = fillCourts({ players: [...waited, ...newcomers], courts: ['c1'], history: { partners }, seed: 'nc', now: NOW }).assignments;
+    expect(onCourtOf(court).sort()).toEqual(['a', 'b', 'c', 'd']);
+    // Cùng tình huống nhưng 4 người kia vừa đánh xong (không phải người mới) → được kéo lên để tránh lặp đồng đội.
+    const finished = ['e', 'f', 'g', 'h'].map((id) => p(id, 3, 2, 0));
+    const [mixed] = fillCourts({ players: [...waited, ...finished], courts: ['c1'], history: { partners }, seed: 'nc', now: NOW }).assignments;
+    expect(onCourtOf(mixed).some((id) => 'efgh'.includes(id))).toBe(true);
+  });
+
+  test('chỉ để hai đội cân hơn một chút thì không kéo người đứng sau lên (phạt 0.30 / người)', () => {
+    // Nhóm đang chờ lệch 0.30; kéo người vừa xong (3.3) lên thay 3.8 chỉ bớt được 0.25 < 0.30
+    // → giữ đúng thứ tự hàng. Bản bước 3 (phạt 0.10) kéo người này lên.
+    const waited = [p('a', 3.0, 1, 5), p('b', 3.0, 1, 5), p('c', 3.2, 1, 5), p('d', 3.8, 1, 5)];
+    const finished = [p('e', 3.3, 1, 0)];
+    const [court] = fillCourts({ players: [...waited, ...finished], courts: ['c1'], seed: 'bal', now: NOW }).assignments;
+    expect(onCourtOf(court).sort()).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  test('hai đội lệch quá nhiều thì vẫn kéo người lên (lợi hơn 0.30)', () => {
+    // Nhóm đang chờ chia cách nào cũng lệch ≥ 1.1; thay một người bằng người vừa xong 2.1 → lệch 0.
+    const waited = [p('a', 4.5, 1, 5), p('b', 4.4, 1, 5), p('c', 4.3, 1, 5), p('d', 2.0, 1, 5)];
+    const finished = [p('e', 2.1, 1, 0)];
+    const [court] = fillCourts({ players: [...waited, ...finished], courts: ['c1'], seed: 'big', now: NOW }).assignments;
+    expect(onCourtOf(court)).toContain('e');
+  });
+
+  test('`order` là thứ tự ưu tiên đầy đủ: ít trận trước, rồi chờ lâu trước', () => {
+    const r = fillCourts({ players: [p('a', 3, 2, 10), p('b', 3, 1, 1), p('c', 3, 1, 5), p('d', 3, 0, 0)], courts: [], seed: 'ord', now: NOW });
+    expect(r.order).toEqual(['d', 'c', 'b', 'a']);
+    expect(r.waiting).toEqual(r.order);
+    expect(r.assignments).toEqual([]);
   });
 });

@@ -328,13 +328,16 @@ Người điều phối bấm một nút thay cho việc gọi tên bằng miệ
   - Giữa buổi sân nào đánh xong thì bấm lại, chỉ sân đó được xếp; người đang đánh sân khác không bị lấy.
 - Sân trở thành trống khi trận: có tỉ số, hoặc bấm **"Xong (không tỉ số)"** (trận thành `ended`, vẫn tính là đã đánh
   cho lịch sử đồng đội / đối thủ; nhập tỉ số sau vẫn được), hoặc bị huỷ (không tính là đã đánh).
-- **Màn hình lớn (TV)**: sân nào – ai với ai – đã đánh bao lâu, danh sách người đang chờ theo thứ tự ưu tiên (đánh dấu
-  những người sẽ ra sân ở lượt tới), vài kết quả gần nhất.
+- **Màn hình lớn (TV)**: sân nào – ai với ai – đã đánh bao lâu, vài kết quả gần nhất, và:
+  - **"Chuẩn bị vào sân"** — chỉ khi đang có sân trống: đúng những người "Xếp sân trống" sẽ đưa vào nếu bấm ngay
+    (cùng hàm, cùng seed của lượt tới);
+  - **hàng chờ** theo đúng thứ tự ưu tiên của thuật toán. Không có sân trống thì không hứa ai vào lượt tới — thuật
+    toán có thể trộn người vừa đánh xong vào khi một sân trống (mục 8.3 bước 5), nên thứ tự hàng không phải lời hứa.
 
 ### 8.3 Thuật toán — `fillCourts` (hàm thuần trong module `matchmaking`)
 
 ```
-input: người có mặt và rảnh (không đang ở sân) { id, pairingRating, gamesPlayed, waitingSince, gender },
+input: người có mặt và rảnh (không đang ở sân) { id, pairingRating, gamesPlayed, newcomer, waitingSince, joinedAt },
        sân trống S, hình thức (đôi: 4 người / sân), chế độ, lịch sử trong buổi (ai từng là đồng đội / đối thủ của ai), seed
 
 1. Số sân dùng được = min(S, ⌊số người rảnh / 4⌋)
@@ -350,21 +353,43 @@ input: người có mặt và rảnh (không đang ở sân) { id, pairingRating
         + 0.10 × Σ số lần cặp đối thủ đã gặp nhau trong buổi
 5. (balanced / random) tìm cục bộ giảm tổng cost:
    - đổi người giữa hai sân;
-   - đổi người trong sân với người "bằng trận" (cùng số trận với người thứ N) đang đứng sau hàng — kéo một người
-     lên sớm hơn thứ tự hàng bị phạt 0.10. Chỉ sân trống thì duyệt hết mọi cách chọn.
-   Không bao giờ để người ít trận hơn ngồi chờ thay người nhiều trận hơn.
-6. Trả về: sân → đội A / đội B, danh sách người tiếp tục chờ
+   - đổi người trong sân với người "bằng trận" (cùng số trận với người thứ N) đang đứng sau hàng. Kéo một người lên
+     sớm hơn thứ tự hàng bị phạt 0.10 / người nếu việc đó bớt được lặp đồng đội, 0.30 / người nếu chỉ để cân trình
+     hoặc bớt gặp lại đối thủ. Chỉ một sân trống thì duyệt hết mọi cách chọn.
+   Không bao giờ:
+   - để người ít trận hơn ngồi chờ thay người nhiều trận hơn;
+   - kéo người chưa đánh trận nào trong buổi (newcomer: vừa đến, đến muộn) lên trước;
+   - để người mới đánh trong khi người "bằng trận" chờ lâu hơn họ còn ngồi.
+6. Trả về: sân → đội A / đội B, danh sách người tiếp tục chờ, thứ tự ưu tiên đầy đủ (order)
 ```
 
-- **Công bằng** (test mô phỏng 3 giờ, 20 người, 4 sân, **mỗi trận 12–18 phút, các sân xong lệch giờ**):
+- **Công bằng** (`npm run sim:session`: 200 lần chạy mỗi kịch bản, 3 giờ, **mỗi trận 12–18 phút, các sân xong lệch
+  giờ**, người đến muộn được bù trận như service thật):
   - không lần xếp nào để người rảnh ít trận hơn ngồi chờ thay người nhiều trận hơn;
-  - lúc cắt buổi chênh lệch số trận ≤ 1 (197–198 / 200 lần chạy). Các lần còn lại chênh 2 chỉ khi mọi người ít trận
-    nhất đang đánh dở trận cuối — lượt sau họ được ưu tiên ngay; hệ thống không để sân trống chờ họ;
-  - đồng đội lặp ≤ 2 lần (kịch bản có người đến muộn / về sớm: 200 / 200; không có: 196 / 200), một nhóm 4 người
-    chung sân ≤ 4 trận.
+  - lúc cắt buổi chênh lệch số trận ≤ 1: 20 người / 4 sân 199 / 200; kịch bản có người đến muộn / về sớm 200 / 200.
+    Lần còn lại chênh 2 chỉ khi mọi người ít trận nhất đang đánh dở trận cuối — lượt sau họ được ưu tiên ngay; hệ
+    thống không để sân trống chờ họ;
+  - đồng đội lặp ≤ 2 lần: kịch bản có người đến muộn / về sớm 200 / 200; 20 người / 4 sân không ai đến muộn
+    196 / 200. Một nhóm 4 người chung sân tối đa 4–5 trận.
+- **Trộn người và chen hàng** — 20 người / 4 sân, trung bình mỗi buổi:
+
+  | | Bước 3 (0.10 cho mọi lý do) | Hiện tại (plan 18 mục 9) |
+  |---|---|---|
+  | Chen hàng (người bằng trận chờ lâu hơn ≥ 1 phút bị để lại) | 80 | 56 |
+  | Lượt xếp có kéo người lên | 65% | 53% |
+  | Người vừa đến chen trước (kịch bản đến rải rác) | 1.8 | 0 |
+  | Lệch trình hai đội trong sân | 0.128 | 0.147 |
+  | Đánh liền (vừa xong lại ra sân ngay) | 67 | 59 |
+  | Buổi có cặp đồng đội lặp > 2 lần | 1 / 200 | 4 / 200 |
+
+  Không trộn thì nhóm 4 người dính nhau cả buổi (đồng đội lặp > 2 ở 39 / 40 buổi, một nhóm chung sân 10 trận); trộn
+  càng ít thì chen hàng càng ít nhưng hai đội lệch trình hơn.
 - **Vì sao đổi so với bản đầu (bước 3, test thật qua API):** bản đầu xếp "chờ lâu nhất trước" và mô phỏng cho mọi
   sân cùng lượt xong cùng lúc. Khi các sân xong lệch giờ, 4 người vừa chờ luôn ra cùng một sân → nhóm 4 người dính
   nhau cả buổi: đồng đội lặp tới 5 lần, một nhóm chung sân 11 trận, chênh số trận tới 3.
+- **Vì sao đổi lần 2 (plan 18 mục 9):** chủ dự án bấm thử thấy màn hình ghi "lượt tới" cho người chờ hơn 2 phút
+  nhưng "Xếp sân trống" lại đưa 2 người vừa đến (được bù trận) vào sân vì hai đội cân hơn. Sửa: chặn người mới, phạt
+  kéo lên 0.30 trừ khi để tránh lặp đồng đội, và màn hình lấy "Chuẩn bị vào sân" từ chính thuật toán.
 - Có bước **xem trước**: người điều phối đổi tay hai người rồi mới xác nhận → sinh `matches` (`context_type =
   session`, `stage = session`, đang đánh trên sân). Bản xem trước ghi số lần các cặp đồng đội đã chung đội
   (`repeatPartners`) để người điều phối thấy mà đổi.
@@ -409,7 +434,8 @@ input: người có mặt và rảnh (không đang ở sân) { id, pairingRating
 |---|---|
 | `PAIRING_TOLERANCE` / `PAIRING_RESTARTS` / `PAIRING_STEPS_PER_PLAYER` | 0.03 (ban đầu 0.05 — test thật cho thấy quá rộng khi danh sách lệch hai đầu) / 30 / 50 |
 | `PAIRING_REPEAT_PARTNER_PENALTY` / `PAIRING_SAME_POSITION_PENALTY` / `PAIRING_REPEAT_LOOKBACK` | 0.02 / 0.02 / 3 giải |
-| `SESSION_REPEAT_PARTNER_PENALTY` (× n²) / `SESSION_REPEAT_OPPONENT_PENALTY` (× n) / `SESSION_SKIP_PENALTY` | 0.50 / 0.10 / 0.10 (ban đầu 0.30 tuyến tính, không có phạt kéo lên sớm — xem 8.3) |
+| `SESSION_REPEAT_PARTNER_PENALTY` (× n²) / `SESSION_REPEAT_OPPONENT_PENALTY` (× n) | 0.50 / 0.10 (ban đầu 0.30 tuyến tính) |
+| `SESSION_SKIP_PENALTY` / `SESSION_SKIP_PENALTY_PARTNER` | 0.30 / 0.10 — kéo người lên chỉ để cân trình / bớt gặp lại đối thủ / để bớt lặp đồng đội (bước 3: 0.10 cho mọi lý do — xem 8.3) |
 | `MATCH_MINUTES` | 1×21: 15 · 3×21: 35 · 3×15: 25 (BTC sửa được) |
 | `RANKING_MIN_TEAMS` | 4 |
 
@@ -455,3 +481,6 @@ Những chỗ tài liệu chưa nói rõ; đã quyết khi code, test thật xá
   `session.closed`).
 - **Thứ tự khoá:** buổi trước, trận sau — như giải.
 - **Gộp hồ sơ** (05, mục 4) giờ chuyển cả trận, đăng ký giải, đội, điểm BXH thành tích, điểm danh giao lưu.
+- **Màn hình lớn sau khi chủ dự án bấm thử (plan 18 mục 9):** `upcoming` / `next` tính bằng chính hàm xếp sân với seed
+  của lượt tới, chỉ khi có sân trống; hàng chờ theo `order` của thuật toán. Người chưa đánh trận nào trong buổi
+  (`newcomer`) không bao giờ được xếp trước người "bằng trận" chờ lâu hơn.

@@ -486,3 +486,204 @@ Ví dụ 06 §9 bằng API thật (test integration):
 - **Bước 4 (nhánh riêng `feat/competition-integration`):** tích hợp app chính + giao diện (tài liệu 07).
 - **Chưa có "huỷ đóng buổi"** (giải có "huỷ chốt"). Đóng nhầm buổi có tính điểm thì quản lý chỉnh điểm tay có lý do.
 - **DB dev** `competition_service` đang chứa dữ liệu demo mới (có buổi giao lưu đang diễn ra để xem màn hình lớn).
+
+## 9. Sửa sau khi chủ dự án bấm thử bước 3 — "lượt tới" và dữ liệu demo
+
+- **Nhánh:** tiếp tục `feat/competition-service`. Bước 1–3 chưa merge và phần sửa nằm trong phạm vi bước 3 → một
+  commit riêng trên cùng nhánh.
+- **Ngày:** 27/09/2026. **Trạng thái:** đã làm, kết quả ở 9.7–9.8; chờ duyệt merge.
+
+### 9.1 Hiện tượng và nguyên nhân
+
+Khi bấm thử trên bàn thử:
+- màn hình buổi giao lưu đánh dấu **"lượt tới"** cho 2 người đã chờ hơn 2 phút;
+- nhưng "Xếp sân trống" lại đưa **2 người vừa đến** vào sân (được bù 1 trận nên bằng trận với người chờ).
+
+Có 3 nguyên nhân chồng nhau:
+
+1. **Thứ tự hàng chờ trên màn hình khác thứ tự của thuật toán.** Đây là sót của bước 3: `fillCourts` đã đổi sang
+   "ít trận nhất trước, rồi chờ lâu nhất", nhưng `sessionRules.queueOrder` (màn hình dùng) vẫn là "chờ lâu nhất trước".
+2. **"Lượt tới" chỉ là N người đầu hàng**, trong khi thuật toán được kéo người "bằng trận" đứng sau lên để trộn nhóm.
+   Đo trên 200 lần chạy: hiện tại 51–66% số lượt xếp có kéo người lên (riêng 18 người / 4 sân: 23%); kể cả phương
+   án đề xuất ở 9.2 vẫn 42–53%. Vì vậy **không thể đoán "lượt tới" bằng thứ tự hàng**, dù chỉnh tham số thế nào.
+3. **Ngưỡng kéo lên quá dễ** (phạt 0.10 / người). Chỉ cần hai đội cân hơn một chút, hoặc tránh gặp lại đối thủ 1–2
+   lần, là kéo, kể cả người vừa đến. Trung bình 80 lần "chen hàng" / buổi (20 người, 4 sân).
+
+Dữ liệu demo:
+
+4. **Sổ điểm lệch thứ tự:** bài chấm trình mang ngày seed, còn các giải bị lùi về tháng 8–9, nên sổ điểm hiện "chấm
+   trình" sau các giải.
+5. **Buổi giao lưu demo dùng giờ thật lúc seed**, nên:
+   - mỗi lần seed ra khác nhau (giải demo lần này 22 người đủ điều kiện, lần trước 21);
+   - giờ đánh không thực tế (sân "đang đánh 45 phút").
+
+### 9.2 Đã đo trước khi lập plan
+
+Đo bằng bản thử ngoài repo, 200 lần chạy mỗi kịch bản, mỗi trận 12–18 phút, người đến muộn được bù trận như service
+thật. Các chỉ số:
+- **Chen hàng:** số lần một người bằng trận nhưng chờ lâu hơn ít nhất 1 phút bị để lại.
+- **Lượt có kéo:** tỉ lệ lượt xếp có ít nhất một lần như vậy.
+
+| 20 người / 4 sân, 3 giờ | Hiện tại | **Đề xuất (L)** | Chặt hơn (J) | Không trộn ⁽¹⁾ |
+|---|---|---|---|---|
+| Chen hàng / buổi | 80 | **56** | 42 | 0 |
+| Lượt có kéo người lên | 65% | 53% | 53% | 0% |
+| Đồng đội lặp > 2 lần | 1 / 200 | 4 / 200 | 4 / 200 | 39 / 40 |
+| Như trên, kịch bản tài liệu (đến muộn / về sớm) | 0 / 200 | 0 / 200 | 0 / 200 | 21 / 40 |
+| Một nhóm 4 người chung sân, tối đa | 4 trận | 5 trận | 4 trận | 10 trận |
+| Lệch trình hai đội, trung bình | 0.128 | 0.147 | 0.153 | 0.41 |
+| Đánh liền (vừa xong lại ra sân) / buổi | 67 | 59 | 55 | 29 |
+| Người chưa đánh trận nào bị kéo lên trước | có | **không** | không | không |
+
+⁽¹⁾ 40 lần chạy. Mọi phương án đều giữ chênh số trận ≤ 1 (trừ lúc cắt buổi khi người ít trận nhất đang đánh dở).
+
+**Đề xuất L:**
+- người **chưa đánh trận nào trong buổi** (vừa đến, đến muộn) không bao giờ bị kéo lên trước người chờ lâu hơn;
+- kéo người lên để **tránh lặp đồng đội** vẫn dễ (phạt 0.10 / người), giữ mục tiêu "đồng đội thay đổi liên tục";
+- kéo người lên **chỉ để cân trình hoặc tránh gặp lại đối thủ** thì khó hơn (phạt 0.30 / người).
+
+Kết quả: chen hàng giảm khoảng 30%, không còn cảnh người mới đến chen lên. Đổi lại:
+- hai đội lệch trình thêm khoảng 0.02;
+- số buổi có cặp đồng đội lặp 3 lần tăng từ 0.5% lên 2% (kịch bản 20 / 4 không ai đến muộn). Kịch bản của tài liệu vẫn
+  0 / 200.
+
+Nếu anh/chị muốn giữ độ cân trình như hiện tại: chỉ làm quy tắc "người mới không bị kéo lên" và sửa màn hình (mục
+9.3 B).
+
+### 9.3 Việc sẽ làm
+
+**A. Thuật toán `fillCourts` (module `matchmaking`):**
+- input thêm `newcomer`: chưa đánh trận nào trong buổi → không bị kéo lên trước;
+- tách phạt lặp đồng đội khỏi phần còn lại, để áp hai mức phạt kéo lên: hằng số mới
+  `SESSION_SKIP_PENALTY_PARTNER` = 0.10, còn `SESSION_SKIP_PENALTY` từ 0.10 lên 0.30;
+- output thêm `order`: thứ tự ưu tiên đầy đủ của mọi người rảnh;
+- hợp đồng `POST /v1/matchmaking/session-round`: thêm `newcomer` (vào) và `order` (ra).
+
+**B. Màn hình lớn và hàng chờ (module `session`):**
+- một hàm dùng chung cho màn hình, "xem trước" và "Xếp sân trống" tự xếp: cùng dữ liệu, cùng seed → cùng kết quả;
+- thứ tự hàng chờ lấy từ `order` của thuật toán; bỏ `sessionRules.queueOrder`;
+- **có sân trống:** `next` đánh dấu đúng những người sẽ vào sân nếu bấm "Xếp sân trống" ngay. Thêm `upcoming`
+  [{ courtRef, players }] để TV hiện "Sân 2 — chuẩn bị: A, B, C, D";
+- **không có sân trống:** không đánh dấu `next`. TV ghi "thứ tự ưu tiên", không hứa "lượt tới";
+- hợp đồng `SessionBoard`: thêm `upcoming`, sửa mô tả `next`.
+
+**C. Dữ liệu demo (`scripts/seed-demo.js`):**
+- lùi ngày bài chấm ban đầu và dòng sổ điểm "chấm trình" về 60 ngày trước, tức trước giải đầu tiên;
+- hai buổi giao lưu demo chạy theo **đồng hồ giả lập** (giờ điểm danh, giờ vào sân, giờ xong định sẵn; mỗi trận 12–18
+  phút), nên:
+  - seed lần nào cũng ra giống hệt;
+  - giờ trận hợp lý;
+  - buổi đang diễn ra có các sân vừa vào 3–10 phút trước lúc seed.
+
+**D. `scripts/sim-session.js` (mới):** chạy lại được phép đo ở mục 9.2 (200 lần chạy × 7 kịch bản), để số liệu trong
+tài liệu kiểm chứng được. Số trong tài liệu 06 hiện tại đo bằng bộ đo cũ → sẽ đo lại toàn bộ bằng script này.
+
+**E. Tài liệu:**
+- 06: mục 8.2 (màn hình lớn), 8.3 (bước 5 + bảng đo), 10 (hằng số), 12;
+- 02: màn hình lớn, `session-round`;
+- plan 18 (kết quả); `00-tien-do.md`.
+
+**F. Bàn thử** (ngoài repo, không commit): hiện "Chuẩn bị vào sân" theo `upcoming`.
+
+### 9.4 Kiểm thử thật
+
+- **Unit `fillCourts`:**
+  - tái hiện đúng ca trên bàn thử: 2 người chờ lâu + 2 người mới đến bằng trận, 1 sân trống → 2 người chờ lâu vào sân;
+  - người mới không bao giờ bị kéo lên;
+  - không có lịch sử lặp → giữ đúng thứ tự hàng;
+  - nhóm 4 người dính nhau vẫn bị phá khi sắp lặp đồng đội;
+  - `order` đúng thứ tự ưu tiên;
+  - mô phỏng giữ tiêu chí cũ cho 10 seed × 2 kịch bản: bất biến công bằng, đồng đội lặp ≤ 2, nhóm 4 người ≤ 4 trận.
+    Đã thử trước: phương án L đạt 50 / 50 seed ở kịch bản tài liệu và 49 / 50 ở kịch bản 20 / 4 không ai đến muộn; 10
+    seed đang có trong test đều đạt.
+- **Integration (API + MySQL):**
+  - có 1 và 2 sân trống: `next` / `upcoming` trùng khớp kết quả bấm "Xếp sân trống" ngay sau đó;
+  - không có sân trống → không ai được đánh dấu `next`;
+  - thứ tự hàng chờ khớp thuật toán;
+  - mô phỏng 3 giờ qua API như cũ, thêm kiểm: mỗi lần có sân trống, màn hình báo đúng người vào sân.
+- **Seed demo:**
+  - seed 2 lần trên 2 DB trống → toàn bộ trận, tỉ số, sổ điểm, đăng ký giải demo giống hệt;
+  - sổ điểm của một người demo đúng thứ tự thời gian: chấm trình → giải tháng 8 → giải tháng 9 → giao lưu.
+- **Chạy lại toàn bộ:**
+  - `npm test` trên MySQL 9.5 và MySQL 8.4 kiểu Aiven;
+  - kịch bản HTTP (thêm bước kiểm màn hình);
+  - bàn thử trên trình duyệt: TV hiện đúng người sắp vào sân.
+
+### 9.5 Không làm
+
+- Không đổi luật bù trận cho người đến muộn.
+- Không làm "huỷ đóng buổi".
+- Chế độ "cùng trình" giữ nguyên (không trộn người).
+
+### 9.6 Cần anh/chị chốt
+
+1. **Thuật toán:** phương án L (khuyến nghị), hay chỉ chặn người mới và giữ độ cân trình như hiện tại?
+2. **Buổi giao lưu demo theo đồng hồ giả lập:** khuyến nghị **có**.
+
+Trả lời "code đi" nghĩa là làm theo các khuyến nghị trên.
+
+### 9.7 Kết quả — xong trên nhánh `feat/competition-service` (27/09/2026), chờ duyệt
+
+Chủ dự án duyệt "code đi" với cả hai khuyến nghị: phương án L và buổi giao lưu demo theo đồng hồ giả lập.
+
+**Đã làm:**
+
+- **`fillCourts`:**
+  - người chưa đánh trận nào trong buổi (`newcomer`) không bao giờ bị kéo lên;
+  - thêm khi code (xem 9.8): người mới ra sân thì mọi người "bằng trận" đứng trước họ cũng phải ra sân;
+  - hai mức phạt kéo lên: 0.10 nếu bớt được lặp đồng đội, 0.30 nếu chỉ để cân trình hoặc bớt gặp lại đối thủ. Tìm cục
+    bộ dùng cùng thang đo cho cả chiều kéo lên lẫn trả về;
+  - trả thêm `order`: thứ tự ưu tiên đầy đủ.
+- **Màn hình lớn:**
+  - `upcoming` và `next` tính bằng chính hàm "Xếp sân trống", với seed của lượt tới;
+  - hàng chờ theo `order`;
+  - buổi đã đóng hoặc huỷ không còn hàng chờ;
+  - bỏ `sessionRules.queueOrder`.
+- **Hợp đồng:** `SessionBoard.upcoming` và schema `PlayerName`; `session-round` thêm `newcomer` (vào) và `order` (ra).
+- **Seed demo:**
+  - bài chấm trình lùi về 60 ngày trước;
+  - hai buổi giao lưu chạy theo đồng hồ giả lập. Buổi đã đóng vào tối thứ Sáu 19:00, 16 người (2 người đến muộn, 1 người
+    về sớm), 24 trận trong khoảng 2 giờ. Buổi đang diễn ra bắt đầu 26 phút trước lúc seed.
+- **`npm run sim:session`** (mới): chạy lại được phép đo 200 lần chạy × 7 kịch bản.
+- **Tài liệu:** 06 (mục 8.2, 8.3, 10, 12), 02, README.
+
+**Kiểm thử thật:**
+
+| Kiểm | Kết quả |
+|---|---|
+| `npm test` trên MySQL 9.5 local | **231 / 231** (143 unit + 88 integration) |
+| `npm test` trên MySQL 8.4.11 Docker `--sql-require-primary-key=ON` | **231 / 231** (DB test: 20 bảng, 12 buổi giao lưu, 70 trận giao lưu) |
+| Test mới bắt được lỗi cũ | 3 ca unit chạy trên thuật toán bước 3 cho đúng kết quả sai mà chủ dự án thấy. Ví dụ ca bấm thử: bước 3 chọn 2 người vừa đến, bản mới chọn 2 người chờ lâu. Test integration "người vừa đến không chen": tạm tắt cờ `newcomer` trong service thì test **fail** |
+| Màn hình khớp "Xếp sân trống" | Integration: lần lượt 2 sân, 1 sân, 2 sân trống đều khớp. Mô phỏng 3 giờ qua API: **39 / 39 lượt khớp** |
+| `npm run sim:session` (200 lần chạy × 7 kịch bản) | Xem bảng dưới |
+| Seed demo | 2 lần seed trên 2 DB trống cho dữ liệu **giống hệt** (so từng byte của dấu vân tay). Seed trong container production (MySQL 8.4) cũng giống hệt seed ở máy (MySQL 9.5). Sổ điểm đúng thứ tự: chấm trình → giải → giao lưu |
+| Image Docker production + MySQL 8.4 | Healthy; seed demo; kịch bản HTTP thật **26 / 26 bước** (thêm: màn hình không hứa khi đủ sân; "chuẩn bị vào sân" trùng bản xem trước; trận tạo ra đúng người màn hình đã báo); log container không có lỗi |
+| Bàn thử trên trình duyệt (trỏ vào container) | Ghi tỉ số Sân 1 → ô "Chuẩn bị vào sân" hiện 4 người. TV hiện đúng 4 người đó. Bấm "Xếp sân trống" → trận tạo ra trùng khớp |
+
+Số đo cuối cùng (`npm run sim:session`, 200 lần chạy, 20 người / 4 sân; cột bước 3 đo cùng script trên code commit
+`7fb2f0f`):
+
+| | Bước 3 | Hiện tại |
+|---|---|---|
+| Chen hàng / buổi | 80 | 56 |
+| Người vừa đến chen trước (kịch bản đến rải rác) | 1.8 | **0** |
+| Lượt xếp có kéo người lên | 65% | 53% |
+| Đồng đội lặp > 2 lần | 1 / 200 | 4 / 200 |
+| Như trên, kịch bản tài liệu (đến muộn / về sớm) | 0 / 200 | 0 / 200 |
+| Chênh số trận ≤ 1 lúc cắt buổi | 199 / 200 | 199 / 200 |
+| Lệch trình hai đội | 0.128 | 0.147 |
+| Đánh liền / buổi | 67 | 59 |
+
+### 9.8 Khác plan / phát hiện khi code
+
+1. **"Người mới chen" chưa về 0 chỉ với quy tắc không kéo người mới** (còn 0.3–0.5 lần / buổi ở kịch bản đến rải rác).
+   Khi kéo một người khác lên, thuật toán có thể gạt người chờ lâu ra mà vẫn giữ người mới. Người chờ lâu vẫn thấy
+   "người mới được vào trước mình". Đã thêm ràng buộc: người mới ra sân thì mọi người "bằng trận" đứng trước họ cũng ra
+   sân → còn 0.
+2. **Test cũ `sessionRules.queueOrder` khẳng định thứ tự sai** ("chờ lâu nhất trước", xếp người đã 3 trận trước người
+   0 trận). Đã bỏ cả hàm lẫn test; thứ tự do `fillCourts` quyết và có test riêng.
+3. **Token trong test integration chỉ sống 60 giây.** File test chạy quá 90 giây (tính cả 30 giây dung sai) thì bị 401
+   giữa chừng. Đã tăng lên 300 giây, bằng mức tối đa service chấp nhận.
+4. **Buổi đã đóng vẫn trả hàng chờ** cho màn hình → đã bỏ.
+5. **Không seed lại DB dev**, vì chủ dự án đã tạo một buổi thử trên đó (điểm danh 4 người, xếp sân 1 lần). Seed mới
+   đã kiểm trên DB tạm và trong container. Muốn dữ liệu demo mới trên DB dev thì nói "seed lại".

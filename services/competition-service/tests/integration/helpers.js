@@ -57,8 +57,10 @@ const createTestContext = async ({ webhookTargets = [], tenant } = {}) => {
 
   const api = request(built.app);
   // Gọi API với một bộ scope; tự thêm Idempotency-Key cho POST nếu không đưa.
+  // Token của `as` sống 300 giây (mức tối đa service chấp nhận): một file test chạy quá
+  // 60 giây + 30 giây dung sai thì token 60 giây hết hạn giữa chừng → 401 (gặp ở plan 18 mục 9).
   const as = async (claims) => {
-    const bearer = `Bearer ${await token(claims)}`;
+    const bearer = `Bearer ${await token({ ttl: 300, ...claims })}`;
     const wrap = (method) => (url, { key } = {}) => {
       const req = api[method](url).set('Authorization', bearer);
       if ((method === 'post' || method === 'put') && key !== false) req.set('Idempotency-Key', key || crypto.randomUUID());

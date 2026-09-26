@@ -1,5 +1,5 @@
 const {
-  lateCredit, historyFrom, validateAssignments, isManualEdit, queueOrder, validateCourts, perCourt, discipline
+  lateCredit, historyFrom, validateAssignments, isManualEdit, validateCourts, perCourt, discipline
 } = require('../../src/modules/session/domain/sessionRules');
 
 // Luật thuần của buổi giao lưu (docs/06 mục 8).
@@ -58,17 +58,8 @@ describe('bản xếp sân gửi lên (đổi tay)', () => {
   });
 });
 
-describe('hàng chờ và cấu hình', () => {
-  test('chờ lâu nhất → ít trận nhất → đến sớm nhất', () => {
-    const t = (m) => new Date(Date.UTC(2026, 8, 26, 12, m));
-    const rows = [
-      { playerId: 'late', waitingSince: t(10), effectiveGames: 0, joinedAt: t(0) },
-      { playerId: 'more', waitingSince: t(5), effectiveGames: 3, joinedAt: t(0) },
-      { playerId: 'less', waitingSince: t(5), effectiveGames: 2, joinedAt: t(1) },
-      { playerId: 'early', waitingSince: t(5), effectiveGames: 2, joinedAt: t(0) }
-    ];
-    expect([...rows].sort(queueOrder).map((r) => r.playerId)).toEqual(['early', 'less', 'more', 'late']);
-  });
+// Thứ tự hàng chờ do thuật toán xếp sân quyết (fillCourts trả `order`) — test ở fillCourts.test.js.
+describe('cấu hình buổi', () => {
   test('danh sách sân: 1–32, không trùng, không trống', () => {
     expect(validateCourts(['bd:court:1', 'bd:court:2'])).toHaveLength(2);
     for (const bad of [[], ['a', 'a'], [''], Array.from({ length: 33 }, (_, i) => `c${i}`)]) {

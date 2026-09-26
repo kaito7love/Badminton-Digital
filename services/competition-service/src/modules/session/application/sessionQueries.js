@@ -1,6 +1,5 @@
 const { Op } = require('sequelize');
 const { canAccessOrganizer } = require('../../../platform/http/auth');
-const { perCourt, queueOrder } = require('../domain/sessionRules');
 
 // Đọc dữ liệu buổi giao lưu — không ghi gì.
 
@@ -74,8 +73,10 @@ const createSessionQueries = ({ models, players, matches, ctx, service }) => {
     return matches.views(auth.tenant, rows);
   };
 
-  // Màn hình lớn (TV) ở sân: sân – ai với ai – từ lúc nào; hàng chờ theo thứ tự ưu
-  // tiên, đánh dấu những người sẽ ra sân ở lượt tới; vài kết quả gần nhất.
+  // Màn hình lớn (TV) ở sân: sân – ai với ai – từ lúc nào; hàng chờ đúng thứ tự ưu tiên
+  // của thuật toán xếp sân; vài kết quả gần nhất. "Sắp vào sân" (upcoming / next) tính bằng
+  // CHÍNH hàm "Xếp sân trống" với seed của lượt tới → khớp với kết quả nếu bấm ngay. Không
+  // có sân trống thì không hứa ai vào lượt tới (plan 18 mục 9).
   const board = async ({ auth, id }) => {
     const s = await loadForRead(auth, id);
     const snap = await service.snapshot(auth.tenant, s);
@@ -83,12 +84,14 @@ const createSessionQueries = ({ models, players, matches, ctx, service }) => {
     const views = new Map((await matches.views(auth.tenant, shown)).map((v) => [v.id, v]));
     const rows = await rosterRows(auth, s, snap);
     const byCourt = new Map(snap.live.map((m) => [m.courtRef, m]));
-    const queue = rows
-      .filter((r) => r.status === 'present' && !r.onCourt)
-      .map((r) => ({ ...r, effectiveGames: r.gamesPlayed + r.gamesCredit }))
-      .sort(queueOrder);
-    const size = perCourt(s.format);
-    const nextCount = s.status === 'open' ? Math.min(size * Math.max(snap.freeCourts.length, 1), Math.floor(queue.length / size) * size) : 0;
+    // Buổi đã đóng / huỷ: không còn hàng chờ, không ai "sắp vào sân".
+    const open = s.status === 'open';
+    const { result } = open ? await service.nextProposal(auth.tenant, s, snap) : { result: { order: [], assignments: [] } };
+    const rank = new Map(result.order.map((pid, i) => [pid, i]));
+    const nextIds = new Set(result.assignments.flatMap((a) => [...a.sideA, ...a.sideB]));
+    const nameOf = new Map(rows.map((r) => [r.playerId, r.name]));
+    const side = (ids) => ids.map((pid) => ({ id: pid, name: nameOf.get(pid) ?? null }));
+    const queue = open ? rows.filter((r) => r.status === 'present' && !r.onCourt).sort((a, b) => rank.get(a.playerId) - rank.get(b.playerId)) : [];
     return {
       session: { id: s.id, name: s.name, status: s.status, format: s.format, mode: s.mode, rated: s.rated, rounds: s.rounds },
       serverTime: new Date().toISOString(),
@@ -96,8 +99,9 @@ const createSessionQueries = ({ models, players, matches, ctx, service }) => {
         const m = byCourt.get(courtRef);
         return { courtRef, status: m ? 'busy' : 'free', match: m ? views.get(m.id) : null };
       }),
+      upcoming: result.assignments.map((a) => ({ courtRef: a.court, sideA: side(a.sideA), sideB: side(a.sideB) })),
       queue: queue.map((r, i) => ({
-        position: i + 1, playerId: r.playerId, name: r.name, gamesPlayed: r.gamesPlayed, waitingSince: r.waitingSince, next: i < nextCount
+        position: i + 1, playerId: r.playerId, name: r.name, gamesPlayed: r.gamesPlayed, waitingSince: r.waitingSince, next: nextIds.has(r.playerId)
       })),
       recent: shown.filter((m) => m.status === 'completed').map((m) => views.get(m.id)),
       counts: { present: rows.filter((r) => r.status === 'present').length, onCourt: rows.filter((r) => r.onCourt).length, waiting: queue.length }

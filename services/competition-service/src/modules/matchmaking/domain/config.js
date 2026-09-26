@@ -16,8 +16,11 @@ module.exports = Object.freeze({
   SESSION_REPEAT_PARTNER_PENALTY: 0.5,
   SESSION_REPEAT_OPPONENT_PENALTY: 0.1,
   SESSION_BALANCE_SWAPS: 300,
-  // Kéo một người "bằng trận" đứng sau hàng lên sớm để trộn nhóm (bước 3, test thật).
-  SESSION_SKIP_PENALTY: 0.1,
+  // Kéo một người "bằng trận" đứng sau hàng lên sớm để trộn nhóm (bước 3, test thật). Plan 18
+  // mục 9: 0.10 khi việc đó bớt lặp đồng đội, 0.30 khi chỉ để cân trình / bớt gặp lại đối thủ
+  // (bước 3 dùng 0.10 cho mọi lý do → trung bình 80 lần chen hàng / buổi 20 người 4 sân).
+  SESSION_SKIP_PENALTY: 0.3,
+  SESSION_SKIP_PENALTY_PARTNER: 0.1,
 
   MATCH_MINUTES_DEFAULT: 15
 });
