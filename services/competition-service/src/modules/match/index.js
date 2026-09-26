@@ -8,6 +8,7 @@ const player = require('../player');
 
 const createMatchModule = ({ models, sequelize, platform, players }) => {
   const service = createMatchService({ models, sequelize, players, platform });
+  players.registerMergeHandler(service.mergeHandler);
   const router = createMatchRouter({ matches: service, players, profile: player.domain.profile, idempotency: platform.idempotency });
   return { service, router };
 };

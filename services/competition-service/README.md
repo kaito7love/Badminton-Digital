@@ -4,7 +4,8 @@ Service độc lập của Badminton Digital:
 - chấm trình (form 12 tiêu chí);
 - điểm trình Đơn / Đôi 1.0–7.0, thay đổi theo kết quả thi đấu;
 - bảng xếp hạng;
-- thuật toán xếp cặp / chia bảng / sơ đồ / xếp sân giao lưu.
+- thuật toán xếp cặp / chia bảng / sơ đồ / xếp sân giao lưu;
+- giải đấu (3 thể thức, chốt giải, BXH thành tích) và buổi giao lưu (điểm danh, xếp sân trống, màn hình lớn).
 
 Có thể chạy và test **một mình**, không cần app chính. Kết nối với app chính qua hợp đồng API
 (`openapi/`) và sự kiện (`contracts/events/`), không chung code hay DB.
@@ -25,7 +26,7 @@ Có thể chạy và test **một mình**, không cần app chính. Kết nối 
 |---|---|---|
 | 1 | Khung service, `player`, `rating`, `matchmaking`, BXH trình độ | Xong trên nhánh `feat/competition-service` |
 | 2 | `match`, `tournament`, BXH thành tích, thống kê, dữ liệu demo | Xong trên nhánh `feat/competition-service` |
-| 3 | `session` (buổi giao lưu) | Chưa làm |
+| 3 | `session` (buổi giao lưu), sửa thuật toán xếp sân, gộp hồ sơ đủ các module | Xong trên nhánh `feat/competition-service` |
 | 4 | Tích hợp app chính + giao diện (nhánh riêng) | Chưa làm |
 
 ## Chạy một mình (dev)
@@ -42,8 +43,8 @@ npm run dev
 
 - Bước `cp` xong thì điền `DB_*` trong `.env`, và tạo DB rỗng `competition_service` trước khi migrate.
 - `keys:generate` tạo cặp khoá ES256 dev trong `.keys/`.
-- `migrate` tạo 17 bảng trong DB riêng.
-- `npm run seed:demo` (tuỳ chọn) tạo dữ liệu demo bằng chính các service: 25 người chơi, 2 giải đã chốt, 1 giải đang mở để thử bốc thăm. Chỉ chạy trên DB trống; production cần `ALLOW_DEMO_SEED=true`.
+- `migrate` tạo 19 bảng trong DB riêng.
+- `npm run seed:demo` (tuỳ chọn) tạo dữ liệu demo bằng chính các service: 25 người chơi, 2 giải đã chốt, 1 giải đang mở để thử bốc thăm, 1 buổi giao lưu đã đóng và 1 buổi đang diễn ra (xem màn hình lớn ở `/v1/sessions/{id}/board`). Chỉ chạy trên DB trống; production cần `ALLOW_DEMO_SEED=true`.
 - `dev` chạy ở http://127.0.0.1:5100; Swagger UI ở `/docs`.
 
 Gọi API bằng token dev (không cần app chính):
@@ -58,6 +59,7 @@ Scope có sẵn:
 - `rating:self`, `rating:read`, `rating:assess`, `rating:assess:any`, `rating:adjust`;
 - `player:write`, `ranking:read`, `matchmaking:compute`;
 - `tournament:read`, `tournament:operate`, `tournament:manage`;
+- `session:read`, `session:operate`;
 - `assessment:submit-ai`, `ops:admin`.
 
 Ý nghĩa từng scope và bảng vai trò → scope: xem `docs/02` mục 5.

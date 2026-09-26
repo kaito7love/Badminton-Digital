@@ -123,7 +123,8 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 | `GET /v1/matches/{id}` | `t:read` hoặc `s:read` (theo ngữ cảnh) | Chi tiết trận |
 | `POST /v1/matches/{id}/call` | `t:operate` / `s:operate` | Gọi ra sân `{ courtRef }` → `in_play` |
 | `PUT /v1/matches/{id}/result` | `t:operate` / `s:operate` | `{ games }` \| `{ outcome: "walkover", winnerSide }` \| `{ games, outcome: "retired", winnerSide }`. `If-Match` bắt buộc. Trận loại trực tiếp: người thắng tự vào ô sau; đổi người thắng khi trận sau đã bắt đầu → 409 `NEXT_MATCH_STARTED` |
-| `POST /v1/matches/{id}/cancel` | `t:manage` / `s:operate` | Huỷ trận chưa có kết quả. Trận trong sơ đồ loại trực tiếp không huỷ được (xử W.O.) |
+| `POST /v1/matches/{id}/cancel` | `t:manage` / `s:operate` | Huỷ trận chưa có kết quả. Trận trong sơ đồ loại trực tiếp không huỷ được (xử W.O.). Trận giao lưu bị huỷ không tính là đã đánh |
+| `POST /v1/matches/{id}/end` | `s:operate` | Trận giao lưu "xong, không nhập tỉ số" → `ended`, sân được nhả; nhập tỉ số sau vẫn được. Trận giải → 409 `RESULT_REQUIRED` |
 
 ### 2.6 Giải đấu (module `tournament`, tài liệu 06)
 
@@ -150,11 +151,12 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 
 | Method + đường dẫn | Scope | Việc |
 |---|---|---|
-| `POST /v1/sessions` · `GET /v1/sessions` · `GET/PATCH /v1/sessions/{id}` | `s:operate` / `s:read` | Tạo / xem / sửa buổi |
-| `POST /v1/sessions/{id}/players` · `DELETE …/players/{playerId}` | `s:operate` | Điểm danh (kèm `quickLevel` nếu chưa có điểm) / rời buổi |
-| `POST /v1/sessions/{id}/fill-courts/preview` · `POST …/fill-courts` | `s:operate` | Xếp sân trống: xem trước (đổi tay được) / xác nhận → sinh trận |
-| `GET /v1/sessions/{id}/board` | `s:read` | Dữ liệu màn hình lớn: sân – ai với ai – bao lâu, hàng chờ |
-| `POST /v1/sessions/{id}/close` · `…/cancel` | `s:operate` | Đóng (áp điểm nếu bật) / huỷ buổi |
+| `POST /v1/sessions` · `GET /v1/sessions` · `GET/PATCH /v1/sessions/{id}` | `s:operate` / `s:read` | Tạo (mở ngay) / xem (kèm tiến độ) / sửa buổi (`PATCH` bắt buộc `If-Match`; có trận thì khoá Đơn / Đôi; không bỏ được sân đang có trận) |
+| `GET /v1/sessions/{id}/players` · `POST …/players` · `DELETE …/players/{playerId}` | `s:read` / `s:operate` | Danh sách điểm danh / điểm danh (kèm `quickLevel` nếu chưa có điểm — cần thêm `rating:assess`) / rời buổi (đang ở sân → 409 `PLAYER_ON_COURT`) |
+| `POST /v1/sessions/{id}/fill-courts/preview` · `POST …/fill-courts` | `s:operate` | Xếp sân trống: xem trước (đổi tay được, có `repeatPartners`) / xác nhận bản gửi lại nguyên văn hoặc để hệ thống tự xếp → sinh trận đang đánh. Bản cũ → 409 `FILL_STALE`; không có gì để xếp → 422 `NOTHING_TO_FILL` |
+| `GET /v1/sessions/{id}/matches` | `s:read` | Các trận của buổi theo lượt |
+| `GET /v1/sessions/{id}/board` | `s:read` | Dữ liệu màn hình lớn: sân – ai với ai – từ lúc nào (kèm `serverTime`), hàng chờ theo thứ tự ưu tiên (đánh dấu lượt tới), kết quả gần nhất |
+| `GET /v1/sessions/{id}/close-preview` · `POST …/close` · `POST …/cancel` | `s:read` / `s:operate` | Xem trước khi đóng / đóng (trận chưa tỉ số bị huỷ, áp điểm hệ số 0.5 nếu bật, cộng thống kê "giao lưu") / huỷ buổi |
 
 ### 2.8 Tích hợp & vận hành
 
@@ -201,7 +203,7 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 | `competition.match.completed` | `matchId`, `contextType`, `contextId`, `sides`, `games`, `outcome`, `winnerSide` | App chính: đẩy qua SSE cho bảng kết quả / màn hình TV |
 | `competition.tournament.finalized` | `tournamentId`, `organizerRef`, `placements[]`, `ratingChanges[]`, `rankingPoints[]` | App chính: ghi `ActivityLog`, thông báo kết quả |
 | `competition.tournament.unfinalized` · `…cancelled` | `tournamentId`, `reason` | như trên |
-| `competition.session.closed` | `sessionId`, `organizerRef`, `matches`, `ratingChanges[]` | App chính: ghi `ActivityLog` |
+| `competition.session.closed` | `sessionId`, `organizerRef`, `rated`, `matches` (số trận có tỉ số), `ratingChanges[]` | App chính: ghi `ActivityLog` |
 
 **v1 của app chính chưa bắt buộc tiêu thụ sự kiện nào.** Hợp đồng có sẵn để bật dần.
 

@@ -31,8 +31,8 @@
 | **Tạo / sửa giải** | `/competition/tournaments/new` | Wizard 4 bước (06, mục 2) có ước tính số trận / thời gian | Quản lý |
 | **Chi tiết giải** | `/competition/tournaments/:id` | Tab: **Tổng quan** · **Đăng ký** · **Bốc thăm** · **Lịch & kết quả** · **Bảng đấu** · **Sơ đồ** · **Chốt giải** (mục 2) | Theo từng tab |
 | **Nhập tỉ số nhanh** | `/competition/score/:matchId` (tối ưu điện thoại) | Hai cột A / B, ô số lớn, báo lỗi luật ngay khi gõ, nút W.O. / Bỏ cuộc | Nhân viên |
-| **Buổi giao lưu** | `/competition/sessions/:id` | Điểm danh, "Xếp sân trống", sân đang đánh, người chờ, nhập tỉ số, đóng buổi | Nhân viên |
-| **Màn hình lớn (TV)** | `/competition/sessions/:id/board`, `/competition/tournaments/:id/board` | Chỉ đọc, chữ lớn, tự cập nhật: sân – ai với ai; lượt tiếp theo; bảng đấu | Nhân viên mở trên TV |
+| **Buổi giao lưu** | `/competition/sessions/:id` | Điểm danh (chưa có điểm → chọn nhãn chấm nhanh ngay trong ô điểm danh), "Xếp sân trống" (bản xem trước kéo-thả đổi người, cảnh báo cặp đồng đội đã chung đội), mỗi sân đang đánh có nút "Nhập tỉ số" / "Xong (không tỉ số)" / "Huỷ trận", người chờ, "Rời buổi", đóng buổi (xem trước điểm trình trước / sau) | Nhân viên |
+| **Màn hình lớn (TV)** | `/competition/sessions/:id/board`, `/competition/tournaments/:id/board` | Chỉ đọc, chữ lớn, tự cập nhật: sân – ai với ai – đã đánh bao lâu (tính theo `serverTime`); hàng chờ, tô sáng người ra sân lượt tới; kết quả gần nhất; bảng đấu (giải) | Nhân viên mở trên TV |
 
 ## 2. Chi tiết giải — các tab
 

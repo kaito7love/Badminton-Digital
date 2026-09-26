@@ -736,10 +736,14 @@ rồi mới nhả số của hồ sơ đã xoá).
 
 - **Nội dung:** chấm trình, điểm trình, xếp hạng, xếp cặp, giải đấu, giao lưu.
 - **Plan + kết quả:** `18-ke-hoach-cham-trinh-xep-cap.md`; thiết kế ở `services/competition-service/docs/`.
-- **Tiến độ:** bước 1/4 xong 26/09/2026 (khung service, người chơi, chấm trình, BXH trình độ, thuật toán xếp cặp);
-  bước 2/4 xong 27/09/2026 (trận đấu, giải đấu 3 thể thức, chốt / huỷ chốt, BXH thành tích, thống kê, dữ liệu demo).
-  170 test xanh trên MySQL 9.5 và MySQL 8.4 kiểu Aiven.
-- **Tiếp theo:** chờ duyệt để làm bước 3 (buổi giao lưu).
+- **Tiến độ:** bước 1–3/4 xong 26/09/2026:
+  - bước 1: khung service, người chơi, chấm trình, BXH trình độ, thuật toán xếp cặp;
+  - bước 2: trận đấu, giải đấu 3 thể thức, chốt / huỷ chốt, BXH thành tích, thống kê, dữ liệu demo;
+  - bước 3: buổi giao lưu (điểm danh, xếp sân trống, màn hình lớn, đóng buổi); sửa thuật toán xếp sân (bản bước 1
+    để nhóm 4 người dính nhau khi các sân xong lệch giờ); gộp hồ sơ chuyển đủ trận / giải / BXH / giao lưu (bước 2 sót).
+  - 224 test xanh trên MySQL 9.5 và MySQL 8.4 kiểu Aiven.
+- **Tiếp theo:** chờ duyệt merge bước 1–3 vào `main` (an toàn: app chính chưa gọi service); sau đó bước 4 (tích hợp
+  app chính + giao diện) ở nhánh riêng.
 - **App chính chưa bị sửa dòng nào** (chỉ thêm job CI).
 
 ---

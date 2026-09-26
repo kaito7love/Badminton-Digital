@@ -139,7 +139,13 @@ Giải `open` được xếp theo giới của người / thành phần cặp th
 - Sổ điểm, bài chấm, `match_participants`, đăng ký giải, `ranking_results` của nguồn chuyển sang đích. Thống kê dựng
   lại cho đích.
 - Nguồn và đích **cùng có mặt trong một giải hoặc một trận** → 409 `MERGE_CONFLICT`. Nhân viên rút một bên ra
-  trước; sự kiện từ app chính nằm ở trạng thái lỗi, gửi lại được.
+  trước; sự kiện từ app chính nằm ở trạng thái lỗi (không ghi inbox), gửi lại cùng `id` được.
+  - Một bên đã rút **trước bốc thăm** (chưa vào đội nào): bỏ dòng đăng ký đã rút đó rồi gộp.
+  - Buổi giao lưu: cùng **đang có mặt** ở một buổi chưa đóng → 409 (cho một bên rời buổi trước); còn lại gộp hai dòng
+    điểm danh làm một (cộng số trận, giữ giờ đến sớm hơn).
+- Cài đặt (bước 3): mỗi module tự chuyển dữ liệu của mình qua `mergeHandler` trong cùng transaction — `rating` (điểm,
+  sổ điểm, bài chấm), `match` (`match_participants`, dựng lại thống kê), `tournament` (đăng ký, đội, thống kê giải),
+  `ranking` (`ranking_results`), `session` (điểm danh). Kết quả trả trong `merged` của `POST /v1/players/{id}/merge`.
 - Nguồn chuyển `status = merged`, `merged_into_player_id = đích`. Tra theo `external_ref` cũ thì trả về đích.
 
 **Ẩn danh** — khi app chính xoá khách (`bd.customer.deleted`):

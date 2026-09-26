@@ -1,6 +1,6 @@
 {
   "name": "competition-service",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Dịch vụ Thi đấu: chấm trình, điểm trình, xếp hạng, xếp cặp, giải đấu, giao lưu — service độc lập của Badminton Digital",
   "main": "src/main.js",

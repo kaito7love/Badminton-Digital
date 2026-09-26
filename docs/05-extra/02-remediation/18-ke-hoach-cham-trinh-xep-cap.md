@@ -254,7 +254,7 @@ Mỗi mục đã có mặc định. Anh/chị bác mục nào không đồng ý.
 | Ví dụ số trong tài liệu | Ra đúng: 2.96 / 3.15; trần 3.49; +0.151 / +0.044 / −0.074 / −0.044; bảng lên / xuống; 8 người → 4 đội 3.40; 18 trận → 5 lượt, 75 phút |
 | Chạy song song | Hai bài tự chấm cùng lúc → đúng 1 bài `applied`, 4 dòng sổ điểm |
 | Ghép cặp 128 người (node thường) | Khoảng 50 ms (< 200 ms) |
-| Mô phỏng buổi giao lưu 3 giờ, 20 người, 4 sân, có người đến muộn / về sớm | Chênh lệch số trận ≤ 1, không cặp đồng đội nào lặp quá 2 lần |
+| Mô phỏng buổi giao lưu 3 giờ, 20 người, 4 sân, có người đến muộn / về sớm | Chênh lệch số trận ≤ 1, không cặp đồng đội nào lặp quá 2 lần — **bước 3 phát hiện mô phỏng này chưa thực tế** (mọi sân xong cùng lúc), xem 8.8 |
 | `db:migrate:undo:all` → `db:migrate` trên MySQL 8.4 | Hoàn tác sạch (còn 1 bảng `SequelizeMeta`), migrate lại được |
 | Image Docker production nối MySQL 8.4 | Healthy; `/docs` tắt (404) |
 | Kịch bản curl thật vào container (không qua test), receiver webhook trên máy host đóng vai app chính | Xem dưới |
@@ -305,7 +305,7 @@ Kịch bản curl thật vào container:
   - job CI mới chưa chạy trên GitHub (chưa push);
   - image khoảng 320 MB (node:22-alpine + deps).
 
-### 8.4 Bước 2 — xong trên nhánh `feat/competition-service` (27/09/2026), chờ duyệt
+### 8.4 Bước 2 — xong trên nhánh `feat/competition-service` (26/09/2026)
 
 **Đã làm** (vẫn chỉ trong `services/competition-service/`, không sửa app chính):
 
@@ -397,10 +397,92 @@ Ví dụ 06 §9 bằng API thật (test integration):
    - supertest mở server tạm ngay lúc `.post()`, nên `post(url).send({ id: await taoNguoiChoi() })` gây ECONNREFUSED.
      Tạo dữ liệu trước rồi mới dựng request.
 
-### 8.6 Còn lại
+### 8.6 Còn lại (sau bước 2)
 
-- **Bước 3:** module `session` (buổi giao lưu). Thuật toán `fillCourts` và cờ `rating_weight` / ngữ cảnh `session`
-  của `match` đã sẵn.
+- **Bước 3:** module `session` (buổi giao lưu) — xong, xem 8.7.
 - **Bước 4 (nhánh riêng):** tích hợp app chính + giao diện.
 - **DB dev** `competition_service` trên MySQL local đang chứa dữ liệu demo (cố ý, để xem qua Swagger `/docs`). Muốn
   sạch thì drop DB rồi `npm run migrate`.
+
+### 8.7 Bước 3 — xong trên nhánh `feat/competition-service` (26/09/2026), chờ duyệt
+
+**Đã làm** (vẫn chỉ trong `services/competition-service/`, không sửa app chính):
+
+- **Dữ liệu:** 1 migration, 2 bảng (`play_sessions`, `play_session_players`), thêm `stage = session` và trạng thái trận
+  `ended` cho `matches`. Tổng cộng 19 bảng. Hoàn tác được cả khi đã có dữ liệu giao lưu.
+- **Module `session`** (phụ thuộc `player`, `rating`, `matchmaking`, `match`):
+  - tạo / sửa (khoá Đơn–Đôi khi đã có trận, không bỏ được sân đang có trận) / huỷ buổi;
+  - điểm danh kèm chấm nhanh trong cùng transaction, người đến muộn / quay lại được bù số trận, rời buổi;
+  - "Xếp sân trống": xem trước (cảnh báo cặp đồng đội lặp) → đổi tay → xác nhận bản gửi lại nguyên văn, hoặc để hệ
+    thống tự xếp theo seed; bản cũ → 409 `FILL_STALE`;
+  - màn hình lớn: sân – ai với ai – từ lúc nào, hàng chờ theo ưu tiên (đánh dấu lượt tới), kết quả gần nhất;
+  - xem trước khi đóng → đóng buổi: trận chưa tỉ số bị huỷ, điểm trình hệ số 0.5 nếu bật, thống kê "giao lưu", sự kiện
+    `competition.session.closed`.
+- **Module `match`:** trận giao lưu (không có đội của giải), `POST /v1/matches/{id}/end` ("xong, không tỉ số"), hook
+  `afterStatusChange` để buổi giao lưu trả người về hàng chờ.
+- **API:** 15 thao tác mới (hợp đồng có tổng 84), 1 JSON Schema sự kiện mới.
+- **Dữ liệu demo:** thêm 1 buổi giao lưu đã đóng (có tính điểm) và 1 buổi đang diễn ra (3 sân đang đánh).
+
+**Kiểm thử thật:**
+
+| Kiểm | Kết quả |
+|---|---|
+| `npm test` trên MySQL 9.5 local | **224 / 224** (139 unit + 85 integration) |
+| `npm test` trên MySQL 8.4.11 Docker `--sql-require-primary-key=ON` | **224 / 224** |
+| Luồng buổi giao lưu bằng API (13 test) | Xem trước cùng seed → cùng đề xuất; đổi tay → ghi `manualEdits`; gửi lại cùng key → không tạo thêm; sân xong thì chỉ sân đó được xếp, người chờ từ đầu ra trước; bản cũ → 409; "xong không tỉ số" rồi nhập tỉ số sau vẫn được; trận giải bấm "xong" → 409; đến muộn được bù; đang ở sân không rời được; huỷ trận → trừ số trận; `PATCH` thiếu `If-Match` → 412 |
+| Đóng buổi có tính điểm | **Điểm trình trong DB khớp tính độc lập bằng engine với hệ số 0.5**, và mức đổi nhỏ hơn hệ số 1.0; 2 trận chưa tỉ số bị huỷ; thống kê "giao lưu" đúng số trận; sự kiện đúng JSON Schema; sau khi đóng ghi tỉ số / điểm danh / đóng lại → 409 |
+| **Mô phỏng 3 giờ, 20 người, 4 sân qua API thật** (có người đến muộn / về sớm, mỗi trận 12–18 phút, 1/8 trận "xong không tỉ số") | 49 trận; mỗi người cả buổi 10–11 trận; đồng đội lặp ≤ 2; nhóm 4 người chung sân ≤ 4; số trận trong bảng điểm danh khớp DB; đóng buổi khớp tính độc lập |
+| Mô phỏng hàm thuần (test unit: 10 seed × 2 kịch bản; đo thêm 200 seed ngoài test) | Xem 8.8 |
+| Gộp hồ sơ có lịch sử thi đấu (4 test) | Xem 8.8 |
+| `db:migrate:undo` bước 3 trên 8.4 khi đã có dữ liệu demo | 21 trận giao lưu bị xoá, 31 trận giải còn nguyên, ENUM về như cũ; `undo:all` sạch; migrate lại đủ 19 bảng |
+| Image Docker production + MySQL 8.4 | Healthy (8 migration), `/docs` 404; thiếu `ALLOW_DEMO_SEED` → seed bị chặn; seed trong container cho cùng kết quả như local |
+| Kịch bản HTTP thật (không qua Jest), chạy cả vào server dev lẫn container | 24 / 24 bước đạt, gồm đối chiếu DB: sự kiện `session.closed`, trạng thái trận sau khi đóng, tổng số trận trong bảng điểm danh = số lượt ra sân; log container không có lỗi |
+
+### 8.8 Khác với kế hoạch / test thật phát hiện (bước 3)
+
+1. **Thuật toán xếp sân của bước 1 chưa đạt.** Mô phỏng ở bước 1 cho mọi sân xếp cùng lượt **chung một thời lượng**
+   → các sân luôn xong cùng lúc → người luôn được trộn lại. Mô phỏng qua API (mỗi sân xong một giờ) lộ ra:
+   - 4 người vừa chờ luôn ra cùng một sân → **nhóm 4 người dính nhau cả buổi**;
+   - với thời lượng trận thực tế (12–18 phút, mỗi sân một thời lượng), bản bước 1 cho: chênh số trận tới **3**, đồng
+     đội lặp tới **5** lần (22–40 / 40 lần chạy có lặp > 2), một nhóm 4 người chung sân tới **11** trận.
+
+   Đã sửa `fillCourts` (tài liệu 06 mục 8.3):
+   - ưu tiên **ít trận nhất trước**, rồi mới chờ lâu nhất;
+   - trộn người "bằng trận" đứng sau hàng vào sân (kéo lên sớm bị phạt 0.10); chỉ một sân trống thì duyệt hết;
+   - phạt đồng đội lặp **0.50 × n²** (trước: 0.30 × n);
+   - không bao giờ để người rảnh ít trận hơn ngồi chờ thay người nhiều trận hơn.
+
+   Kết quả (20 người, 4 sân, 3 giờ; bản bước 3 chạy 200 seed, bản bước 1 chạy 40 seed; hai dòng cuối: 40 seed mỗi
+   bản):
+
+   | | Bản bước 1 | Bản bước 3 |
+   |---|---|---|
+   | Chênh số trận lúc cắt buổi | tới 3 | ≤ 1 ở 198 / 200 (có người đến muộn / về sớm: 197 / 200); các lần còn lại 2 — **chỉ** khi mọi người ít trận nhất đang đánh dở trận cuối |
+   | Đồng đội lặp > 2 lần | 40 / 40 lần chạy (thử 40) | 4 / 200 (có người đến muộn / về sớm: 0 / 200) |
+   | Một nhóm 4 người chung sân | tới 11 trận | tối đa 4 |
+   | Chênh trình hai đội trong sân (trung bình) | 0.34 | 0.14 |
+   | Đánh liền (vừa xong lại ra sân ngay), cả buổi 20 người | khoảng 20 lượt | khoảng 68 lượt — cái giá của việc trộn người |
+
+   Chưa đạt tuyệt đối: 18 người / 4 sân (chỉ 2 người chờ) có lần chênh 2 và lặp 3; hệ thống không để sân trống chờ
+   người, nên khi trận dài ngắn lệch nhau vẫn có thể chênh tạm thời 2 trận ở cuối buổi.
+2. **Gộp hồ sơ ở bước 2 chưa đủ** (tài liệu 05 mục 4 yêu cầu): chỉ chuyển điểm, bài chấm, sổ điểm; **trận, đăng ký giải,
+   đội, điểm BXH thành tích vẫn nằm ở hồ sơ nguồn** và chưa có `MERGE_CONFLICT`. Đã sửa: mỗi module tự chuyển dữ liệu
+   của mình qua `mergeHandler` trong cùng transaction; hai hồ sơ cùng một giải / trận / đang cùng có mặt ở một buổi →
+   409; một bên đã rút trước bốc thăm → bỏ dòng đăng ký đó rồi gộp. Test: khách vãng lai đã đánh giải đã chốt gộp vào
+   tài khoản → 3 trận, đăng ký, đội, điểm BXH, thống kê chuyển đúng; sự kiện `bd.customer.merged` bị chặn → 409,
+   không ghi inbox; gửi lại cùng id sau khi rút → thành công.
+3. **Hợp đồng:** bản xem trước "Xếp sân trống" trả thêm `teamRatings`, `repeatPartners` nên client gửi lại nguyên văn bị
+   400; đã cho phép gửi lại nguyên văn (server bỏ qua hai trường đó).
+4. **`fillCourts`:** có người rảnh nhưng chưa đủ một sân thì lỗi (chỉ lộ ra với bản mới) — đã sửa, có test.
+5. **Quyết định chốt khi code:** tài liệu 06 mục 12 (trạng thái `ended`, trận giao lưu không có đội, bù trận khi đến
+   muộn, chấm nhanh cần `rating:assess`, rời buổi khi đang ở sân, `FILL_STALE` / `NOTHING_TO_FILL`, sửa / huỷ buổi,
+   thêm `GET …/close-preview`, `GET …/players`, `GET …/matches` ngoài danh sách ở tài liệu 02).
+6. **Ngày ghi ở bước 2** là "27/09/2026" — sai, đúng là 26/09/2026 (cả ba bước cùng ngày); đã sửa.
+7. **Dữ liệu demo buổi giao lưu** không giống hệt nhau giữa các lần seed (hàng chờ dùng giờ thật lúc điểm danh / nhập
+   tỉ số, tính tới giây); số trận, số người đổi điểm thì như nhau. Các giải demo vẫn giống hệt.
+
+### 8.9 Còn lại
+
+- **Bước 4 (nhánh riêng `feat/competition-integration`):** tích hợp app chính + giao diện (tài liệu 07).
+- **Chưa có "huỷ đóng buổi"** (giải có "huỷ chốt"). Đóng nhầm buổi có tính điểm thì quản lý chỉnh điểm tay có lý do.
+- **DB dev** `competition_service` đang chứa dữ liệu demo mới (có buổi giao lưu đang diễn ra để xem màn hình lớn).

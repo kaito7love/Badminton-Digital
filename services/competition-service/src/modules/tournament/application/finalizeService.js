@@ -219,7 +219,7 @@ const createFinalizeService = ({ models, sequelize, players, ratings, ratingQuer
       return { tournament: t, rolledBack };
     });
 
-  return { outcome, preview, finalize, unfinalize, placementView };
+  return { outcome, preview, finalize, unfinalize, placementView, rebuildTournamentStats };
 };
 
 module.exports = { createFinalizeService, THIRD_PLACE_LABEL };

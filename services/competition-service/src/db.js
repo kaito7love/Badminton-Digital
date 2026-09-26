@@ -6,6 +6,7 @@ const { defineRatingModels } = require('./modules/rating');
 const { defineRankingModels } = require('./modules/ranking');
 const { defineMatchModels } = require('./modules/match');
 const { defineTournamentModels } = require('./modules/tournament');
+const { defineSessionModels } = require('./modules/session');
 
 const defineModels = (sequelize) => ({
   ...definePlatformModels(sequelize),
@@ -13,7 +14,8 @@ const defineModels = (sequelize) => ({
   ...defineRatingModels(sequelize),
   ...defineRankingModels(sequelize),
   ...defineMatchModels(sequelize),
-  ...defineTournamentModels(sequelize)
+  ...defineTournamentModels(sequelize),
+  ...defineSessionModels(sequelize)
 });
 
 module.exports = { defineModels };

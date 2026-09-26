@@ -23,10 +23,11 @@ const { createRankingModule } = require('./modules/ranking');
 const { createMatchmakingRouter } = require('./modules/matchmaking');
 const { createMatchModule } = require('./modules/match');
 const { createTournamentModule } = require('./modules/tournament');
+const { createSessionModule } = require('./modules/session');
 
 // Composition root: dựng platform, lắp các module theo đúng chiều phụ thuộc
-// (player ← rating ← ranking; player ← match; tất cả ← tournament; matchmaking độc
-// lập), rồi mount route.
+// (player ← rating ← ranking; player ← match; tất cả ← tournament / session;
+// matchmaking độc lập), rồi mount route.
 const createApp = ({ config, sequelize, models, logger }) => {
   const validator = config.events.validatePayloads ? createEventValidator() : null;
   const platform = {
@@ -48,6 +49,7 @@ const createApp = ({ config, sequelize, models, logger }) => {
   const matchmakingRouter = createMatchmakingRouter();
   const match = createMatchModule({ models, sequelize, platform, players: player.service });
   const tournament = createTournamentModule({ models, sequelize, platform, players: player.service, rating, ranking, match });
+  const session = createSessionModule({ models, sequelize, platform, players: player.service, rating, match });
 
   const dispatcher = createDispatcher({
     sequelize,
@@ -86,6 +88,7 @@ const createApp = ({ config, sequelize, models, logger }) => {
   v1.use(matchmakingRouter);
   v1.use(match.router);
   v1.use(tournament.router);
+  v1.use(session.router);
 
   // Vận hành: xem / gửi lại sự kiện kẹt (scope ops:admin — gateway không cấp).
   v1.get(
@@ -118,7 +121,7 @@ const createApp = ({ config, sequelize, models, logger }) => {
   app.use((req, res, next) => next(notFound('Không có endpoint này')));
   app.use(createErrorHandler(logger));
 
-  return { app, modules: { player, rating, ranking, match, tournament }, platform, dispatcher, scheduler, openapi };
+  return { app, modules: { player, rating, ranking, match, tournament, session }, platform, dispatcher, scheduler, openapi };
 };
 
 module.exports = { createApp };

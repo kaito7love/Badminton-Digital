@@ -69,6 +69,16 @@ const createMatchRouter = ({ matches, players, profile, idempotency }) => {
     })
   );
 
+  router.post(
+    '/matches/:id/end',
+    requireScope(...OPERATE),
+    idempotency.middleware,
+    asyncHandler(async (req, res) => {
+      const match = await matches.endMatch({ auth: req.auth, matchId: req.params.id, requestId: req.requestId });
+      return ok(res, await one(req, match), { etag: match.version, message: 'Đã kết thúc trận (không nhập tỉ số)' });
+    })
+  );
+
   const listMatches = async (req, res, playerId) => {
     const { page, limit } = parsePagination(req.query);
     const scope = req.query.scope === 'upcoming' ? 'upcoming' : 'history';

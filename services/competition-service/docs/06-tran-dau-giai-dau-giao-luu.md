@@ -21,7 +21,7 @@ sau, kèm cơ chế đối thủ xác nhận.
 - `matches`:
   - ngữ cảnh: `context_type` (`tournament` / `session`), `context_id`;
   - nội dung: `discipline`;
-  - vị trí trong giải: `stage` (`group` / `knockout` / `extra`), `group_no`, `round_no`, `slot_no` (lượt thi
+  - vị trí trong giải: `stage` (`group` / `knockout` / `extra`; trận giao lưu là `session`), `group_no`, `round_no`, `slot_no` (lượt thi
     đấu), `bracket_pos`, `next_match_id`, `next_slot`;
   - đội: `team_a_id`, `team_b_id` (đội của giải, null với trận giao lưu);
   - kết quả: `scoring` (sao từ giải / buổi), `games` JSON, `outcome` (`normal` / `walkover` / `retired`),
@@ -41,6 +41,8 @@ scheduled ──gọi ra sân (chọn sân)──▶ in_play ──nhập tỉ s
 - **Gọi ra sân** (`POST /v1/matches/{id}/call { courtRef }`) là tuỳ chọn. Nó giúp bảng điều khiển biết sân nào
   đang bận, trận nào đang đánh.
 - Trận loại trực tiếp chưa biết đủ hai đội thì ở trạng thái `scheduled` với ô trống, chưa gọi ra sân được.
+- Trận giao lưu được tạo thẳng ở `in_play` (đã có sân) và có thêm trạng thái `ended` — "xong, không nhập tỉ số"
+  (mục 8.2, 12).
 
 ### 1.4 Nhập tỉ số
 
@@ -324,8 +326,10 @@ Người điều phối bấm một nút thay cho việc gọi tên bằng miệ
 - **"Xếp sân trống"**: hệ thống xếp trận cho **mọi sân đang trống**.
   - Đầu buổi mọi sân trống → xếp cả lượt.
   - Giữa buổi sân nào đánh xong thì bấm lại, chỉ sân đó được xếp; người đang đánh sân khác không bị lấy.
-- Nhập tỉ số (tuỳ chọn), rồi sân trở thành trống.
-- **Màn hình lớn (TV)**: sân nào – ai với ai – đã đánh bao lâu, danh sách người đang chờ theo thứ tự ưu tiên.
+- Sân trở thành trống khi trận: có tỉ số, hoặc bấm **"Xong (không tỉ số)"** (trận thành `ended`, vẫn tính là đã đánh
+  cho lịch sử đồng đội / đối thủ; nhập tỉ số sau vẫn được), hoặc bị huỷ (không tính là đã đánh).
+- **Màn hình lớn (TV)**: sân nào – ai với ai – đã đánh bao lâu, danh sách người đang chờ theo thứ tự ưu tiên (đánh dấu
+  những người sẽ ra sân ở lượt tới), vài kết quả gần nhất.
 
 ### 8.3 Thuật toán — `fillCourts` (hàm thuần trong module `matchmaking`)
 
@@ -334,30 +338,44 @@ input: người có mặt và rảnh (không đang ở sân) { id, pairingRating
        sân trống S, hình thức (đôi: 4 người / sân), chế độ, lịch sử trong buổi (ai từng là đồng đội / đối thủ của ai), seed
 
 1. Số sân dùng được = min(S, ⌊số người rảnh / 4⌋)
-2. Chọn người ra sân: sắp theo (chờ lâu nhất trước, đánh ít trận nhất trước, đến sớm trước, ngẫu nhiên)
-   → lấy 4 × số_sân người đầu
+2. Chọn người ra sân: sắp theo (đánh ít trận nhất trước, chờ lâu nhất trước, đến sớm trước, ngẫu nhiên)
+   → lấy N = 4 × số_sân người đầu. "Số trận" = đã đánh + số trận được bù khi đến muộn.
 3. Chia vào các sân:
    level    : sắp theo pairingRating, cắt 4 người / sân (sân đầu mạnh nhất)
-   balanced : xáo ngẫu nhiên, rồi đổi người giữa các sân nếu giảm được tổng cost bước 4
-   random   : xáo ngẫu nhiên
+   balanced : xáo ngẫu nhiên, rồi tìm cục bộ (bước 5)
+   random   : xáo ngẫu nhiên, rồi tìm cục bộ (bước 5), cost không tính chênh trình
 4. Mỗi sân 4 người có 3 cách chia đội ({ab|cd}, {ac|bd}, {ad|bc}); chọn cách có cost nhỏ nhất:
-   cost = |R_đội1 − R_đội2|                            (bỏ qua ở chế độ random)
-        + 0.30 × số cặp đã từng là đồng đội trong buổi
-        + 0.10 × số cặp đã từng là đối thủ trong buổi
-5. Trả về: sân → đội A / đội B, danh sách người tiếp tục chờ
+   cost = |R_đội1 − R_đội2|                                     (bỏ qua ở chế độ random)
+        + 0.50 × Σ (số lần cặp đồng đội đã chung đội trong buổi)²
+        + 0.10 × Σ số lần cặp đối thủ đã gặp nhau trong buổi
+5. (balanced / random) tìm cục bộ giảm tổng cost:
+   - đổi người giữa hai sân;
+   - đổi người trong sân với người "bằng trận" (cùng số trận với người thứ N) đang đứng sau hàng — kéo một người
+     lên sớm hơn thứ tự hàng bị phạt 0.10. Chỉ sân trống thì duyệt hết mọi cách chọn.
+   Không bao giờ để người ít trận hơn ngồi chờ thay người nhiều trận hơn.
+6. Trả về: sân → đội A / đội B, danh sách người tiếp tục chờ
 ```
 
-- **Công bằng:** chênh lệch số trận giữa những người có mặt từ đầu buổi không quá 1 (có test mô phỏng 3 giờ,
-  20 người, 4 sân).
+- **Công bằng** (test mô phỏng 3 giờ, 20 người, 4 sân, **mỗi trận 12–18 phút, các sân xong lệch giờ**):
+  - không lần xếp nào để người rảnh ít trận hơn ngồi chờ thay người nhiều trận hơn;
+  - lúc cắt buổi chênh lệch số trận ≤ 1 (197–198 / 200 lần chạy). Các lần còn lại chênh 2 chỉ khi mọi người ít trận
+    nhất đang đánh dở trận cuối — lượt sau họ được ưu tiên ngay; hệ thống không để sân trống chờ họ;
+  - đồng đội lặp ≤ 2 lần (kịch bản có người đến muộn / về sớm: 200 / 200; không có: 196 / 200), một nhóm 4 người
+    chung sân ≤ 4 trận.
+- **Vì sao đổi so với bản đầu (bước 3, test thật qua API):** bản đầu xếp "chờ lâu nhất trước" và mô phỏng cho mọi
+  sân cùng lượt xong cùng lúc. Khi các sân xong lệch giờ, 4 người vừa chờ luôn ra cùng một sân → nhóm 4 người dính
+  nhau cả buổi: đồng đội lặp tới 5 lần, một nhóm chung sân 11 trận, chênh số trận tới 3.
 - Có bước **xem trước**: người điều phối đổi tay hai người rồi mới xác nhận → sinh `matches` (`context_type =
-  session`).
+  session`, `stage = session`, đang đánh trên sân). Bản xem trước ghi số lần các cặp đồng đội đã chung đội
+  (`repeatPartners`) để người điều phối thấy mà đổi.
 - `POST /v1/matchmaking/session-round` là phiên bản không trạng thái của thuật toán này, cho hệ thống khác dùng.
 
 ### 8.4 Đóng buổi
 
+`GET /v1/sessions/{id}/close-preview` cho xem trước (số trận có / chưa có tỉ số, điểm trình trước / sau).
 `POST /v1/sessions/{id}/close`:
 
-- trận chưa có tỉ số → `cancelled`;
+- trận chưa có tỉ số (đang đánh / "xong không tỉ số") → `cancelled`;
 - nếu bật tính điểm: một kỳ tính điểm với hệ số 0.5 (03, mục 3.3);
 - cộng thống kê "giao lưu";
 - sự kiện `competition.session.closed`.
@@ -391,11 +409,11 @@ input: người có mặt và rảnh (không đang ở sân) { id, pairingRating
 |---|---|
 | `PAIRING_TOLERANCE` / `PAIRING_RESTARTS` / `PAIRING_STEPS_PER_PLAYER` | 0.03 (ban đầu 0.05 — test thật cho thấy quá rộng khi danh sách lệch hai đầu) / 30 / 50 |
 | `PAIRING_REPEAT_PARTNER_PENALTY` / `PAIRING_SAME_POSITION_PENALTY` / `PAIRING_REPEAT_LOOKBACK` | 0.02 / 0.02 / 3 giải |
-| `SESSION_REPEAT_PARTNER_PENALTY` / `SESSION_REPEAT_OPPONENT_PENALTY` | 0.30 / 0.10 |
+| `SESSION_REPEAT_PARTNER_PENALTY` (× n²) / `SESSION_REPEAT_OPPONENT_PENALTY` (× n) / `SESSION_SKIP_PENALTY` | 0.50 / 0.10 / 0.10 (ban đầu 0.30 tuyến tính, không có phạt kéo lên sớm — xem 8.3) |
 | `MATCH_MINUTES` | 1×21: 15 · 3×21: 35 · 3×15: 25 (BTC sửa được) |
 | `RANKING_MIN_TEAMS` | 4 |
 
-## 11. Chốt khi code (bước 2, 27/09/2026)
+## 11. Chốt khi code (bước 2)
 
 Những chỗ tài liệu chưa nói rõ; đã quyết khi code, test thật xác nhận:
 
@@ -416,3 +434,24 @@ Những chỗ tài liệu chưa nói rõ; đã quyết khi code, test thật xá
 - **Thứ tự khoá:** giải trước, trận sau (ghi kết quả, rút lui, chốt đều theo thứ tự này) để không deadlock. Chốt hai
   request song song thì đúng một request thành công.
 - **Dữ liệu demo:** `npm run seed:demo` tạo bằng chính các service (xem README của service).
+
+## 12. Chốt khi code (bước 3)
+
+- **Trạng thái trận `ended`** ("xong, không nhập tỉ số") chỉ dùng cho giao lưu: nhả sân, vẫn tính là đã đánh (số
+  trận, lịch sử đồng đội / đối thủ), không vào điểm trình / thống kê. Trận giải → 409 `RESULT_REQUIRED`. Đóng buổi thì
+  thành `cancelled`.
+- **Trận giao lưu** có `stage = session`, `label = "Lượt n"`, `round_no = n`, `team_a_id` / `team_b_id` = null
+  (`teamA.teamId = null` trong API), hệ số `rating_weight = 0.5` (chỉ dùng khi buổi bật "tính điểm").
+- **Số trận trong buổi** (`games_played`) tăng khi được xếp ra sân, giảm khi trận bị huỷ. Người đến muộn / quay lại có
+  thêm `games_credit` (số trận được bù) — chỉ dùng để xếp ưu tiên, không phải trận thật.
+- **Điểm danh kèm chấm nhanh** cần thêm scope `rating:assess` (nhân viên có sẵn). Đã có điểm thì bỏ qua `quickLevel`.
+- **Rời buổi** khi đang ở sân → 409 `PLAYER_ON_COURT`. Rời rồi quay lại: giữ số trận đã đánh, bù thêm nếu thiếu.
+- **Xác nhận xếp sân:** gửi lại nguyên văn `assignments` của bản xem trước (có thể đã đổi tay), hoặc không gửi gì để
+  hệ thống tự xếp theo `seed`. Sân / người không còn rảnh → 409 `FILL_STALE`; không có gì để xếp → 422
+  `NOTHING_TO_FILL`. Cùng seed + cùng tình trạng → cùng kết quả. Seed mặc định của lượt n: `<seed buổi>:n`.
+- **Sửa buổi** (`PATCH`, bắt buộc `If-Match`): đã có trận thì không đổi Đơn / Đôi (409 `LOCKED_AFTER_MATCHES`);
+  không bỏ được sân đang có trận (409 `COURT_BUSY`). Đổi "tính điểm" được tới lúc đóng buổi.
+- **Huỷ buổi:** trận chưa có tỉ số bị huỷ; không tính điểm, không vào thống kê; không phát sự kiện (tài liệu 02 chỉ có
+  `session.closed`).
+- **Thứ tự khoá:** buổi trước, trận sau — như giải.
+- **Gộp hồ sơ** (05, mục 4) giờ chuyển cả trận, đăng ký giải, đội, điểm BXH thành tích, điểm danh giao lưu.

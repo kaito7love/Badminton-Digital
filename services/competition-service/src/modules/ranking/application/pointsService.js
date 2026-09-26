@@ -148,7 +148,14 @@ const createPointsService = ({ models, players, ratingQueries, profile, levelFor
     return out;
   };
 
-  return { previewAward, awardTournament, revokeTournament, pointsLeaderboard, pointsPositions, CATEGORY_LABEL };
+  // Gộp hồ sơ (docs/05 mục 4): kết quả BXH thành tích của nguồn chuyển sang đích.
+  // Hai hồ sơ cùng một giải đã bị module tournament chặn (MERGE_CONFLICT) trước khi commit.
+  const mergeHandler = async ({ tenant, target, source, transaction }) => {
+    const [moved] = await RankingResult.update({ playerId: target.id }, { where: { tenantId: tenant, playerId: source.id }, transaction });
+    return { rankingResults: moved };
+  };
+
+  return { previewAward, awardTournament, revokeTournament, pointsLeaderboard, pointsPositions, mergeHandler, CATEGORY_LABEL };
 };
 
 module.exports = { createPointsService };

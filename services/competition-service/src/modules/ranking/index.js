@@ -21,6 +21,7 @@ const createRankingModule = ({ models, sequelize, players, ratingQueries, config
   });
   const pointsService = createPointsService({ models, players, ratingQueries, profile, levelFor: rating.domain.levelFor });
   service.attachPoints(pointsService);
+  players.registerMergeHandler(pointsService.mergeHandler);
   players.registerEnricher(service.enricher);
   const router = createRankingRouter({ ranking: service, points: pointsService, players, profile });
   return { service, points: pointsService, router };

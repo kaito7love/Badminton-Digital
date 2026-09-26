@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { round3 } = require('../../../shared/numbers');
 const { notFound, conflict, unprocessable, forbiddenScope } = require('../../../platform/http/errors');
+const { withTransaction } = require('../../../platform/db/transaction');
 const { getRubric, CURRENT_VERSION } = require('../domain/rubric');
 const { scoreAssessment, scoreQuickLevel, validateAnswers } = require('../domain/scoreAssessment');
 const { computePeriodRatings } = require('../domain/ratingEngine');
@@ -210,8 +211,9 @@ const createRatingService = ({ models, sequelize, players, platform }) => {
   };
 
   // --- Chấm nhanh một nhãn (khách vãng lai) ---
-  const quickAssess = async ({ auth, playerId, level, note, requestId }) =>
-    sequelize.transaction(async (transaction) => {
+  // transaction: chạy trong use case lớn hơn (vd điểm danh buổi giao lưu kèm chấm nhanh).
+  const quickAssess = async ({ auth, playerId, level, note, requestId, transaction: outer }) =>
+    withTransaction(sequelize, outer, async (transaction) => {
       const player = await players.requireActive(auth.tenant, playerId, { transaction, lock: true });
       const rows = await lockRatings(auth.tenant, player.id, transaction);
       if (Object.keys(rows).length) throw conflict('ALREADY_RATED', 'Người chơi đã có điểm — dùng form chấm đầy đủ');

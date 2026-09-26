@@ -1,10 +1,11 @@
-// Dữ liệu demo cho bản portfolio (docs/05-extra/02-remediation/18 bước 2).
-// Tạo bằng CHÍNH các service thật (chấm trình, bốc thăm, ghi kết quả, chốt) — không
-// chèn thẳng bảng — nên chạy seed cũng là một lần chạy đầu-cuối.
+// Dữ liệu demo cho bản portfolio (docs/05-extra/02-remediation/18 bước 2–3).
+// Tạo bằng CHÍNH các service thật (chấm trình, bốc thăm, ghi kết quả, chốt, xếp sân) —
+// không chèn thẳng bảng — nên chạy seed cũng là một lần chạy đầu-cuối.
 //   npm run seed:demo
 // Kết quả: 25 người chơi, 2 giải đã chốt (có lịch sử điểm, BXH có dữ liệu), 1 giải đang
-// mở đủ người để bấm "Bốc thăm". bd:customer:1 (tài khoản khách demo của app chính)
-// cố ý CHƯA có điểm để khách xem demo tự làm form tự chấm.
+// mở đủ người để bấm "Bốc thăm", 1 buổi giao lưu đã đóng (tính điểm) và 1 buổi đang diễn
+// ra (3 sân đang đánh). bd:customer:1 (tài khoản khách demo của app chính) cố ý CHƯA có
+// điểm để khách xem demo tự làm form tự chấm.
 require('dotenv').config();
 const { loadConfig } = require('../src/platform/config');
 const { createLogger } = require('../src/platform/logging/logger');
@@ -60,11 +61,11 @@ const main = async () => {
   }
   const auth = {
     tenant: TENANT, sub: 'system:demo-seed', clientId: 'seed', allOrgs: true, org: ['*'], player: null, playerName: null,
-    scopes: new Set(['rating:read', 'rating:assess', 'rating:assess:any', 'rating:adjust', 'player:write', 'tournament:read', 'tournament:operate', 'tournament:manage'])
+    scopes: new Set(['rating:read', 'rating:assess', 'rating:assess:any', 'rating:adjust', 'player:write', 'tournament:read', 'tournament:operate', 'tournament:manage', 'session:read', 'session:operate'])
   };
   const rng = createRng('badminton-digital-demo');
   const rubric = getRubric();
-  const { player, rating, tournament, match } = modules;
+  const { player, rating, tournament, match, session } = modules;
 
   // --- Người chơi + chấm trình (nhân viên chấm đủ form, mức lệch ngẫu nhiên quanh mức nền) ---
   const ids = {};
@@ -83,31 +84,34 @@ const main = async () => {
 
   const ratingOf = async (discipline, pid) => (await rating.queries.disciplineRatings(TENANT, [pid], discipline)).get(pid).rating;
 
-  // Ghi kết quả mọi trận đang chờ: bên thắng bốc theo xác suất Elo, tỉ số thực tế.
+  // Tỉ số thực tế cho một trận: bên thắng bốc theo xác suất Elo.
+  const playMatch = async (m, discipline, bestOf) => {
+    const parts = (await match.service.participantsOf([m.id])).get(m.id);
+    const side = async (s) => {
+      const r = await Promise.all(parts.filter((p) => p.side === s).map((p) => ratingOf(discipline, p.playerId)));
+      return r.reduce((a, b) => a + b, 0) / r.length;
+    };
+    const aWins = rng.next() < expectedScore(await side('A'), await side('B'));
+    const games = [];
+    const needed = Math.ceil(bestOf / 2);
+    let wa = 0;
+    let wb = 0;
+    while (wa < needed && wb < needed) {
+      const aTakes = games.length === 0 || rng.next() < 0.75 ? aWins : !aWins;
+      const lose = 9 + rng.int(11);
+      games.push(aTakes ? [21, lose] : [lose, 21]);
+      if (aTakes) wa += 1;
+      else wb += 1;
+    }
+    await match.service.recordResult({ auth, matchId: m.id, body: { games }, ifMatch: String(m.version) });
+  };
+
+  // Ghi kết quả mọi trận đang chờ của một giải.
   const playAll = async (t) => {
     for (;;) {
       const list = (await match.service.listForContext(TENANT, 'tournament', t.id)).filter((m) => m.status === 'scheduled' && m.teamAId && m.teamBId);
       if (!list.length) return;
-      for (const m of list) {
-        const parts = (await match.service.participantsOf([m.id])).get(m.id);
-        const side = async (s) => {
-          const r = await Promise.all(parts.filter((p) => p.side === s).map((p) => ratingOf(t.discipline, p.playerId)));
-          return r.reduce((a, b) => a + b, 0) / r.length;
-        };
-        const aWins = rng.next() < expectedScore(await side('A'), await side('B'));
-        const games = [];
-        const needed = Math.ceil(t.scoring.bestOf / 2);
-        let wa = 0;
-        let wb = 0;
-        while (wa < needed && wb < needed) {
-          const aTakes = games.length === 0 || rng.next() < 0.75 ? aWins : !aWins;
-          const lose = 9 + rng.int(11);
-          games.push(aTakes ? [21, lose] : [lose, 21]);
-          if (aTakes) wa += 1;
-          else wb += 1;
-        }
-        await match.service.recordResult({ auth, matchId: m.id, body: { games }, ifMatch: String(m.version) });
-      }
+      for (const m of list) await playMatch(m, t.discipline, t.scoring.bestOf);
     }
   };
 
@@ -160,7 +164,45 @@ const main = async () => {
     men.slice(0, 8),
     { daysAgo: 12 }
   );
+
+  // Buổi giao lưu đã đóng (có tính điểm, hệ số 0.5): 14 người, 3 sân, 6 lượt "Xếp sân trống".
+  // Khác giải: hàng chờ dùng giờ thật lúc điểm danh / nhập tỉ số (tính tới giây) nên ai ra
+  // sân lượt nào có thể khác nhau giữa các lần seed; số trận / số người đổi điểm thì như nhau.
+  const mixed = [...men.slice(0, 8), ...women.slice(0, 6)];
+  const runSession = async (body, players, rounds) => {
+    const s = await session.service.create({ auth, body });
+    for (const pid of players) await session.service.checkIn({ auth, id: s.id, playerId: pid });
+    for (let r = 0; r < rounds; r += 1) {
+      await session.service.confirmFill({ auth, id: s.id, body: {} });
+      const live = (await match.service.listForContext(TENANT, 'session', s.id)).filter((m) => m.status === 'in_play');
+      // Một trận mỗi lượt "xong không nhập tỉ số" cho giống thực tế.
+      for (const [i, m] of live.entries()) {
+        if (i === 0 && r % 3 === 2) await match.service.endMatch({ auth, matchId: m.id });
+        else await playMatch(m, 'doubles', s.scoring.bestOf);
+      }
+    }
+    return s;
+  };
+  const past = await runSession(
+    { organizerRef: 'bd:branch:1', name: 'Giao lưu tối thứ Sáu — Chi nhánh 1', startsAt: new Date(Date.now() - 5 * DAY).toISOString(), courtRefs: ['bd:court:1', 'bd:court:2', 'bd:court:3'], rated: true, seed: 'demo-giao-luu-thu-sau' },
+    mixed,
+    6
+  );
+  const closed = await session.service.close({ auth, id: past.id });
+  const at = new Date(Date.now() - 5 * DAY);
+  await models.PlaySession.update({ closedAt: at }, { where: { id: past.id } });
+  await models.Match.update({ completedAt: at, calledAt: at }, { where: { contextId: past.id } });
+  await models.RatingChange.update({ createdAt: at }, { where: { contextId: past.id } });
   await modules.ranking.service.dailySnapshot(new Date());
+
+  // Buổi giao lưu đang diễn ra: 3 sân đang đánh, 2 người chờ — màn hình lớn có dữ liệu,
+  // khách xem demo nhập tỉ số rồi bấm "Xếp sân trống".
+  const live = await session.service.create({
+    auth,
+    body: { organizerRef: 'bd:branch:1', name: 'Giao lưu tối nay — Chi nhánh 1 (demo)', courtRefs: ['bd:court:1', 'bd:court:2', 'bd:court:3'], seed: 'demo-giao-luu-toi-nay' }
+  });
+  for (const pid of mixed) await session.service.checkIn({ auth, id: live.id, playerId: pid });
+  await session.service.confirmFill({ auth, id: live.id, body: {} });
 
   // Giải đang mở, đủ người để khách xem demo bấm "Bốc thăm".
   const open = await tournament.service.create({
@@ -188,6 +230,8 @@ const main = async () => {
   console.log(`  Giải 1 "${t1.t.name}": ${t1.result.placements.length} đội, vô địch ${champion.players.map((p) => p.name).join(' + ')}, ${t1.result.ratingChanges.length} người đổi điểm`);
   console.log(`  Giải 2 "${t2.t.name}": ${t2.result.placements.length} người, ${t2.result.rankingPoints.length} kết quả điểm BXH`);
   console.log(`  Giải 3 "${open.name}": đang mở, ${registered} người đủ điều kiện đã đăng ký — sẵn sàng bốc thăm`);
+  console.log(`  Buổi giao lưu "${past.name}": đã đóng, ${closed.result.completedMatches} trận có tỉ số, ${closed.result.ratingChanges.length} người đổi điểm (hệ số 0.5)`);
+  console.log(`  Buổi giao lưu "${live.name}": đang diễn ra, 3 sân đang đánh — xem /v1/sessions/${live.id}/board`);
   await sequelize.close();
 };
 

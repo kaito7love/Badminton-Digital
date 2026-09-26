@@ -5,6 +5,7 @@ const { createTournamentContext } = require('./application/tournamentContext');
 const { createTournamentService } = require('./application/tournamentService');
 const { createFinalizeService } = require('./application/finalizeService');
 const { createTournamentQueries } = require('./application/tournamentQueries');
+const { createTournamentMergeHandler } = require('./application/playerMerge');
 const { createTournamentRouter } = require('./infrastructure/http/routes');
 const { assertAction } = require('./domain/stateMachine');
 const standings = require('./domain/standings');
@@ -23,6 +24,7 @@ const createTournamentModule = ({ models, sequelize, platform, players, rating, 
     models, sequelize, players, ratings: rating.service, ratingQueries: rating.queries, points: ranking.points, matches: match.service, platform, ctx
   });
   const queries = createTournamentQueries({ models, players, matches: match.service, ctx });
+  players.registerMergeHandler(createTournamentMergeHandler({ models, finalizer }));
 
   // Ngữ cảnh "tournament" cho module match: quyền, trạng thái, chuyển drawn → in_progress.
   match.service.registerContext('tournament', {
