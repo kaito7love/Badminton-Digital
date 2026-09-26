@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "competition.match.completed/v1",
+  "title": "Một trận có kết quả (kể cả W.O. / bỏ cuộc giữa trận, kể cả sửa kết quả)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "matchId",
+    "contextType",
+    "contextId",
+    "sides",
+    "games",
+    "outcome",
+    "winnerSide"
+  ],
+  "properties": {
+    "matchId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "contextType": {
+      "enum": [
+        "tournament",
+        "session"
+      ]
+    },
+    "contextId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sides": {
+      "type": "object",
+      "required": [
+        "A",
+        "B"
+      ],
+      "properties": {
+        "A": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "B": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    },
+    "games": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "type": "integer"
+        }
+      }
+    },
+    "outcome": {
+      "enum": [
+        "normal",
+        "walkover",
+        "retired"
+      ]
+    },
+    "winnerSide": {
+      "enum": [
+        "A",
+        "B"
+      ]
+    }
+  }
+}

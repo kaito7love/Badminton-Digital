@@ -1,10 +1,11 @@
 openapi: 3.0.3
 info:
   title: competition-service API
-  version: 0.1.0
+  version: 0.2.0
   description: |
     Dịch vụ Thi đấu của Badminton Digital — chấm trình, điểm trình, bảng xếp hạng, xếp cặp.
-    Bước 1: người chơi, chấm trình, BXH trình độ, thuật toán xếp cặp. Giải đấu / buổi giao lưu ở bước 2–3.
+    Bước 1: người chơi, chấm trình, BXH trình độ, thuật toán xếp cặp. Bước 2: trận đấu, giải đấu, BXH thành tích, thống kê.
+    Buổi giao lưu ở bước 3.
 
     Xác thực: service token ES256 (gateway của app chính ký, sống ≤ 5 phút) — xem docs/01-kien-truc.md mục 6.
     Envelope: { success, data, message, errors } giống app chính, thêm `code` khi lỗi.
@@ -18,6 +19,8 @@ tags:
   - name: rating
   - name: ranking
   - name: matchmaking
+  - name: match
+  - name: tournament
   - name: ops
 
 paths:
@@ -303,10 +306,11 @@ paths:
                     properties:
                       data:
                         type: object
-                        required: [playerId, rating]
+                        required: [playerId, rating, points]
                         properties:
                           playerId: { type: string, format: uuid }
                           rating: { $ref: '#/components/schemas/RankingPositions' }
+                          points: { $ref: '#/components/schemas/PointsPositions' }
         default: { $ref: '#/components/responses/Error' }
 
   /v1/players/{id}/assessments:
@@ -435,7 +439,7 @@ paths:
               required: [discipline, newRating, reason]
               properties:
                 discipline: { $ref: '#/components/schemas/Discipline' }
-                newRating: { type: number, minimum: 1, maximum: 7, multipleOf: 0.001 }
+                newRating: { type: number, minimum: 1, maximum: 7, description: "Làm tròn 3 số lẻ phía server (không dùng multipleOf — số thực làm ajv từ chối nhầm, vd 3.9)" }
                 reason: { type: string, minLength: 10, maxLength: 500 }
       responses:
         '201':
@@ -1049,6 +1053,770 @@ paths:
               schema: { $ref: '#/components/schemas/Envelope' }
         default: { $ref: '#/components/responses/Error' }
 
+  /v1/players/{id}/stats:
+    parameters: [{ $ref: '#/components/parameters/PlayerId' }]
+    get:
+      tags: [player]
+      summary: Thống kê (thắng / thua, phong độ, thành tích) — chỉ trận đã chốt
+      description: 'Scope: ranking:read / rating:read / rating:self (theo quyền riêng tư)'
+      parameters:
+        - { name: discipline, in: query, schema: { $ref: '#/components/schemas/Discipline' } }
+        - { name: context, in: query, schema: { type: string, enum: [tournament, session] } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [playerId, items]
+                        properties:
+                          playerId: { type: string, format: uuid }
+                          items: { type: array, items: { $ref: '#/components/schemas/PlayerStats' } }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/players/{id}/matches:
+    parameters: [{ $ref: '#/components/parameters/PlayerId' }]
+    get:
+      tags: [match]
+      summary: Lịch sử trận (đã chốt) hoặc trận sắp tới
+      parameters:
+        - { name: scope, in: query, schema: { type: string, enum: [history, upcoming] } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200': { $ref: '#/components/responses/MatchPage' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/players/{id}/partners:
+    parameters: [{ $ref: '#/components/parameters/PlayerId' }]
+    get:
+      tags: [match]
+      summary: 5 đồng đội hay đánh cặp nhất + tỉ lệ thắng khi đánh cùng
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [playerId, items]
+                        properties:
+                          playerId: { type: string, format: uuid }
+                          items:
+                            type: array
+                            items:
+                              type: object
+                              required: [playerId, name, matches, wins, winRate]
+                              properties:
+                                playerId: { type: string, format: uuid }
+                                name: { type: string, nullable: true }
+                                matches: { type: integer }
+                                wins: { type: integer }
+                                winRate: { type: number }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/players/{id}/head-to-head/{otherId}:
+    parameters:
+      - { $ref: '#/components/parameters/PlayerId' }
+      - { name: otherId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [match]
+      summary: Đối đầu hai người
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [playerId, otherId, matches, wins, losses, items]
+                        properties:
+                          playerId: { type: string, format: uuid }
+                          otherId: { type: string, format: uuid }
+                          matches: { type: integer }
+                          wins: { type: integer }
+                          losses: { type: integer }
+                          items: { type: array, items: { $ref: '#/components/schemas/MatchView' } }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/me/matches:
+    get:
+      tags: [match]
+      summary: Trận của tôi (sắp tới / đã chốt)
+      description: 'Scope: rating:self'
+      parameters:
+        - { name: scope, in: query, schema: { type: string, enum: [history, upcoming] } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200': { $ref: '#/components/responses/MatchPage' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/me/tournaments:
+    get:
+      tags: [tournament]
+      summary: Giải của tôi
+      description: 'Scope: rating:self'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [items]
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              type: object
+                              required: [tournament, entryStatus, teamId, partnerPlayerId, upcomingMatches, playedMatches, placement]
+                              properties:
+                                tournament: { $ref: '#/components/schemas/Tournament' }
+                                entryStatus: { type: string }
+                                teamId: { type: string, nullable: true }
+                                partnerPlayerId: { type: string, nullable: true }
+                                upcomingMatches: { type: integer }
+                                playedMatches: { type: integer }
+                                placement:
+                                  type: object
+                                  nullable: true
+                                  properties:
+                                    from: { type: integer }
+                                    to: { type: integer }
+                                    label: { type: string }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/leaderboards/points:
+    get:
+      tags: [ranking]
+      summary: BXH thành tích — tổng 6 kết quả tốt nhất trong 52 tuần
+      description: 'Scope: ranking:read'
+      parameters:
+        - { name: category, in: query, required: true, schema: { type: string, enum: [MS, WS, MD, WD, XD] } }
+        - { name: organizerRef, in: query, allowReserved: true, schema: { type: string, maxLength: 64 } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/Paged'
+                          - type: object
+                            required: [category, label]
+                            properties:
+                              category: { type: string }
+                              label: { type: string }
+                              items: { type: array, items: { $ref: '#/components/schemas/PointsRow' } }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/matches/{id}:
+    parameters: [{ $ref: '#/components/parameters/MatchId' }]
+    get:
+      tags: [match]
+      summary: Chi tiết trận
+      responses:
+        '200': { $ref: '#/components/responses/Match' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/matches/{id}/call:
+    parameters: [{ $ref: '#/components/parameters/MatchId' }]
+    post:
+      tags: [match]
+      summary: Gọi trận ra sân → in_play
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                courtRef: { type: string, maxLength: 64 }
+      responses:
+        '200': { $ref: '#/components/responses/Match' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/matches/{id}/result:
+    parameters: [{ $ref: '#/components/parameters/MatchId' }]
+    put:
+      tags: [match]
+      summary: Ghi / sửa kết quả trận (kiểm luật BWF; người thắng tự vào trận sau)
+      description: 'Scope: tournament:operate (trận giải). If-Match bắt buộc.'
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                games:
+                  type: array
+                  maxItems: 5
+                  items: { type: array, minItems: 2, maxItems: 2, items: { type: integer, minimum: 0, maximum: 99 } }
+                outcome: { type: string, enum: [normal, walkover, retired] }
+                winnerSide: { type: string, enum: [A, B] }
+      responses:
+        '200': { $ref: '#/components/responses/Match' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/matches/{id}/cancel:
+    parameters: [{ $ref: '#/components/parameters/MatchId' }]
+    post:
+      tags: [match]
+      summary: Huỷ trận chưa có kết quả (không áp dụng cho trận trong sơ đồ)
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200': { $ref: '#/components/responses/Match' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/advice:
+    post:
+      tags: [tournament]
+      summary: Gợi ý thể thức / số bảng / ước tính số trận và thời gian
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [teams]
+              properties:
+                teams: { type: integer, minimum: 2, maximum: 256 }
+                courts: { type: integer, minimum: 1, maximum: 64 }
+                matchMinutes: { type: integer, minimum: 1, maximum: 240 }
+                format: { type: string, enum: [round_robin, groups_knockout, knockout] }
+                groupCount: { type: integer, minimum: 2, maximum: 64 }
+                advancePerGroup: { type: integer, enum: [1, 2] }
+                thirdPlace: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [format, suggestedFormat, estimate]
+                        properties:
+                          format: { type: string }
+                          suggestedFormat: { type: string }
+                          groupCount: { type: integer, nullable: true }
+                          groupSizes: { type: array, nullable: true, items: { type: integer } }
+                          advancePerGroup: { type: integer, nullable: true }
+                          estimate:
+                            type: object
+                            required: [matches, slots, minutes]
+                            properties:
+                              matches: { type: integer }
+                              slots: { type: integer }
+                              minutes: { type: integer }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments:
+    post:
+      tags: [tournament]
+      summary: Tạo giải (nháp)
+      description: 'Scope: tournament:manage. organizerRef phải thuộc claim org; tier chain cần org "*".'
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TournamentInput' }
+      responses:
+        '201': { $ref: '#/components/responses/TournamentDetail' }
+        default: { $ref: '#/components/responses/Error' }
+    get:
+      tags: [tournament]
+      summary: Danh sách giải (trong phạm vi chi nhánh của token)
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [draft, open, drawn, in_progress, finalized, cancelled] } }
+        - { name: discipline, in: query, schema: { $ref: '#/components/schemas/Discipline' } }
+        - { name: organizerRef, in: query, allowReserved: true, schema: { type: string, maxLength: 64 } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/Paged'
+                          - type: object
+                            properties:
+                              items: { type: array, items: { $ref: '#/components/schemas/Tournament' } }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [tournament]
+      summary: Chi tiết giải + tiến độ
+      responses:
+        '200': { $ref: '#/components/responses/TournamentDetail' }
+        default: { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [tournament]
+      summary: Sửa giải (draft / open; đã có người đăng ký thì khoá nội dung / giới / luật điểm / điều kiện trình)
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TournamentPatch' }
+      responses:
+        '200': { $ref: '#/components/responses/TournamentDetail' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/open:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    post:
+      tags: [tournament]
+      summary: Mở đăng ký (draft → open)
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200': { $ref: '#/components/responses/TournamentDetail' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/cancel:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    post:
+      tags: [tournament]
+      summary: Huỷ giải (không áp điểm)
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200': { $ref: '#/components/responses/TournamentDetail' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/reopen:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    post:
+      tags: [tournament]
+      summary: Huỷ bốc thăm, quay lại mở đăng ký (khi chưa có kết quả)
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200': { $ref: '#/components/responses/TournamentDetail' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/entries:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [tournament]
+      summary: Danh sách đăng ký (kèm điểm xét + cờ trình)
+      responses:
+        '200': { $ref: '#/components/responses/EntryList' }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      tags: [tournament]
+      summary: Đăng ký người chơi (cặp cố định thì kèm đồng đội)
+      description: 'Scope: tournament:operate. Chưa có điểm → 422 NEEDS_ASSESSMENT; sai điều kiện → 422 NOT_ELIGIBLE; hết chỗ → danh sách chờ.'
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [playerId]
+              properties:
+                playerId: { type: string, format: uuid }
+                partnerPlayerId: { type: string, format: uuid }
+      responses:
+        '201': { $ref: '#/components/responses/EntryList' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/entries/{entryId}:
+    parameters:
+      - { $ref: '#/components/parameters/TournamentId' }
+      - { name: entryId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      tags: [tournament]
+      summary: Rút (sau bốc thăm cả đội rút, trận chưa đánh thành W.O.)
+      responses:
+        '200': { $ref: '#/components/responses/EntryList' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/draw/preview:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    post:
+      tags: [tournament]
+      summary: Xem trước bốc thăm — không lưu
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                seed: { type: string, maxLength: 64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/DrawProposal' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/draw:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    post:
+      tags: [tournament]
+      summary: Xác nhận bốc thăm (bản đã chỉnh tay) → sinh đội, bảng, lịch
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [seed, teams]
+              properties:
+                seed: { type: string, maxLength: 64 }
+                teams:
+                  type: array
+                  minItems: 2
+                  maxItems: 256
+                  items:
+                    type: object
+                    required: [players]
+                    properties:
+                      players: { type: array, minItems: 1, maxItems: 2, items: { type: string, format: uuid } }
+                groups:
+                  type: array
+                  items:
+                    type: object
+                    required: [groupNo, teams]
+                    properties:
+                      groupNo: { type: integer, minimum: 1 }
+                      teams: { type: array, items: { type: integer, minimum: 0 } }
+                bracket:
+                  type: array
+                  nullable: true
+                  description: Chỉ thể thức loại trực tiếp — vị trí (chỉ số đội) trong sơ đồ, null = bye
+                  items: { type: integer, minimum: 0, nullable: true }
+      responses:
+        '200': { $ref: '#/components/responses/TournamentDetail' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/teams:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [tournament]
+      summary: Các đội sau bốc thăm
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [items]
+                        properties:
+                          items: { type: array, items: { $ref: '#/components/schemas/Team' } }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/matches:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [tournament]
+      summary: Lịch thi đấu (theo lượt / bảng / sơ đồ)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [items]
+                        properties:
+                          items: { type: array, items: { $ref: '#/components/schemas/MatchView' } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      tags: [tournament]
+      summary: Thêm trận tay (play-off, tranh hạng…)
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [teamAId, teamBId]
+              properties:
+                teamAId: { type: string, format: uuid }
+                teamBId: { type: string, format: uuid }
+                label: { type: string, maxLength: 60 }
+      responses:
+        '201': { $ref: '#/components/responses/Match' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/standings:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [tournament]
+      summary: Bảng xếp hạng từng bảng
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [groups]
+                        properties:
+                          groups:
+                            type: array
+                            items:
+                              type: object
+                              required: [groupNo, rows]
+                              properties:
+                                groupNo: { type: integer }
+                                rows: { type: array, items: { $ref: '#/components/schemas/StandingRow' } }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/bracket:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [tournament]
+      summary: Sơ đồ loại trực tiếp theo vòng
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [rounds]
+                        properties:
+                          rounds:
+                            type: array
+                            items:
+                              type: object
+                              required: [roundNo, matches]
+                              properties:
+                                roundNo: { type: integer }
+                                matches: { type: array, items: { $ref: '#/components/schemas/MatchView' } }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/knockout/preview:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    post:
+      tags: [tournament]
+      summary: Xem trước sơ đồ loại trực tiếp từ kết quả vòng bảng
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [size, positions, teams, firstRound, constraintLevel]
+                        properties:
+                          size: { type: integer }
+                          positions: { type: array, items: { type: string, nullable: true } }
+                          teams: { type: object, additionalProperties: { $ref: '#/components/schemas/Team' } }
+                          firstRound: { type: array, items: { type: object } }
+                          constraintLevel: { type: integer, nullable: true }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/knockout:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    post:
+      tags: [tournament]
+      summary: Khoá sơ đồ loại trực tiếp (có thể đổi ô)
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                positions: { type: array, items: { type: string, format: uuid, nullable: true } }
+      responses:
+        '200': { $ref: '#/components/responses/TournamentDetail' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/finalize-preview:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [tournament]
+      summary: Xem trước khi chốt — thứ hạng, điểm trình trước → sau, điểm BXH thành tích
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/FinalizeResult'
+                          - type: object
+                            required: [ready, pendingMatches, needsKnockout]
+                            properties:
+                              ready: { type: boolean }
+                              pendingMatches: { type: integer }
+                              needsKnockout: { type: boolean }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/finalize:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    post:
+      tags: [tournament]
+      summary: Chốt giải — áp điểm trình, điểm BXH, thống kê trong một transaction
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200':
+          description: Đã chốt
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/FinalizeResult'
+                          - type: object
+                            required: [tournament]
+                            properties:
+                              tournament: { $ref: '#/components/schemas/Tournament' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/unfinalize:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    post:
+      tags: [tournament]
+      summary: Huỷ chốt (chỉ khi chưa ai có thay đổi điểm sau giải)
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200':
+          description: Đã huỷ chốt
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [tournament, rolledBack]
+                        properties:
+                          tournament: { $ref: '#/components/schemas/Tournament' }
+                          rolledBack: { type: array, items: { type: object } }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/placements:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [tournament]
+      summary: Thứ hạng chung cuộc (sau khi chốt)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [items]
+                        properties:
+                          items: { type: array, items: { $ref: '#/components/schemas/Placement' } }
+        default: { $ref: '#/components/responses/Error' }
+
 components:
   securitySchemes:
     serviceToken:
@@ -1077,6 +1845,22 @@ components:
       in: path
       required: true
       schema: { $ref: '#/components/schemas/ExternalRefValue' }
+    MatchId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TournamentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      description: 'Version hiện tại (ETag). Ghi kết quả trận bắt buộc có — thiếu → 412, lệch → 409.'
+      schema: { type: string, pattern: '^"?[0-9]+"?$' }
     Page:
       name: page
       in: query
@@ -1118,6 +1902,55 @@ components:
                       assessment: { $ref: '#/components/schemas/Assessment' }
                       result: { $ref: '#/components/schemas/AssessmentResultOrNull' }
                       player: { $ref: '#/components/schemas/PlayerView' }
+    Match:
+      description: Trận
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/MatchView' }
+    MatchPage:
+      description: Danh sách trận
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Paged'
+                      - type: object
+                        properties:
+                          items: { type: array, items: { $ref: '#/components/schemas/MatchView' } }
+    TournamentDetail:
+      description: Giải (kèm tiến độ)
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Tournament' }
+    EntryList:
+      description: Danh sách đăng ký
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/Entry' } }
     Rubric:
       description: Bộ tiêu chí
       content:
@@ -1354,9 +2187,10 @@ components:
         ranking:
           type: object
           additionalProperties: false
-          required: [rating]
+          required: [rating, points]
           properties:
             rating: { $ref: '#/components/schemas/RankingPositions' }
+            points: { $ref: '#/components/schemas/PointsPositions' }
 
     PlayerPublicView:
       type: object
@@ -1379,6 +2213,7 @@ components:
           nullable: true
           properties:
             rating: { $ref: '#/components/schemas/RankingPositions' }
+            points: { $ref: '#/components/schemas/PointsPositions' }
 
     RatingChange:
       type: object
@@ -1463,3 +2298,397 @@ components:
                     level: { type: integer }
                     text: { type: string }
         verificationTrigger: { type: object }
+
+    PlayerStats:
+      type: object
+      additionalProperties: false
+      required: [discipline, context, matches, wins, losses, winRate, gamesWon, gamesLost, pointsWon, pointsLost, streak, last5, tournaments, titles, runnerUps, semis, bestRating, bestRatingAt]
+      properties:
+        discipline: { $ref: '#/components/schemas/Discipline' }
+        context: { type: string, enum: [tournament, session] }
+        matches: { type: integer }
+        wins: { type: integer }
+        losses: { type: integer }
+        winRate: { type: number, nullable: true }
+        gamesWon: { type: integer }
+        gamesLost: { type: integer }
+        pointsWon: { type: integer }
+        pointsLost: { type: integer }
+        streak: { type: integer, description: 'Dương = thắng liền, âm = thua liền' }
+        last5: { type: array, items: { type: string, enum: [W, L] } }
+        tournaments: { type: integer }
+        titles: { type: integer }
+        runnerUps: { type: integer }
+        semis: { type: integer }
+        bestRating: { type: number, nullable: true }
+        bestRatingAt: { type: string, format: date-time, nullable: true }
+
+    MatchTeam:
+      type: object
+      nullable: true
+      required: [teamId, players]
+      properties:
+        teamId: { type: string }
+        players:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string, nullable: true }
+    MatchView:
+      type: object
+      additionalProperties: false
+      required: [id, contextType, contextId, discipline, stage, teamA, teamB, scoring, games, outcome, winnerSide, status, version]
+      properties:
+        id: { type: string, format: uuid }
+        contextType: { type: string, enum: [tournament, session] }
+        contextId: { type: string, format: uuid }
+        discipline: { $ref: '#/components/schemas/Discipline' }
+        stage: { type: string, enum: [group, knockout, extra] }
+        label: { type: string, nullable: true }
+        groupNo: { type: integer, nullable: true }
+        roundNo: { type: integer, nullable: true }
+        slotNo: { type: integer, nullable: true }
+        bracketPos: { type: integer, nullable: true }
+        nextMatchId: { type: string, nullable: true }
+        teamA: { $ref: '#/components/schemas/MatchTeam' }
+        teamB: { $ref: '#/components/schemas/MatchTeam' }
+        scoring: { $ref: '#/components/schemas/ScoringObject' }
+        games: { type: array, items: { type: array, items: { type: integer } } }
+        outcome: { type: string, nullable: true, enum: [normal, walkover, retired, null] }
+        winnerSide: { type: string, nullable: true, enum: [A, B, null] }
+        status: { type: string, enum: [scheduled, in_play, completed, cancelled] }
+        courtRef: { type: string, nullable: true }
+        calledAt: { type: string, format: date-time, nullable: true }
+        completedAt: { type: string, format: date-time, nullable: true }
+        version: { type: integer }
+
+    ScoringObject:
+      type: object
+      required: [bestOf, points]
+      properties:
+        bestOf: { type: integer, enum: [1, 3, 5] }
+        points: { type: integer, minimum: 5, maximum: 50 }
+        cap: { type: integer, nullable: true }
+    Scoring:
+      description: Preset ('3x21', '1x21', '3x15', '1x31') hoặc tuỳ chỉnh
+      oneOf:
+        - { type: string, enum: ['3x21', '1x21', '3x15', '1x31'] }
+        - $ref: '#/components/schemas/ScoringObject'
+    RatingRule:
+      type: object
+      nullable: true
+      additionalProperties: false
+      required: [scope]
+      properties:
+        scope: { type: string, enum: [player, team_sum] }
+        min: { type: number, nullable: true, minimum: 1, maximum: 14 }
+        max: { type: number, nullable: true, minimum: 1, maximum: 14 }
+
+    TournamentPatch:
+      type: object
+      additionalProperties: false
+      properties: &tournamentProps
+        name: { type: string, minLength: 3, maxLength: 120 }
+        description: { type: string, nullable: true, maxLength: 5000 }
+        startsOn: { type: string, format: date }
+        tier: { type: string, enum: [club, open, chain] }
+        discipline: { $ref: '#/components/schemas/Discipline' }
+        genderRule: { type: string, enum: [open, men, women, mixed] }
+        pairingMode: { type: string, enum: [fixed, random_balanced] }
+        maxPartnerGap: { type: number, nullable: true, minimum: 0, maximum: 6 }
+        maxEntries: { type: integer, nullable: true, minimum: 2, maximum: 512 }
+        ratingRule: { $ref: '#/components/schemas/RatingRule' }
+        format: { type: string, enum: [round_robin, groups_knockout, knockout] }
+        groupCount: { type: integer, nullable: true, minimum: 1, maximum: 64 }
+        groupMode: { type: string, enum: [seeded, level] }
+        advancePerGroup: { type: integer, nullable: true, enum: [1, 2, null] }
+        thirdPlaceMatch: { type: boolean }
+        scoring: { $ref: '#/components/schemas/Scoring' }
+        courtCount: { type: integer, minimum: 1, maximum: 64 }
+        matchMinutes: { type: integer, minimum: 5, maximum: 240 }
+        rated: { type: boolean }
+        ranked: { type: boolean }
+    TournamentInput:
+      type: object
+      additionalProperties: false
+      required: [organizerRef, name, startsOn, tier, discipline, genderRule, format, scoring]
+      properties:
+        <<: *tournamentProps
+        organizerRef: { type: string, minLength: 1, maxLength: 64 }
+
+    Tournament:
+      type: object
+      required: [id, organizerRef, name, startsOn, tier, discipline, genderRule, pairingMode, format, scoring, status, version]
+      properties:
+        id: { type: string, format: uuid }
+        organizerRef: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        startsOn: { type: string, format: date }
+        tier: { type: string, enum: [club, open, chain] }
+        discipline: { $ref: '#/components/schemas/Discipline' }
+        genderRule: { type: string, enum: [open, men, women, mixed] }
+        pairingMode: { type: string, enum: [fixed, random_balanced] }
+        maxPartnerGap: { type: number, nullable: true }
+        maxEntries: { type: integer, nullable: true }
+        ratingRule: { $ref: '#/components/schemas/RatingRule' }
+        format: { type: string, enum: [round_robin, groups_knockout, knockout] }
+        groupCount: { type: integer, nullable: true }
+        groupMode: { type: string, enum: [seeded, level] }
+        advancePerGroup: { type: integer, nullable: true }
+        thirdPlaceMatch: { type: boolean }
+        scoring: { $ref: '#/components/schemas/ScoringObject' }
+        courtCount: { type: integer }
+        matchMinutes: { type: integer }
+        rated: { type: boolean }
+        ranked: { type: boolean }
+        drawSeed: { type: string, nullable: true }
+        status: { type: string, enum: [draft, open, drawn, in_progress, finalized, cancelled] }
+        stage: { type: string, nullable: true, enum: [group, knockout, null] }
+        finalizedAt: { type: string, format: date-time, nullable: true }
+        createdByRef: { type: string }
+        version: { type: integer }
+        createdAt: { type: string, format: date-time, nullable: true }
+        progress:
+          type: object
+          properties:
+            entries:
+              type: object
+              properties:
+                registered: { type: integer }
+                waitlisted: { type: integer }
+                withdrawn: { type: integer }
+            matches:
+              type: object
+              properties:
+                total: { type: integer }
+                completed: { type: integer }
+
+    Entry:
+      type: object
+      additionalProperties: false
+      required: [id, playerId, name, gender, partnerPlayerId, status, waitlistReason, rating, pairingRating, flags, registeredAt]
+      properties:
+        id: { type: string, format: uuid }
+        playerId: { type: string, format: uuid }
+        name: { type: string, nullable: true }
+        gender: { type: string, nullable: true }
+        partnerPlayerId: { type: string, nullable: true }
+        status: { type: string, enum: [registered, waitlisted, withdrawn] }
+        waitlistReason: { type: string, nullable: true, enum: [capacity, draw, null] }
+        rating: { type: number, nullable: true }
+        pairingRating: { type: number, nullable: true }
+        flags: { type: array, items: { type: string } }
+        registeredAt: { type: string, format: date-time }
+
+    Team:
+      type: object
+      required: [id, players, teamRating, groupNo, seed, withdrawn]
+      properties:
+        id: { type: string, format: uuid }
+        players:
+          type: array
+          items:
+            type: object
+            required: [id, name, gender]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string, nullable: true }
+              gender: { type: string, nullable: true }
+        teamRating: { type: number }
+        groupNo: { type: integer, nullable: true }
+        seed: { type: integer, nullable: true }
+        withdrawn: { type: boolean }
+        groupRank: { type: integer }
+
+    DrawProposal:
+      type: object
+      additionalProperties: false
+      required: [seed, teams, waitlist, groups, bracket, matches, estimate, stats]
+      properties:
+        seed: { type: string }
+        teams:
+          type: array
+          items:
+            type: object
+            required: [index, players, teamRating]
+            properties:
+              index: { type: integer }
+              teamRating: { type: number }
+              players:
+                type: array
+                items:
+                  type: object
+                  required: [id, name, gender, pairingRating]
+                  properties:
+                    id: { type: string, format: uuid }
+                    name: { type: string, nullable: true }
+                    gender: { type: string, nullable: true }
+                    pairingRating: { type: number }
+        waitlist:
+          type: array
+          items:
+            type: object
+            required: [playerId, name, reason]
+            properties:
+              playerId: { type: string, format: uuid }
+              name: { type: string, nullable: true }
+              reason: { type: string, enum: [ODD_COUNT, GENDER_IMBALANCE] }
+        groups:
+          type: array
+          items:
+            type: object
+            required: [groupNo, teams]
+            properties:
+              groupNo: { type: integer }
+              teams: { type: array, items: { type: integer } }
+              pots: { type: array, items: { type: integer, nullable: true } }
+        bracket: { type: array, nullable: true, items: { type: integer, nullable: true } }
+        matches:
+          type: array
+          items:
+            type: object
+            required: [stage, round, slotNo, teams]
+            properties:
+              stage: { type: string }
+              groupNo: { type: integer, nullable: true }
+              round: { type: integer }
+              slotNo: { type: integer, nullable: true }
+              teams: { type: array, items: { type: integer } }
+        estimate:
+          type: object
+          required: [matches, slots, minutes]
+          properties:
+            matches: { type: integer }
+            slots: { type: integer }
+            minutes: { type: integer }
+        stats:
+          type: object
+          required: [teamRatingStdDev, teamRatingRange, baselineRandomStdDev]
+          properties:
+            teamRatingStdDev: { type: number }
+            teamRatingRange: { type: number }
+            baselineRandomStdDev: { type: number, nullable: true }
+
+    StandingRow:
+      type: object
+      required: [teamId, rank, played, wins, losses, gamesWon, gamesLost, gameDiff, pointsWon, pointsLost, pointDiff, team]
+      properties:
+        teamId: { type: string, format: uuid }
+        rank: { type: integer }
+        played: { type: integer }
+        wins: { type: integer }
+        losses: { type: integer }
+        gamesWon: { type: integer }
+        gamesLost: { type: integer }
+        gameDiff: { type: integer }
+        pointsWon: { type: integer }
+        pointsLost: { type: integer }
+        pointDiff: { type: integer }
+        team: { $ref: '#/components/schemas/Team' }
+
+    Placement:
+      type: object
+      additionalProperties: false
+      required: [teamId, from, to, label, reachedKnockout, wins, players]
+      properties:
+        teamId: { type: string, format: uuid }
+        from: { type: integer }
+        to: { type: integer }
+        label: { type: string }
+        reachedKnockout: { type: boolean }
+        wins: { type: integer }
+        players:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string, nullable: true }
+
+    FinalizeResult:
+      type: object
+      required: [placements, ratingChanges, rankingPoints, rankingEligible, rankingReason]
+      properties:
+        placements: { type: array, items: { $ref: '#/components/schemas/Placement' } }
+        ratingChanges:
+          type: array
+          items:
+            type: object
+            required: [playerId, name, before, after, delta, matches]
+            properties:
+              playerId: { type: string, format: uuid }
+              name: { type: string, nullable: true }
+              before: { type: number }
+              after: { type: number }
+              delta: { type: number }
+              matches: { type: integer }
+        rankingEligible: { type: boolean }
+        rankingReason: { type: string, nullable: true }
+        rankingPoints:
+          type: array
+          items:
+            type: object
+            required: [playerId, name, category, placement, points]
+            properties:
+              playerId: { type: string, format: uuid }
+              name: { type: string, nullable: true }
+              category: { type: string, enum: [MS, WS, MD, WD, XD] }
+              placement: { type: string }
+              points: { type: integer }
+
+    PointsRow:
+      type: object
+      additionalProperties: false
+      required: [rank, movement, player, points, countedResults, rating, level, isMe, results]
+      properties:
+        rank: { type: integer }
+        movement: { type: integer, nullable: true }
+        player:
+          type: object
+          additionalProperties: false
+          required: [id, name, masked]
+          properties:
+            id: { type: string, nullable: true }
+            name: { type: string }
+            nickname: { type: string, nullable: true }
+            masked: { type: boolean }
+        points: { type: integer }
+        countedResults: { type: integer }
+        rating: { type: number, nullable: true }
+        level: { type: string, nullable: true }
+        isMe: { type: boolean }
+        results:
+          type: array
+          items:
+            type: object
+            required: [tournamentId, tournament, placement, points, awardedAt, expiresAt]
+            properties:
+              tournamentId: { type: string }
+              tournament: { type: string }
+              placement: { type: string }
+              points: { type: integer }
+              awardedAt: { type: string, format: date-time }
+              expiresAt: { type: string, format: date-time }
+    PointsPosition:
+      type: object
+      additionalProperties: false
+      required: [rank, total, points, countedResults]
+      properties:
+        rank: { type: integer }
+        total: { type: integer }
+        points: { type: integer }
+        countedResults: { type: integer }
+    PointsPositions:
+      type: object
+      additionalProperties: false
+      properties:
+        MS: { $ref: '#/components/schemas/PointsPosition' }
+        WS: { $ref: '#/components/schemas/PointsPosition' }
+        MD: { $ref: '#/components/schemas/PointsPosition' }
+        WD: { $ref: '#/components/schemas/PointsPosition' }
+        XD: { $ref: '#/components/schemas/PointsPosition' }

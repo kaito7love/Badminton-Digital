@@ -120,6 +120,21 @@ const createPlayerRouter = ({ players, idempotency }) => {
     })
   );
 
+  router.get(
+    '/players/:id/stats',
+    requireScope('ranking:read', 'rating:read', 'rating:self'),
+    asyncHandler(async (req, res) => {
+      const player = await players.findById(req.auth.tenant, req.params.id);
+      const viewer = viewerKind(req.auth);
+      const isSelf = Boolean(player && req.auth.player && player.externalRef === req.auth.player);
+      if (!player || !canViewProfile(player, viewer, isSelf)) throw notFound('Không tìm thấy người chơi');
+      let items = await players.getStats(req.auth.tenant, player.id);
+      if (req.query.discipline) items = items.filter((s) => s.discipline === req.query.discipline);
+      if (req.query.context) items = items.filter((s) => s.context === req.query.context);
+      return ok(res, { playerId: player.id, items });
+    })
+  );
+
   router.patch(
     '/players/:id',
     requireScope('player:write'),

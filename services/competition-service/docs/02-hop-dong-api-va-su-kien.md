@@ -123,7 +123,7 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 | `GET /v1/matches/{id}` | `t:read` hoặc `s:read` (theo ngữ cảnh) | Chi tiết trận |
 | `POST /v1/matches/{id}/call` | `t:operate` / `s:operate` | Gọi ra sân `{ courtRef }` → `in_play` |
 | `PUT /v1/matches/{id}/result` | `t:operate` / `s:operate` | `{ games }` \| `{ outcome: "walkover", winnerSide }` \| `{ games, outcome: "retired", winnerSide }`. `If-Match` bắt buộc. Trận loại trực tiếp: người thắng tự vào ô sau; đổi người thắng khi trận sau đã bắt đầu → 409 `NEXT_MATCH_STARTED` |
-| `POST /v1/matches/{id}/cancel` | `t:manage` / `s:operate` | Huỷ trận |
+| `POST /v1/matches/{id}/cancel` | `t:manage` / `s:operate` | Huỷ trận chưa có kết quả. Trận trong sơ đồ loại trực tiếp không huỷ được (xử W.O.) |
 
 ### 2.6 Giải đấu (module `tournament`, tài liệu 06)
 
@@ -132,13 +132,13 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 | `POST /v1/tournaments/advice` | `t:read` | — | Gợi ý thể thức / số bảng / ước tính thời gian theo số đội dự kiến (wizard bước 3–4) |
 | `POST /v1/tournaments` | `t:manage` | — | Tạo (`draft`). `organizerRef` ∈ `org`; `tier = chain` cần `org = *` |
 | `GET /v1/tournaments` · `GET /v1/tournaments/{id}` | `t:read` | — | Danh sách (lọc trạng thái, ngày, nội dung) · chi tiết + tiến độ |
-| `PATCH /v1/tournaments/{id}` | `t:manage` | `draft`, `open` | Sửa; đã có người đăng ký thì không đổi nội dung / giới / luật điểm |
+| `PATCH /v1/tournaments/{id}` | `t:manage` | `draft`, `open` | Sửa (`If-Match` bắt buộc); đã có người đăng ký thì không đổi nội dung / giới / cách ghép / luật điểm / điều kiện trình → 409 `LOCKED_AFTER_ENTRIES` |
 | `POST /v1/tournaments/{id}/open` | `t:manage` | `draft` | Mở đăng ký |
 | `GET/POST /v1/tournaments/{id}/entries` · `DELETE …/entries/{entryId}` | `t:operate` | `open` (thêm) · mọi lúc trước chốt (rút) | Đăng ký / rút (06, mục 4.2, 7.4) |
 | `POST /v1/tournaments/{id}/draw/preview` | `t:manage` | `open`, `drawn` chưa có kết quả | `{ seed? }` → đội + chờ + bảng + lịch theo lượt + thống kê cân bằng |
 | `POST /v1/tournaments/{id}/draw` | `t:manage` | như trên | `{ seed, teams, groups }` đã chỉnh tay → kiểm tra → sinh trận → `drawn` |
 | `POST /v1/tournaments/{id}/reopen` | `t:manage` | `drawn` chưa có kết quả | Huỷ bốc thăm, về `open` |
-| `GET /v1/tournaments/{id}/matches` · `…/standings` · `…/bracket` | `t:read` | — | Lịch theo lượt / bảng · xếp hạng từng bảng · sơ đồ |
+| `GET /v1/tournaments/{id}/teams` · `…/matches` · `…/standings` · `…/bracket` | `t:read` | — | Các đội · lịch theo lượt / bảng · xếp hạng từng bảng · sơ đồ |
 | `POST /v1/tournaments/{id}/matches` | `t:manage` | `in_progress` | Thêm trận tay `{ teamAId, teamBId, label }` |
 | `POST /v1/tournaments/{id}/knockout/preview` · `POST …/knockout` | `t:manage` | vòng bảng xong | Xem trước / khoá sơ đồ (kèm đổi ô) → `stage = knockout` |
 | `GET /v1/tournaments/{id}/finalize-preview` | `t:read` | mọi trận xong | Thứ hạng + điểm trình trước / sau + điểm thành tích |

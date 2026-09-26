@@ -42,6 +42,43 @@ const createPlayerService = ({ models, sequelize, audit }) => {
     return player;
   };
 
+  // --- Thống kê (bảng tổng hợp; nguồn sự thật là matches — module match / tournament
+  // dựng lại rồi ghi vào đây qua upsertStats) ---
+  const upsertStats = async (transaction, { tenant, playerId, discipline, context, patch }) => {
+    const { PlayerStats } = models;
+    const [row] = await PlayerStats.findOrCreate({
+      where: { tenantId: tenant, playerId, discipline, context },
+      defaults: { tenantId: tenant, playerId, discipline, context },
+      transaction
+    });
+    await row.update(patch, { transaction });
+    return row;
+  };
+
+  const getStats = async (tenant, playerId) => {
+    const rows = await models.PlayerStats.findAll({ where: { tenantId: tenant, playerId } });
+    return rows.map((r) => ({
+      discipline: r.discipline,
+      context: r.context,
+      matches: r.matches,
+      wins: r.wins,
+      losses: r.losses,
+      winRate: r.matches ? Math.round((r.wins / r.matches) * 1000) / 1000 : null,
+      gamesWon: r.gamesWon,
+      gamesLost: r.gamesLost,
+      pointsWon: r.pointsWon,
+      pointsLost: r.pointsLost,
+      streak: r.streak,
+      last5: r.last5 || [],
+      tournaments: r.tournaments,
+      titles: r.titles,
+      runnerUps: r.runnerUps,
+      semis: r.semis,
+      bestRating: r.bestRating === null ? null : Math.round(Number(r.bestRating) * 100) / 100,
+      bestRatingAt: r.bestRatingAt ? new Date(r.bestRatingAt).toISOString() : null
+    }));
+  };
+
   const distinctTenants = async () =>
     (await Player.findAll({ attributes: [[sequelize.fn('DISTINCT', sequelize.col('tenant_id')), 'tenantId']], raw: true })).map((r) => r.tenantId);
 
@@ -204,6 +241,8 @@ const createPlayerService = ({ models, sequelize, audit }) => {
     findByRef,
     findByIds,
     distinctTenants,
+    upsertStats,
+    getStats,
     upsertByRef,
     ensureSelf,
     updateProfile,

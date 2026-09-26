@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "competition.tournament.unfinalized/v1",
+  "title": "Giải đã huỷ chốt — điểm được hoàn tác",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tournamentId",
+    "organizerRef",
+    "reason"
+  ],
+  "properties": {
+    "tournamentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "organizerRef": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    }
+  }
+}

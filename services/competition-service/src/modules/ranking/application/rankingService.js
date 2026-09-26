@@ -101,11 +101,24 @@ const createRankingService = ({ models, sequelize, players, ratingQueries, level
     return out;
   };
 
+  // BXH thành tích gắn vào sau (module ranking dựng hai phần rồi nối).
+  let pointsService = null;
+  const attachPoints = (svc) => {
+    pointsService = svc;
+  };
+
   // Enricher cho view chi tiết (không chạy cho danh sách — tính BXH tốn kém).
   const enricher = async (tenant, list, context = {}) => {
     const out = new Map();
     if (!context.detail && !context.publicOnly) return out;
-    for (const player of list) out.set(player.id, { ranking: { rating: await positionsFor(tenant, player) } });
+    for (const player of list) {
+      out.set(player.id, {
+        ranking: {
+          rating: await positionsFor(tenant, player),
+          points: pointsService ? await pointsService.pointsPositions(tenant, player.id) : {}
+        }
+      });
+    }
     return out;
   };
 
@@ -143,7 +156,7 @@ const createRankingService = ({ models, sequelize, players, ratingQueries, level
     return { date, rows: written };
   };
 
-  return { ratingLeaderboard, positionsFor, enricher, dailySnapshot, board };
+  return { ratingLeaderboard, positionsFor, enricher, dailySnapshot, board, attachPoints };
 };
 
 module.exports = { createRankingService };

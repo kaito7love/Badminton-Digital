@@ -61,10 +61,10 @@ const createTestContext = async ({ webhookTargets = [], tenant } = {}) => {
     const bearer = `Bearer ${await token(claims)}`;
     const wrap = (method) => (url, { key } = {}) => {
       const req = api[method](url).set('Authorization', bearer);
-      if (method === 'post' && key !== false) req.set('Idempotency-Key', key || crypto.randomUUID());
+      if ((method === 'post' || method === 'put') && key !== false) req.set('Idempotency-Key', key || crypto.randomUUID());
       return req;
     };
-    return { get: wrap('get'), post: wrap('post'), put: wrap('put'), patch: wrap('patch') };
+    return { get: wrap('get'), post: wrap('post'), put: wrap('put'), patch: wrap('patch'), delete: wrap('delete') };
   };
 
   const sendEvent = (event, { secret = INBOUND_SECRET, timestamp = Math.floor(Date.now() / 1000), source = 'bd-core' } = {}) => {

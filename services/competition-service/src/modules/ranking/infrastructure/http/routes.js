@@ -5,8 +5,8 @@ const { ok, paged } = require('../../../../platform/http/envelope');
 const { notFound } = require('../../../../platform/http/errors');
 const { parsePagination } = require('../../../../platform/http/pagination');
 
-// Route của module ranking (docs/02 mục 2.3). BXH thành tích ở bước 2.
-const createRankingRouter = ({ ranking, players, profile }) => {
+// Route của module ranking (docs/02 mục 2.3): BXH trình độ + BXH thành tích.
+const createRankingRouter = ({ ranking, points, players, profile }) => {
   const router = express.Router();
 
   router.get(
@@ -28,6 +28,16 @@ const createRankingRouter = ({ ranking, players, profile }) => {
   );
 
   router.get(
+    '/leaderboards/points',
+    requireScope('ranking:read', 'rating:read'),
+    asyncHandler(async (req, res) => {
+      const { page, limit } = parsePagination(req.query, { defaultLimit: 50 });
+      const result = await points.pointsLeaderboard({ auth: req.auth, category: req.query.category, organizerRef: req.query.organizerRef, page, limit });
+      return ok(res, { category: result.category, label: result.label, ...paged(result.items, result.total, page, limit) });
+    })
+  );
+
+  router.get(
     '/players/:id/ranking',
     requireScope('ranking:read', 'rating:read'),
     asyncHandler(async (req, res) => {
@@ -35,7 +45,11 @@ const createRankingRouter = ({ ranking, players, profile }) => {
       const viewer = profile.viewerKind(req.auth);
       const isSelf = Boolean(player && req.auth.player && player.externalRef === req.auth.player);
       if (!player || !profile.canViewProfile(player, viewer, isSelf)) throw notFound('Không tìm thấy người chơi');
-      return ok(res, { playerId: player.id, rating: await ranking.positionsFor(req.auth.tenant, player) });
+      return ok(res, {
+        playerId: player.id,
+        rating: await ranking.positionsFor(req.auth.tenant, player),
+        points: await points.pointsPositions(req.auth.tenant, player.id)
+      });
     })
   );
 

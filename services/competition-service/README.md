@@ -24,7 +24,7 @@ Có thể chạy và test **một mình**, không cần app chính. Kết nối 
 | Bước | Nội dung | Trạng thái |
 |---|---|---|
 | 1 | Khung service, `player`, `rating`, `matchmaking`, BXH trình độ | Xong trên nhánh `feat/competition-service` |
-| 2 | `match`, `tournament`, BXH thành tích, thống kê | Chưa làm |
+| 2 | `match`, `tournament`, BXH thành tích, thống kê, dữ liệu demo | Xong trên nhánh `feat/competition-service` |
 | 3 | `session` (buổi giao lưu) | Chưa làm |
 | 4 | Tích hợp app chính + giao diện (nhánh riêng) | Chưa làm |
 
@@ -42,7 +42,8 @@ npm run dev
 
 - Bước `cp` xong thì điền `DB_*` trong `.env`, và tạo DB rỗng `competition_service` trước khi migrate.
 - `keys:generate` tạo cặp khoá ES256 dev trong `.keys/`.
-- `migrate` tạo 10 bảng trong DB riêng.
+- `migrate` tạo 17 bảng trong DB riêng.
+- `npm run seed:demo` (tuỳ chọn) tạo dữ liệu demo bằng chính các service: 25 người chơi, 2 giải đã chốt, 1 giải đang mở để thử bốc thăm. Chỉ chạy trên DB trống; production cần `ALLOW_DEMO_SEED=true`.
 - `dev` chạy ở http://127.0.0.1:5100; Swagger UI ở `/docs`.
 
 Gọi API bằng token dev (không cần app chính):
@@ -56,6 +57,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:5100/v1/rubrics/current
 Scope có sẵn:
 - `rating:self`, `rating:read`, `rating:assess`, `rating:assess:any`, `rating:adjust`;
 - `player:write`, `ranking:read`, `matchmaking:compute`;
+- `tournament:read`, `tournament:operate`, `tournament:manage`;
 - `assessment:submit-ai`, `ops:admin`.
 
 Ý nghĩa từng scope và bảng vai trò → scope: xem `docs/02` mục 5.

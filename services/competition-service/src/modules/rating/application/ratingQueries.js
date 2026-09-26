@@ -194,7 +194,33 @@ const createRatingQueries = ({ models, sequelize }) => {
       lastMatchAt: r.lastMatchAt
     }));
 
-  return { ratingsFor, enricher, listFilter, hasRatedMatches, history, leaderboardRows, flagsOf };
+  // Điểm một nội dung cho nhiều người (điều kiện giải, bốc thăm): { rating, pairingRating } hoặc không có.
+  const disciplineRatings = async (tenant, playerIds, discipline, now = new Date()) => {
+    const all = await ratingsFor(tenant, playerIds, now);
+    const out = new Map();
+    for (const [id, r] of all) if (r[discipline]) out.set(id, r[discipline]);
+    return out;
+  };
+
+  // Điểm cao nhất từng có (cho thống kê "điểm cao nhất").
+  const peakAllTime = async (tenant, playerIds, discipline, { transaction } = {}) => {
+    if (!playerIds.length) return new Map();
+    const rows = await sequelize.query(
+      `SELECT r.player_id AS playerId, r.rating_after AS peak, r.created_at AS at
+         FROM rating_changes r
+         JOIN (SELECT player_id, MAX(rating_after) AS m FROM rating_changes
+                WHERE tenant_id = :tenant AND discipline = :discipline AND player_id IN (:ids) GROUP BY player_id) x
+           ON x.player_id = r.player_id AND x.m = r.rating_after
+        WHERE r.tenant_id = :tenant AND r.discipline = :discipline
+        ORDER BY r.created_at ASC`,
+      { replacements: { tenant, discipline, ids: playerIds }, type: QueryTypes.SELECT, transaction }
+    );
+    const out = new Map();
+    for (const r of rows) if (!out.has(r.playerId)) out.set(r.playerId, { peak: Number(r.peak), at: r.at });
+    return out;
+  };
+
+  return { ratingsFor, enricher, listFilter, hasRatedMatches, history, leaderboardRows, flagsOf, disciplineRatings, peakAllTime };
 };
 
 module.exports = { createRatingQueries, DISCIPLINES };

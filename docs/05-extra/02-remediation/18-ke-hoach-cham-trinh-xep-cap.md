@@ -304,3 +304,103 @@ Kịch bản curl thật vào container:
 - **Chưa kiểm được:**
   - job CI mới chưa chạy trên GitHub (chưa push);
   - image khoảng 320 MB (node:22-alpine + deps).
+
+### 8.4 Bước 2 — xong trên nhánh `feat/competition-service` (27/09/2026), chờ duyệt
+
+**Đã làm** (vẫn chỉ trong `services/competition-service/`, không sửa app chính):
+
+- **Dữ liệu:** 3 migration, 7 bảng (`matches`, `match_participants`, `tournaments`, `tournament_entries`,
+  `tournament_teams`, `tournament_placements`, `ranking_results`). Tổng cộng 17 bảng.
+- **Module `match`** (chỉ phụ thuộc `player`):
+  - mô hình trận chung cho giải và giao lưu;
+  - kiểm tỉ số theo luật BWF (3×21 trần 30, 1×21, 3×15 trần 21, 1×31, tuỳ chỉnh), W.O., bỏ cuộc giữa trận;
+  - người thắng tự vào ô trận sau, người thua bán kết vào trận tranh hạng 3;
+  - gọi ra sân, huỷ trận;
+  - thống kê dựng lại từ trận (nguồn sự thật);
+  - lịch sử trận, đồng đội hay đánh, đối đầu.
+
+  Ngữ cảnh (giải / buổi giao lưu) gắn vào qua hook, nên `match` không biết `tournament`.
+- **Module `tournament`:**
+  - tạo / sửa (khoá sau khi có người đăng ký) / mở / huỷ;
+  - đăng ký: kiểm giới, trình theo `pairingRating`, tổng trình cặp, giới hạn số người + danh sách chờ; rút lui;
+  - bốc thăm: xem trước → xác nhận bản đổi tay (kiểm hợp lệ), mở lại;
+  - ba thể thức: vòng tròn, vòng bảng + loại trực tiếp (sơ đồ tự sinh, nhất – nhì cùng bảng ở hai nửa), loại trực tiếp
+    có hạt giống + tranh hạng 3;
+  - xếp lượt theo số sân, gợi ý thể thức + ước tính thời gian;
+  - bảng xếp hạng trong bảng (đối đầu, hiệu số game / điểm, bốc thăm bằng seed), thứ hạng chung cuộc;
+  - xem trước khi chốt → chốt / huỷ chốt.
+- **Chốt giải** ghi **một transaction** qua 4 module:
+  - điểm trình (`rating.applyPeriod`, khoá theo thứ tự id);
+  - điểm BXH thành tích (`ranking`);
+  - thống kê (`match` + `player`);
+  - thứ hạng + sự kiện.
+- **Huỷ chốt** hoàn tác bằng dòng `rollback` (không xoá sổ điểm); bị chặn nếu có ai đổi điểm sau giải.
+- **BXH thành tích:** tổng 6 kết quả tốt nhất trong 52 tuần, bỏ kết quả hết hạn / bị thu hồi. Vị trí trên bảng này có
+  trong hồ sơ người chơi.
+- **API:** 35 thao tác mới (hợp đồng có tổng 69 thao tác, bước 1 là 34), hợp đồng OpenAPI khoảng 2.700 dòng, thêm 5 JSON Schema sự kiện
+  (`match.completed`, `tournament.drawn` / `finalized` / `unfinalized` / `cancelled`).
+- **Dữ liệu demo** (`npm run seed:demo`) tạo bằng chính các service:
+  - 25 người chơi;
+  - giải đôi nam nữ ghép cặp 12 đội và giải đơn nam loại trực tiếp 8 người, đã chốt, lùi ngày để có lịch sử;
+  - ảnh chụp BXH;
+  - 1 giải đang mở với 21 người đủ điều kiện;
+  - `bd:customer:1` chưa chấm trình để khách xem demo tự làm form.
+
+**Kiểm thử thật:**
+
+| Kiểm | Kết quả |
+|---|---|
+| `npm test` trên MySQL 9.5 local | **170 / 170** (103 unit + 67 integration) |
+| `npm test` trên MySQL 8.4 Docker `--sql-require-primary-key=ON` | **170 / 170**; DB test có 18 bảng, 7 giải, 47 trận — đúng là chạy trên DB đó |
+| Ví dụ 06 §9 bằng API thật (test integration) | Xem dưới |
+| Cặp cố định, giới hạn số người, khoá sửa, mở lại, huỷ, quyền | Cặp cố định: bắt buộc đồng đội, tổng trình cặp 7.1 > 7.0 → 422, bốc thăm không được đổi cặp. Hết chỗ → chờ, người chờ sớm nhất được lên khi có người rút. Có người đăng ký thì không đổi luật điểm (409), `If-Match` lệch → 409. Mở lại → bốc lại → huỷ giải. Khách hàng nhập tỉ số → 403; chi nhánh khác → 404 |
+| Giải đơn loại trực tiếp 6 người + tranh hạng 3 | Sơ đồ 8, 2 bye cho hạt giống 1–2; thứ hạng 1 / 2 / 3 / 4 / 5–8 / 5–8 |
+| BXH thành tích với 9 kết quả của một người (7 còn hiệu lực, 1 hết hạn, 1 thu hồi) | Tính đúng 6 kết quả tốt nhất: 450 điểm |
+| `db:migrate:undo:all` → `db:migrate` trên 8.4 | Hoàn tác 7 bước sạch (còn `SequelizeMeta`), chạy lại 7 bước |
+| Image Docker production + MySQL 8.4 | Healthy; seed demo trong container cho cùng kết quả như local (cùng seed); thiếu `ALLOW_DEMO_SEED` thì seed bị chặn |
+| Chạy trọn giải demo đang mở bằng HTTP thật vào container (22 request: ghi 23 trận, sơ đồ, chốt) | Chốt thành công; 20 người đổi điểm; BXH Đôi nam nữ cộng dồn qua 2 giải. DB: 3 giải `finalized`, 52 dòng sổ điểm theo giải, 54 sự kiện `match.completed` = 23 + 8 + 23 trận |
+
+Ví dụ 06 §9 bằng API thật (test integration):
+
+- 14 nam + 12 nữ đăng ký: 1 nam trình 4.3 bị từ chối; 2 người chưa có điểm → 422 `NEEDS_ASSESSMENT` → chấm nhanh →
+  đăng ký được; đăng ký trùng → 409.
+- Xem trước: 12 đội nam nữ, 1 nam chờ, 3 bảng × 4, 18 trận / 5 lượt / 75 phút; cùng seed → cùng đề xuất.
+- Bản đổi tay sai → 422; đổi hai bạn nữ → xác nhận (sự kiện ghi `manualEdits: true`).
+- Nhập kết quả: thiếu `If-Match` → 412; lệch → 409; `21-20` → 422; kết quả đầu tiên → `in_progress`.
+- Sơ đồ 8 với 2 bye, nhất – nhì cùng bảng ở hai nửa; người thắng tự đi tiếp; đổi người thắng khi trận sau đã gọi
+  ra sân → 409.
+- Chốt **hai request song song → đúng 1 thành công**.
+- **Điểm trình của 24 người trong DB khớp tính độc lập bằng engine** từ điểm trước giải và các trận lấy qua API.
+- Điểm vô địch = `100 × 2 × 0.875 × sức mạnh`; 24 dòng BXH; thống kê vô địch đúng số trận, `titles = 1`.
+- Huỷ chốt → điểm về đúng như trước giải, `rated_matches = 0`, BXH trống, thống kê về 0.
+- Chốt lại; chỉnh điểm một người → huỷ chốt bị chặn `ROLLBACK_BLOCKED`.
+- Rút lui giải đơn: trận chưa đánh thành W.O., không tính điểm trình, không vào thống kê.
+
+### 8.5 Khác với kế hoạch / test thật phát hiện (bước 2)
+
+1. **Hợp đồng OpenAPI (3 lỗi thật):**
+   - `TournamentInput` viết bằng `allOf` + `additionalProperties: false` → từ chối luôn `organizerRef`; đã viết lại
+     bằng YAML anchor;
+   - `multipleOf: 0.001` cho điểm → ajv từ chối nhầm số thực (3.9); đã bỏ, server tự làm tròn;
+   - `bracket` không cho `null` nên client gửi lại đúng bản xem trước (vòng tròn → `bracket: null`) bị 400; đã cho
+     phép `null`.
+2. **`rankingPoints`** ở "xem trước khi chốt" và "chốt" từng khác dạng; đã thống nhất: mảng `rankingPoints` +
+   `rankingEligible` + `rankingReason`.
+3. **Thêm cột `tournament_entries.waitlist_reason`** (`capacity` / `draw`) để bốc lại / mở lại chỉ trả về đúng những
+   người chờ do bốc thăm.
+4. **Quyết định chốt khi code:** ghi ở tài liệu 06 mục 11 (giới hạn số người tính theo người; W.O. không vào thống kê;
+   tiêu chí phụ khi bằng điểm BXH; thứ tự khoá).
+5. **Kỹ thuật (bài học cho các bước sau):**
+   - script ghép YAML dùng `String.replace` với chuỗi thay thế có chứa `$` + dấu nháy đơn làm hỏng file (JavaScript
+     hiểu là "phần sau chỗ khớp"). Đã khôi phục từ commit bước 1, ghép lại bằng hàm thay thế và kiểm cú pháp trước khi
+     ghi;
+   - supertest mở server tạm ngay lúc `.post()`, nên `post(url).send({ id: await taoNguoiChoi() })` gây ECONNREFUSED.
+     Tạo dữ liệu trước rồi mới dựng request.
+
+### 8.6 Còn lại
+
+- **Bước 3:** module `session` (buổi giao lưu). Thuật toán `fillCourts` và cờ `rating_weight` / ngữ cảnh `session`
+  của `match` đã sẵn.
+- **Bước 4 (nhánh riêng):** tích hợp app chính + giao diện.
+- **DB dev** `competition_service` trên MySQL local đang chứa dữ liệu demo (cố ý, để xem qua Swagger `/docs`). Muốn
+  sạch thì drop DB rồi `npm run migrate`.

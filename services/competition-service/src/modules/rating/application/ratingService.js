@@ -3,6 +3,7 @@ const { round3 } = require('../../../shared/numbers');
 const { notFound, conflict, unprocessable, forbiddenScope } = require('../../../platform/http/errors');
 const { getRubric, CURRENT_VERSION } = require('../domain/rubric');
 const { scoreAssessment, scoreQuickLevel, validateAnswers } = require('../domain/scoreAssessment');
+const { computePeriodRatings } = require('../domain/ratingEngine');
 const config = require('../domain/ratingConfig');
 const { DISCIPLINES } = require('./ratingQueries');
 
@@ -469,7 +470,148 @@ const createRatingService = ({ models, sequelize, players, platform }) => {
     if (rated > 0) throw conflict('GENDER_LOCKED', 'Đã có trận tính điểm — liên hệ nhân viên để sửa giới tính');
   };
 
-  return { preview, submitSelf, submitStaff, quickAssess, submitAi, review, verify, adjust, listAssessments, mergeHandler, genderGuard, resultView };
+  // --- Kỳ tính điểm (một giải / một buổi giao lưu) — docs/03 mục 3.3 ---
+  // matches: định dạng của engine { matchId, sideA, sideB, games, outcome, winnerSide, weight, completedAt }
+  const periodPlayerIds = (matches) => [...new Set(matches.flatMap((m) => [...m.sideA, ...m.sideB]))].sort();
+
+  const currentInputs = (rows) =>
+    rows.map((r) => ({ playerId: r.playerId, rating: Number(r.rating), ratedMatches: r.ratedMatches, lastMatchAt: r.lastMatchAt }));
+
+  const previewPeriod = async ({ tenant, discipline, matches, now = new Date() }) => {
+    const ids = periodPlayerIds(matches);
+    const rows = ids.length ? await PlayerRating.findAll({ where: { tenantId: tenant, discipline, playerId: ids } }) : [];
+    if (rows.length !== ids.length) throw conflict('NEEDS_ASSESSMENT', 'Có người chơi chưa có điểm ở nội dung này');
+    return computePeriodRatings({ players: currentInputs(rows), matches, now });
+  };
+
+  const applyPeriod = async (transaction, { tenant, discipline, contextType, contextId, matches, actorRef, now = new Date() }) => {
+    const ids = periodPlayerIds(matches);
+    if (!ids.length) return { changes: [], skipped: [] };
+    // Khoá theo thứ tự id — hai giải có chung người chốt cùng lúc không deadlock.
+    const rows = await PlayerRating.findAll({
+      where: { tenantId: tenant, discipline, playerId: ids },
+      order: [['playerId', 'ASC']],
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (rows.length !== ids.length) throw conflict('NEEDS_ASSESSMENT', 'Có người chơi chưa có điểm ở nội dung này');
+    const byId = new Map(rows.map((r) => [r.playerId, r]));
+    const people = new Map((await players.findByIds(tenant, ids, { transaction })).map((p) => [p.id, p]));
+    const result = computePeriodRatings({ players: currentInputs(rows), matches, now });
+    const reason = contextType === 'session' ? 'session' : 'tournament';
+    for (const change of result.changes) {
+      const row = byId.get(change.playerId);
+      const lastMatchAt =
+        change.lastMatchAt && (!row.lastMatchAt || new Date(change.lastMatchAt) > new Date(row.lastMatchAt)) ? change.lastMatchAt : row.lastMatchAt;
+      await row.update({ rating: change.after, ratedMatches: row.ratedMatches + change.ratedMatchesAdded, lastMatchAt }, { transaction });
+      await RatingChange.create(
+        {
+          tenantId: tenant,
+          playerId: change.playerId,
+          discipline,
+          ratingBefore: change.before,
+          ratingAfter: change.after,
+          delta: change.delta,
+          reason,
+          contextType,
+          contextId,
+          actorRef,
+          calc: { ...change.calc, ratedMatchesAdded: change.ratedMatchesAdded }
+        },
+        { transaction }
+      );
+      const person = people.get(change.playerId);
+      await outbox.add(transaction, {
+        type: 'competition.player.rating_changed',
+        tenant,
+        aggregateType: 'player',
+        aggregateId: change.playerId,
+        data: {
+          playerId: change.playerId, externalRef: person ? person.externalRef : null, discipline,
+          before: change.before, after: change.after, reason, assessmentId: null, contextType, contextId
+        }
+      });
+    }
+    return result;
+  };
+
+  // Huỷ chốt: chỉ khi với MỌI người, dòng sổ điểm mới nhất của nội dung chính là
+  // dòng của kỳ này (docs/06 mục 7.3). Không xoá dòng cũ — ghi dòng rollback.
+  const rollbackPeriod = async (transaction, { tenant, discipline, contextType, contextId, actorRef }) => {
+    const rows = await RatingChange.findAll({
+      where: { tenantId: tenant, discipline, contextType, contextId, reason: { [Op.in]: ['tournament', 'session'] } },
+      order: [['createdAt', 'DESC'], ['id', 'DESC']],
+      transaction
+    });
+    const latestOfPeriod = new Map();
+    for (const r of rows) if (!latestOfPeriod.has(r.playerId)) latestOfPeriod.set(r.playerId, r);
+    if (!latestOfPeriod.size) return { rolledBack: [] };
+    const ids = [...latestOfPeriod.keys()].sort();
+    const ratingRows = await PlayerRating.findAll({
+      where: { tenantId: tenant, discipline, playerId: ids },
+      order: [['playerId', 'ASC']],
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    const blocked = [];
+    for (const id of ids) {
+      const latest = await RatingChange.findOne({
+        where: { tenantId: tenant, playerId: id, discipline },
+        order: [['createdAt', 'DESC'], ['id', 'DESC']],
+        transaction
+      });
+      if (!latest || latest.id !== latestOfPeriod.get(id).id) blocked.push(id);
+    }
+    if (blocked.length) {
+      const names = new Map((await players.findByIds(tenant, blocked, { transaction })).map((p) => [p.id, p.displayName]));
+      throw conflict(
+        'ROLLBACK_BLOCKED',
+        `${blocked.length} người đã có thay đổi điểm sau kỳ này — không huỷ chốt được, hãy chỉnh điểm tay có lý do`,
+        blocked.map((id) => ({ field: id, message: `${names.get(id) || id} đã có thay đổi điểm sau giải` }))
+      );
+    }
+    const people = new Map((await players.findByIds(tenant, ids, { transaction })).map((p) => [p.id, p]));
+    const rolledBack = [];
+    for (const row of ratingRows) {
+      const change = latestOfPeriod.get(row.playerId);
+      const calc = change.calc || {};
+      const before = Number(change.ratingAfter);
+      const after = Number(change.ratingBefore);
+      await row.update(
+        {
+          rating: after,
+          ratedMatches: Math.max(0, row.ratedMatches - (calc.ratedMatchesAdded || 0)),
+          lastMatchAt: calc.prevLastMatchAt ? new Date(calc.prevLastMatchAt) : null
+        },
+        { transaction }
+      );
+      await RatingChange.create(
+        {
+          tenantId: tenant, playerId: row.playerId, discipline, ratingBefore: before, ratingAfter: after,
+          delta: round3(after - before), reason: 'rollback', contextType, contextId, actorRef,
+          note: `Huỷ chốt ${contextType} ${contextId}`
+        },
+        { transaction }
+      );
+      await outbox.add(transaction, {
+        type: 'competition.player.rating_changed',
+        tenant,
+        aggregateType: 'player',
+        aggregateId: row.playerId,
+        data: {
+          playerId: row.playerId, externalRef: people.get(row.playerId) ? people.get(row.playerId).externalRef : null,
+          discipline, before, after, reason: 'rollback', assessmentId: null, contextType, contextId
+        }
+      });
+      rolledBack.push({ playerId: row.playerId, before, after });
+    }
+    return { rolledBack };
+  };
+
+  return {
+    preview, submitSelf, submitStaff, quickAssess, submitAi, review, verify, adjust, listAssessments, mergeHandler, genderGuard, resultView,
+    previewPeriod, applyPeriod, rollbackPeriod
+  };
 };
 
 module.exports = { createRatingService };

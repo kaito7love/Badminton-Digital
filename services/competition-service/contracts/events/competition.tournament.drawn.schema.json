@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "competition.tournament.drawn/v1",
+  "title": "Giải đã xác nhận bốc thăm — có đội, bảng, lịch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tournamentId",
+    "organizerRef",
+    "seed",
+    "manualEdits",
+    "teams",
+    "matches"
+  ],
+  "properties": {
+    "tournamentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "organizerRef": {
+      "type": "string"
+    },
+    "seed": {
+      "type": "string"
+    },
+    "manualEdits": {
+      "type": "boolean"
+    },
+    "teams": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "players",
+          "groupNo"
+        ],
+        "properties": {
+          "teamId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "players": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "groupNo": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "matches": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

@@ -7,7 +7,7 @@ const { formBalancedTeams } = require('./domain/formBalancedTeams');
 const { drawGroups } = require('./domain/drawGroups');
 const { roundRobin } = require('./domain/roundRobin');
 const { scheduleSlots } = require('./domain/scheduleSlots');
-const { buildBracket } = require('./domain/buildBracket');
+const { buildBracket, nextPow2, standardOrder } = require('./domain/buildBracket');
 const { fillCourts } = require('./domain/fillCourts');
 const { newSeed, createRng } = require('./domain/seededRandom');
 const config = require('./domain/config');
@@ -38,5 +38,5 @@ const createMatchmakingRouter = () => {
 
 module.exports = {
   createMatchmakingRouter,
-  domain: { formBalancedTeams, drawGroups, roundRobin, scheduleSlots, buildBracket, fillCourts, newSeed, createRng, config }
+  domain: { formBalancedTeams, drawGroups, roundRobin, scheduleSlots, buildBracket, nextPow2, standardOrder, fillCourts, newSeed, createRng, config }
 };

@@ -394,3 +394,25 @@ input: người có mặt và rảnh (không đang ở sân) { id, pairingRating
 | `SESSION_REPEAT_PARTNER_PENALTY` / `SESSION_REPEAT_OPPONENT_PENALTY` | 0.30 / 0.10 |
 | `MATCH_MINUTES` | 1×21: 15 · 3×21: 35 · 3×15: 25 (BTC sửa được) |
 | `RANKING_MIN_TEAMS` | 4 |
+
+## 11. Chốt khi code (bước 2, 27/09/2026)
+
+Những chỗ tài liệu chưa nói rõ; đã quyết khi code, test thật xác nhận:
+
+- **Giới hạn số người** (`max_entries`) tính theo **người**, không theo đội.
+- **Danh sách chờ có hai lý do.** `capacity` là hết chỗ lúc đăng ký, người sớm nhất được lên khi có người rút. `draw` là
+  lẻ người hoặc lệch nam–nữ lúc bốc thăm, được trả về `registered` khi bốc lại hoặc mở lại đăng ký.
+- **Sửa kết quả:** `PUT /v1/matches/{id}/result` bắt buộc `If-Match`. Đổi người thắng chỉ được khi trận sau (và trận
+  tranh hạng 3) chưa gọi ra sân / chưa có kết quả. Nếu được thì ô trận sau được thay; không thì 409
+  `NEXT_MATCH_STARTED`.
+- **Rút lui sau bốc thăm:** cả đội rút; trận chưa đánh thành W.O. cho đối thủ.
+  - Ở sơ đồ, nếu đối thủ chưa xác định thì W.O. được xử ngay lúc đối thủ vào ô.
+  - Hai đội cùng rút thì trận vòng bảng bị huỷ.
+  - Đội đã rút không được vào vòng trong; người xếp sau trong bảng thế chỗ.
+- **Trận W.O.** không tính điểm trình, không vào thống kê, và không tính vào "số trận thắng" trong điểm thứ hạng
+  "còn lại". Trong bảng xếp hạng vòng bảng vẫn được tính thắng 2–0 / 1–0.
+- **BXH thành tích bằng điểm:** nhiều kết quả được tính hơn xếp trên, rồi điểm trình cao hơn, rồi mới đồng hạng. Vì
+  vậy hai người cùng đội vô địch thường đứng hạng 1 và 2, không đồng hạng.
+- **Thứ tự khoá:** giải trước, trận sau (ghi kết quả, rút lui, chốt đều theo thứ tự này) để không deadlock. Chốt hai
+  request song song thì đúng một request thành công.
+- **Dữ liệu demo:** `npm run seed:demo` tạo bằng chính các service (xem README của service).
