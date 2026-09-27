@@ -10,7 +10,8 @@
     - **cách tạo trận** (vòng bảng, loại trực tiếp tự sinh sơ đồ, giao lưu);
     - **wizard tạo giải**;
     - **form tự chấm** (luồng màn hình + bản chạy thử).
-- **Trạng thái:** plan, chờ duyệt ("code đi"). Chưa có dòng code nào.
+- **Trạng thái:** bước 1–3 (kèm mục 9) xong và đã merge vào `main` ngày 28/09/2026 (fast-forward tới `4401d58`, chưa
+  push). Còn bước 4.
 
 **Tài liệu thiết kế** (trong thư mục service):
 
@@ -491,7 +492,7 @@ Ví dụ 06 §9 bằng API thật (test integration):
 
 - **Nhánh:** tiếp tục `feat/competition-service`. Bước 1–3 chưa merge và phần sửa nằm trong phạm vi bước 3 → một
   commit riêng trên cùng nhánh.
-- **Ngày:** 27/09/2026. **Trạng thái:** đã làm, kết quả ở 9.7–9.8; chờ duyệt merge.
+- **Ngày:** 27/09/2026. **Trạng thái:** đã làm, kết quả ở 9.7–9.8; đã merge vào `main` 28/09/2026.
 
 ### 9.1 Hiện tượng và nguyên nhân
 
