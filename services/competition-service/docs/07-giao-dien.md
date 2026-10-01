@@ -34,7 +34,7 @@
 | **Nhập tỉ số nhanh** | `/competition/score/:matchId` (tối ưu điện thoại) | Hai cột A / B, ô số lớn, báo lỗi luật ngay khi gõ, nút W.O. / Bỏ cuộc | Nhân viên |
 | **Bấm điểm trực tiếp** | `/competition/live/:matchId` (điện thoại, cầm dọc) | Hai nửa màn hình Đội A / Đội B, chạm để +1 điểm; game đang đánh + các game đã xong; cầu ở đội đang giao + "ô phải / trái"; **Hoàn tác**; chọn đội giao trước (trước điểm đầu); đủ điểm thắng → "Xác nhận kết quả". Mỗi lần bấm gửi `revision` + `Idempotency-Key`; 409 `LIVE_CONFLICT` → tải lại tỉ số, báo "máy khác vừa bấm" (06, mục 1.5) | Nhân viên, người chơi trong trận |
 | **Buổi giao lưu** | `/competition/sessions/:id` | Điểm danh (chưa có điểm → chọn nhãn chấm nhanh ngay trong ô điểm danh), "Xếp sân trống" (bản xem trước kéo-thả đổi người, cảnh báo cặp đồng đội đã chung đội), mỗi sân đang đánh có nút "Bấm điểm" / "Nhập tỉ số" / "Xong (không tỉ số)" / "Huỷ trận" và tỉ số đang bấm (nếu có), người chờ, "Rời buổi", đóng buổi (xem trước điểm trình trước / sau) | Nhân viên |
-| **Màn hình lớn (TV)** | `/competition/sessions/:id/board`, `/competition/tournaments/:id/board` | Chỉ đọc, chữ lớn, tự cập nhật: sân – ai với ai – đã đánh bao lâu (tính theo `serverTime`); **tỉ số đang đánh thật to** + các game đã xong + cầu ở đội đang giao (sân có người bấm điểm); hàng chờ, tô sáng người ra sân lượt tới; kết quả gần nhất; bảng đấu (giải) | Nhân viên mở trên TV |
+| **Màn hình lớn (TV)** | `/competition/sessions/:id/board`, `/competition/tournaments/:id/board` | Chỉ đọc, chữ lớn, tự cập nhật: sân – ai với ai – đã đánh bao lâu (tính theo `serverTime`); **bảng điểm** cho sân có người bấm điểm (mục 4); hàng chờ, tô sáng người ra sân lượt tới; kết quả gần nhất; bảng đấu (giải) | Nhân viên mở trên TV |
 
 ## 2. Chi tiết giải — các tab
 
@@ -85,3 +85,32 @@
   - mất luồng thì poll 10 giây.
   - Tỉ số từng điểm **không** đi qua outbox / SSE của app chính (outbox gửi 5 giây một lần). App chính vẫn nhận
     `competition.match.completed` để ghi nhật ký.
+
+## 4. Bảng điểm trên màn hình TV (plan 19)
+
+Chủ dự án chọn bố cục này sau khi bấm thử (02/10/2026). Bản đầu đặt "7–0" to ở giữa hai tên đội, khó theo dõi, nhất là
+khi đánh 3 game.
+
+```
+ Sân 1                                  02:34
+                          Game 1  Game 2  ┌Game 3┐
+ Đặng Văn Hùng              21      9     │  12  │
+ Hoàng Thảo Vy                            └──────┘
+ Đỗ Minh Thư                18     21   🏸┌──────┐
+ Châu Mỹ Linh                             │  11  │
+                                          └──────┘
+                        Ván 1–1 · Game 3/3 · giao ô trái
+```
+
+- **Mỗi đội một hàng, điểm nằm bên phải tên đội.** Mỗi người một dòng; tên dài thì xuống dòng theo từ, không cắt tên.
+- **Mỗi game một cột.** Đánh nhiều game (bo3, bo5) thì có hàng tiêu đề "Game 1 · Game 2 · Game 3".
+- **Game đang đánh** là ô to có khung.
+- **Game đã xong:** số của đội thắng game đó sáng và đậm, đội thua mờ — nhìn là biết ai thắng game nào.
+- 🏸 cạnh điểm của đội đang giao.
+- **Dòng dưới:**
+  - tỉ số ván (`Ván 1–1`, chỉ khi đánh nhiều game);
+  - game đang đánh / tổng số game;
+  - ô giao (phải / trái).
+- **Đủ điểm thắng trận:** đội thắng tô xanh, dòng dưới ghi "Xong trận — chờ xác nhận".
+- **Đánh 1 game:** không có hàng tiêu đề, chỉ còn ô điểm bên phải mỗi đội.
+- **Thẻ sân ở màn hình nhân viên:** dùng cùng bố cục, chữ nhỏ hơn, nhãn cột viết tắt "G1 · G2 · G3".

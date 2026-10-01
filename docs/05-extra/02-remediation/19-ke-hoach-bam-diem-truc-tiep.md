@@ -43,6 +43,8 @@ Nếu ý anh/chị là *điểm trình* thay đổi sau mỗi trận thì đó l
 
 - Mỗi sân đang đánh: tên hai đội, **tỉ số game đang đánh thật to**, các game đã xong nhỏ bên dưới, cầu ở đội đang
   giao.
+  - *Đổi sau khi bấm thử (02/10):* chủ dự án chọn dạng **bảng điểm**: mỗi đội một hàng, điểm bên phải tên đội, mỗi
+    game một cột, game đang đánh là ô to có khung, dễ theo dõi khi đánh 3 game. Chi tiết ở tài liệu 07, mục 4.
 - Sân chưa ai bấm điểm thì hiện như bây giờ (tên + đồng hồ).
 - Đổi số ngay khi bấm. Mục tiêu dưới 1 giây (sẽ đo).
 - Xác nhận kết quả xong thì sân trống và ô "Chuẩn bị vào sân" hiện ngay, không chờ vòng tải lại.
