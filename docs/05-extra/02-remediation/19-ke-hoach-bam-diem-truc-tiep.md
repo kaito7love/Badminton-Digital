@@ -291,3 +291,91 @@ Chủ dự án duyệt "code đi" theo cả 3 khuyến nghị:
    - Sân 3 đang có tỉ số thử.
 
    Muốn dữ liệu demo mới có sẵn tỉ số dở ở cả 3 sân thì nói "seed lại".
+
+## 10. Bổ sung sau khi bấm thử: vận hành trận 3 game (bo3)
+
+- **Ngày:** 02/10/2026. **Trạng thái:** đã duyệt ("code đi": A + B theo khuyến nghị) → đã làm, kết quả ở 10.4.
+- **Chủ dự án hỏi:** người dùng chuyển sang bo3 thế nào? Xác nhận xong thì cặp đấu ra khỏi sân — đang bo3 thì sao?
+  Hiện bo1 vận hành ổn, bo3 thì chưa.
+
+### 10.1 Hiện trạng (đã kiểm code + bấm thử)
+
+- **Luật tính đã đúng cho bo3.**
+  - Hết game 1 → tỉ số tự sang game 2, đội thắng game 1 giao trước.
+  - "Xác nhận kết quả" **chỉ hiện khi một đội thắng 2 game**, nên hết một game thì **sân không bị nhả**.
+  - Đã bấm thử trọn trận 21–18, 9–21, 21–2 trên bản kiểm riêng; test integration "trận giải 3 game" cũng đạt.
+- **Thiếu ở thao tác:**
+  1. Không có chỗ chọn luật. API đã nhận `scoring` (`1x21`, `3x21`, `3x15`, `1x31`) khi tạo / sửa buổi, nhưng form
+     "Tạo buổi" của bàn thử (và tài liệu 07 cho bước 4) chưa có ô chọn → buổi nào cũng 1 game × 21.
+  2. Màn hình bấm điểm không làm rõ "đang đánh 3 game":
+     - chỉ có dòng nhỏ "3 game × 21";
+     - hết một game thì số tự về 0–0, không có thông báo → người bấm dễ tưởng nhầm hoặc định bấm "xong".
+  3. Hết giờ khi bo3 đang dở (vd 1–1): không có kết quả hợp lệ. Hiện phải dùng "Xong (không tỉ số)": nhả sân,
+     không tính điểm, chuỗi pha cầu vẫn lưu.
+
+### 10.2 Việc sẽ làm
+
+**A. Chọn luật khi tạo buổi, đổi được giữa buổi.**
+- Ô **"Luật điểm"** trong form tạo buổi: 1 game × 21 (mặc định) · 3 game × 21 · 3 game × 15 · 1 game × 31.
+- Nút **"Đổi luật"** trong buổi: chỉ áp cho **các trận xếp sau**; trận đang đánh giữ luật lúc được xếp.
+- Service đã hỗ trợ (`scoring` khi tạo / `PATCH`). Thêm test integration khẳng định:
+  - đổi luật giữa buổi → trận đang đánh vẫn bo1;
+  - trận xếp sau là bo3.
+- Tài liệu 07: thêm ô "Luật điểm" vào form buổi giao lưu cho bước 4.
+
+**B. Hiển thị rõ trận 3 game ở mọi nơi.**
+- Danh sách buổi, đầu màn hình buổi, thẻ sân, TV: nhãn **"3 game × 21"**.
+- Màn hình bấm điểm:
+  - dòng trên chữ to: **"Trận 3 game · Game 2/3 · Ván 1–0"**;
+  - **hết một game** → thông báo lớn *"Hết game 1: 21–18 — Đội A thắng game 1. Sang game 2, đổi sân"* (chạm để tắt;
+    vẫn hoàn tác được điểm cuối game);
+  - khi đang 1–0 / 1–1: dòng nhắc *"Trận chưa xong — chưa nhả sân"*;
+  - **game quyết định chạm 11 điểm** → nhắc *"Đổi sân"* (luật BWF). Trước đây ghi "không làm"; với bo3 thì nên có,
+    chỉ là một dòng nhắc.
+- TV: đã có cột Game 1 / 2 / 3 và "Ván 1–0 · Game 2/3"; thêm nhãn "3 game" cạnh tên sân.
+
+**C. (Tuỳ câu trả lời 10.3 câu 1) Đổi luật cho riêng một trận.**
+- Trước điểm đầu tiên, khi hai đội thoả thuận đánh 3 game: API mới `PUT /v1/matches/{id}/live/scoring`.
+- Chỉ trận giao lưu (trận giải theo điều lệ giải); chỉ khi chưa bấm điểm nào.
+
+### 10.3 Cần anh/chị chốt
+
+1. **Chọn bo3 ở đâu?**
+   - **Khuyến nghị:** theo **buổi** (A). Cả buổi cùng luật nên hàng chờ công bằng: trận bo3 chiếm sân khoảng gấp 2–3
+     lần, người chờ lâu hơn hẳn nếu chỉ vài sân đánh bo3. Đổi giữa buổi thì áp cho trận sau.
+   - Hoặc **thêm C**: từng trận đổi được trước điểm đầu.
+2. **Hết giờ khi bo3 đang dở (vd 1–1)?**
+   - **Khuyến nghị:** giữ như hiện tại: nhân viên bấm "Xong (không tỉ số)" → nhả sân, không tính điểm, chuỗi pha cầu
+     vẫn lưu.
+   - Lưu "thắng 1–0" khi chưa đủ 2 game thì sai luật cầu lông → không khuyến nghị.
+
+Trả lời "code đi" nghĩa là làm A + B theo các khuyến nghị trên.
+
+### 10.4 Kết quả
+
+**Đã làm:**
+- **Service: không phải sửa code.**
+  - Luật tính đã đúng cho bo3.
+  - `scoring` khi tạo / sửa buổi đã có sẵn.
+  - Thêm 1 test integration khẳng định:
+    - đổi luật giữa buổi → trận đang đánh vẫn 1 game, trận xếp sau là 3 game;
+    - hết game 1 (21–18) → trận vẫn `in_play`, sân vẫn bận, xác nhận → 409 `MATCH_NOT_DECIDED`;
+    - 1–1 rồi thắng game 3 → mới xác nhận được, sân mới nhả.
+- **Bàn thử:**
+  - ô "Luật điểm" khi tạo buổi, kèm lời giải thích;
+  - nút "Đổi luật điểm…" (liệt kê luật của các trận đang đánh);
+  - luật điểm hiện ở danh sách buổi và đầu màn hình;
+  - nhãn "3 game" trên thẻ sân và TV;
+  - màn hình bấm điểm: dòng trạng thái, khung "Hết game", dòng "chưa nhả sân", nhắc "Đổi sân".
+- **Tài liệu:** 06 (mục 1.5 trận nhiều game, mục 8.1 luật tỉ số), 07 (form buổi, màn hình bấm điểm, TV).
+
+**Kiểm thử thật** (bản kiểm riêng: service cổng 5102 + DB tạm, không đụng DB dev chủ dự án đang thử):
+
+| Kiểm | Kết quả |
+|---|---|
+| Test integration mới | Đạt; cả file bấm điểm 13 / 13 + toàn bộ unit đạt |
+| Tạo buổi bo3 trên trình duyệt | Form có 4 luật + lời giải thích; buổi tạo ra hiện "3 game × 21" ở danh sách và đầu màn hình |
+| Hết game 1 trên khung điện thoại | Bấm điểm thứ 21 → "Trận 3 game × 21 · Game 2/3 · Ván 1–0", chip "G1 21–18", khung vàng "Hết game 1: 21–18 — … thắng game 1. Sang game 2 — đổi sân. Trận chưa xong, chưa nhả sân". Hai nửa khoá tới khi bấm "Tiếp tục" |
+| Game quyết định | 1–1, game 3 từ 10–8 bấm lên 11–8 → khung "Đổi sân". Nút Hoàn tác vẫn trong màn hình; hoàn tác → khung tắt, về 10–8 |
+| TV | "Sân 1 · 3 game", cột Game 1 / 2 / 3, "Ván 1–1 · Game 3/3"; sân chưa ai bấm vẫn có nhãn "3 game" |
+| Đổi luật giữa buổi | Hộp thoại ghi "3 trận đang đánh giữ luật lúc được xếp (Sân 1: 1 game × 21, …)"; đổi xong đầu màn hình "luật 3 game × 21", các sân đang đánh vẫn 1 game |

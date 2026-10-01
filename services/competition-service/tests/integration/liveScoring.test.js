@@ -218,6 +218,43 @@ describe('nhân viên bấm điểm một trận giao lưu', () => {
   });
 });
 
+describe('trận 3 game trong buổi giao lưu (plan 19 mục 10)', () => {
+  test('đổi luật giữa buổi chỉ áp cho trận xếp sau; hết game 1 của trận bo3 không nhả sân, chưa xác nhận được', async () => {
+    const { s, matches } = await liveSession({ players: 8, courts: ['c1', 'c2'] });
+    expect(matches.every((m) => m.scoring.bestOf === 1)).toBe(true);
+    const fresh = (await op.get(`/v1/sessions/${s.id}`)).body.data;
+    const patched = await op.patch(`/v1/sessions/${s.id}`).set('If-Match', `"${fresh.version}"`).send({ scoring: '3x21' });
+    expect(patched.status).toBe(200);
+    expect(patched.body.data.scoring).toEqual({ bestOf: 3, points: 21, cap: 30 });
+    // Trận đang đánh giữ luật lúc được xếp.
+    expect((await op.get(`/v1/matches/${matches[0].id}`)).body.data.scoring.bestOf).toBe(1);
+
+    // Trận xếp sau theo luật mới: xong sân c1 (bo1) → xếp lại → trận mới là bo3.
+    const m1 = (await op.get(`/v1/matches/${matches.find((m) => m.courtRef === 'c1').id}`)).body.data;
+    expect((await op.put(`/v1/matches/${m1.id}/result`).set('If-Match', `"${m1.version}"`).send({ games: [[21, 12]] })).status).toBe(200);
+    const refill = await op.post(`/v1/sessions/${s.id}/fill-courts`).send({});
+    expect(refill.status).toBe(201);
+    const bo3 = refill.body.data.matches[0];
+    expect(bo3).toMatchObject({ courtRef: 'c1', scoring: { bestOf: 3, points: 21 } });
+
+    // Hết game 1 (21–18): vẫn đang đánh, sân vẫn bận, chưa xác nhận được.
+    let live = await play(op, bo3.id, game(21, 18));
+    expect(live).toMatchObject({ games: [[21, 18]], current: [0, 0], gameNo: 2, gamesWon: [1, 0], decided: false, server: 'A' });
+    const early = await op.post(`/v1/matches/${bo3.id}/live/confirm`).send({ revision: live.revision });
+    expect([early.status, early.body.code]).toEqual([409, 'MATCH_NOT_DECIDED']);
+    let board = (await reader.get(`/v1/sessions/${s.id}/board`)).body.data;
+    expect(board.courts.find((c) => c.courtRef === 'c1')).toMatchObject({ status: 'busy', match: { id: bo3.id, status: 'in_play' } });
+
+    // 1–1 rồi thắng game 3 → mới xác nhận được, sân mới được nhả.
+    live = await play(op, bo3.id, game(15, 21) + game(21, 19));
+    expect(live).toMatchObject({ decided: true, winnerSide: 'A', gamesWon: [2, 1] });
+    const done = await op.post(`/v1/matches/${bo3.id}/live/confirm`).send({ revision: live.revision });
+    expect(done.body.data).toMatchObject({ status: 'completed', games: [[21, 18], [15, 21], [21, 19]] });
+    board = (await reader.get(`/v1/sessions/${s.id}/board`)).body.data;
+    expect(board.courts.find((c) => c.courtRef === 'c1').status).toBe('free');
+  });
+});
+
 describe('chịu tải: 3 sân bấm dồn dập song song, cùng lúc xếp sân và điểm danh', () => {
   test('không lỗi 5xx, không deadlock; tỉ số cuối đúng bằng số lần bấm thành công', async () => {
     const { s, matches } = await liveSession({ players: 12, courts: ['c1', 'c2', 'c3'] });

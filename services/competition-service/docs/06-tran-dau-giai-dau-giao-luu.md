@@ -144,6 +144,13 @@ Trong lúc đánh, một người cầm điện thoại **bấm từng điểm**
   nhật ký; kết quả chính thức là tỉ số đã nhập.
 - Giao lưu bấm "Xong (không tỉ số)" khi đã đủ điểm thắng → vẫn xác nhận được sau (`ended` → `completed`).
 - Bỏ cuộc giữa trận, W.O. → dùng "Nhập tỉ số" như cũ.
+- **Trận nhiều game (bo3):**
+  - hết một game thì tỉ số sang game sau, đội thắng game trước giao trước;
+  - **sân không được nhả**, "Xác nhận kết quả" chỉ hiện khi một đội thắng đủ ⌈bestOf / 2⌉ game;
+  - màn hình bấm điểm báo to "Hết game 1: 21–18 — sang game 2, đổi sân"; game quyết định chạm giữa game (11 với game
+    21) thì nhắc "Đổi sân" (luật BWF, kể cả trận 1 game);
+  - hết giờ khi đang dở (vd 1–1) → "Xong (không tỉ số)": nhả sân, không tính điểm, chuỗi pha cầu vẫn lưu. Không lưu
+    "thắng 1–0" khi chưa đủ game (sai luật).
 - Không theo dõi **người nào** trong đôi đang giao. Không nhắc đổi sân / nghỉ ở điểm 11.
 
 ## 2. Tạo giải đấu — wizard 4 bước
@@ -372,7 +379,7 @@ Người điều phối bấm một nút thay cho việc gọi tên bằng miệ
 | Sân dùng (`court_refs`) | Chọn từ danh sách sân của chi nhánh (app chính cung cấp) |
 | Hình thức | Đôi (4 người / sân) hoặc Đơn (2 người / sân) |
 | Chế độ ghép | **`balanced`**: đội cân nhau trong từng sân (mặc định) · **`level`**: người cùng trình vào cùng sân · **`random`**: ngẫu nhiên, chỉ tránh lặp đồng đội |
-| Luật tỉ số | Mặc định 1 game × 21 (trần 30). Có thể không nhập tỉ số |
+| Luật tỉ số | Mặc định 1 game × 21 (trần 30). Chọn được 3 game × 21 / 3 game × 15 (bo3) / 1 game × 31. **Đổi giữa buổi** (`PATCH`): chỉ áp cho các trận xếp sau, trận đang đánh giữ luật lúc được xếp. Bo3 chiếm sân lâu gấp 2–3 lần nên chọn theo **cả buổi** cho hàng chờ công bằng (plan 19 mục 10). Có thể không nhập tỉ số |
 | Tính điểm trình | **Tắt** mặc định. Bật → trận có tỉ số hợp lệ được tính với hệ số 0.5 khi đóng buổi |
 
 ### 8.2 Trong buổi
