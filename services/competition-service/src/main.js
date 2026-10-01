@@ -11,7 +11,7 @@ const main = async () => {
   const sequelize = createSequelize(config.db, logger);
   await sequelize.authenticate();
   const models = defineModels(sequelize);
-  const { app, dispatcher, scheduler } = createApp({ config, sequelize, models, logger });
+  const { app, dispatcher, scheduler, sse } = createApp({ config, sequelize, models, logger });
 
   const server = app.listen(config.http.port, config.http.host, () => {
     logger.info({ host: config.http.host, port: config.http.port, env: config.env }, 'competition-service started');
@@ -23,6 +23,8 @@ const main = async () => {
     logger.info({ signal }, 'shutting down');
     dispatcher.stop();
     scheduler.stop();
+    // Luồng TV giữ kết nối mở — đóng trước, nếu không server.close chờ tới lúc bị giết.
+    sse.closeAll();
     server.close(async () => {
       await sequelize.close();
       process.exit(0);

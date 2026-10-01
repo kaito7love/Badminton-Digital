@@ -21,7 +21,7 @@
 | `rating` | Bộ tiêu chí, bài chấm (tự chấm / nhân viên / chấm nhanh / AI), điểm trình Đơn và Đôi, sổ điểm | 03 |
 | `ranking` | BXH trình độ, BXH thành tích (điểm theo thứ hạng giải), ảnh chụp hằng ngày | 05 |
 | `matchmaking` | Thuật toán **không trạng thái**: ghép đồng đội cân bằng, chia bảng, lịch vòng tròn, xếp lượt, sơ đồ loại trực tiếp, xếp sân giao lưu. Hệ thống khác gọi được mà không cần tạo giải | 06 |
-| `match` | Mô hình trận chung: tạo, gọi ra sân, nhập / kiểm tra tỉ số, lịch sử, đối đầu | 06 |
+| `match` | Mô hình trận chung: tạo, gọi ra sân, nhập / kiểm tra tỉ số, **bấm điểm trực tiếp** (plan 19), lịch sử, đối đầu | 06 |
 | `tournament` | Giải: wizard, thể thức, đăng ký, bốc thăm, sơ đồ, thứ hạng chung cuộc, chốt / huỷ chốt | 06 |
 | `session` | Buổi giao lưu: điểm danh (kèm chấm nhanh), xếp sân trống, màn hình lớn, đóng buổi. Gắn vào `match` qua hook ngữ cảnh `session` | 06 |
 
@@ -101,8 +101,9 @@ services/competition-service/
 │   │   │                 application: awardTournament · revokeTournament · leaderboards · dailySnapshot
 │   │   ├── matchmaking/  domain (thuần, không DB): formBalancedTeams · drawGroups · roundRobin · scheduleSlots
 │   │   │                 buildBracket · fillCourts · seededRandom — chỉ có http/, không có DB
-│   │   ├── match/        domain: badmintonScore · matchStateMachine · bracketAdvance
-│   │   │                 application: call · recordResult · correctResult · cancel
+│   │   ├── match/        domain: badmintonScore · liveScore (chuỗi pha cầu → tỉ số) · matchStats
+│   │   │                 application: call · recordResult · correctResult · cancel · end
+│   │   │                 liveScoring: rally · undo · setServer · confirm · snapshot (luồng TV)
 │   │   ├── tournament/   domain: stateMachine · eligibility · standings · placements · formatAdvisor
 │   │   │                 application: create · open · register · withdraw · previewDraw · confirmDraw · reopen
 │   │   │                 previewKnockout · confirmKnockout · finalizePreview · finalize · unfinalize · cancel
@@ -112,7 +113,8 @@ services/competition-service/
 │   └── platform/                           ← kỹ thuật dùng chung, không chứa nghiệp vụ
 │       ├── config/     đọc + kiểm tra env, sai là không khởi động (như app chính)
 │       ├── http/       app Express · xác thực service token · kiểm scope · envelope lỗi
-│       │               · Idempotency-Key · X-Request-Id · kiểm request theo OpenAPI
+│       │               · Idempotency-Key · X-Request-Id · kiểm request theo OpenAPI · sse (luồng TV)
+│       ├── realtime/   phát / nghe sự kiện `score` · `board` sau commit (trong bộ nhớ, mục 9)
 │       ├── db/         Sequelize · migrations/ · seeders/ · helper transaction · uuidv7
 │       ├── events/     outbox (ghi trong cùng transaction) · dispatcher webhook · inbox (khử trùng lặp)
 │       ├── logging/    pino JSON, kèm requestId
@@ -178,6 +180,7 @@ Quy ước chung:
 | `rating_changes` | `player_id`, `discipline`, `rating_before`, `rating_after`, `delta`, `reason` (`assessment`/`tournament`/`session`/`adjustment`/`rollback`/`merge`), `assessment_id`, `context_type`, `context_id`, `actor_ref`, `note`, `calc` JSON | **Sổ điểm chỉ thêm, không sửa/xoá.** Index (`player_id`, `discipline`, `created_at`). `calc` lưu E, K, m, w của từng trận để kiểm toán |
 | `matches` | `tenant_id`, `context_type` (`tournament`/`session`), `context_id`, `discipline`, `stage` (`group`/`knockout`/`extra`/`session`), `label`, `group_no`, `round_no`, `slot_no`, `bracket_pos`, `next_match_id`, `next_slot`, `loser_next_match_id`, `loser_next_slot`, `team_a_id`, `team_b_id`, `scoring` JSON, `games` JSON, `outcome`, `winner_side`, `status` (`scheduled`/`in_play`/`completed`/`cancelled`/`ended`), `rating_weight`, `counted`, `court_ref`, `called_at`, `completed_at`, `recorded_by_ref`, `version` | Mô hình trận chung cho giải và giao lưu (06, mục 1). `loser_next_*` = ô trận tranh hạng 3; `counted` = trận thuộc kỳ đã chốt → vào thống kê. `court_ref` vd `bd:court:7`. `ended` = trận giao lưu xong không nhập tỉ số (06, mục 12) |
 | `match_participants` | `match_id`, `side` (`A`/`B`), `player_id` | Index (`player_id`, `match_id`) → lịch sử, đối đầu, đồng đội |
+| `match_live_scores` | `match_id` (khoá chính, xoá trận thì xoá theo), `rallies` (chuỗi `A`/`B`, ≤ 1000), `first_server`, `revision`, `scored_by_ref` | Bấm điểm trực tiếp (06, mục 1.5). Tỉ số tính lại từ chuỗi; bảng riêng để mỗi lần bấm không đổi `version` của trận |
 | `tournaments` | `tenant_id`, `organizer_ref`, `name`, `description`, `starts_on`, `tier` (`club`/`open`/`chain`), `discipline`, `gender_rule`, `pairing_mode`, `max_partner_gap`, `max_entries`, `rating_rule` JSON, `format` (`round_robin`/`groups_knockout`/`knockout`), `group_count`, `group_mode`, `advance_per_group`, `third_place_match`, `scoring` JSON, `court_count`, `match_minutes`, `rated`, `ranked`, `draw_seed`, `status`, `stage` (`group`/`knockout`), `finalized_at`, `created_by_ref`, `version` | `organizer_ref` vd `bd:branch:1`: chuỗi mờ, service không biết "chi nhánh" là gì. `max_entries` tính theo **số người** |
 | `tournament_entries` | `tournament_id`, `player_id`, `partner_player_id`, `status` (`registered`/`waitlisted`/`withdrawn`), `waitlist_reason` (`capacity`/`draw`), `rating_snapshot`, `pairing_rating_snapshot`, `registered_at`, `registered_by_ref` | unique (`tournament_id`, `player_id`). Cặp cố định = 2 dòng trỏ chéo `partner_player_id`. `waitlist_reason = draw` (lẻ người / lệch nam–nữ) được trả về `registered` khi bốc lại / mở lại |
 | `tournament_teams` | `tournament_id`, `player1_id`, `player2_id`, `team_rating`, `group_no`, `pot_no`, `seed`, `withdrawn_at` | `player2_id` null khi đánh đơn |
@@ -224,6 +227,7 @@ của app chính.
   - `matchmaking:compute`;
   - `tournament:read`, `tournament:operate`, `tournament:manage`;
   - `session:read`, `session:operate`;
+  - `match:score` (token "chỉ bấm điểm" của người chơi, kèm claim `player`: chỉ trận mình đang đánh — 06, mục 1.5);
   - `ranking:read` (cấp cả cho người chưa đăng nhập, khi đó chỉ thấy hồ sơ `public`);
   - `assessment:submit-ai` (chỉ cấp cho video-analysis-service);
   - `ops:admin` (xem / gửi lại outbox; gateway không cấp scope này cho vai trò nào).
@@ -271,6 +275,13 @@ của app chính.
 | **Docker compose** | Thêm container `competition` (Dockerfile riêng), không publish cổng (hoặc chỉ `127.0.0.1` để debug). MySQL có thêm DB + user riêng (script init; volume cũ phải tạo tay một lần, có hướng dẫn). Entrypoint riêng: chờ DB → migrate → chạy. `backend` gọi `http://competition:5100` |
 | **Demo Render free** | Một web service chỉ được một container, và free chỉ có 512 MB RAM. **Chung một image, hai process:** entrypoint chạy competition-service ở `127.0.0.1:5100` (`--max-old-space-size=160`), rồi `exec` app chính. Competition chết thì app chính vẫn phục vụ, chỉ tính năng thi đấu báo gián đoạn. DB: tạo thêm database `competition_service` trong cùng Aiven MySQL free. `demo-reset.yml` reset cả hai DB |
 | **Production thật (sau này)** | Container / máy riêng, DB server riêng, token xoay khoá định kỳ; muốn thì thay webhook bằng message broker (chỉ đổi adapter `platform/events`) |
+
+**Luồng TV và số bản chạy (plan 19):**
+- Tỉ số trực tiếp đi qua luồng SSE `…/stream` (02, mục 2.9). Sự kiện phát **trong bộ nhớ của một process**
+  (`platform/realtime`), nên đúng khi service chạy **một bản** — mọi cách triển khai ở bảng trên đều vậy.
+- Chạy nhiều bản: thêm pub/sub ngoài (Redis), hoặc cho luồng tự đọc `match_live_scores` mỗi giây. Chỉ đổi
+  `platform/realtime`, client không đổi gì.
+- Proxy phía trước (gateway, Nginx) phải chuyển luồng không đệm (`X-Accel-Buffering: no` đã gửi sẵn).
 
 **CI** (`.github/workflows/ci.yml`) thêm job `competition-service`:
 

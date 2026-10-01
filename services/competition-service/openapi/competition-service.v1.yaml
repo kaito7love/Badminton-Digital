@@ -1,11 +1,12 @@
 openapi: 3.0.3
 info:
   title: competition-service API
-  version: 0.3.0
+  version: 0.4.0
   description: |
     Dịch vụ Thi đấu của Badminton Digital — chấm trình, điểm trình, bảng xếp hạng, xếp cặp.
     Bước 1: người chơi, chấm trình, BXH trình độ, thuật toán xếp cặp. Bước 2: trận đấu, giải đấu, BXH thành tích, thống kê.
     Bước 3: buổi giao lưu (điểm danh, xếp sân trống, màn hình lớn, đóng buổi).
+    Plan 19: bấm điểm trực tiếp từng pha cầu, luồng SSE đẩy tỉ số lên màn hình TV.
 
     Xác thực: service token ES256 (gateway của app chính ký, sống ≤ 5 phút) — xem docs/01-kien-truc.md mục 6.
     Envelope: { success, data, message, errors } giống app chính, thêm `code` khi lỗi.
@@ -1247,6 +1248,7 @@ paths:
     get:
       tags: [match]
       summary: Chi tiết trận
+      description: 'Scope đọc của giải / buổi, hoặc match:score + claim player của người chơi trong trận (màn hình bấm điểm).'
       responses:
         '200': { $ref: '#/components/responses/Match' }
         default: { $ref: '#/components/responses/Error' }
@@ -1303,6 +1305,109 @@ paths:
       tags: [match]
       summary: Huỷ trận chưa có kết quả (không áp dụng cho trận trong sơ đồ; trận giao lưu bị huỷ không tính là đã đánh)
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200': { $ref: '#/components/responses/Match' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/matches/{id}/live:
+    parameters: [{ $ref: '#/components/parameters/MatchId' }]
+    get:
+      tags: [match]
+      summary: Tỉ số đang bấm của trận (bấm điểm trực tiếp)
+      description: 'Scope đọc của giải / buổi, hoặc match:score của người chơi trong trận. Chưa ai bấm → revision 0, rallies rỗng.'
+      responses:
+        '200': { $ref: '#/components/responses/MatchLive' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/matches/{id}/live/rallies:
+    parameters: [{ $ref: '#/components/parameters/MatchId' }]
+    post:
+      tags: [match]
+      summary: Bấm +1 điểm cho đội thắng pha cầu
+      description: |
+        Scope: tournament:operate / session:operate (nhân viên đúng chi nhánh), hoặc match:score + claim player của
+        người chơi trong trận (ngoài trận → 403 NOT_A_PARTICIPANT). `revision` = phiên bản tỉ số client đang thấy;
+        lệch → 409 LIVE_CONFLICT (tải lại rồi bấm tiếp). Đã đủ điểm thắng → 409 MATCH_DECIDED; trận không còn đang
+        đánh → 409 INVALID_STATE.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [side, revision]
+              properties:
+                side: { type: string, enum: [A, B] }
+                revision: { type: integer, minimum: 0 }
+      responses:
+        '200': { $ref: '#/components/responses/MatchLive' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/matches/{id}/live/undo:
+    parameters: [{ $ref: '#/components/parameters/MatchId' }]
+    post:
+      tags: [match]
+      summary: Hoàn tác điểm vừa bấm (kể cả điểm vừa kết thúc game)
+      description: 'Quyền như bấm điểm. Chưa có điểm → 409 NOTHING_TO_UNDO.'
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [revision]
+              properties:
+                revision: { type: integer, minimum: 0, description: 'Phiên bản tỉ số client đang thấy' }
+      responses:
+        '200': { $ref: '#/components/responses/MatchLive' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/matches/{id}/live/server:
+    parameters: [{ $ref: '#/components/parameters/MatchId' }]
+    put:
+      tags: [match]
+      summary: Chọn đội giao trước (chỉ trước điểm đầu tiên)
+      description: 'Quyền như bấm điểm. Đã bấm điểm → 409 RALLIES_STARTED.'
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [firstServer, revision]
+              properties:
+                firstServer: { type: string, enum: [A, B] }
+                revision: { type: integer, minimum: 0 }
+      responses:
+        '200': { $ref: '#/components/responses/MatchLive' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/matches/{id}/live/confirm:
+    parameters: [{ $ref: '#/components/parameters/MatchId' }]
+    post:
+      tags: [match]
+      summary: Lưu kết quả từ tỉ số đã bấm (cùng đường với ghi kết quả)
+      description: |
+        Nhân viên: mọi trận. Người chơi trong trận (match:score): chỉ trận KHÔNG tính điểm — trận tính điểm (giải, giao
+        lưu bật tính điểm) → 403 CONFIRM_REQUIRES_STAFF. Chưa đủ điểm thắng → 409 MATCH_NOT_DECIDED. Như ghi kết quả:
+        tính điểm trình khi chốt / đóng, nhả sân giao lưu, người thắng vào trận sau, sự kiện competition.match.completed.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [revision]
+              properties:
+                revision: { type: integer, minimum: 0, description: 'Phiên bản tỉ số client đang thấy' }
       responses:
         '200': { $ref: '#/components/responses/Match' }
         default: { $ref: '#/components/responses/Error' }
@@ -1820,6 +1925,24 @@ paths:
                           items: { type: array, items: { $ref: '#/components/schemas/Placement' } }
         default: { $ref: '#/components/responses/Error' }
 
+  /v1/tournaments/{id}/stream:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [tournament]
+      summary: Luồng SSE — tỉ số trực tiếp các trận đang đánh, báo lịch / bảng đấu đổi
+      description: |
+        text/event-stream. Sự kiện: `snapshot` khi vừa kết nối ({ serverTime, matches: [{ matchId, courtRef, live }] } —
+        trận đang đánh đã có người bấm điểm); `score` mỗi lần bấm / hoàn tác ({ matchId, courtRef, live: MatchLive });
+        `board` khi sân / trận / danh sách đổi ({ reason } — client tải lại dữ liệu); `ping` 25 giây một lần.
+        Service đóng luồng khi token hết hạn; EventSource tự nối lại (gateway ký token mới).
+      responses:
+        '200':
+          description: Luồng sự kiện — mở tới khi client ngắt hoặc token hết hạn
+          content:
+            text/event-stream:
+              schema: { type: string }
+        default: { $ref: '#/components/responses/Error' }
+
   /v1/matches/{id}/end:
     parameters: [{ $ref: '#/components/parameters/MatchId' }]
     post:
@@ -2044,6 +2167,24 @@ paths:
                       data: { $ref: '#/components/schemas/SessionBoard' }
         default: { $ref: '#/components/responses/Error' }
 
+  /v1/sessions/{id}/stream:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      tags: [session]
+      summary: Luồng SSE cho màn hình TV — tỉ số trực tiếp, báo màn hình lớn đổi
+      description: |
+        text/event-stream. Sự kiện: `snapshot` khi vừa kết nối ({ serverTime, matches: [{ matchId, courtRef, live }] } —
+        trận đang đánh đã có người bấm điểm); `score` mỗi lần bấm / hoàn tác ({ matchId, courtRef, live: MatchLive });
+        `board` khi sân / trận / danh sách đổi ({ reason } — client tải lại dữ liệu); `ping` 25 giây một lần.
+        Service đóng luồng khi token hết hạn; EventSource tự nối lại (gateway ký token mới).
+      responses:
+        '200':
+          description: Luồng sự kiện — mở tới khi client ngắt hoặc token hết hạn
+          content:
+            text/event-stream:
+              schema: { type: string }
+        default: { $ref: '#/components/responses/Error' }
+
   /v1/sessions/{id}/close-preview:
     parameters: [{ $ref: '#/components/parameters/SessionId' }]
     get:
@@ -2197,6 +2338,16 @@ components:
               - type: object
                 properties:
                   data: { $ref: '#/components/schemas/MatchView' }
+    MatchLive:
+      description: Tỉ số đang bấm
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/MatchLive' }
     MatchPage:
       description: Danh sách trận
       content:
@@ -2646,10 +2797,40 @@ components:
             properties:
               id: { type: string, format: uuid }
               name: { type: string, nullable: true }
+    MatchLive:
+      type: object
+      nullable: true
+      additionalProperties: false
+      description: 'Bấm điểm trực tiếp (docs/06 mục 1.5) — tính lại từ chuỗi pha cầu. Trong MatchView: null = chưa ai bấm điểm.'
+      required: [matchId, revision, rallies, firstServer, games, current, gameNo, gamesWon, server, serveFrom, decided, winnerSide, updatedAt]
+      properties:
+        matchId: { type: string, format: uuid }
+        revision: { type: integer, minimum: 0, description: 'Tăng ở mọi lần đổi (kể cả hoàn tác) — gửi kèm khi bấm tiếp' }
+        rallies: { type: string, pattern: '^[AB]*$', maxLength: 1000, description: 'Đội thắng từng pha cầu, theo thứ tự' }
+        firstServer: { type: string, enum: [A, B] }
+        games:
+          type: array
+          description: Các game đã xong
+          items: { type: array, minItems: 2, maxItems: 2, items: { type: integer, minimum: 0 } }
+        current:
+          type: array
+          nullable: true
+          description: 'Game đang đánh [A, B]; null khi đã xong trận'
+          minItems: 2
+          maxItems: 2
+          items: { type: integer, minimum: 0 }
+        gameNo: { type: integer, minimum: 1 }
+        gamesWon: { type: array, minItems: 2, maxItems: 2, items: { type: integer, minimum: 0 } }
+        server: { type: string, nullable: true, enum: [A, B, null], description: 'Đội đang giao (đội thắng pha trước)' }
+        serveFrom: { type: string, nullable: true, enum: [right, left, null], description: 'Điểm của đội giao chẵn → ô phải, lẻ → ô trái' }
+        decided: { type: boolean, description: 'Đã đủ điểm thắng trận — chỉ còn xác nhận hoặc hoàn tác' }
+        winnerSide: { type: string, nullable: true, enum: [A, B, null] }
+        updatedAt: { type: string, format: date-time, nullable: true }
+
     MatchView: &matchView
       type: object
       additionalProperties: false
-      required: [id, contextType, contextId, discipline, stage, teamA, teamB, scoring, games, outcome, winnerSide, status, version]
+      required: [id, contextType, contextId, discipline, stage, teamA, teamB, scoring, games, outcome, winnerSide, status, live, version]
       properties:
         id: { type: string, format: uuid }
         contextType: { type: string, enum: [tournament, session] }
@@ -2672,6 +2853,7 @@ components:
         courtRef: { type: string, nullable: true }
         calledAt: { type: string, format: date-time, nullable: true }
         completedAt: { type: string, format: date-time, nullable: true }
+        live: { $ref: '#/components/schemas/MatchLive' }
         version: { type: integer }
 
     ScoringObject:

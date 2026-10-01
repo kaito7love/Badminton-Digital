@@ -18,7 +18,7 @@ const INBOUND_SECRET = 'inbound-secret-for-tests-0123456789abcdef';
 // Dựng service thật (Express + MySQL thật) với cấu hình test: bật kiểm response
 // theo OpenAPI và kiểm payload sự kiện theo JSON Schema → mọi lệch hợp đồng làm
 // test đỏ. Mỗi file test dùng tenant riêng để không giẫm dữ liệu của nhau.
-const createTestContext = async ({ webhookTargets = [], tenant } = {}) => {
+const createTestContext = async ({ webhookTargets = [], tenant, env = {} } = {}) => {
   const { publicKey, privateKey } = await generateKeyPair('ES256', { extractable: true });
   const kid = 'test-key';
   const jwk = { ...(await exportJWK(publicKey)), kid, alg: 'ES256' };
@@ -33,7 +33,8 @@ const createTestContext = async ({ webhookTargets = [], tenant } = {}) => {
     TRUSTED_ISSUERS: JSON.stringify([{ issuer: ISSUER, jwks: { keys: [jwk] } }]),
     TRUSTED_ISSUERS_FILE: '',
     INBOUND_SOURCES: JSON.stringify([{ source: 'bd-core', secret: INBOUND_SECRET, tenant: theTenant }]),
-    WEBHOOK_TARGETS: JSON.stringify(webhookTargets)
+    WEBHOOK_TARGETS: JSON.stringify(webhookTargets),
+    ...env
   });
   const logger = createLogger(config);
   const sequelize = createSequelize(config.db, logger);

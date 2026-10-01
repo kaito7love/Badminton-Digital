@@ -87,6 +87,65 @@ Với 21 / 30:
 - Trận loại trực tiếp đã có trận sau bắt đầu thì **không** đổi được người thắng (phải huỷ trận sau trước).
 - Sau khi chốt: huỷ chốt (mục 7.3) hoặc chỉnh điểm tay.
 
+### 1.5 Bấm điểm trực tiếp
+
+Trong lúc đánh, một người cầm điện thoại **bấm từng điểm** cho đội thắng pha cầu.
+- Hệ thống tự tính tỉ số theo luật của trận (mục 1.4), tự biết hết game, hết trận.
+- Tỉ số được đẩy lên màn hình TV ngay (mục 8.2).
+- Áp dụng cho mọi trận đang đánh (`in_play`): trận giải đã gọi ra sân, trận giao lưu.
+
+**Màn hình bấm điểm** (điện thoại, cầm dọc):
+
+- hai nửa màn hình là Đội A và Đội B; chạm nửa nào thì đội đó được 1 điểm;
+- dòng trên: game đang đánh, các game đã xong, đội đang giao cầu và ô giao (phải / trái);
+- **Hoàn tác**: bỏ điểm vừa bấm, kể cả điểm vừa kết thúc game;
+- trước điểm đầu tiên: chọn đội giao trước (mặc định đội A);
+- đủ điểm thắng trận: hiện *"Trận đã xong: 21–18, 21–15"* và nút **Xác nhận kết quả**.
+
+**Cách tính:**
+
+- Trận lưu **chuỗi pha cầu**: mỗi ký tự là đội thắng một pha (`ABBA…`). Tỉ số luôn tính lại từ chuỗi, nên hoàn tác
+  chỉ là bỏ ký tự cuối và không bao giờ lệch.
+- Game xong khi đủ P điểm và cách ≥ 2, hoặc chạm trần C — đúng luật kiểm tỉ số ở mục 1.4. Test: 300 trận bấm ngẫu
+  nhiên đều qua được bước kiểm tỉ số khi xác nhận.
+- **Đội giao** = đội thắng pha trước. Điểm đầu trận: đội được chọn giao trước. Sang game mới, đội thắng game trước
+  giao — trùng luật này.
+- **Ô giao:** điểm của đội giao chẵn → ô phải, lẻ → ô trái.
+- Đã đủ điểm thắng trận thì không bấm thêm được (409 `MATCH_DECIDED`); chỉ còn xác nhận hoặc hoàn tác.
+
+**Ai được bấm, ai được xác nhận:**
+
+| | Bấm điểm | Xác nhận kết quả |
+|---|---|---|
+| Nhân viên điều phối (scope `…:operate`, đúng chi nhánh) | Mọi trận | Mọi trận |
+| Người chơi **trong trận** (token `match:score` + `player`) | Trận mình đang đánh | Chỉ trận **không tính điểm** (giao lưu tắt "tính điểm") |
+| Người chơi ngoài trận | 403 `NOT_A_PARTICIPANT` | — |
+
+- Trận tính điểm (giải, giao lưu bật "tính điểm") phải để nhân viên xác nhận (403 `CONFIRM_REQUIRES_STAFF`), để không
+  ai tự bấm điểm có lợi cho mình rồi tự lưu.
+- Nếu nhân viên bật "tính điểm" sau khi người chơi đã tự xác nhận vài trận, các trận đó vẫn được tính. Nên xem lại
+  trước khi bật.
+
+**Xác nhận** đi đúng đường "Nhập tỉ số":
+- tính điểm trình (khi chốt giải / đóng buổi);
+- nhả sân giao lưu;
+- người thắng vào trận sau;
+- phát sự kiện `competition.match.completed`;
+- `audit_log` ghi `via: live`.
+
+**Không cộng trùng:**
+- Mỗi lần bấm gửi kèm `revision`: phiên bản tỉ số đang thấy, tăng ở mọi lần đổi (kể cả hoàn tác).
+- Bấm đúp do mạng chậm, hoặc hai máy cùng bấm một trận → chỉ một lần được tính. Lần kia nhận 409 `LIVE_CONFLICT` và
+  tải lại tỉ số.
+
+**Tình huống:**
+
+- "Nhập tỉ số" tay giữa chừng → trận có kết quả, bấm tiếp bị chặn (409 `INVALID_STATE`). Chuỗi pha cầu vẫn giữ làm
+  nhật ký; kết quả chính thức là tỉ số đã nhập.
+- Giao lưu bấm "Xong (không tỉ số)" khi đã đủ điểm thắng → vẫn xác nhận được sau (`ended` → `completed`).
+- Bỏ cuộc giữa trận, W.O. → dùng "Nhập tỉ số" như cũ.
+- Không theo dõi **người nào** trong đôi đang giao. Không nhắc đổi sân / nghỉ ở điểm 11.
+
 ## 2. Tạo giải đấu — wizard 4 bước
 
 | Bước | Trường | Ghi chú |
@@ -329,6 +388,8 @@ Người điều phối bấm một nút thay cho việc gọi tên bằng miệ
 - Sân trở thành trống khi trận: có tỉ số, hoặc bấm **"Xong (không tỉ số)"** (trận thành `ended`, vẫn tính là đã đánh
   cho lịch sử đồng đội / đối thủ; nhập tỉ số sau vẫn được), hoặc bị huỷ (không tính là đã đánh).
 - **Màn hình lớn (TV)**: sân nào – ai với ai – đã đánh bao lâu, vài kết quả gần nhất, và:
+  - **tỉ số đang đánh** của sân có người bấm điểm (mục 1.5). Số đổi ngay khi bấm, qua luồng SSE (02, mục 2.9); sân
+    chưa ai bấm thì hiện như cũ (tên + đồng hồ);
   - **"Chuẩn bị vào sân"** — chỉ khi đang có sân trống: đúng những người "Xếp sân trống" sẽ đưa vào nếu bấm ngay
     (cùng hàm, cùng seed của lượt tới);
   - **hàng chờ** theo đúng thứ tự ưu tiên của thuật toán. Không có sân trống thì không hứa ai vào lượt tới — thuật
@@ -484,3 +545,27 @@ Những chỗ tài liệu chưa nói rõ; đã quyết khi code, test thật xá
 - **Màn hình lớn sau khi chủ dự án bấm thử (plan 18 mục 9):** `upcoming` / `next` tính bằng chính hàm xếp sân với seed
   của lượt tới, chỉ khi có sân trống; hàng chờ theo `order` của thuật toán. Người chưa đánh trận nào trong buổi
   (`newcomer`) không bao giờ được xếp trước người "bằng trận" chờ lâu hơn.
+
+## 13. Chốt khi code (plan 19 — bấm điểm trực tiếp)
+
+- **Bảng riêng `match_live_scores`** (một dòng / trận, khoá chính `match_id`, xoá trận thì xoá theo) thay vì thêm cột
+  vào `matches`. Nhờ vậy bấm điểm không đổi `version` của trận, không làm hỏng If-Match của "Nhập tỉ số".
+- **Khoá khi bấm:** dòng trận `FOR UPDATE` trước, rồi mới tới dòng live.
+  - Mọi lần bấm của cùng một trận xếp hàng; ghi kết quả song song bị chặn.
+  - Bấm điểm không khoá buổi / giải, nên không chặn "Xếp sân trống", điểm danh.
+  - Khoá dòng trận không đổi `version` và không chặn đọc thường (màn hình lớn).
+  - Bản đầu khoá `FOR SHARE`. Test chịu tải (3 sân × 3 máy bấm song song) bắt được **deadlock**: hai lần bấm cùng giữ
+    khoá S trên dòng live rồi cùng xin nâng lên X. Đổi sang `FOR UPDATE` thì chạy 5 lần liền không còn deadlock.
+- **Dòng live tạo bằng `INSERT IGNORE`** rồi mới khoá. `SELECT … FOR UPDATE` trên dòng chưa tồn tại sẽ khoá cả khoảng
+  trống → hai sân bấm điểm đầu tiên cùng lúc có thể deadlock.
+- **Sự kiện `board`** gộp một lần cho mỗi thao tác (một lần ghi kết quả đi qua nhiều hook: ghi kết quả → nhả sân → trả
+  người về hàng chờ), và chỉ phát sau commit.
+- **Luồng SSE:**
+  - nghe kênh TRƯỚC, tính `snapshot` SAU; sự kiện đến trong lúc đó được giữ lại rồi gửi ngay sau snapshot;
+  - đóng khi token hết hạn;
+  - `ping` mỗi `SSE_HEARTBEAT_MS` (mặc định 25 giây);
+  - tắt service thì đóng mọi luồng trước khi `server.close`.
+- **`GET /v1/matches/{id}`** cho cả người chơi trong trận (`match:score`), để màn hình bấm điểm có tên hai đội.
+- **Seed demo:**
+  - các sân đang đánh của buổi giao lưu demo có sẵn tỉ số dở, bấm qua chính API, khoảng 2.5 pha / phút đã đánh;
+  - buổi kết thúc đúng 26 phút sau lúc bắt đầu (không đọc lại giờ thật), nên seed qua ranh giới phút vẫn ra giống hệt.

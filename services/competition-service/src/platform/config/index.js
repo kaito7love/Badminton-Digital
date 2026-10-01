@@ -108,6 +108,10 @@ const loadConfig = (env = process.env) => {
       validatePayloads: parseBool(env.EVENTS_VALIDATE, !isProduction),
       signatureToleranceSeconds: 300
     },
+    realtime: {
+      // Luồng SSE của màn hình TV gửi `ping` mỗi chừng này ms (proxy không cắt kết nối im lặng).
+      heartbeatMs: parseIntEnv(env, 'SSE_HEARTBEAT_MS', 25000)
+    },
     jobs: {
       enabled: parseBool(env.JOBS_ENABLED, true),
       // Ảnh chụp BXH hằng ngày lúc SNAPSHOT_HOUR giờ theo SNAPSHOT_UTC_OFFSET_MINUTES (mặc định +07:00)

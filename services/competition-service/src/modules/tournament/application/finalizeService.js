@@ -13,7 +13,10 @@ const THIRD_PLACE_LABEL = 'Tranh hạng 3';
 
 const createFinalizeService = ({ models, sequelize, players, ratings, ratingQueries, points, matches, platform, ctx }) => {
   const { Tournament, TournamentEntry, TournamentTeam, TournamentPlacement } = models;
-  const { outbox, audit } = platform;
+  const { outbox, audit, realtime } = platform;
+  // Lịch / bảng đấu / TV của giải tải lại khi trận đổi — phát sau commit (plan 19).
+  const boardChanged = (transaction, t, reason) =>
+    realtime.boardChanged(transaction, { tenant: t.tenantId, contextType: 'tournament', contextId: t.id, reason });
 
   // Kết quả giải từ dữ liệu hiện có (không ghi gì).
   const outcome = async (tenant, t, transaction) => {
@@ -177,6 +180,7 @@ const createFinalizeService = ({ models, sequelize, players, ratings, ratingQuer
         tenant: auth.tenant, actorRef: auth.sub, action: 'tournament.finalized', targetType: 'tournament', targetId: t.id,
         after: { placements: placements.length, ratingChanges: ratingChanges.length, rankingPoints: awarded.length }, requestId
       });
+      boardChanged(transaction, t, 'finalized');
       return {
         tournament: t,
         result: {
@@ -216,6 +220,7 @@ const createFinalizeService = ({ models, sequelize, players, ratings, ratingQuer
         tenant: auth.tenant, actorRef: auth.sub, action: 'tournament.unfinalized', targetType: 'tournament', targetId: t.id,
         after: { rolledBack: rolledBack.length }, requestId
       });
+      boardChanged(transaction, t, 'unfinalized');
       return { tournament: t, rolledBack };
     });
 

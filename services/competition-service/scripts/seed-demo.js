@@ -1,10 +1,10 @@
-// Dữ liệu demo cho bản portfolio (docs/05-extra/02-remediation/18 bước 2–3).
-// Tạo bằng CHÍNH các service thật (chấm trình, bốc thăm, ghi kết quả, chốt, xếp sân) —
-// không chèn thẳng bảng — nên chạy seed cũng là một lần chạy đầu-cuối.
+// Dữ liệu demo cho bản portfolio (docs/05-extra/02-remediation/18 bước 2–3, plan 19).
+// Tạo bằng CHÍNH các service thật (chấm trình, bốc thăm, ghi kết quả, chốt, xếp sân, bấm
+// điểm) — không chèn thẳng bảng — nên chạy seed cũng là một lần chạy đầu-cuối.
 //   npm run seed:demo
 // Kết quả: 25 người chơi, 2 giải đã chốt (có lịch sử điểm, BXH có dữ liệu), 1 giải đang
 // mở đủ người để bấm "Bốc thăm", 1 buổi giao lưu đã đóng (tính điểm) và 1 buổi đang diễn
-// ra (3 sân đang đánh). bd:customer:1 (tài khoản khách demo của app chính) cố ý CHƯA có
+// ra (3 sân đang đánh, có sẵn tỉ số dở). bd:customer:1 (tài khoản khách demo của app chính) cố ý CHƯA có
 // điểm để khách xem demo tự làm form tự chấm. Chạy lần nào cũng ra cùng dữ liệu (chỉ khác
 // giờ tuyệt đối, vì mọi thứ lùi ngày tính từ lúc seed).
 require('dotenv').config();
@@ -258,12 +258,34 @@ const main = async () => {
   // Buổi đang diễn ra: bắt đầu 26 phút trước lúc seed, 14 người đến lần lượt — sân đang đánh,
   // có người chờ, có kết quả gần đây. Khách xem demo nhập tỉ số rồi bấm "Xếp sân trống".
   const liveStart = Math.floor((Date.now() - 26 * MIN) / MIN) * MIN;
+  // Đúng 26 phút sau liveStart (không đọc lại giờ thật): seed qua ranh giới phút vẫn ra giống hệt.
+  const liveUntil = liveStart + 26 * MIN;
   const live = await simulateSession({
     body: { organizerRef: 'bd:branch:1', name: 'Giao lưu tối nay — Chi nhánh 1 (demo)', courtRefs: ['bd:court:1', 'bd:court:2', 'bd:court:3'], seed: 'demo-giao-luu-toi-nay' },
     arrivals: arriving(mixed, liveStart, 30),
     start: liveStart,
-    until: Math.floor(Date.now() / MIN) * MIN
+    until: liveUntil
   });
+
+  // Tỉ số dở ở các sân đang đánh (plan 19): bấm từng pha qua CHÍNH API bấm điểm, mỗi phút đã
+  // đánh ≈ 2.5 pha, đội thắng pha bốc theo xác suất Elo (kéo về 0.5 cho có giằng co). Dừng trước
+  // khi xong game để trận vẫn đang đánh — mở màn hình TV là thấy số ngay.
+  const liveScores = [];
+  for (const courtRef of [...live.playing.keys()].sort()) {
+    const m = await models.Match.findByPk(live.playing.get(courtRef).matchId);
+    const parts = (await match.service.participantsOf([m.id])).get(m.id);
+    const mean = async (side) => {
+      const r = await Promise.all(parts.filter((p) => p.side === side).map((p) => ratingOf('doubles', p.playerId)));
+      return r.reduce((a, b) => a + b, 0) / r.length;
+    };
+    const pA = 0.5 + (expectedScore(await mean('A'), await mean('B')) - 0.5) * 0.6;
+    const rallies = Math.round((2.5 * (liveUntil - new Date(m.calledAt).getTime())) / MIN);
+    let state = { revision: 0, current: [0, 0] };
+    for (let i = 0; i < rallies && Math.max(...state.current) < m.scoring.points - 2; i += 1) {
+      state = await match.live.rally({ auth, matchId: m.id, side: rng.next() < pA ? 'A' : 'B', revision: state.revision });
+    }
+    liveScores.push(`${courtRef.replace('bd:court:', 'Sân ')} ${state.current.join('–')}`);
+  }
 
   // Giải đang mở, đủ người để khách xem demo bấm "Bốc thăm".
   const open = await tournament.service.create({
@@ -292,7 +314,7 @@ const main = async () => {
   console.log(`  Giải 2 "${t2.t.name}": ${t2.result.placements.length} người, ${t2.result.rankingPoints.length} kết quả điểm BXH`);
   console.log(`  Giải 3 "${open.name}": đang mở, ${registered} người đủ điều kiện đã đăng ký — sẵn sàng bốc thăm`);
   console.log(`  Buổi giao lưu "${past.s.name}": đã đóng, ${closed.result.completedMatches} trận có tỉ số, ${closed.result.unscoredMatches} trận không tỉ số, ${closed.result.ratingChanges.length} người đổi điểm (hệ số 0.5)`);
-  console.log(`  Buổi giao lưu "${live.s.name}": đang diễn ra, ${live.playing.size} sân đang đánh — xem /v1/sessions/${live.s.id}/board`);
+  console.log(`  Buổi giao lưu "${live.s.name}": đang diễn ra, ${live.playing.size} sân đang đánh (tỉ số dở: ${liveScores.join(', ')}) — xem /v1/sessions/${live.s.id}/board`);
   await sequelize.close();
 };
 

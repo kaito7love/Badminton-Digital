@@ -5,7 +5,8 @@ Service độc lập của Badminton Digital:
 - điểm trình Đơn / Đôi 1.0–7.0, thay đổi theo kết quả thi đấu;
 - bảng xếp hạng;
 - thuật toán xếp cặp / chia bảng / sơ đồ / xếp sân giao lưu;
-- giải đấu (3 thể thức, chốt giải, BXH thành tích) và buổi giao lưu (điểm danh, xếp sân trống, màn hình lớn).
+- giải đấu (3 thể thức, chốt giải, BXH thành tích) và buổi giao lưu (điểm danh, xếp sân trống, màn hình lớn);
+- bấm điểm trực tiếp từng pha cầu, tỉ số đẩy lên màn hình TV ngay qua luồng SSE (plan 19).
 
 Có thể chạy và test **một mình**, không cần app chính. Kết nối với app chính qua hợp đồng API
 (`openapi/`) và sự kiện (`contracts/events/`), không chung code hay DB.
@@ -26,7 +27,8 @@ Có thể chạy và test **một mình**, không cần app chính. Kết nối 
 |---|---|---|
 | 1 | Khung service, `player`, `rating`, `matchmaking`, BXH trình độ | Xong trên nhánh `feat/competition-service` |
 | 2 | `match`, `tournament`, BXH thành tích, thống kê, dữ liệu demo | Xong trên nhánh `feat/competition-service` |
-| 3 | `session` (buổi giao lưu), sửa thuật toán xếp sân, gộp hồ sơ đủ các module | Xong trên nhánh `feat/competition-service` |
+| 3 | `session` (buổi giao lưu), sửa thuật toán xếp sân, gộp hồ sơ đủ các module | Xong, đã merge |
+| Plan 19 | Bấm điểm trực tiếp + luồng SSE cho màn hình TV | Xong trên nhánh `feat/competition-live-score` |
 | 4 | Tích hợp app chính + giao diện (nhánh riêng) | Chưa làm |
 
 ## Chạy một mình (dev)
@@ -43,8 +45,8 @@ npm run dev
 
 - Bước `cp` xong thì điền `DB_*` trong `.env`, và tạo DB rỗng `competition_service` trước khi migrate.
 - `keys:generate` tạo cặp khoá ES256 dev trong `.keys/`.
-- `migrate` tạo 19 bảng trong DB riêng.
-- `npm run seed:demo` (tuỳ chọn) tạo dữ liệu demo bằng chính các service: 25 người chơi, 2 giải đã chốt, 1 giải đang mở để thử bốc thăm, 1 buổi giao lưu đã đóng và 1 buổi đang diễn ra (xem màn hình lớn ở `/v1/sessions/{id}/board`). Buổi giao lưu chạy theo đồng hồ giả lập nên seed lần nào cũng ra cùng dữ liệu. Chỉ chạy trên DB trống; production cần `ALLOW_DEMO_SEED=true`.
+- `migrate` tạo 20 bảng trong DB riêng.
+- `npm run seed:demo` (tuỳ chọn) tạo dữ liệu demo bằng chính các service: 25 người chơi, 2 giải đã chốt, 1 giải đang mở để thử bốc thăm, 1 buổi giao lưu đã đóng và 1 buổi đang diễn ra có sẵn tỉ số dở ở các sân (xem màn hình lớn ở `/v1/sessions/{id}/board`, luồng TV ở `…/stream`). Buổi giao lưu chạy theo đồng hồ giả lập nên seed lần nào cũng ra cùng dữ liệu. Chỉ chạy trên DB trống; production cần `ALLOW_DEMO_SEED=true`.
 - `dev` chạy ở http://127.0.0.1:5100; Swagger UI ở `/docs`.
 
 Gọi API bằng token dev (không cần app chính):
@@ -58,6 +60,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:5100/v1/rubrics/current
 Scope có sẵn:
 - `rating:self`, `rating:read`, `rating:assess`, `rating:assess:any`, `rating:adjust`;
 - `player:write`, `ranking:read`, `matchmaking:compute`;
+- `match:score` (người chơi bấm điểm trận mình đang đánh — cần thêm `--player`);
 - `tournament:read`, `tournament:operate`, `tournament:manage`;
 - `session:read`, `session:operate`;
 - `assessment:submit-ai`, `ops:admin`.

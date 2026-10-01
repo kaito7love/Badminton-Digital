@@ -20,7 +20,10 @@ const invalid = (errors) => new DomainError('INVALID_TOURNAMENT', `Thông tin gi
 
 const createTournamentService = ({ models, sequelize, players, ratingQueries, matches, platform, ctx }) => {
   const { Tournament, TournamentEntry, TournamentTeam } = models;
-  const { outbox, audit } = platform;
+  const { outbox, audit, realtime } = platform;
+  // Lịch / bảng đấu / TV của giải tải lại khi trận đổi — phát sau commit (plan 19).
+  const boardChanged = (transaction, t, reason) =>
+    realtime.boardChanged(transaction, { tenant: t.tenantId, contextType: 'tournament', contextId: t.id, reason });
 
   // ---------- tạo / sửa ----------
   const normalize = (body, base = {}) => {
@@ -241,6 +244,7 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
         tenant: auth.tenant, actorRef: auth.sub, action: 'tournament.entry_withdrawn', targetType: 'tournament', targetId: t.id,
         after: { entryId, players: group.map((e) => e.playerId) }, requestId
       });
+      boardChanged(transaction, t, 'withdrawn');
       return { tournament: t, entries: group };
     });
 
@@ -457,6 +461,7 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
         tenant: auth.tenant, actorRef: auth.sub, action: 'tournament.drawn', targetType: 'tournament', targetId: t.id,
         after: { seed: body.seed, teams: created.length, matches: rows.length, manualEdits }, requestId
       });
+      boardChanged(transaction, t, 'drawn');
       return t;
     });
 
@@ -469,6 +474,7 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
       await resetDraw(auth.tenant, t, transaction);
       await t.update({ status: 'open', stage: null, drawSeed: null }, { transaction });
       await audit.record(transaction, { tenant: auth.tenant, actorRef: auth.sub, action: 'tournament.reopened', targetType: 'tournament', targetId: t.id, requestId });
+      boardChanged(transaction, t, 'reopened');
       return t;
     });
 
@@ -492,6 +498,7 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
         tenant: auth.tenant, actorRef: auth.sub, action: 'tournament.match_added', targetType: 'tournament', targetId: t.id,
         after: { matchId: idOf.get('X'), label: body.label }, requestId
       });
+      boardChanged(transaction, t, 'match_added');
       return idOf.get('X');
     });
 
@@ -566,6 +573,7 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
         tenant: auth.tenant, actorRef: auth.sub, action: 'tournament.knockout_locked', targetType: 'tournament', targetId: t.id,
         after: { positions: chosen, manual: Boolean(positions) }, requestId
       });
+      boardChanged(transaction, t, 'knockout_locked');
       return t;
     });
 

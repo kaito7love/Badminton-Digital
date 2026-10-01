@@ -6,12 +6,14 @@ const { notFound } = require('../../../../platform/http/errors');
 const { parsePagination } = require('../../../../platform/http/pagination');
 
 // Route của module match (docs/02 mục 2.5 + lịch sử / đồng đội / đối đầu ở 2.1).
-// Quyền trên từng trận do ngữ cảnh (giải / buổi giao lưu) quyết định.
+// Quyền trên từng trận do ngữ cảnh (giải / buổi giao lưu) quyết định. `match:score` = token
+// "chỉ bấm điểm" của người chơi: chỉ trận mình đang đánh (application/liveScoring.js).
 
 const OPERATE = ['tournament:operate', 'tournament:manage', 'session:operate'];
 const READ = ['tournament:read', 'session:read', ...OPERATE];
+const SCORE = [...OPERATE, 'match:score'];
 
-const createMatchRouter = ({ matches, players, profile, idempotency }) => {
+const createMatchRouter = ({ matches, live, players, profile, idempotency }) => {
   const router = express.Router();
 
   const one = async (req, match) => {
@@ -30,10 +32,52 @@ const createMatchRouter = ({ matches, players, profile, idempotency }) => {
 
   router.get(
     '/matches/:id',
-    requireScope(...READ),
+    requireScope(...READ, 'match:score'),
     asyncHandler(async (req, res) => {
       const match = await matches.getForRead(req.auth, req.params.id);
       return ok(res, await one(req, match), { etag: match.version });
+    })
+  );
+
+  // --- Bấm điểm trực tiếp (docs/06 mục 1.5) ---
+  router.get(
+    '/matches/:id/live',
+    requireScope(...READ, 'match:score'),
+    asyncHandler(async (req, res) => ok(res, await live.get({ auth: req.auth, matchId: req.params.id })))
+  );
+
+  router.post(
+    '/matches/:id/live/rallies',
+    requireScope(...SCORE),
+    idempotency.middleware,
+    asyncHandler(async (req, res) =>
+      ok(res, await live.rally({ auth: req.auth, matchId: req.params.id, side: req.body.side, revision: req.body.revision }))
+    )
+  );
+
+  router.post(
+    '/matches/:id/live/undo',
+    requireScope(...SCORE),
+    idempotency.middleware,
+    asyncHandler(async (req, res) => ok(res, await live.undo({ auth: req.auth, matchId: req.params.id, revision: req.body.revision })))
+  );
+
+  router.put(
+    '/matches/:id/live/server',
+    requireScope(...SCORE),
+    idempotency.middleware,
+    asyncHandler(async (req, res) =>
+      ok(res, await live.setServer({ auth: req.auth, matchId: req.params.id, firstServer: req.body.firstServer, revision: req.body.revision }))
+    )
+  );
+
+  router.post(
+    '/matches/:id/live/confirm',
+    requireScope(...SCORE),
+    idempotency.middleware,
+    asyncHandler(async (req, res) => {
+      const match = await live.confirm({ auth: req.auth, matchId: req.params.id, revision: req.body.revision, requestId: req.requestId });
+      return ok(res, await one(req, match), { etag: match.version, message: 'Đã lưu kết quả từ tỉ số đã bấm' });
     })
   );
 

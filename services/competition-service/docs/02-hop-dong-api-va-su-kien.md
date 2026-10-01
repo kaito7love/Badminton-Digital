@@ -26,9 +26,9 @@ Dùng đúng envelope của app chính để gateway chuyển thẳng, không ph
 |---|---|---|
 | 400 | Body sai định dạng / sai spec OpenAPI | `VALIDATION_FAILED` |
 | 401 | Thiếu / sai / hết hạn token | `UNAUTHENTICATED` |
-| 403 | Đủ token nhưng thiếu scope | `FORBIDDEN_SCOPE` |
+| 403 | Đủ token nhưng thiếu scope; người chơi bấm điểm trận không phải của mình; người chơi xác nhận trận tính điểm | `FORBIDDEN_SCOPE`, `NOT_A_PARTICIPANT`, `CONFIRM_REQUIRES_STAFF` |
 | 404 | Không có, **hoặc** thuộc tenant / organizer khác, **hoặc** hồ sơ `hidden` với người xem không phải nhân viên | `NOT_FOUND` |
-| 409 | Sai trạng thái nghiệp vụ, lệch version | `INVALID_STATE`, `VERSION_CONFLICT`, `SELF_ASSESSMENT_LOCKED`, `ROLLBACK_BLOCKED`, `MERGE_CONFLICT`, `NEXT_MATCH_STARTED` |
+| 409 | Sai trạng thái nghiệp vụ, lệch version | `INVALID_STATE`, `VERSION_CONFLICT`, `SELF_ASSESSMENT_LOCKED`, `ROLLBACK_BLOCKED`, `MERGE_CONFLICT`, `NEXT_MATCH_STARTED`, `LIVE_CONFLICT`, `MATCH_DECIDED`, `MATCH_NOT_DECIDED`, `NOTHING_TO_UNDO`, `RALLIES_STARTED` |
 | 412 | Thiếu `If-Match` ở endpoint bắt buộc | `PRECONDITION_REQUIRED` |
 | 422 | Đúng định dạng nhưng sai luật nghiệp vụ | `SCORE_INVALID`, `NOT_ELIGIBLE`, `NEEDS_ASSESSMENT`, `DRAW_INVALID`, `BRACKET_INVALID`, `NICKNAME_TAKEN`, `IDEMPOTENCY_KEY_REUSED` |
 | 503 | DB chưa sẵn sàng | `NOT_READY` |
@@ -37,7 +37,7 @@ Dùng đúng envelope của app chính để gateway chuyển thẳng, không ph
 
 - **Idempotency:**
   - `Idempotency-Key` (UUID) **bắt buộc** với mọi POST / PUT có tác dụng phụ: nộp bài chấm, chỉnh điểm, đăng ký,
-    xác nhận bốc thăm / sơ đồ, xếp sân, ghi kết quả, chốt / huỷ chốt, gộp hồ sơ, đóng buổi. Thiếu → 400.
+    xác nhận bốc thăm / sơ đồ, xếp sân, ghi kết quả, bấm điểm, chốt / huỷ chốt, gộp hồ sơ, đóng buổi. Thiếu → 400.
   - Cùng key + cùng body → trả lại đúng response cũ (có header `Idempotent-Replayed: true`).
   - Cùng key + khác body → 422.
 - **Đồng thời:**
@@ -60,6 +60,7 @@ Scope viết tắt:
 | `rk` | `ranking:read` |
 | `mm` | `matchmaking:compute` |
 | `pw` | `player:write` |
+| `ms` | `match:score` — token "chỉ bấm điểm" của người chơi (kèm claim `player`): chỉ trận mình đang đánh |
 
 ### 2.1 Người chơi, hồ sơ, thống kê (module `player`, tài liệu 05)
 
@@ -120,11 +121,16 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 
 | Method + đường dẫn | Scope | Việc |
 |---|---|---|
-| `GET /v1/matches/{id}` | `t:read` hoặc `s:read` (theo ngữ cảnh) | Chi tiết trận |
+| `GET /v1/matches/{id}` | `t:read` hoặc `s:read` (theo ngữ cảnh), hoặc `ms` (người chơi trong trận) | Chi tiết trận, kèm `live` = tỉ số đang bấm (`null` nếu chưa ai bấm) |
 | `POST /v1/matches/{id}/call` | `t:operate` / `s:operate` | Gọi ra sân `{ courtRef }` → `in_play` |
 | `PUT /v1/matches/{id}/result` | `t:operate` / `s:operate` | `{ games }` \| `{ outcome: "walkover", winnerSide }` \| `{ games, outcome: "retired", winnerSide }`. `If-Match` bắt buộc. Trận loại trực tiếp: người thắng tự vào ô sau; đổi người thắng khi trận sau đã bắt đầu → 409 `NEXT_MATCH_STARTED` |
 | `POST /v1/matches/{id}/cancel` | `t:manage` / `s:operate` | Huỷ trận chưa có kết quả. Trận trong sơ đồ loại trực tiếp không huỷ được (xử W.O.). Trận giao lưu bị huỷ không tính là đã đánh |
 | `POST /v1/matches/{id}/end` | `s:operate` | Trận giao lưu "xong, không nhập tỉ số" → `ended`, sân được nhả; nhập tỉ số sau vẫn được. Trận giải → 409 `RESULT_REQUIRED` |
+| `GET /v1/matches/{id}/live` | như `GET /v1/matches/{id}` | Tỉ số đang bấm (`MatchLive`): chuỗi pha cầu, các game đã xong, game đang đánh, đội giao + ô giao, `decided`, `revision`. Chưa ai bấm → `revision` 0 |
+| `POST /v1/matches/{id}/live/rallies` | `t:operate` / `s:operate` / `ms` | `{ side, revision }` → +1 điểm cho đội thắng pha cầu (06, mục 1.5). Phiên bản lệch → 409 `LIVE_CONFLICT`; đã đủ điểm thắng → 409 `MATCH_DECIDED`; trận không đang đánh → 409 `INVALID_STATE` |
+| `POST /v1/matches/{id}/live/undo` | như trên | `{ revision }` → bỏ điểm vừa bấm (kể cả điểm vừa xong game). Chưa có điểm → 409 `NOTHING_TO_UNDO` |
+| `PUT /v1/matches/{id}/live/server` | như trên | `{ firstServer, revision }` → đội giao trước; đã bấm điểm → 409 `RALLIES_STARTED` |
+| `POST /v1/matches/{id}/live/confirm` | như trên | `{ revision }` → lưu kết quả từ tỉ số đã bấm, cùng đường với `PUT …/result`. Người chơi (`ms`) chỉ xác nhận được trận **không tính điểm** (403 `CONFIRM_REQUIRES_STAFF`); chưa đủ điểm thắng → 409 `MATCH_NOT_DECIDED` |
 
 ### 2.6 Giải đấu (module `tournament`, tài liệu 06)
 
@@ -145,6 +151,7 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 | `GET /v1/tournaments/{id}/finalize-preview` | `t:read` | mọi trận xong | Thứ hạng + điểm trình trước / sau + điểm thành tích |
 | `POST /v1/tournaments/{id}/finalize` · `…/unfinalize` | `t:manage` | `in_progress` / `finalized` | Chốt / huỷ chốt (06, mục 7) |
 | `GET /v1/tournaments/{id}/placements` | `t:read` | `finalized` | Thứ hạng chung cuộc |
+| `GET /v1/tournaments/{id}/stream` | `t:read` | mọi trạng thái | Luồng SSE: tỉ số trực tiếp các trận đang đánh, báo lịch / bảng đấu đổi (mục 2.9) |
 | `POST /v1/tournaments/{id}/cancel` | `t:manage` | trừ `finalized` | Huỷ, không áp điểm |
 
 ### 2.7 Buổi giao lưu (module `session`, tài liệu 06 mục 8)
@@ -156,6 +163,7 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 | `POST /v1/sessions/{id}/fill-courts/preview` · `POST …/fill-courts` | `s:operate` | Xếp sân trống: xem trước (đổi tay được, có `repeatPartners`) / xác nhận bản gửi lại nguyên văn hoặc để hệ thống tự xếp → sinh trận đang đánh. Bản cũ → 409 `FILL_STALE`; không có gì để xếp → 422 `NOTHING_TO_FILL` |
 | `GET /v1/sessions/{id}/matches` | `s:read` | Các trận của buổi theo lượt |
 | `GET /v1/sessions/{id}/board` | `s:read` | Dữ liệu màn hình lớn: sân – ai với ai – từ lúc nào (kèm `serverTime`); `upcoming` = ai sẽ vào các sân đang trống nếu bấm "Xếp sân trống" ngay (cùng hàm, cùng seed — rỗng khi không có sân trống); hàng chờ theo thứ tự ưu tiên của thuật toán, `next` = nằm trong `upcoming`; kết quả gần nhất |
+| `GET /v1/sessions/{id}/stream` | `s:read` | Luồng SSE cho màn hình TV (mục 2.9) |
 | `GET /v1/sessions/{id}/close-preview` · `POST …/close` · `POST …/cancel` | `s:read` / `s:operate` | Xem trước khi đóng / đóng (trận chưa tỉ số bị huỷ, áp điểm hệ số 0.5 nếu bật, cộng thống kê "giao lưu") / huỷ buổi |
 
 ### 2.8 Tích hợp & vận hành
@@ -166,6 +174,25 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 | `GET /v1/ops/outbox?status=dead` · `POST /v1/ops/outbox/{id}/replay` | `ops:admin` | Xem / gửi lại sự kiện kẹt |
 | `GET /health/live` · `GET /health/ready` | không | Health check |
 | `GET /openapi.json` · `GET /docs` | không (tắt `/docs` ở production) | Hợp đồng + Swagger UI |
+
+### 2.9 Luồng SSE cho màn hình TV (plan 19)
+
+`GET /v1/sessions/{id}/stream` (scope `s:read`) và `GET /v1/tournaments/{id}/stream` (scope `t:read`) trả về
+`text/event-stream`. Lỗi quyền vẫn trả JSON như mọi endpoint (401 / 403 / 404), không mở luồng.
+
+| Sự kiện | `data` | Khi nào | Client làm gì |
+|---|---|---|---|
+| `snapshot` | `{ serverTime, matches: [{ matchId, courtRef, live }] }` | Vừa kết nối (cả khi tự nối lại) — các trận đang đánh đã có người bấm điểm | Vẽ tỉ số |
+| `score` | `{ matchId, courtRef, live }` (`live` = `MatchLive`) | Mỗi lần bấm / hoàn tác / chọn đội giao | Đổi số của sân đó; bỏ qua nếu `live.revision` cũ hơn cái đang có |
+| `board` | `{ reason }` (`result`, `filled`, `checked_in`, `left`, `called`, `ended`, `cancelled`, `drawn`, …) | Sân / trận / hàng chờ / lịch đổi | Tải lại màn hình lớn (`…/board`) hoặc lịch |
+| `ping` | `{}` | `SSE_HEARTBEAT_MS` (mặc định 25 giây) | Không nhận được lâu → kết nối đã chết, tự mở lại |
+
+- Chỉ phát **sau khi transaction commit**. `board` gộp một lần cho mỗi thao tác.
+- Service **đóng luồng khi token hết hạn** (≤ 5 phút). EventSource tự nối lại sau 2 giây (`retry: 2000`), gateway ký
+  token mới — như SSE của app chính (đóng sau 20 phút).
+- Đẩy trong bộ nhớ một process: đúng khi service chạy **một bản** (01, mục 9). Tỉ số không đi qua outbox (5 giây / lần,
+  thử lại tới 24 giờ — hợp với kết quả trận, không hợp với từng điểm). Xác nhận kết quả vẫn phát
+  `competition.match.completed` qua outbox như cũ.
 
 ## 3. Sự kiện
 
@@ -308,7 +335,7 @@ vai trò được gọi + scope cấp. Không có dòng thì không chuyển ti�
 | Vai trò app chính | Scope được cấp | `org` | `player` |
 |---|---|---|---|
 | Chưa đăng nhập (trang BXH công khai) | `ranking:read` | — | — (chỉ thấy hồ sơ `public`) |
-| `customer` | `rating:self ranking:read` | — | `bd:customer:<customer.id>` |
+| `customer` | `rating:self ranking:read match:score` (`match:score`: chỉ bấm điểm trận mình đang đánh — service kiểm người chơi có trong trận) | — | `bd:customer:<customer.id>` |
 | `employee` | `rating:read rating:assess player:write ranking:read matchmaking:compute tournament:read tournament:operate session:read session:operate` | chi nhánh của nhân viên | — |
 | `branch_manager` | như `employee` + `rating:assess:any rating:adjust tournament:manage` | chi nhánh của mình | — |
 | `admin` | như `branch_manager` | chi nhánh đang chọn (`X-Branch-Id`); chưa chọn → `*` | — |
@@ -316,5 +343,7 @@ vai trò được gọi + scope cấp. Không có dòng thì không chuyển ti�
 - Ví dụ ánh xạ: `GET /api/v1/competition/me` → `GET /v1/me`; `PUT /api/v1/competition/matches/:id/result` →
   `PUT /v1/matches/:id/result`.
 - Envelope, status code, `ETag` giữ nguyên.
+- Luồng SSE (`…/stream`, mục 2.9): chuyển tiếp nguyên trạng, **không đệm** (`X-Accel-Buffering: no`), ký token 5 phút
+  cho đường này để trình duyệt không phải nối lại mỗi phút.
 - Gateway tự sinh `Idempotency-Key` nếu frontend không gửi, nhưng frontend **nên** tự gửi để bấm hai lần vẫn chỉ
   một lần.

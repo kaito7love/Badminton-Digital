@@ -15,7 +15,7 @@ const bracketPlan = require('./domain/bracketPlan');
 const draw = require('./domain/draw');
 const eligibility = require('./domain/eligibility');
 
-const createTournamentModule = ({ models, sequelize, platform, players, rating, ranking, match }) => {
+const createTournamentModule = ({ models, sequelize, platform, players, rating, ranking, match, stream }) => {
   const ctx = createTournamentContext({ models });
   const service = createTournamentService({
     models, sequelize, players, ratingQueries: rating.queries, matches: match.service, platform, ctx
@@ -37,7 +37,7 @@ const createTournamentModule = ({ models, sequelize, platform, players, rating, 
     withdrawnTeamIds: (transaction, t) => ctx.withdrawnTeamIds(transaction, t)
   });
 
-  const router = createTournamentRouter({ service, finalizer, queries, ctx, players, idempotency: platform.idempotency });
+  const router = createTournamentRouter({ service, finalizer, queries, ctx, players, idempotency: platform.idempotency, stream });
   return { service, finalizer, queries, router };
 };
 

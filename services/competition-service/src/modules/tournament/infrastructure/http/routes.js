@@ -12,7 +12,7 @@ const READ = ['tournament:read', 'tournament:operate', 'tournament:manage'];
 const OPERATE = ['tournament:operate', 'tournament:manage'];
 const MANAGE = ['tournament:manage'];
 
-const createTournamentRouter = ({ service, finalizer, queries, ctx, players, idempotency }) => {
+const createTournamentRouter = ({ service, finalizer, queries, ctx, players, idempotency, stream }) => {
   const router = express.Router();
   const base = (req) => ({ auth: req.auth, id: req.params.id, requestId: req.requestId });
   const detail = async (t) => ctx.view(t, { progress: await queries.progress(t) });
@@ -116,6 +116,17 @@ const createTournamentRouter = ({ service, finalizer, queries, ctx, players, ide
   router.get('/tournaments/:id/standings', requireScope(...READ), asyncHandler(async (req, res) => ok(res, { groups: await queries.standings(base(req)) })));
   router.get('/tournaments/:id/bracket', requireScope(...READ), asyncHandler(async (req, res) => ok(res, { rounds: await queries.bracket(base(req)) })));
   router.get('/tournaments/:id/placements', requireScope(...READ), asyncHandler(async (req, res) => ok(res, { items: await queries.placements(base(req)) })));
+
+  // Luồng SSE (plan 19): tỉ số trực tiếp các trận đang đánh + báo lịch / bảng đấu đổi.
+  router.get(
+    '/tournaments/:id/stream',
+    requireScope(...READ),
+    asyncHandler(async (req, res) => {
+      const t = await ctx.load(null, req.auth.tenant, req.params.id);
+      ctx.authorize(req.auth, t, 'read');
+      await stream(req, res, { contextType: 'tournament', contextId: t.id });
+    })
+  );
 
   router.post(
     '/tournaments/:id/matches',

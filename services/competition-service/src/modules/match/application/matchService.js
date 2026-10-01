@@ -1,9 +1,10 @@
 const { Op } = require('sequelize');
 const { newId } = require('../../../platform/db/ids');
-const { notFound, conflict } = require('../../../platform/http/errors');
+const { AppError, notFound, conflict } = require('../../../platform/http/errors');
 const { assertVersion } = require('../../../platform/http/preconditions');
 const { validateResult } = require('../domain/badmintonScore');
 const { linesForMatch, accumulate } = require('../domain/matchStats');
+const { liveView } = require('./liveView');
 
 // Trận đấu chung cho giải và buổi giao lưu (docs/06 mục 1). Module match KHÔNG biết
 // "giải" là gì: ngữ cảnh (tournament / session) đăng ký một handler lúc lắp ráp:
@@ -19,9 +20,13 @@ const iso = (d) => (d ? new Date(d).toISOString() : null);
 const hasBothSides = (parts) => parts.some((p) => p.side === 'A') && parts.some((p) => p.side === 'B');
 
 const createMatchService = ({ models, sequelize, players, platform }) => {
-  const { Match, MatchParticipant } = models;
-  const { outbox, audit } = platform;
+  const { Match, MatchParticipant, MatchLiveScore } = models;
+  const { outbox, audit, realtime } = platform;
   const contexts = new Map();
+
+  // Màn hình TV của ngữ cảnh (giải / buổi) tải lại khi trận đổi trạng thái — phát sau commit.
+  const notifyBoard = (transaction, match, reason) =>
+    realtime.boardChanged(transaction, { tenant: match.tenantId, contextType: match.contextType, contextId: match.contextId, reason });
 
   const registerContext = (type, handler) => contexts.set(type, handler);
   const handlerFor = (match) => {
@@ -121,6 +126,7 @@ const createMatchService = ({ models, sequelize, players, platform }) => {
     );
     await emitCompleted(transaction, match, parts);
     await advance(transaction, match, parts, ctx, actorRef);
+    notifyBoard(transaction, match, 'result');
   };
 
   // Người thắng (và người thua nếu có trận tranh hạng 3) tự vào ô của trận sau.
@@ -154,44 +160,53 @@ const createMatchService = ({ models, sequelize, players, platform }) => {
     return { match, handler, ctx };
   };
 
+  // Ghi kết quả — chung cho "Nhập tỉ số" và "Xác nhận" từ bấm điểm trực tiếp (via = 'live').
+  // Người gọi đã khoá ngữ cảnh + trận, đã kiểm quyền và assertCanRecord.
+  const applyResult = async (transaction, { auth, match, handler, ctx, body, requestId, via = 'manual' }) => {
+    if (match.status === 'cancelled') throw conflict('INVALID_STATE', 'Trận đã huỷ');
+    const parts = (await participantsOf([match.id], { transaction })).get(match.id);
+    if (!hasBothSides(parts)) throw conflict('TEAMS_NOT_SET', 'Trận chưa đủ hai đội');
+    const result = validateResult(body, match.scoring);
+    const before = { status: match.status, games: match.games, outcome: match.outcome, winnerSide: match.winnerSide };
+
+    // Sửa kết quả làm đổi người thắng: trận sau chưa bắt đầu thì đổi lại ô, đã bắt đầu thì chặn.
+    if (match.status === 'completed' && match.winnerSide !== result.winnerSide) {
+      for (const nextId of [match.nextMatchId, match.loserNextMatchId]) {
+        if (!nextId) continue;
+        const next = await Match.findOne({ where: { id: nextId }, transaction, lock: transaction.LOCK.UPDATE });
+        if (next.status === 'in_play' || next.status === 'completed') {
+          throw conflict('NEXT_MATCH_STARTED', 'Trận sau đã bắt đầu — không đổi được người thắng (huỷ kết quả trận sau trước)');
+        }
+      }
+    }
+    await match.update(
+      {
+        games: result.games, outcome: result.outcome, winnerSide: result.winnerSide, status: 'completed',
+        // Nhập tỉ số sau khi đã bấm "xong" thì giữ giờ kết thúc thật.
+        completedAt: match.status === 'ended' ? match.completedAt : new Date(), recordedByRef: auth.sub
+      },
+      { transaction }
+    );
+    await advance(transaction, match, parts, ctx, auth.sub);
+    await audit.record(transaction, {
+      tenant: auth.tenant, actorRef: auth.sub, action: before.status === 'completed' ? 'match.result_corrected' : 'match.result_recorded',
+      targetType: 'match', targetId: match.id, before,
+      after: { games: result.games, outcome: result.outcome, winnerSide: result.winnerSide, ...(via === 'live' ? { via } : {}) },
+      requestId
+    });
+    await emitCompleted(transaction, match, parts);
+    await handler.afterResult(transaction, { ctx, match, auth });
+    await statusChanged(transaction, handler, { ctx, match, from: before.status, to: 'completed' });
+    notifyBoard(transaction, match, 'result');
+    return match;
+  };
+
   const recordResult = async ({ auth, matchId, body, ifMatch, requestId }) =>
     sequelize.transaction(async (transaction) => {
       const { match, handler, ctx } = await loadForAction(transaction, auth, matchId, 'operate');
       handler.assertCanRecord(ctx, match);
       assertVersion(ifMatch, match.version, { what: 'Trận' });
-      if (match.status === 'cancelled') throw conflict('INVALID_STATE', 'Trận đã huỷ');
-      const parts = (await participantsOf([match.id], { transaction })).get(match.id);
-      if (!hasBothSides(parts)) throw conflict('TEAMS_NOT_SET', 'Trận chưa đủ hai đội');
-      const result = validateResult(body, match.scoring);
-      const before = { status: match.status, games: match.games, outcome: match.outcome, winnerSide: match.winnerSide };
-
-      // Sửa kết quả làm đổi người thắng: trận sau chưa bắt đầu thì đổi lại ô, đã bắt đầu thì chặn.
-      if (match.status === 'completed' && match.winnerSide !== result.winnerSide) {
-        for (const nextId of [match.nextMatchId, match.loserNextMatchId]) {
-          if (!nextId) continue;
-          const next = await Match.findOne({ where: { id: nextId }, transaction, lock: transaction.LOCK.UPDATE });
-          if (next.status === 'in_play' || next.status === 'completed') {
-            throw conflict('NEXT_MATCH_STARTED', 'Trận sau đã bắt đầu — không đổi được người thắng (huỷ kết quả trận sau trước)');
-          }
-        }
-      }
-      await match.update(
-        {
-          games: result.games, outcome: result.outcome, winnerSide: result.winnerSide, status: 'completed',
-          // Nhập tỉ số sau khi đã bấm "xong" thì giữ giờ kết thúc thật.
-          completedAt: match.status === 'ended' ? match.completedAt : new Date(), recordedByRef: auth.sub
-        },
-        { transaction }
-      );
-      await advance(transaction, match, parts, ctx, auth.sub);
-      await audit.record(transaction, {
-        tenant: auth.tenant, actorRef: auth.sub, action: before.status === 'completed' ? 'match.result_corrected' : 'match.result_recorded',
-        targetType: 'match', targetId: match.id, before, after: { games: result.games, outcome: result.outcome, winnerSide: result.winnerSide }, requestId
-      });
-      await emitCompleted(transaction, match, parts);
-      await handler.afterResult(transaction, { ctx, match, auth });
-      await statusChanged(transaction, handler, { ctx, match, from: before.status, to: 'completed' });
-      return match;
+      return applyResult(transaction, { auth, match, handler, ctx, body, requestId });
     });
 
   const statusChanged = async (transaction, handler, change) => {
@@ -209,6 +224,7 @@ const createMatchService = ({ models, sequelize, players, platform }) => {
       await audit.record(transaction, {
         tenant: auth.tenant, actorRef: auth.sub, action: 'match.called', targetType: 'match', targetId: match.id, after: { courtRef }, requestId
       });
+      notifyBoard(transaction, match, 'called');
       return match;
     });
 
@@ -225,6 +241,7 @@ const createMatchService = ({ models, sequelize, players, platform }) => {
         tenant: auth.tenant, actorRef: auth.sub, action: 'match.cancelled', targetType: 'match', targetId: match.id, requestId
       });
       await statusChanged(transaction, handler, { ctx, match, from, to: 'cancelled' });
+      notifyBoard(transaction, match, 'cancelled');
       return match;
     });
 
@@ -241,6 +258,7 @@ const createMatchService = ({ models, sequelize, players, platform }) => {
         tenant: auth.tenant, actorRef: auth.sub, action: 'match.ended', targetType: 'match', targetId: match.id, requestId
       });
       await statusChanged(transaction, handler, { ctx, match, from: 'in_play', to: 'ended' });
+      notifyBoard(transaction, match, 'ended');
       return match;
     });
 
@@ -253,6 +271,9 @@ const createMatchService = ({ models, sequelize, players, platform }) => {
   const views = async (tenant, matches) => {
     const partsMap = await participantsOf(matches.map((m) => m.id));
     const people = await namesFor(tenant, [...partsMap.values()]);
+    // Tỉ số đang bấm (null nếu chưa ai bấm điểm trận này) — màn hình lớn có sẵn tỉ số từng sân.
+    const liveRows = matches.length ? await MatchLiveScore.findAll({ where: { matchId: matches.map((m) => m.id) } }) : [];
+    const liveOf = new Map(liveRows.map((r) => [r.matchId, r]));
     // Trận giao lưu không có đội của giải (teamId null) nhưng vẫn có người.
     const team = (m, parts, side) => {
       const teamId = side === 'A' ? m.teamAId : m.teamBId;
@@ -286,13 +307,33 @@ const createMatchService = ({ models, sequelize, players, platform }) => {
         courtRef: m.courtRef ?? null,
         calledAt: iso(m.calledAt),
         completedAt: iso(m.completedAt),
+        live: liveOf.has(m.id) ? liveView(liveOf.get(m.id), m.scoring) : null,
         version: m.version
       };
     });
   };
 
+  // Token "chỉ bấm điểm" của người chơi (scope match:score + claim player) chỉ dùng được cho
+  // trận mình đang đánh. Không có scope đó → false (để người gọi báo lỗi quyền như thường).
+  const assertParticipant = async (transaction, auth, match) => {
+    if (!auth.scopes.has('match:score') || !auth.player) return false;
+    const me = await players.findByRef(auth.tenant, auth.player, { transaction });
+    const parts = (await participantsOf([match.id], { transaction })).get(match.id);
+    if (me && parts.some((p) => p.playerId === me.id)) return true;
+    throw new AppError(403, 'NOT_A_PARTICIPANT', 'Chỉ người chơi trong trận được bấm điểm / xem trận này');
+  };
+
+  // Xem một trận: quyền đọc của ngữ cảnh, hoặc người chơi trong trận đang bấm điểm.
   const getForRead = async (auth, matchId) => {
-    const { match } = await loadForAction(null, auth, matchId, 'read');
+    const match = await Match.findOne({ where: { id: matchId, tenantId: auth.tenant } });
+    if (!match) throw notFound('Không tìm thấy trận');
+    const handler = handlerFor(match);
+    const ctx = await handler.load(null, auth.tenant, match.contextId);
+    try {
+      handler.authorize(auth, ctx, 'read');
+    } catch (err) {
+      if (!(await assertParticipant(null, auth, match))) throw err;
+    }
     return match;
   };
 
@@ -454,7 +495,9 @@ const createMatchService = ({ models, sequelize, players, platform }) => {
     rebuildStats,
     playerMatches,
     partners,
-    headToHead
+    headToHead,
+    // Cho liveScoring (cùng module) — không dùng từ module khác.
+    internal: { handlerFor, applyResult, assertParticipant }
   };
 };
 

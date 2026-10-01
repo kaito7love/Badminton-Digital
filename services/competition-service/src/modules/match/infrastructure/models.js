@@ -50,7 +50,21 @@ const defineMatchModels = (sequelize) => {
     { tableName: 'match_participants', underscored: true, updatedAt: false }
   );
 
-  return { Match, MatchParticipant };
+  // Bấm điểm trực tiếp: chuỗi pha cầu của một trận (domain/liveScore.js).
+  const MatchLiveScore = sequelize.define(
+    'MatchLiveScore',
+    {
+      matchId: { type: DataTypes.CHAR(36), primaryKey: true },
+      tenantId: { type: DataTypes.STRING(64), allowNull: false },
+      rallies: { type: DataTypes.STRING(1000), allowNull: false, defaultValue: '' },
+      firstServer: { type: DataTypes.ENUM('A', 'B'), allowNull: false, defaultValue: 'A' },
+      revision: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+      scoredByRef: { type: DataTypes.STRING(128), allowNull: true }
+    },
+    { tableName: 'match_live_scores', underscored: true }
+  );
+
+  return { Match, MatchParticipant, MatchLiveScore };
 };
 
 module.exports = { defineMatchModels };

@@ -12,6 +12,8 @@ const { createInbox } = require('./platform/events/inbox');
 const { createEventValidator } = require('./platform/events/schemas');
 const { createDispatcher } = require('./platform/events/dispatcher');
 const { createScheduler } = require('./platform/jobs/scheduler');
+const { createRealtime } = require('./platform/realtime/realtime');
+const { createSse } = require('./platform/http/sse');
 const { requireScope } = require('./platform/http/auth');
 const { ok, paged } = require('./platform/http/envelope');
 const { notFound, conflict } = require('./platform/http/errors');
@@ -40,16 +42,24 @@ const createApp = ({ config, sequelize, models, logger }) => {
       toleranceSeconds: config.events.signatureToleranceSeconds,
       logger
     }),
-    idempotency: createIdempotency({ IdempotencyKey: models.IdempotencyKey, logger })
+    idempotency: createIdempotency({ IdempotencyKey: models.IdempotencyKey, logger }),
+    realtime: createRealtime({ logger })
   };
+  const sse = createSse({ realtime: platform.realtime, heartbeatMs: config.realtime.heartbeatMs });
 
   const player = createPlayerModule({ models, sequelize, platform });
   const rating = createRatingModule({ models, sequelize, platform, players: player.service });
   const ranking = createRankingModule({ models, sequelize, players: player.service, ratingQueries: rating.queries, config });
   const matchmakingRouter = createMatchmakingRouter();
   const match = createMatchModule({ models, sequelize, platform, players: player.service });
-  const tournament = createTournamentModule({ models, sequelize, platform, players: player.service, rating, ranking, match });
-  const session = createSessionModule({ models, sequelize, platform, players: player.service, rating, match });
+  // Luồng TV của một giải / buổi: tỉ số trực tiếp (match.live) + báo màn hình đổi (plan 19).
+  const stream = (req, res, { contextType, contextId }) =>
+    sse.open(req, res, {
+      channel: platform.realtime.key(req.auth.tenant, contextType, contextId),
+      snapshot: () => match.live.snapshot(req.auth.tenant, contextType, contextId)
+    });
+  const tournament = createTournamentModule({ models, sequelize, platform, players: player.service, rating, ranking, match, stream });
+  const session = createSessionModule({ models, sequelize, platform, players: player.service, rating, match, stream });
 
   const dispatcher = createDispatcher({
     sequelize,
@@ -121,7 +131,7 @@ const createApp = ({ config, sequelize, models, logger }) => {
   app.use((req, res, next) => next(notFound('Không có endpoint này')));
   app.use(createErrorHandler(logger));
 
-  return { app, modules: { player, rating, ranking, match, tournament, session }, platform, dispatcher, scheduler, openapi };
+  return { app, modules: { player, rating, ranking, match, tournament, session }, platform, dispatcher, scheduler, openapi, sse };
 };
 
 module.exports = { createApp };

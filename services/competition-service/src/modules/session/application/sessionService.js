@@ -24,7 +24,10 @@ const DEFAULTS = { format: 'doubles', mode: 'balanced', scoring: '1x21', rated: 
 
 const createSessionService = ({ models, sequelize, players, ratings, ratingQueries, matches, platform, ctx }) => {
   const { PlaySession, PlaySessionPlayer } = models;
-  const { outbox, audit } = platform;
+  const { outbox, audit, realtime } = platform;
+  // Màn hình TV của buổi tải lại khi sân / hàng chờ đổi — phát sau commit (plan 19).
+  const boardChanged = (transaction, s, reason) =>
+    realtime.boardChanged(transaction, { tenant: s.tenantId, contextType: 'session', contextId: s.id, reason });
 
   const normalize = (body) => {
     const out = pick(body);
@@ -139,6 +142,7 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
       await audit.record(transaction, {
         tenant: auth.tenant, actorRef: auth.sub, action: 'session.updated', targetType: 'session', targetId: s.id, before, after: changes, requestId
       });
+      boardChanged(transaction, s, 'updated');
       return s;
     });
 
@@ -182,6 +186,7 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
         tenant: auth.tenant, actorRef: auth.sub, action: existing ? 'session.player_rejoined' : 'session.player_joined', targetType: 'session', targetId: s.id,
         after: { playerId: player.id, gamesCredit: row.gamesCredit, quickLevel: quickAssessed ? quickLevel : null }, requestId
       });
+      boardChanged(transaction, s, 'checked_in');
       return { session: s, row, quickAssessed };
     });
 
@@ -201,6 +206,7 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
       await audit.record(transaction, {
         tenant: auth.tenant, actorRef: auth.sub, action: 'session.player_left', targetType: 'session', targetId: s.id, after: { playerId }, requestId
       });
+      boardChanged(transaction, s, 'left');
       return { session: s, row };
     });
 
@@ -270,6 +276,7 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
         tenant: auth.tenant, actorRef: auth.sub, action: 'session.courts_filled', targetType: 'session', targetId: s.id,
         after: { round, seed, courts: chosen.map((a) => a.court), manualEdits }, requestId
       });
+      boardChanged(transaction, s, 'filled');
       return { session: s, round, seed, manualEdits, matchIds: chosen.map((a, i) => idOf.get(`C${i}`)) };
     });
 
@@ -356,6 +363,7 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
         tenant: auth.tenant, actorRef: auth.sub, action: 'session.closed', targetType: 'session', targetId: s.id,
         after: { completed: o.completed.length, cancelled: o.unscored.length, ratingChanges: changes.length }, requestId
       });
+      boardChanged(transaction, s, 'closed');
       return {
         session: s,
         result: { rated: s.rated, completedMatches: o.completed.length, unscoredMatches: o.unscored.length, ratingChanges: await changeViews(auth.tenant, changes, transaction) }
@@ -374,6 +382,7 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
         tenant: auth.tenant, actorRef: auth.sub, action: 'session.cancelled', targetType: 'session', targetId: s.id,
         after: { cancelledMatches: o.unscored.length }, requestId
       });
+      boardChanged(transaction, s, 'cancelled');
       return s;
     });
 

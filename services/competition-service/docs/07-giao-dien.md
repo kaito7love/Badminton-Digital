@@ -19,6 +19,7 @@
 | **Bảng xếp hạng** | `/rankings` | Hai tab: *Trình độ* / *Thành tích*. Lọc theo hạng mục, chi nhánh, nhóm tuổi. Tự đánh dấu dòng của mình; chưa đủ điều kiện thì hiện "vị trí dự kiến" | `GET /v1/leaderboards/rating`, `…/points` |
 | **Hồ sơ người khác** | `/players/:id` | Như hồ sơ của tôi, rút gọn theo quyền riêng tư; nút "Đối đầu với tôi" | `GET /v1/players/{id}/public`, `…/head-to-head/{other}` |
 | **Giải của tôi** | `/my-tournaments` | Giải đang đánh / đã đánh; lịch trận của mình (lượt, sân); kết quả; bảng đấu | `GET /v1/me/tournaments` |
+| **Bấm điểm trận của tôi** | `/my-matches/:matchId/score` (điện thoại, cầm dọc) | Như màn hình bấm điểm của nhân viên (mục 1.2), chỉ cho trận mình đang đánh. Trận tính điểm: nút xác nhận đổi thành "Chờ nhân viên xác nhận" | `GET /v1/matches/{id}`, `POST …/live/rallies`, `…/undo`, `…/confirm` (scope `match:score`) |
 
 ### 1.2 Nhân viên / quản lý (trong `SidebarLayout`, menu "Thi đấu")
 
@@ -31,8 +32,9 @@
 | **Tạo / sửa giải** | `/competition/tournaments/new` | Wizard 4 bước (06, mục 2) có ước tính số trận / thời gian | Quản lý |
 | **Chi tiết giải** | `/competition/tournaments/:id` | Tab: **Tổng quan** · **Đăng ký** · **Bốc thăm** · **Lịch & kết quả** · **Bảng đấu** · **Sơ đồ** · **Chốt giải** (mục 2) | Theo từng tab |
 | **Nhập tỉ số nhanh** | `/competition/score/:matchId` (tối ưu điện thoại) | Hai cột A / B, ô số lớn, báo lỗi luật ngay khi gõ, nút W.O. / Bỏ cuộc | Nhân viên |
-| **Buổi giao lưu** | `/competition/sessions/:id` | Điểm danh (chưa có điểm → chọn nhãn chấm nhanh ngay trong ô điểm danh), "Xếp sân trống" (bản xem trước kéo-thả đổi người, cảnh báo cặp đồng đội đã chung đội), mỗi sân đang đánh có nút "Nhập tỉ số" / "Xong (không tỉ số)" / "Huỷ trận", người chờ, "Rời buổi", đóng buổi (xem trước điểm trình trước / sau) | Nhân viên |
-| **Màn hình lớn (TV)** | `/competition/sessions/:id/board`, `/competition/tournaments/:id/board` | Chỉ đọc, chữ lớn, tự cập nhật: sân – ai với ai – đã đánh bao lâu (tính theo `serverTime`); hàng chờ, tô sáng người ra sân lượt tới; kết quả gần nhất; bảng đấu (giải) | Nhân viên mở trên TV |
+| **Bấm điểm trực tiếp** | `/competition/live/:matchId` (điện thoại, cầm dọc) | Hai nửa màn hình Đội A / Đội B, chạm để +1 điểm; game đang đánh + các game đã xong; cầu ở đội đang giao + "ô phải / trái"; **Hoàn tác**; chọn đội giao trước (trước điểm đầu); đủ điểm thắng → "Xác nhận kết quả". Mỗi lần bấm gửi `revision` + `Idempotency-Key`; 409 `LIVE_CONFLICT` → tải lại tỉ số, báo "máy khác vừa bấm" (06, mục 1.5) | Nhân viên, người chơi trong trận |
+| **Buổi giao lưu** | `/competition/sessions/:id` | Điểm danh (chưa có điểm → chọn nhãn chấm nhanh ngay trong ô điểm danh), "Xếp sân trống" (bản xem trước kéo-thả đổi người, cảnh báo cặp đồng đội đã chung đội), mỗi sân đang đánh có nút "Bấm điểm" / "Nhập tỉ số" / "Xong (không tỉ số)" / "Huỷ trận" và tỉ số đang bấm (nếu có), người chờ, "Rời buổi", đóng buổi (xem trước điểm trình trước / sau) | Nhân viên |
+| **Màn hình lớn (TV)** | `/competition/sessions/:id/board`, `/competition/tournaments/:id/board` | Chỉ đọc, chữ lớn, tự cập nhật: sân – ai với ai – đã đánh bao lâu (tính theo `serverTime`); **tỉ số đang đánh thật to** + các game đã xong + cầu ở đội đang giao (sân có người bấm điểm); hàng chờ, tô sáng người ra sân lượt tới; kết quả gần nhất; bảng đấu (giải) | Nhân viên mở trên TV |
 
 ## 2. Chi tiết giải — các tab
 
@@ -72,5 +74,14 @@
   - bốc thăm thì hiện độ cân bằng so với bốc thuần tuý.
 - **Bấm một lần:** mọi nút ghi dữ liệu khoá khi đang gửi và gửi kèm `Idempotency-Key` (bài học FE-01 / FE-02 của
   nhóm sửa 5).
-- **Tự cập nhật:** lịch, bảng đấu, màn hình TV nghe sự kiện qua SSE sẵn có của app chính. App chính chuyển tiếp
-  `competition.match.completed`. Chưa có thì poll 10 giây.
+- **Tự cập nhật** (plan 19):
+  - màn hình TV, lịch, bảng đấu, màn hình bấm điểm mở luồng SSE của service qua gateway (`…/sessions/{id}/stream`,
+    `…/tournaments/{id}/stream`, 02 mục 2.9);
+  - `score` → đổi số của sân đó ngay; `board` → tải lại dữ liệu; luồng đóng khi token hết hạn → EventSource tự nối
+    lại;
+  - **gặp lỗi HTTP (502 / 503 lúc service khởi động lại, deploy) thì EventSource bỏ hẳn, không tự nối lại** → client
+    phải tự tạo lại, lùi dần 2 → 30 giây (như `realtimeClient` của app chính). Mỗi lần nối lại thì tải lại màn hình,
+    vì trong lúc mất kết nối có thể đã lỡ `board` (bàn thử bắt được lỗi này khi service khởi động lại);
+  - mất luồng thì poll 10 giây.
+  - Tỉ số từng điểm **không** đi qua outbox / SSE của app chính (outbox gửi 5 giây một lần). App chính vẫn nhận
+    `competition.match.completed` để ghi nhật ký.

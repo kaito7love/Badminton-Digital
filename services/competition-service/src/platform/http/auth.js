@@ -50,7 +50,9 @@ const createAuthenticator = (authConfig) => {
       org,
       allOrgs: org.includes('*'),
       player: typeof payload.player === 'string' ? payload.player : null,
-      playerName: typeof payload.player_name === 'string' ? payload.player_name : null
+      playerName: typeof payload.player_name === 'string' ? payload.player_name : null,
+      // Luồng SSE đóng đúng lúc token hết hạn (platform/http/sse.js).
+      exp: payload.exp
     };
   };
 

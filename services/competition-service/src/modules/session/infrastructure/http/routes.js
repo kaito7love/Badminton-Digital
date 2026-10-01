@@ -10,7 +10,7 @@ const { parsePagination } = require('../../../../platform/http/pagination');
 const READ = ['session:read', 'session:operate'];
 const OPERATE = ['session:operate'];
 
-const createSessionRouter = ({ service, queries, ctx, idempotency }) => {
+const createSessionRouter = ({ service, queries, ctx, idempotency, stream }) => {
   const router = express.Router();
   const base = (req) => ({ auth: req.auth, id: req.params.id, requestId: req.requestId });
   const detail = async (s) => ctx.view(s, { progress: await queries.progress(s) });
@@ -99,6 +99,17 @@ const createSessionRouter = ({ service, queries, ctx, idempotency }) => {
 
   router.get('/sessions/:id/matches', requireScope(...READ), asyncHandler(async (req, res) => ok(res, { items: await queries.sessionMatches(base(req)) })));
   router.get('/sessions/:id/board', requireScope(...READ), asyncHandler(async (req, res) => ok(res, await queries.board(base(req)))));
+
+  // Luồng SSE cho màn hình TV (plan 19): snapshot → score / board → ping; đóng khi token hết hạn.
+  router.get(
+    '/sessions/:id/stream',
+    requireScope(...READ),
+    asyncHandler(async (req, res) => {
+      const s = await ctx.load(null, req.auth.tenant, req.params.id);
+      ctx.authorize(req.auth, s, 'read');
+      await stream(req, res, { contextType: 'session', contextId: s.id });
+    })
+  );
   router.get('/sessions/:id/close-preview', requireScope(...READ), asyncHandler(async (req, res) => ok(res, (await service.previewClose(base(req))).result)));
 
   router.post(

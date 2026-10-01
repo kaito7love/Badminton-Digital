@@ -7,7 +7,7 @@ const { createSessionQueries } = require('./application/sessionQueries');
 const { createSessionRouter } = require('./infrastructure/http/routes');
 const sessionRules = require('./domain/sessionRules');
 
-const createSessionModule = ({ models, sequelize, platform, players, rating, match }) => {
+const createSessionModule = ({ models, sequelize, platform, players, rating, match, stream }) => {
   const ctx = createSessionContext({ models });
   const service = createSessionService({
     models, sequelize, players, ratings: rating.service, ratingQueries: rating.queries, matches: match.service, platform, ctx
@@ -26,7 +26,7 @@ const createSessionModule = ({ models, sequelize, platform, players, rating, mat
   });
   players.registerMergeHandler(service.mergeHandler);
 
-  const router = createSessionRouter({ service, queries, ctx, idempotency: platform.idempotency });
+  const router = createSessionRouter({ service, queries, ctx, idempotency: platform.idempotency, stream });
   return { service, queries, router };
 };
 
