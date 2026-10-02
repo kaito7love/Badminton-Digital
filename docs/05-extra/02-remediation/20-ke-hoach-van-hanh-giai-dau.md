@@ -1,7 +1,7 @@
 # Kế hoạch: rà luồng giao lưu + giải đấu, đưa giải đấu từ "xem được" sang "tổ chức và vận hành được"
 
 - **Ngày:** 03/10/2026.
-- **Trạng thái:** đã duyệt (03/10, câu trả lời ở mục 5) → đã làm, kết quả ở mục 6; chờ duyệt merge.
+- **Trạng thái:** đã duyệt (03/10, câu trả lời ở mục 5) → đã làm, kết quả ở mục 6–7; **đã merge vào `main` 03/10/2026** (main fast-forward tới `030513f`, gồm cả plan 19).
 - **Nhánh:** `feat/competition-tournament-ops`, tách từ `feat/competition-live-score` @ `f24deaa` (cần màn hình bấm
   điểm của nhánh đó).
 - **Phạm vi:** `services/competition-service` + bàn thử. App chính vẫn để bước 4 (plan 18), tài liệu 07 cập nhật cho

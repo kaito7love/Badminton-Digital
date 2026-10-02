@@ -2,7 +2,7 @@
 
 - **Nhánh:** `feat/competition-live-score`, tách từ `main` @ `e47a00d`.
 - **Ngày:** 02/10/2026.
-- **Trạng thái:** đã duyệt ("code đi", theo cả 3 khuyến nghị ở mục 7) → đã làm, kết quả ở mục 8–9; chờ duyệt merge.
+- **Trạng thái:** đã duyệt ("code đi", theo cả 3 khuyến nghị ở mục 7) → đã làm, kết quả ở mục 8–11; **đã merge vào `main` 03/10/2026** (cùng plan 20).
 - **Phạm vi:** chỉ `services/competition-service` (cùng bàn thử để bấm thử). App chính chưa sửa — giao diện thật
   thuộc bước 4 của plan 18.
 

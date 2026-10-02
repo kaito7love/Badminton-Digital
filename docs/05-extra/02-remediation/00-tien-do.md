@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-10-03 (mục 20 — giải đấu tổ chức + vận hành được ngày thi đấu — xong trên nhánh `feat/competition-tournament-ops`, chờ duyệt merge). Trước đó 2026-10-02 (mục 19 — bấm điểm trực tiếp, tỉ số lên màn hình TV — xong trên nhánh `feat/competition-live-score`, chờ duyệt merge). Trước đó 2026-09-28 (mục 18 — competition-service bước 1–3 kèm phần sửa sau khi bấm thử — đã merge vào `main`). Trước đó 2026-09-25 (mục 16 — nhóm sửa 4, hạ tầng deploy + bản demo công khai — và mục 17 — nhóm sửa 5, thao tác tại quầy — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-4-5`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-10-03 (mục 19 — bấm điểm trực tiếp, tỉ số lên màn hình TV — và mục 20 — giải đấu tổ chức + vận hành được ngày thi đấu — đã merge vào `main` sau khi chủ dự án bấm thử: main fast-forward tới `030513f`, gồm cả hai nhánh). Trước đó 2026-09-28 (mục 18 — competition-service bước 1–3 kèm phần sửa sau khi bấm thử — đã merge vào `main`). Trước đó 2026-09-25 (mục 16 — nhóm sửa 4, hạ tầng deploy + bản demo công khai — và mục 17 — nhóm sửa 5, thao tác tại quầy — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-4-5`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -750,7 +750,7 @@ rồi mới nhả số của hồ sơ đã xoá).
 - **Tiếp theo:** bước 4 (tích hợp app chính + giao diện) ở nhánh riêng `feat/competition-integration`.
 - **App chính chưa bị sửa dòng nào** (chỉ thêm job CI).
 
-### 19. `feat/competition-live-score` — bấm điểm trực tiếp, tỉ số lên màn hình TV ngay (chưa merge)
+### 19. `feat/competition-live-score` — bấm điểm trực tiếp, tỉ số lên màn hình TV ngay (đã merge vào `main` 03/10/2026)
 
 - **Nội dung:**
   - bấm từng pha cầu trên điện thoại; tỉ số tính theo luật của trận (hết game, hết trận, đội giao + ô giao);
@@ -760,14 +760,14 @@ rồi mới nhả số của hồ sơ đã xoá).
   - nhân viên và người chơi trong trận đều bấm được; người chơi chỉ tự xác nhận trận không tính điểm.
 - **Plan + kết quả:** `19-ke-hoach-bam-diem-truc-tiep.md`; thiết kế ở `services/competition-service/docs/06` mục 1.5
   và 13, `02` mục 2.9.
-- **Tiến độ:** xong 02/10/2026, chờ duyệt merge.
+- **Tiến độ:** xong 02/10/2026; chủ dự án bấm thử, duyệt "merge vô main đi" 03/10/2026 (cùng mục 20).
   - 259 test xanh trên MySQL 9.5 và MySQL 8.4 kiểu Aiven.
   - Image production + kịch bản HTTP 36 / 36.
   - Từ lúc chạm điểm tới lúc TV đổi số: khoảng 0.3–0.5 giây trên trình duyệt.
   - Test chịu tải bắt được và đã sửa một deadlock.
 - **App chính chưa bị sửa dòng nào.** Giao diện thật thuộc bước 4.
 
-### 20. `feat/competition-tournament-ops` — giải đấu tổ chức + vận hành được ngày thi đấu (chưa merge)
+### 20. `feat/competition-tournament-ops` — giải đấu tổ chức + vận hành được ngày thi đấu (đã merge vào `main` 03/10/2026)
 
 - **Nhánh tách từ** `feat/competition-live-score` (cần màn hình bấm điểm của mục 19).
 - **Nội dung:**
@@ -779,7 +779,7 @@ rồi mới nhả số của hồ sơ đã xoá).
   - chặn điểm danh một người ở hai buổi giao lưu;
   - bàn thử tổ chức được giải trọn vòng + TV giải.
 - **Plan + kết quả:** `20-ke-hoach-van-hanh-giai-dau.md`; thiết kế ở `services/competition-service/docs/06` mục 4, 7.4, 14.
-- **Tiến độ:** xong 03/10/2026, chờ duyệt merge (sau mục 19).
+- **Tiến độ:** xong 03/10/2026; chủ dự án bấm thử ("tôi test oke hết rồi"), duyệt merge cùng ngày. main fast-forward `e47a00d` → `030513f` (8 commit của mục 19 + 20).
   - 285 test xanh trên MySQL 9.5 và MySQL 8.4 kiểu Aiven.
   - Seed tái lập được.
   - Bàn thử bấm thử trọn vòng trên trình duyệt.
