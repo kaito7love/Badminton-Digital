@@ -30,38 +30,68 @@
 | **Hàng chờ duyệt** | `/competition/reviews` | Bài chấm có cờ "Cần BTC xác nhận", bài chấm AI `pending_review` | Quản lý |
 | **Giải đấu — danh sách** | `/competition/tournaments` | Theo trạng thái; nút "Tạo giải" | Nhân viên xem, quản lý tạo |
 | **Tạo / sửa giải** | `/competition/tournaments/new` | Wizard 4 bước (06, mục 2): (1) tên, ngày, **giờ bắt đầu**, chi nhánh, cấp giải, điều lệ, **chọn sân của giải**; (2) Đơn / Đôi, giới, cách ghép đôi (**mặc định "cặp đăng ký sẵn"** — 2 người đăng ký chung một đội; tuỳ chọn "bốc thăm ghép cặp cân bằng"), điều kiện trình, tối đa, **"Bốc thăm tại sân"**; (3) thể thức ("theo gợi ý" hoặc chọn), số bảng, đi tiếp, chia bảng, tranh hạng 3, luật điểm (phút / trận tự điền theo luật), tính điểm trình / BXH; (4) xem lại: số đội dự kiến → `POST /v1/tournaments/advice` → thể thức gợi ý, số trận, số lượt trên số sân đã chọn, phút, **giờ xong dự kiến**. Hai nút "Tạo (nháp)" / "Tạo và mở đăng ký" | Quản lý |
-| **Chi tiết giải** | `/competition/tournaments/:id` | Tab: **Tổng quan** · **Sân** (vận hành ngày thi đấu) · **Đăng ký** · **Bốc thăm** · **Lịch & kết quả** · **Bảng đấu** · **Sơ đồ** · **Chốt giải** (mục 2) | Theo từng tab |
+| **Chi tiết giải** | `/competition/tournaments/:id` | Đầu trang: **thanh tiến trình + "việc cần làm" + một nút chính**; tab **Sân** · **Đăng ký & điểm danh** · **Lịch & kết quả** · **Bảng đấu & sơ đồ** · **Kết quả chung cuộc**, tự mở đúng tab theo giai đoạn (mục 2) | Theo từng tab |
 | **Nhập tỉ số nhanh** | `/competition/score/:matchId` (tối ưu điện thoại) | Hai cột A / B, ô số lớn, báo lỗi luật ngay khi gõ. Ô **Kết quả**: "Đánh hết trận" / "Bỏ cuộc giữa trận — không đánh tiếp được" (nhập các game đã xong + chọn đội thắng) / "W.O. — vắng" (chỉ chọn đội thắng) | Nhân viên |
 | **Bấm điểm trực tiếp** | `/competition/live/:matchId` (điện thoại, cầm dọc) | Hai nửa màn hình Đội A / Đội B, chạm để +1 điểm; game đang đánh + các game đã xong; cầu ở đội đang giao + "ô phải / trái"; **Hoàn tác**; chọn đội giao trước (trước điểm đầu); đủ điểm thắng → "Xác nhận kết quả". Dòng trạng thái to "Trận 3 game × 21 · Game 2/3 · Ván 1–0" + các game đã xong; **hết một game** → khung vàng "Hết game 1: 21–18 — sang game 2, đổi sân, chưa nhả sân" (khoá hai nửa tới khi bấm "Tiếp tục"; hoàn tác thì tự tắt); game 3 của trận 3 game có đội chạm 11 → nhắc "Đổi sân" (trận 1 game không đổi sân); **hai nửa đi theo bên sân**: mỗi lần đổi sân (`live.endsSwapped` đổi) hai nửa tự đổi bên, màu đi theo đội, khung vàng báo "[đội] bên trái", chip game và "Ván" xếp theo trái – phải giống hai nửa; nút **"⇆ Đổi bên"** lật thêm trên riêng máy đang bấm (người bấm đứng phía kia sân, hai đội quên đổi…), máy nhớ theo trận (`localStorage`), không gọi API, không ảnh hưởng máy khác và TV; khi đang 1–0 / 1–1 có dòng "Trận chưa xong — chưa nhả sân". Nút **"Không đánh tiếp được…"** (chỉ nhân viên, plan 20): trận giải → chọn đội không đánh tiếp được → `POST …/live/retire` → đội đó thua (giữ game đã xong), màn hình báo "X thắng (đối thủ không đánh tiếp được)"; trận giao lưu → chọn "Xong (không tỉ số)" hoặc "Huỷ trận". Lưu xong (hoặc trận không còn đang đánh) → nút to **"← Về buổi giao lưu" / "← Về giải đấu"** đưa về màn hình buổi / giải của trận (mở từ nút "Bấm điểm" thì đóng tab bấm điểm, quay lại tab cũ — tab đó đã tự cập nhật qua luồng). Mỗi lần bấm gửi `revision` + `Idempotency-Key`; 409 `LIVE_CONFLICT` → tải lại tỉ số, báo "máy khác vừa bấm" (06, mục 1.5) | Nhân viên, người chơi trong trận |
 | **Buổi giao lưu** | `/competition/sessions/:id` | Form tạo buổi có ô **"Luật điểm"** (1 game × 21 mặc định · 3 game × 21 · 3 game × 15 · 1 game × 31); nút **"Đổi luật điểm"** giữa buổi (áp cho trận xếp sau, nói rõ trận đang đánh giữ luật cũ); thẻ sân bo3 có nhãn "3 game"; điểm danh (chưa có điểm → chọn nhãn chấm nhanh ngay trong ô điểm danh; 409 `PRESENT_ELSEWHERE` → hỏi "Rời buổi kia rồi điểm danh?" rồi gọi rời buổi kia + điểm danh lại), "Xếp sân trống" (bản xem trước kéo-thả đổi người, cảnh báo cặp đồng đội đã chung đội), mỗi sân đang đánh có nút "Bấm điểm" / "Nhập tỉ số" / "Xong (không tỉ số)" / "Huỷ trận" và tỉ số đang bấm (nếu có), người chờ, "Rời buổi", đóng buổi (xem trước điểm trình trước / sau) | Nhân viên |
 | **Màn hình lớn (TV)** | `/competition/sessions/:id/board`, `/competition/tournaments/:id/board` | Chỉ đọc, chữ lớn, tự cập nhật: sân – ai với ai – đã đánh bao lâu (tính theo `serverTime`); **bảng điểm** cho sân có người bấm điểm (mục 4); hàng chờ, tô sáng người ra sân lượt tới; kết quả gần nhất. **Giải** (plan 20): mọi sân của giải (đang đánh: trận nào — bảng / lượt / vòng, bảng điểm; trống: "chờ gọi trận kế tiếp"), **Sắp tới** (`next-matches`, kèm giờ dự kiến), bảng xếp hạng từng bảng, kết quả gần đây (W.O. / bỏ cuộc ghi rõ) | Nhân viên mở trên TV |
 
-## 2. Chi tiết giải — các tab
+## 2. Chi tiết giải — tiến trình, việc cần làm, các tab
+
+Thiết kế theo lần bấm thử như người dùng thật (plan 20 mục 7): bản đầu để mọi thứ trên một trang dài (9 nút ngang hàng,
+nhập tỉ số phải cuộn 1 100–1 600 px) và người dùng không biết bước tiếp theo.
 
 ```
-┌ Giải "Đôi nam nữ ghép cặp — trình ≤ 4.0"   [open]   25/10 · CN Quận 1 · 4 sân ───────────────────────┐
-│ Tổng quan │ Đăng ký (25) │ Bốc thăm │ Lịch & kết quả │ Bảng đấu │ Sơ đồ │ Chốt giải                   │
-├───────────┴──────────────┴──────────┴────────────────┴──────────┴───────┴─────────────────────────────┤
-│ Bốc thăm                                                seed a91f03c2   [Bốc lại]  [Xác nhận bốc thăm]│
-│ Độ lệch điểm các đội: 0.03   (bốc thuần tuý trung bình: 0.41)                                        │
-│ Bảng A                    Bảng B                    Bảng C                                           │
-│  3.45  Tuấn + Mai    ⇄     3.42  Hùng + Lan          3.44  Nam + Thảo                                │
-│  3.41  Long + Hà     ⇄     3.40  Duy + Vy            3.39  Phúc + Trang                              │
-│  …                                                                                                   │
-│ Danh sách chờ: Khoa (đăng ký sau cùng, lệch nam–nữ)                                                  │
+┌ Giải đôi CLB tối thứ Bảy  [Đã bốc thăm]                                                              ┐
+│ Đôi tự do · vòng bảng + loại trực tiếp · cặp đăng ký sẵn · Sân 7, Sân 8 · 18:00 · bốc thăm tại sân   │
+│ (✓ Đăng ký)(✓ Điểm danh)(✓ Bốc thăm)[4. Vòng bảng](5. Loại trực tiếp)(6. Chốt)                       │
+│ ┌ Vòng bảng: còn 9 trận (2 đang đánh). Gọi trận ra sân ở tab Sân …            [nút chính đúng bước] ┐│
+│ [Màn hình TV ↗] [Thêm ▾] [Tải lại]                                                                   │
+├ Sân (2/2) │ Đăng ký & điểm danh (14) │ Lịch & kết quả (0/9) │ Bảng đấu & sơ đồ ─────────────────────┤
+│ Sân 7 Đang đánh 00:01 · Bảng 1 · lượt 1 …  [Bấm điểm][Nhập tỉ số]                                     │
+│ Sân 8 Trống · Gợi ý: Bảng 2 · lượt 2 · 18:15 …  [Gọi trận này ra Sân 8][Chọn trận khác…]              │
+│ Kế tiếp: … · Bảng 2 · lượt 1  Hồ Tấn Duy + Tạ Kim Anh vs …  [chờ: Tạ Kim Anh đang ở Sân 4]            │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+**Đầu trang:**
+- **Thanh tiến trình:** Đăng ký → Điểm danh → Bốc thăm → Vòng bảng (hoặc "Thi đấu") → Loại trực tiếp (chỉ thể thức vòng
+  bảng + loại trực tiếp) → Chốt. Bước đã qua có ✓, bước hiện tại tô màu.
+- **"Việc cần làm"** — một câu + **một nút chính** đúng giai đoạn:
+
+  | Giai đoạn | Câu | Nút chính |
+  |---|---|---|
+  | Nháp | Mở đăng ký để nhận đăng ký | Mở đăng ký |
+  | Mở, chưa đủ người | Đăng ký các cặp — đang có n cặp | (mở tab Đăng ký) |
+  | Mở, bốc thăm tại sân | Điểm danh khi mọi người đến (k / n), rồi bốc thăm — ai chưa đến sang danh sách chờ | Bốc thăm… |
+  | Mở, bốc thăm trước | Đủ người thì bốc thăm | Bốc thăm… |
+  | Đang đánh | Còn x trận (y đang đánh). Gọi trận ra sân ở tab Sân | (mở tab Sân) |
+  | Vòng bảng xong | Xem và khoá sơ đồ loại trực tiếp | Sơ đồ loại trực tiếp… |
+  | Mọi trận xong | Xem trước rồi chốt giải | Chốt giải… |
+  | Đã chốt | Thứ hạng, điểm trình, BXH đã cập nhật | Xem kết quả |
+
+- Nút ít dùng gom vào **"Thêm ▾"**: bốc thăm lại / mở lại đăng ký (khi chưa có kết quả), xử W.O. đội vắng, thêm trận
+  tay, xem trước khi chốt, sân của giải, huỷ chốt, huỷ giải. Ngoài ra chỉ còn "Màn hình TV" và "Tải lại".
+- Tự mở đúng tab: đang nhận đăng ký → **Đăng ký**; ngày thi đấu → **Sân**; đã chốt → **Kết quả chung cuộc**. Tab đang
+  mở được giữ khi trang tự cập nhật.
+
 | Tab | Có gì | Bấm được gì |
 |---|---|---|
-| Tổng quan | Thông tin (sân của giải, giờ bắt đầu, bốc thăm tại sân / trước), điều lệ, tiến độ (đăng ký, **điểm danh**, x / y trận), ước tính giờ xong | Mở đăng ký, huỷ giải, **Sân của giải** (thêm / bớt trong ngày), **Xử W.O. đội vắng** (danh sách xem trước, bỏ chọn được), thêm trận tay, mở TV |
-| **Sân** (plan 20) | Mỗi sân của giải: đang đánh → trận nào + bảng điểm (tỉ số đổi theo luồng SSE); trống → **trận kế tiếp** đề xuất (`next-matches`, không trùng người giữa các sân, ghi "vừa đánh x phút" nếu chưa nghỉ đủ); không có trận gọi được → nói rõ "X đang ở Sân Y" (`blocked`); sân bận việc khác (giải / buổi khác) | **Gọi trận kế tiếp** (`call-next`), **Chọn trận khác…**, Bấm điểm, Nhập tỉ số |
-| Đăng ký | Danh sách **theo cặp** (đôi cặp sẵn) hoặc theo người, điểm, cờ, danh sách chờ (lý do: hết chỗ / lẻ người / **vắng lúc bốc**), **điểm danh: bấm tên từng người** (✓) | Thêm — đôi cặp sẵn chọn **người + đồng đội** (tìm khách hàng); chưa có điểm → chọn nhãn chấm nhanh rồi đăng ký; **Đổi đồng đội** (trước bốc thăm); rút (sau bốc thăm giải thích W.O.) |
-| Bốc thăm | Xem trước đội + bảng (hoặc sơ đồ vòng 1, ô miễn đấu) + **lịch theo lượt kèm giờ**, thống kê cân bằng, **người vắng** (bốc thăm tại sân) | Bốc lại; đơn / đôi cặp sẵn: bấm hai **đội** để đổi chỗ giữa hai bảng / hai ô (không tách cặp); bốc thăm ghép cặp: đổi người, ⇄ đổi cả đội; xác nhận; reopen |
-| Lịch & kết quả | Trận theo lượt + **giờ dự kiến**, sân, trạng thái; trận chưa gọi được ghi "chờ: X đang ở Sân Y" | Gọi ra sân (**chọn sân trống của giải**; trận đang bị chặn thì báo lý do), nhập / sửa tỉ số (kể cả W.O., bỏ cuộc), thêm trận tay |
-| Bảng đấu | Bảng xếp hạng từng bảng (tự cập nhật) | — |
-| Sơ đồ | Sơ đồ loại trực tiếp, người thắng tự đi tiếp | Xem trước (nhất / nhì bảng mấy) / bấm hai ô để đổi (cảnh báo **"cùng bảng"** nếu hai đội cùng bảng gặp nhau ở vòng 1) / khoá sơ đồ |
-| Chốt giải | Thứ hạng chung cuộc, **điểm trình trước → sau**, **điểm thành tích** từng người | Chốt, huỷ chốt |
+| **Sân** | Mỗi sân của giải: **đang đánh** → trận nào + bảng điểm (đổi theo luồng SSE); **trống** → trận gợi ý (`next-matches`, không trùng người giữa các sân; "vừa đánh x phút trước" nếu chưa nghỉ đủ); **bận việc khác** (buổi / giải khác đang dùng) → không nhận gợi ý. Không có trận gọi được → nói rõ "X đang ở Sân Y". Khối **Kế tiếp**: các trận tiếp theo + trận đang chờ người | **"Gọi trận này ra Sân n"** — gọi **đúng trận đang hiện** (`POST /v1/matches/{id}/call`, không dùng `call-next` vì có thể ra trận khác với trận người dùng thấy), "Chọn trận khác…" (danh sách lấy mới lúc mở), Bấm điểm, Nhập tỉ số |
+| **Đăng ký & điểm danh** | Mở đăng ký: ô **gõ tìm tên** (không cần dấu: gõ "nguyen" ra "Nguyễn"; Enter chọn dòng đầu) cho người + đồng đội; người đang ở buổi giao lưu / đang đánh giải khác ghi **"⚠ đang đánh Sân 3 (giao lưu)"** và xếp cuối. Danh sách theo cặp, trình, danh sách chờ (hết chỗ / lẻ người / vắng lúc bốc). **Điểm danh = ô tích ☐ / ☑ trên tên từng người**, đếm "đã đến k / n", lọc "chỉ hiện cặp chưa đến đủ" | Đăng ký (xong thì con trỏ về ô tìm để gõ cặp sau), chưa có điểm → chọn nhãn chấm nhanh rồi đăng ký, **"☑ cả cặp"** (một chạm cho hai người), đổi đồng đội (trước bốc thăm), rút |
+| **Lịch & kết quả** | Lọc **Sắp tới / Đang đánh / Đã xong / Tất cả** (kèm số trận). Mỗi trận một hàng: lượt + giờ dự kiến + bảng / vòng · hai đội · trạng thái rõ nghĩa ("chưa đánh", "chờ đội thắng trận trước", "chờ: X đang ở Sân 3", "đang đánh · Sân 5" + tỉ số đang bấm, "21–13", "W.O.", "bỏ cuộc") | Gọi ra sân… (chọn sân trống của giải; trận đang bị chặn thì báo lý do), Bấm điểm, Nhập tỉ số / Sửa (ô nhập mở ngay dưới hàng, kể cả W.O., bỏ cuộc giữa trận) |
+| **Bảng đấu & sơ đồ** | Bảng xếp hạng từng bảng; sơ đồ loại trực tiếp (người thắng tự đi tiếp). Khoá sơ đồ từ "việc cần làm": xem trước (nhất / nhì bảng mấy), bấm hai ô để đổi (cảnh báo **"cùng bảng"**) | — |
+| **Kết quả chung cuộc** | Thứ hạng chung cuộc (sau khi chốt). Bản xem trước khi chốt: thứ hạng, **điểm trình trước → sau**, **điểm thành tích** | Chốt (từ "việc cần làm"), huỷ chốt ("Thêm ▾") |
+
+**Bốc thăm** là hộp xem trước mở từ nút chính (không phải tab): đội + bảng (hoặc sơ đồ vòng 1, ô miễn đấu) + lịch theo
+lượt kèm giờ + thống kê cân bằng + người vắng (bốc thăm tại sân); giải đơn / đôi cặp sẵn bấm hai **đội** để đổi chỗ (không
+tách cặp), bốc thăm ghép cặp đổi người / ⇄ đổi cả đội; "Bốc lại", "Xác nhận bốc thăm" → mở tab Sân.
+
+**Tạo giải:** ô chọn sân ghi sân nào đang được buổi giao lưu / giải đang đánh dùng ("đang dùng"), sân giải chưa bốc thăm
+cũng chọn ("giải khác cũng chọn"); chỉ chọn sẵn sân không đang dùng; chọn sân đang dùng thì phần "Xem lại" cảnh báo.
+
+**Điện thoại** (390 px): thanh trên không dính, ẩn dòng scope / nút phụ; chọn giải bằng **ô chọn** thay cột trái; thông tin
+giải rút gọn; mỗi trận trong lịch xếp dọc; không tràn ngang. Nút "Gọi trận này" ở ngay màn hình đầu.
 
 ## 3. Nguyên tắc chung
 
@@ -75,6 +105,12 @@
   - bốc thăm thì hiện độ cân bằng so với bốc thuần tuý.
 - **Bấm một lần:** mọi nút ghi dữ liệu khoá khi đang gửi và gửi kèm `Idempotency-Key` (bài học FE-01 / FE-02 của
   nhóm sửa 5).
+- **Không làm mất thao tác dở** (plan 20 mục 7): đang gõ / chọn trong một form, đang mở ô nhập tỉ số hoặc hộp thoại mà
+  máy khác cập nhật (`board`) → **không tự tải lại** (bản đầu tải lại ngay → ô điểm danh giao lưu mất người đang chọn).
+  Hiện dải **"Có cập nhật mới — Tải lại"**, thao tác xong (gửi form / đóng hộp) thì tự tải.
+- **Lỗi nói bằng câu dễ hiểu**, mã lỗi để nhỏ phía sau; lỗi do máy khác vừa đổi thì nói rõ và tải lại, vd "Trận này vừa
+  được gọi hoặc vừa có kết quả ở máy khác" thay cho "409 INVALID_STATE".
+- **Mã sân → tên sân** (`bd:court:5` → "Sân 5") ở mọi thông báo của service (service chỉ biết mã).
 - **Tự cập nhật** (plan 19):
   - màn hình TV, lịch, bảng đấu, màn hình bấm điểm mở luồng SSE của service qua gateway (`…/sessions/{id}/stream`,
     `…/tournaments/{id}/stream`, 02 mục 2.9);

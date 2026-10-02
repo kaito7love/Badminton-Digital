@@ -197,3 +197,110 @@ Trả lời **"code đi"** nghĩa là làm A + B + C + D, thêm G2, theo các kh
 - "Xếp sân trống" của giao lưu chưa trừ người đang đánh ở giải khác (06 mục 14) — hiếm, để sau.
 - DB dev của anh/chị **đã migrate** (thêm cột, không đổi dữ liệu) nhưng **chưa seed lại** — muốn có 3 giải "hôm nay"
   để thử thì nói "seed lại".
+
+## 7. Bấm thử như người dùng thật (03/10) — chỗ khó dùng và kế hoạch sửa
+
+- **Chủ dự án:** "từng chức năng thì tạm ổn, nhưng test đúng flow user dùng thử xem, tôi đang gặp khó khăn khi sử dụng".
+- **Cách thử:**
+  - Chrome chạy ngầm, cỡ laptop 1366 × 768 và điện thoại 390 × 844;
+  - chỉ bấm chuột vào nút / gõ phím như người dùng, chụp màn hình từng bước;
+  - bản kiểm riêng (DB tạm, seed demo, đã xoá);
+  - kịch bản ở scratchpad `ux/` — không vào repo.
+- **Luồng đã chạy (vai Quản lý):** tạo giải đôi CLB "cặp đăng ký sẵn", vòng bảng + loại trực tiếp, bốc thăm tại sân
+  → đăng ký 8 cặp → điểm danh 15 / 16 người → bốc thăm (cặp thiếu người sang danh sách chờ) → gọi trận kế tiếp → bấm
+  điểm trên cửa sổ riêng → xác nhận → quay về → nhập tỉ số các trận còn lại → khoá sơ đồ → bán kết, tranh hạng 3,
+  chung kết → chốt. **Đi được tới cuối, không lỗi JavaScript**, nhưng gặp các chỗ dưới đây.
+
+### 7.1 Lỗi (thấy khi bấm thử)
+
+| # | Chuyện gì xảy ra | Vì sao |
+|---|---|---|
+| L1 | **Sân hiện gợi ý một trận, bấm "Gọi trận kế tiếp" lại gọi trận khác** (Sân 5 hiện "Bảng 1 · lượt 2", gọi ra "Bảng 2 · lượt 1") | Nút gọi "trận đầu danh sách" phía service, còn màn hình chia gợi ý theo từng sân |
+| L2 | **Sân trống báo "Chưa có trận gọi được" dù còn 3 trận gọi được** | Sân đang bận việc khác (giải demo khác) vẫn được chia gợi ý, "ăn" mất trận |
+| L3 | **Đang chọn người ở ô điểm danh giao lưu thì mất lựa chọn** khi máy khác lưu kết quả / xếp sân | Mỗi lần có cập nhật, trang tự tải lại toàn bộ |
+| L4 | Hộp "Chọn trận khác…" đang mở không cập nhật; bấm vào trận vừa có kết quả → lỗi kỹ thuật "409 INVALID_STATE" | Như L3, và lỗi không được dịch ra câu dễ hiểu |
+| L5 | **Chốt giải xong, cột danh sách bên trái vẫn ghi "Đang đấu"** | Danh sách giải không tải lại sau thao tác |
+
+### 7.2 Khó dùng
+
+| # | Chỗ khó | Bằng chứng |
+|---|---|---|
+| K1 | **Một trang dài chứa mọi thứ.** Đầu trang 9 nút ngang hàng (Bốc thăm lại, Mở lại đăng ký, Xử W.O., Thêm trận tay, Xem trước khi chốt, TV, Sân của giải, Huỷ giải, Tải lại); bảng đăng ký vẫn chiếm giữa trang khi đang thi đấu / đã chốt; lịch ở cuối | Mỗi lần nhập tỉ số phải cuộn xuống 1 100–1 600 px |
+| K2 | **Không biết bước tiếp theo.** Vừa tạo giải (0 người) nút nổi bật nhất là "Bốc thăm…"; giai đoạn nào cần làm gì không được nói | Ảnh 04 |
+| K3 | **Người / sân "bận" do dữ liệu demo không được báo trước.** Form tạo giải chọn sẵn Sân 4 – 5 (Sân 4 đang có giải demo); ô chọn người không cho biết ai đang đánh ở buổi giao lưu demo → giải tự tạo bị chặn trận lượt 1 | Lịch: "chờ: Ngô Đức Phúc đang ở Sân 3, Lâm Bích Ngọc đang ở Sân 4" |
+| K4 | **Điểm danh không giống điểm danh:** tên người là nút trơn, chưa / đã điểm danh khác nhau ít; mỗi người một lần bấm, không có "cả cặp" | 15 lần bấm / 20 giây cho 15 người |
+| K5 | **Chọn người bằng danh sách thả xuống dài** (39 tên kèm điểm), không gõ tìm được | Ảnh 06 |
+| K6 | **Lịch rối:** chữ "chờ" hai nghĩa (chưa đánh / đang chờ người ở sân khác), mỗi hàng 2 nút xếp chồng, cao | Ảnh 10 |
+| K7 | **Điện thoại:** thanh trên chiếm 1/4 màn hình, danh sách giải nằm trước, khối Sân cách đầu trang 1 344 px, tràn ngang 3 px | Ảnh 21 |
+
+### 7.3 Đề xuất sửa (bàn thử + tài liệu 07 cho bước 4; service không đổi trừ một chỗ nhỏ nếu cần)
+
+**A. Sửa lỗi:**
+1. **L1, L2:** nút trên mỗi sân là **"Gọi trận này"**, gọi đúng trận đang hiện. Sân bận việc khác không nhận gợi ý.
+2. **L3, L4:** đang thao tác dở (đã chọn trong ô, đang mở form / hộp) thì **không tự tải lại**. Thay vào đó hiện dải
+   "Có cập nhật mới — bấm để tải lại" (tự tải khi thao tác xong). Hộp chọn trận tự làm mới. Lỗi 409 hiện câu dễ hiểu,
+   vd "Trận này vừa có kết quả ở máy khác".
+3. **L5:** tải lại danh sách giải sau mọi thao tác đổi trạng thái.
+
+**B. Dễ dùng hơn:**
+1. **K1 — chia tab** như tài liệu 07: **Sân** · **Đăng ký & điểm danh** · **Lịch & kết quả** · **Bảng đấu / Sơ đồ** ·
+   **Kết quả chung cuộc**.
+   - Tự mở đúng tab theo giai đoạn: đang nhận đăng ký → Đăng ký; ngày thi đấu → Sân; đã chốt → Kết quả.
+   - Nút ít dùng gom vào **"Thêm ▾"**: mở lại đăng ký, bốc thăm lại, thêm trận tay, sân của giải, huỷ giải.
+2. **K2 — thanh tiến trình** đầu trang: ① Đăng ký → ② Điểm danh → ③ Bốc thăm → ④ Vòng bảng → ⑤ Loại trực tiếp →
+   ⑥ Chốt. Bước hiện tại sáng lên, kèm **một nút chính** đúng bước và một câu "việc cần làm", vd "Còn 3 trận vòng bảng
+   — xong thì khoá sơ đồ".
+3. **K3:**
+   - ô chọn sân ghi "(đang có trận)" và không chọn sẵn sân đang bận;
+   - ô chọn người ghi "đang ở buổi giao lưu / đang đánh Sân 3" và xếp xuống cuối.
+4. **K4 — điểm danh dạng ô tích ☐ / ☑** rõ ràng, thêm "☑ cả cặp" một chạm, ô "Chỉ hiện người chưa đến".
+5. **K5 — ô gõ tìm tên** (lọc ngay khi gõ) cho người chơi / đồng đội.
+6. **K6 — lịch gọn:**
+   - lọc "Sắp tới / Đang đánh / Đã xong";
+   - mỗi hàng một dòng, hai đội cùng dòng;
+   - trạng thái rõ: "chưa đánh", "chờ: X đang ở Sân 3", "đang đánh Sân 5", "21–13".
+7. **K7 — điện thoại:**
+   - thanh trên gọn (vai trò vào menu);
+   - chọn giải bằng ô chọn thay cho cột trái;
+   - tab Sân lên đầu, nút to, không tràn ngang.
+
+**C. Kiểm lại:** chạy lại đúng kịch bản bấm thử ở trên (laptop + điện thoại) trước và sau khi sửa, so số lần bấm /
+cuộn, chụp ảnh. Cập nhật tài liệu 07 (tab, thanh tiến trình, điểm danh ô tích, tìm tên) cho bước 4.
+
+**Cần anh/chị chốt:** làm A + B theo thứ tự trên? Trả lời **"code đi"** là làm hết A + B + C. Nếu chỉ muốn sửa lỗi
+trước thì nói "chỉ A".
+
+### 7.4 Kết quả (chủ dự án "code đi", 03/10)
+
+**Đã làm** — bàn thử (không vào repo) + tài liệu 07 (cho bước 4). **Service không đổi.**
+- **A. Lỗi:**
+  - L1 / L2: nút trên mỗi sân thành "Gọi trận này ra Sân n", gọi đúng trận đang hiện; sân bận việc khác không nhận gợi ý;
+  - L3: đang thao tác dở thì không tự tải lại — dải "Có cập nhật mới", xong thì tự tải; dùng cho cả trang giải và trang
+    giao lưu;
+  - L4: hộp "Chọn trận khác…" lấy danh sách mới lúc mở; lỗi do máy khác vừa đổi hiện câu dễ hiểu, mã lỗi để nhỏ;
+  - L5: dòng của giải ở cột trái cập nhật mỗi lần mở / tải lại giải.
+- **B. Dễ dùng:** thanh tiến trình + "việc cần làm" + một nút chính; 5 tab tự mở theo giai đoạn; "Thêm ▾"; điểm danh ô
+  tích + "☑ cả cặp" + lọc chưa đến; ô gõ tìm tên không dấu, con trỏ tự về sau mỗi lần đăng ký; người / sân đang bận có
+  ghi chú (form tạo giải chỉ chọn sẵn sân không đang dùng); lịch lọc Sắp tới / Đang đánh / Đã xong, mỗi trận một hàng;
+  giao diện điện thoại.
+
+**Bấm thử lại đúng kịch bản** (Chrome chạy ngầm, chỉ bấm chuột / gõ phím, DB tạm đã xoá):
+
+| Việc | Trước | Sau |
+|---|---|---|
+| Vừa tạo giải | Nút nổi bật nhất "Bốc thăm…" (0 người), không biết làm gì | Tab Đăng ký mở sẵn, "Đăng ký các cặp — đang có 0 cặp", thanh tiến trình ở bước 1 |
+| Sân chọn sẵn khi tạo giải | Sân 4 – 5 (Sân 4 đang có giải demo → trận phải chờ) | Sân 7 – 8 (không đang dùng); mỗi sân ghi đang được ai dùng |
+| Đăng ký 8 cặp | 2 ô chọn 39 tên; không biết ai đang bận | Gõ "ly cong" + Enter; gõ người đang đánh giao lưu → "⚠ đang đánh Sân 3 (giao lưu)"; con trỏ tự về ô tìm |
+| Điểm danh 15 / 16 người | 15 lần bấm, 20 giây; nút tên trơn | **8 lần bấm, 14 giây** ("☑ cả cặp"); lọc còn đúng cặp thiếu người |
+| Sau bốc thăm | Đầu trang **9 nút**, một trang dài | **3 nút** (TV, Thêm ▾, Tải lại); tự mở tab **Sân** |
+| Gọi trận ra sân | Sân 5 hiện "Bảng 1 · lượt 2" nhưng gọi ra "Bảng 2 · lượt 1"; sân trống báo "chưa có trận" dù còn 3 trận | Bấm Sân 8 trước rồi Sân 7: **cả hai đúng trận đang hiện** |
+| Nhập tỉ số các trận | Cuộn xuống **1 100 – 1 600 px** mỗi lần | Tab Lịch, lọc "Sắp tới": vị trí cuộn **6 px** |
+| Sang loại trực tiếp / chốt | Tự tìm nút trong 9 nút | Nút chính ở "việc cần làm": "Sơ đồ loại trực tiếp…" → "Chốt giải…" → tự mở tab Kết quả |
+| Sau khi chốt | Cột trái vẫn "Đang đấu" | "Đã chốt" |
+| Đang chọn người điểm danh (giao lưu), máy khác bấm "Xong" một sân | **Mất lựa chọn** | Lựa chọn còn, dải "Có cập nhật mới"; điểm danh xong trang tự cập nhật |
+| Hộp "Chọn trận" mở, máy khác ghi kết quả trận đó, bấm vào | "409 INVALID_STATE — Chỉ gọi ra sân được trận đang chờ" | "Trận này vừa được gọi hoặc vừa có kết quả ở máy khác — đã tải lại." |
+| Điện thoại 390 px | Thanh trên chiếm 1/4 màn hình, khối Sân ở 1 344 px, tràn ngang | Không tràn ngang; chọn giải bằng ô chọn; **nút "Gọi trận này" ở 819 px** (màn hình đầu) |
+| TV giải / TV giao lưu / bảng xếp hạng / tự chấm trình / màn hình bấm điểm | — | Vẫn chạy, không lỗi JavaScript |
+
+**Còn lại:** trang giao lưu chỉ được thêm phần "không làm mất thao tác dở" (chủ dự án đánh giá luồng giao lưu ổn); ô
+chọn người điểm danh giao lưu vẫn là danh sách thả xuống.
