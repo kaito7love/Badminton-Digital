@@ -8,6 +8,9 @@ const { DomainError } = require('../../../shared/domainError');
 // Đội giao = đội thắng pha trước (điểm đầu trận: đội chọn giao trước). Sang game mới, đội
 // thắng game trước giao — trùng luật trên. Ô giao: điểm của đội giao chẵn → ô phải, lẻ → ô
 // trái (luật BWF, đúng cho cả đơn và đôi). Không theo dõi NGƯỜI nào trong đôi giao.
+// Đổi sân (plan 19 mục 11): hết một game mà trận còn đánh tiếp; game quyết định của trận nhiều
+// game (game 3 của bo3) đổi thêm một lần khi đội dẫn chạm nửa số điểm game (11 với 21, 8 với 15).
+// Trận 1 game không đổi sân. endsSwapped = hai đội đang ở ngược đầu sân so với lúc bắt đầu trận.
 
 // Một trận 5 game × 50 điểm không trần vẫn dư chỗ; chặn để chuỗi không phình vô hạn.
 const MAX_RALLIES = 1000;
@@ -20,17 +23,22 @@ const gameOver = (a, b, { points: P, cap: C }) => {
 
 const liveState = ({ rallies = '', firstServer = 'A', scoring }) => {
   const needed = Math.ceil(scoring.bestOf / 2);
+  const mid = Math.ceil(scoring.points / 2);
   const games = [];
   let a = 0;
   let b = 0;
   let wonA = 0;
   let wonB = 0;
   let winnerSide = null;
+  let endChanges = 0;
   for (const side of rallies) {
     if (winnerSide) throw new Error('Chuỗi pha cầu có điểm sau khi trận đã xong');
     if (side === 'A') a += 1;
     else if (side === 'B') b += 1;
     else throw new Error(`Ký tự pha cầu lạ: ${side}`);
+    // Pha làm một đội chạm `mid` khi đội kia chưa tới (lần đầu trong game — 11–9 → 11–10 không tính lại);
+    // mid < P nên không trùng pha hết game.
+    if (scoring.bestOf > 1 && games.length === scoring.bestOf - 1 && (side === 'A' ? a : b) === mid && Math.min(a, b) < mid) endChanges += 1;
     if (gameOver(a, b, scoring)) {
       games.push([a, b]);
       if (a > b) wonA += 1;
@@ -39,6 +47,7 @@ const liveState = ({ rallies = '', firstServer = 'A', scoring }) => {
       b = 0;
       if (wonA === needed) winnerSide = 'A';
       else if (wonB === needed) winnerSide = 'B';
+      else endChanges += 1;
     }
   }
   const decided = winnerSide !== null;
@@ -51,6 +60,7 @@ const liveState = ({ rallies = '', firstServer = 'A', scoring }) => {
     gamesWon: [wonA, wonB],
     server,
     serveFrom: decided ? null : serverPoints % 2 === 0 ? 'right' : 'left',
+    endsSwapped: endChanges % 2 === 1,
     decided,
     winnerSide
   };

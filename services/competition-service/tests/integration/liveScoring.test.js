@@ -159,7 +159,8 @@ describe('nhân viên bấm điểm một trận giao lưu', () => {
 
     // Từ 1–2 bấm tiếp tới 21–17 (16–17 rồi A ghi 5 điểm liền).
     live = await play(op, m.id, 'AB'.repeat(15) + 'A'.repeat(5));
-    expect(live).toMatchObject({ decided: true, winnerSide: 'A', games: [[21, 17]], current: null, server: null });
+    // Trận 1 game: qua điểm 11 vẫn không đổi sân.
+    expect(live).toMatchObject({ decided: true, winnerSide: 'A', games: [[21, 17]], current: null, server: null, endsSwapped: false });
     const extra = await rally(op, m.id, 'B', live.revision);
     expect([extra.status, extra.body.code]).toEqual([409, 'MATCH_DECIDED']);
 
@@ -219,7 +220,7 @@ describe('nhân viên bấm điểm một trận giao lưu', () => {
 });
 
 describe('trận 3 game trong buổi giao lưu (plan 19 mục 10)', () => {
-  test('đổi luật giữa buổi chỉ áp cho trận xếp sau; hết game 1 của trận bo3 không nhả sân, chưa xác nhận được', async () => {
+  test('đổi luật giữa buổi chỉ áp cho trận xếp sau; hết game 1 của trận bo3 không nhả sân, chưa xác nhận được; đổi sân đúng lúc', async () => {
     const { s, matches } = await liveSession({ players: 8, courts: ['c1', 'c2'] });
     expect(matches.every((m) => m.scoring.bestOf === 1)).toBe(true);
     const fresh = (await op.get(`/v1/sessions/${s.id}`)).body.data;
@@ -237,19 +238,27 @@ describe('trận 3 game trong buổi giao lưu (plan 19 mục 10)', () => {
     const bo3 = refill.body.data.matches[0];
     expect(bo3).toMatchObject({ courtRef: 'c1', scoring: { bestOf: 3, points: 21 } });
 
-    // Hết game 1 (21–18): vẫn đang đánh, sân vẫn bận, chưa xác nhận được.
+    // Hết game 1 (21–18): đổi sân; vẫn đang đánh, sân vẫn bận, chưa xác nhận được.
     let live = await play(op, bo3.id, game(21, 18));
-    expect(live).toMatchObject({ games: [[21, 18]], current: [0, 0], gameNo: 2, gamesWon: [1, 0], decided: false, server: 'A' });
+    expect(live).toMatchObject({ games: [[21, 18]], current: [0, 0], gameNo: 2, gamesWon: [1, 0], decided: false, server: 'A', endsSwapped: true });
     const early = await op.post(`/v1/matches/${bo3.id}/live/confirm`).send({ revision: live.revision });
     expect([early.status, early.body.code]).toEqual([409, 'MATCH_NOT_DECIDED']);
     let board = (await reader.get(`/v1/sessions/${s.id}/board`)).body.data;
     expect(board.courts.find((c) => c.courtRef === 'c1')).toMatchObject({ status: 'busy', match: { id: bo3.id, status: 'in_play' } });
 
-    // 1–1 rồi thắng game 3 → mới xác nhận được, sân mới được nhả.
-    live = await play(op, bo3.id, game(15, 21) + game(21, 19));
-    expect(live).toMatchObject({ decided: true, winnerSide: 'A', gamesWon: [2, 1] });
+    // 1–1 → sang game 3, đổi sân lần nữa; game 3 chạm 11 → đổi sân (plan 19 mục 11), hoàn tác thì đổi về.
+    live = await play(op, bo3.id, game(15, 21));
+    expect(live).toMatchObject({ gameNo: 3, gamesWon: [1, 1], current: [0, 0], endsSwapped: false });
+    live = await play(op, bo3.id, 'AB'.repeat(10) + 'A');
+    expect(live).toMatchObject({ current: [11, 10], endsSwapped: true });
+    live = (await op.post(`/v1/matches/${bo3.id}/live/undo`).send({ revision: live.revision })).body.data;
+    expect(live).toMatchObject({ current: [10, 10], endsSwapped: false });
+
+    // Thắng game 3 → mới xác nhận được, sân mới được nhả.
+    live = await play(op, bo3.id, 'A' + 'AB'.repeat(8) + 'AA');
+    expect(live).toMatchObject({ decided: true, winnerSide: 'A', gamesWon: [2, 1], endsSwapped: true });
     const done = await op.post(`/v1/matches/${bo3.id}/live/confirm`).send({ revision: live.revision });
-    expect(done.body.data).toMatchObject({ status: 'completed', games: [[21, 18], [15, 21], [21, 19]] });
+    expect(done.body.data).toMatchObject({ status: 'completed', games: [[21, 18], [15, 21], [21, 18]] });
     board = (await reader.get(`/v1/sessions/${s.id}/board`)).body.data;
     expect(board.courts.find((c) => c.courtRef === 'c1').status).toBe('free');
   });

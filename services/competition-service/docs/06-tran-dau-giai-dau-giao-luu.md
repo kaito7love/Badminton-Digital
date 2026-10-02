@@ -97,6 +97,9 @@ Trong lúc đánh, một người cầm điện thoại **bấm từng điểm**
 **Màn hình bấm điểm** (điện thoại, cầm dọc):
 
 - hai nửa màn hình là Đội A và Đội B; chạm nửa nào thì đội đó được 1 điểm;
+- hai nửa **đi theo bên sân**: hai đội đổi sân thì hai nửa tự đổi bên (màu đi theo đội); nút **Đổi bên** lật thêm trên
+  riêng máy đang bấm — người bấm đứng phía bên kia sân, hai đội quên đổi… (máy nhớ theo trận, không đổi tỉ số, không ảnh
+  hưởng máy khác và TV);
 - dòng trên: game đang đánh, các game đã xong, đội đang giao cầu và ô giao (phải / trái);
 - **Hoàn tác**: bỏ điểm vừa bấm, kể cả điểm vừa kết thúc game;
 - trước điểm đầu tiên: chọn đội giao trước (mặc định đội A);
@@ -111,6 +114,12 @@ Trong lúc đánh, một người cầm điện thoại **bấm từng điểm**
 - **Đội giao** = đội thắng pha trước. Điểm đầu trận: đội được chọn giao trước. Sang game mới, đội thắng game trước
   giao — trùng luật này.
 - **Ô giao:** điểm của đội giao chẵn → ô phải, lẻ → ô trái.
+- **Đổi sân** (`endsSwapped` = hai đội đang ở ngược đầu sân so với lúc bắt đầu trận; plan 19 mục 11):
+  - hết một game mà trận còn đánh tiếp → đổi sân;
+  - game quyết định của trận nhiều game (game 3 của bo3): đổi thêm một lần khi một đội chạm nửa số điểm game trước
+    (**11** với game 21, **8** với game 15);
+  - **trận 1 game không đổi sân**;
+  - tính lại từ chuỗi pha cầu như mọi thứ khác → hoàn tác điểm thứ 11 thì đổi về; mọi máy cùng thấy một kết quả.
 - Đã đủ điểm thắng trận thì không bấm thêm được (409 `MATCH_DECIDED`); chỉ còn xác nhận hoặc hoàn tác.
 
 **Ai được bấm, ai được xác nhận:**
@@ -147,11 +156,11 @@ Trong lúc đánh, một người cầm điện thoại **bấm từng điểm**
 - **Trận nhiều game (bo3):**
   - hết một game thì tỉ số sang game sau, đội thắng game trước giao trước;
   - **sân không được nhả**, "Xác nhận kết quả" chỉ hiện khi một đội thắng đủ ⌈bestOf / 2⌉ game;
-  - màn hình bấm điểm báo to "Hết game 1: 21–18 — sang game 2, đổi sân"; game quyết định chạm giữa game (11 với game
-    21) thì nhắc "Đổi sân" (luật BWF, kể cả trận 1 game);
+  - màn hình bấm điểm báo to "Hết game 1: 21–18 — sang game 2, đổi sân"; game 3 có đội chạm 11 (game 21) thì nhắc
+    "Đổi sân"; mỗi lần đổi sân hai nửa màn hình tự đổi bên và báo "[đội] bên trái";
   - hết giờ khi đang dở (vd 1–1) → "Xong (không tỉ số)": nhả sân, không tính điểm, chuỗi pha cầu vẫn lưu. Không lưu
     "thắng 1–0" khi chưa đủ game (sai luật).
-- Không theo dõi **người nào** trong đôi đang giao. Không nhắc đổi sân / nghỉ ở điểm 11.
+- Không theo dõi **người nào** trong đôi đang giao. Không nhắc nghỉ (ở điểm 11, giữa game).
 
 ## 2. Tạo giải đấu — wizard 4 bước
 

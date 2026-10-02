@@ -379,3 +379,87 @@ Trả lời "code đi" nghĩa là làm A + B theo các khuyến nghị trên.
 | Game quyết định | 1–1, game 3 từ 10–8 bấm lên 11–8 → khung "Đổi sân". Nút Hoàn tác vẫn trong màn hình; hoàn tác → khung tắt, về 10–8 |
 | TV | "Sân 1 · 3 game", cột Game 1 / 2 / 3, "Ván 1–1 · Game 3/3"; sân chưa ai bấm vẫn có nhãn "3 game" |
 | Đổi luật giữa buổi | Hộp thoại ghi "3 trận đang đánh giữ luật lúc được xếp (Sân 1: 1 game × 21, …)"; đổi xong đầu màn hình "luật 3 game × 21", các sân đang đánh vẫn 1 game |
+
+## 11. Bổ sung: đổi sân — bảng bấm điểm đổi bên theo (tự động + thủ công)
+
+- **Ngày:** 02/10/2026. **Trạng thái:** đã duyệt ("code đi — chỉ áp cho máy đang bấm") → đã làm, kết quả ở 11.4.
+- **Chủ dự án yêu cầu:**
+  - trận 1 game **không** đổi sân ở điểm 11; chỉ trận 3 game, ở **game 3**, mới đổi sân giữa game;
+  - đổi sân thì hai nửa của bảng bấm điểm cũng phải đổi bên theo;
+  - có nút đổi bên: tự động, và thủ công khi cần, để người bấm dễ theo dõi.
+
+### 11.1 Hiện trạng
+
+- Nhắc "Đổi sân" khi chạm 11 đang áp cho **cả trận 1 game** (bàn thử tính "game cuối, kể cả trận 1 game"; tài liệu 06
+  mục 1.5 ghi giống vậy) → sai với cách vận hành anh/chị muốn. Tài liệu 06 còn một dòng cũ mâu thuẫn ("không nhắc đổi
+  sân ở điểm 11").
+- Hai nửa màn hình bấm điểm **luôn** Đội A bên trái, Đội B bên phải. Hết game 1 hai đội đổi sân, nhưng bảng không đổi →
+  người bấm phải tự nhớ "đội bên trái sân giờ là nửa phải màn hình", dễ bấm nhầm.
+- Luật đổi sân hiện chỉ nằm ở bàn thử (phía giao diện). Service không biết → app chính (bước 4) sẽ phải tự viết lại luật.
+
+### 11.2 Việc sẽ làm
+
+**A. Service tính "hai đội đã đổi sân chưa"** (một trường mới trong tỉ số đang bấm, không thêm cột, không migration).
+- Thêm `endsSwapped` (đúng / sai) vào `MatchLive`: hai đội đang ở **ngược** đầu sân so với lúc bắt đầu trận.
+- Luật đổi sân:
+  - **hết một game mà trận còn đánh tiếp** → đổi sân (bo3: sau game 1, sau game 2 nếu 1–1);
+  - **game quyết định của trận nhiều game** (game 3 của bo3) → đổi sân khi đội dẫn chạm nửa số điểm game: **11** với
+    game 21, **8** với game 15;
+  - **trận 1 game** (1 × 21, 1 × 31) → **không đổi sân**.
+- Tính lại từ chuỗi pha cầu như mọi thứ khác → hoàn tác điểm thứ 11 thì tự đổi về; mọi máy bấm điểm cùng thấy một
+  kết quả.
+- Test unit cho các trường hợp: bo1 qua điểm 11, bo3 hết game 1, 1–1 sang game 3, game 3 chạm 11 / 8, hoàn tác,
+  trận đã xong. Schema OpenAPI thêm trường (bắt buộc) → test integration tự kiểm dạng trả về.
+
+**B. Màn hình bấm điểm đổi bên theo sân.**
+- Hai nửa đi theo **bên sân**: sau khi đổi sân, nửa trái là đội đang đứng bên trái. **Màu đi theo đội** (A xanh, B đỏ)
+  để nhìn là biết đã đổi.
+- **Tự động:** hết game (trận còn tiếp) và chạm 11 ở game 3 → hai nửa tự đổi bên; khung vàng hiện như bây giờ, thêm
+  dòng *"Bảng điểm đã đổi bên: [đội] bên trái"*. Trận 1 game không còn nhắc đổi sân.
+- **Thủ công:** nút **"⇄ Đổi bên"** ở chân màn hình, bấm lúc nào cũng được:
+  - dùng khi người bấm đứng phía bên kia sân, hoặc hai đội quên đổi sân;
+  - chỉ đổi cách hiện trên **máy đang cầm** — không đổi tỉ số, không ảnh hưởng máy khác và TV;
+  - máy nhớ lựa chọn cho trận đó (tải lại trang vẫn giữ); lần tự đổi sau vẫn lật tiếp từ vị trí đã chỉnh.
+- Các con số trên màn hình bấm điểm (chip "G1 21–18", "Ván 1–0") xếp theo **trái – phải giống hai nửa**, để không đọc
+  ngược.
+- **TV không đổi:** TV hiện mỗi đội một hàng (trên / dưới), không có trái / phải.
+
+**C. Tài liệu:** 02 (trường `endsSwapped`), 06 mục 1.5 (luật đổi sân, bỏ dòng mâu thuẫn), 07 (màn hình bấm điểm).
+
+### 11.3 Cần anh/chị chốt
+
+1. **Nút "Đổi bên" thủ công áp cho máy nào?**
+   - **Khuyến nghị:** chỉ **máy đang bấm**. Mỗi người đứng một chỗ (nhân viên ngồi cạnh lưới, người chơi đứng trong
+     sân) nên trái / phải của mỗi máy khác nhau. Phần **tự đổi** thì mọi máy cùng đổi vì cùng tính từ tỉ số.
+   - Hoặc đồng bộ mọi máy: cần lưu lên service (thêm cột + API) — không khuyến nghị.
+
+Trả lời "code đi" nghĩa là làm A + B + C theo khuyến nghị trên.
+
+### 11.4 Kết quả
+
+**Đã làm:**
+- **Service:** `liveState` tính `endsSwapped` (đếm số lần đổi sân từ chuỗi pha cầu); OpenAPI `MatchLive.endsSwapped`
+  (bắt buộc). Không thêm cột, không migration, dữ liệu cũ đọc ra đúng ngay.
+- **Test:** 6 test unit mới, trong đó 300 trận bấm ngẫu nhiên đủ 4 luật: số lần đổi sân luôn = số game − 1, cộng 1 nếu
+  đánh tới game quyết định. Test integration trận bo3 kiểm thêm qua API: hết game 1 → `true`; 1–1 → `false`; game 3
+  lên 11–10 → `true`; hoàn tác → `false`; trận 1 game qua 11 vẫn `false`.
+- **Bàn thử:** hai nửa đi theo bên sân, khung vàng báo "[đội] bên trái", nút "⇆ Đổi bên" (nhớ theo trận trên máy đó),
+  hai nửa nháy viền vàng khi vừa đổi bên, chip game và "Ván" xếp theo trái – phải.
+- **Tài liệu:** 02 (`endsSwapped`), 06 mục 1.5 (luật đổi sân, bỏ dòng cũ mâu thuẫn), 07 (màn hình bấm điểm).
+
+**Phát hiện khi code:** điều kiện đầu tiên ("đội dẫn đang có đúng 11") tính đổi sân **hai lần** khi tỉ số đi 11–9 →
+11–10. Test 300 trận ngẫu nhiên bắt được; sửa thành "pha này làm một đội chạm 11 khi đội kia chưa tới".
+
+**Kiểm thử thật:**
+
+| Kiểm | Kết quả |
+|---|---|
+| Toàn bộ test service (MySQL 9.5) | 266 / 266 đạt (thêm 6) |
+| Hết game 1 (bản kiểm riêng, khung điện thoại) | 20–18 bấm Đội A → khung "Hết game 1: 21–18 … Bảng điểm đã đổi bên: [Đội B] bên trái"; nửa trái thành Đội B (đỏ), chip "G1 18–21", "Ván 0–1" |
+| Nút "⇆ Đổi bên" | Đội A về trái, chip "G1 21–18", "Ván 1–0", dòng "Đã đổi bên trên máy này…", máy lưu lựa chọn; tải lại trang vẫn giữ |
+| Game 3 (1–1, 10–8) | Bấm lên 11–8 → khung "Đổi sân — Game 3, đội dẫn vừa chạm 11 điểm", hai nửa đổi bên (lật tiếp từ vị trí đã chỉnh tay); hoàn tác → về 10–8, đổi bên lại, khung tắt |
+| Trận 1 game | 10–5 bấm lên 11–5 → không có khung, không đổi bên |
+| Service chính (5100) | Tự nạp code mới, `GET …/live` trả `endsSwapped` |
+
+Bản kiểm riêng (service 5102 + DB tạm `cs_ui_check` + bàn thử 5191) đã tắt và xoá; DB dev chủ dự án đang thử không bị
+đụng.

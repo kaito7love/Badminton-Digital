@@ -61,6 +61,55 @@ describe('đội giao và ô giao', () => {
   });
 });
 
+describe('đổi sân (plan 19 mục 11)', () => {
+  const flips = (rallies, scoring) => {
+    let n = 0;
+    for (let i = 1; i <= rallies.length; i += 1) if (state(rallies.slice(0, i), scoring).endsSwapped !== state(rallies.slice(0, i - 1), scoring).endsSwapped) n += 1;
+    return n;
+  };
+  test('trận 1 game không đổi sân, kể cả qua điểm 11', () => {
+    expect(state('A'.repeat(11))).toMatchObject({ current: [11, 0], endsSwapped: false });
+    expect(flips(game(21, 19), S21)).toBe(0);
+    expect(flips('AB'.repeat(39) + 'A', PRESETS['1x31'])).toBe(0);
+  });
+  test('trận 3 game: hết game 1 thì đổi sân; 1–1 sang game 3 là đổi lần nữa', () => {
+    expect(state('', S3x21).endsSwapped).toBe(false);
+    expect(state(game(21, 18), S3x21)).toMatchObject({ gameNo: 2, current: [0, 0], endsSwapped: true });
+    expect(state(game(21, 18) + 'A'.repeat(11), S3x21)).toMatchObject({ current: [11, 0], endsSwapped: true });
+    expect(state(game(21, 18) + game(9, 21), S3x21)).toMatchObject({ gameNo: 3, current: [0, 0], endsSwapped: false });
+  });
+  test('game 3: đội dẫn chạm 11 thì đổi sân; hoàn tác thì đổi về; đội kia lên 11 không đổi thêm', () => {
+    const toGame3 = game(21, 15) + game(18, 21);
+    const tenEight = toGame3 + 'AB'.repeat(8) + 'AA';
+    expect(state(tenEight, S3x21)).toMatchObject({ current: [10, 8], endsSwapped: false });
+    expect(state(tenEight + 'A', S3x21)).toMatchObject({ current: [11, 8], endsSwapped: true });
+    expect(state(undoRally(tenEight + 'A'), S3x21).endsSwapped).toBe(false);
+    expect(state(tenEight + 'ABBB', S3x21)).toMatchObject({ current: [11, 11], endsSwapped: true });
+    expect(state(tenEight + 'AB', S3x21)).toMatchObject({ current: [11, 9], endsSwapped: true });
+    expect(state(tenEight + 'ABB', S3x21)).toMatchObject({ current: [11, 10], endsSwapped: true });
+    expect(state(toGame3 + game(21, 19), S3x21)).toMatchObject({ decided: true, endsSwapped: true });
+  });
+  test('trận đã xong không tính đổi sân sau game cuối (2–0 vẫn chỉ đổi 1 lần)', () => {
+    expect(state(game(21, 10) + game(21, 12), S3x21)).toMatchObject({ decided: true, endsSwapped: true });
+  });
+  test('3 × 15: game 3 đổi sân khi đội dẫn chạm 8', () => {
+    const S = PRESETS['3x15'];
+    const toGame3 = game(15, 10) + game(12, 15);
+    expect(state(toGame3 + 'A'.repeat(7), S)).toMatchObject({ gameNo: 3, current: [7, 0], endsSwapped: false });
+    expect(state(toGame3 + 'A'.repeat(8), S)).toMatchObject({ current: [8, 0], endsSwapped: true });
+  });
+  test('300 trận ngẫu nhiên: số lần đổi sân = số game − 1, cộng 1 nếu đánh tới game quyết định', () => {
+    const rng = createRng('live-score-ends');
+    for (let i = 0; i < 300; i += 1) {
+      const scoring = Object.values(PRESETS)[i % 4];
+      let rallies = '';
+      while (!state(rallies, scoring).decided) rallies = addRally({ rallies, scoring }, rng.next() < 0.5 ? 'A' : 'B');
+      const { games } = state(rallies, scoring);
+      expect(flips(rallies, scoring)).toBe(games.length - 1 + (scoring.bestOf > 1 && games.length === scoring.bestOf ? 1 : 0));
+    }
+  });
+});
+
 describe('bấm thêm / hoàn tác', () => {
   test('bấm thêm nối đúng ký tự', () => {
     expect(addRally({ rallies: 'AB', scoring: S21 }, 'A')).toBe('ABA');

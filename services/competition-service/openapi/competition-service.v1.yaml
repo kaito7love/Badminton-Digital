@@ -2802,7 +2802,7 @@ components:
       nullable: true
       additionalProperties: false
       description: 'Bấm điểm trực tiếp (docs/06 mục 1.5) — tính lại từ chuỗi pha cầu. Trong MatchView: null = chưa ai bấm điểm.'
-      required: [matchId, revision, rallies, firstServer, games, current, gameNo, gamesWon, server, serveFrom, decided, winnerSide, updatedAt]
+      required: [matchId, revision, rallies, firstServer, games, current, gameNo, gamesWon, server, serveFrom, endsSwapped, decided, winnerSide, updatedAt]
       properties:
         matchId: { type: string, format: uuid }
         revision: { type: integer, minimum: 0, description: 'Tăng ở mọi lần đổi (kể cả hoàn tác) — gửi kèm khi bấm tiếp' }
@@ -2823,6 +2823,7 @@ components:
         gamesWon: { type: array, minItems: 2, maxItems: 2, items: { type: integer, minimum: 0 } }
         server: { type: string, nullable: true, enum: [A, B, null], description: 'Đội đang giao (đội thắng pha trước)' }
         serveFrom: { type: string, nullable: true, enum: [right, left, null], description: 'Điểm của đội giao chẵn → ô phải, lẻ → ô trái' }
+        endsSwapped: { type: boolean, description: 'Hai đội đang ở ngược đầu sân so với lúc bắt đầu trận. Đổi sân khi hết một game mà trận còn tiếp, và ở game quyết định của trận nhiều game khi đội dẫn chạm nửa số điểm game (11 với 21, 8 với 15); trận 1 game không đổi. Màn hình bấm điểm đổi bên theo trường này' }
         decided: { type: boolean, description: 'Đã đủ điểm thắng trận — chỉ còn xác nhận hoặc hoàn tác' }
         winnerSide: { type: string, nullable: true, enum: [A, B, null] }
         updatedAt: { type: string, format: date-time, nullable: true }
