@@ -2,9 +2,10 @@
 // Tạo bằng CHÍNH các service thật (chấm trình, bốc thăm, ghi kết quả, chốt, xếp sân, bấm
 // điểm) — không chèn thẳng bảng — nên chạy seed cũng là một lần chạy đầu-cuối.
 //   npm run seed:demo
-// Kết quả: 25 người chơi, 2 giải đã chốt (có lịch sử điểm, BXH có dữ liệu), 1 giải đang
+// Kết quả: 39 người chơi, 2 giải đã chốt (có lịch sử điểm, BXH có dữ liệu), 1 giải đang
 // mở đủ người để bấm "Bốc thăm", 1 buổi giao lưu đã đóng (tính điểm) và 1 buổi đang diễn
-// ra (3 sân đang đánh, có sẵn tỉ số dở). bd:customer:1 (tài khoản khách demo của app chính) cố ý CHƯA có
+// ra (3 sân đang đánh, có sẵn tỉ số dở); hôm nay có 3 giải để thử vận hành (plan 20): đơn nữ
+// vòng tròn đang đánh, đôi cặp sẵn vòng bảng + loại trực tiếp, đơn nam bốc thăm tại sân. bd:customer:1 (tài khoản khách demo của app chính) cố ý CHƯA có
 // điểm để khách xem demo tự làm form tự chấm. Chạy lần nào cũng ra cùng dữ liệu (chỉ khác
 // giờ tuyệt đối, vì mọi thứ lùi ngày tính từ lúc seed).
 require('dotenv').config();
@@ -307,12 +308,96 @@ const main = async () => {
     }
   }
 
+  // Giải đang diễn ra hôm nay (plan 20) — để thử vận hành: sân của giải, giờ dự kiến, gọi trận kế
+  // tiếp, điểm danh. Thêm SAU mọi phần trên để không đổi dữ liệu cũ (cùng một chuỗi ngẫu nhiên).
+  // Sân 4–8: không đụng 3 sân của buổi giao lưu đang diễn ra.
+  const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10); // ngày theo giờ Việt Nam
+  // Người chơi riêng cho các giải hôm nay: không ai vừa ở buổi giao lưu đang diễn ra vừa ở giải
+  // (hệ thống không cho một người ở hai sân — gọi trận có người đang đánh bên giao lưu sẽ bị chặn).
+  const EXTRA = [
+    ['demo:player:24', 'Tô Minh Khang', 'male', 1993, 3], ['demo:player:25', 'Lạc Quang Vinh', 'male', 1990, 4],
+    ['demo:player:26', 'Ông Thế Hiển', 'male', 1997, 2], ['demo:player:27', 'Huỳnh Nhật Minh', 'male', 2000, 3],
+    ['demo:player:28', 'Triệu Gia Huy', 'male', 1988, 3], ['demo:player:29', 'La Văn Toàn', 'male', 1995, 2],
+    ['demo:player:30', 'Từ Đức Anh', 'male', 1999, 3], ['demo:player:31', 'Âu Thành Nhân', 'male', 1986, 4],
+    ['demo:player:32', 'Đoàn Thị Hạnh', 'female', 1994, 3], ['demo:player:33', 'Lưu Bảo Châu', 'female', 1998, 2],
+    ['demo:player:34', 'Mạc Thanh Tâm', 'female', 1991, 3], ['demo:player:35', 'Văn Thu Thảo', 'female', 2001, 2],
+    ['demo:player:36', 'Giang Ngọc Hân', 'female', 1996, 4], ['demo:player:37', 'Khúc Mai Phương', 'female', 1989, 3]
+  ];
+  const extra = { male: [], female: [] };
+  for (const [ref, name, gender, birthYear, base] of EXTRA) {
+    const { player: p } = await player.service.upsertByRef({ tenant: TENANT, externalRef: ref, displayName: name, actorRef: auth.sub });
+    await player.service.updateProfile({
+      tenant: TENANT, playerId: p.id, isStaff: true, actorRef: auth.sub,
+      patch: { gender, birthYear, homeOrganizerRef: 'bd:branch:1', visibility: 'members', dominantHand: 'right', doublesPosition: ['front', 'back', 'both'][rng.int(3)], preferredPlay: 'both' }
+    });
+    const answers = Object.fromEntries(rubric.criteria.map((c) => [c.code, Math.max(1, Math.min(5, base + [-1, 0, 0, 1][rng.int(4)]))]));
+    await rating.service.submitStaff({ auth, playerId: p.id, body: { rubricVersion: rubric.version, answers, note: 'Dữ liệu demo' } });
+    extra[gender].push(p.id);
+  }
+  const drawNow = async (t, seed) => {
+    const { proposal } = await tournament.service.previewDraw({ auth, id: t.id, seed });
+    await tournament.service.confirmDraw({
+      auth, id: t.id,
+      body: { seed: proposal.seed, teams: proposal.teams.map((x) => ({ players: x.players.map((p) => p.id) })), groups: proposal.groups, bracket: proposal.bracket }
+    });
+    return models.Tournament.findByPk(t.id);
+  };
+  const scheduled = async (t, slotMax) =>
+    (await match.service.listForContext(TENANT, 'tournament', t.id)).filter((m) => m.status === 'scheduled' && m.teamAId && m.teamBId && m.slotNo <= slotMax);
+
+  // Đơn nữ vòng tròn 5 người, 1 sân: 3 lượt đầu đã đánh, lượt 4 đang đánh có tỉ số dở.
+  let rr = await tournament.service.create({
+    auth,
+    body: {
+      organizerRef: 'bd:branch:1', name: 'Đơn nữ vòng tròn — Chi nhánh 1 (đang đánh)', startsOn: today, startTime: '18:00', tier: 'club', discipline: 'singles',
+      genderRule: 'women', format: 'round_robin', scoring: '1x21', courtRefs: ['bd:court:4'], matchMinutes: 15
+    }
+  });
+  await tournament.service.open({ auth, id: rr.id });
+  for (const pid of women.slice(6, 11)) await tournament.service.register({ auth, id: rr.id, playerId: pid });
+  rr = await drawNow(rr, 'demo-don-nu-vong-tron');
+  for (const m of await scheduled(rr, 3)) await playMatch(m, 'singles', 1);
+  const [rrLive] = await scheduled(rr, 4);
+  await match.service.callMatch({ auth, matchId: rrLive.id, courtRef: 'bd:court:4' });
+  let rrState = { revision: 0, current: [0, 0] };
+  for (let i = 0; i < 23; i += 1) rrState = await match.live.rally({ auth, matchId: rrLive.id, side: rng.next() < 0.55 ? 'A' : 'B', revision: rrState.revision });
+
+  // Đôi cặp đăng ký sẵn, vòng bảng + loại trực tiếp, 6 cặp / 2 bảng / 2 sân: lượt 1 đã đánh.
+  let fixed = await tournament.service.create({
+    auth,
+    body: {
+      organizerRef: 'bd:branch:1', name: 'Đôi cặp đăng ký sẵn — vòng bảng + loại trực tiếp (đang đánh)', startsOn: today, startTime: '18:30', tier: 'club',
+      discipline: 'doubles', genderRule: 'open', pairingMode: 'fixed', format: 'groups_knockout', groupCount: 2, advancePerGroup: 2, thirdPlaceMatch: true,
+      scoring: '1x21', courtRefs: ['bd:court:5', 'bd:court:6'], matchMinutes: 15
+    }
+  });
+  await tournament.service.open({ auth, id: fixed.id });
+  for (let i = 0; i < 6; i += 1) await tournament.service.register({ auth, id: fixed.id, playerId: extra.male[i], partnerPlayerId: extra.female[i] });
+  fixed = await drawNow(fixed, 'demo-doi-cap-san');
+  for (const m of await scheduled(fixed, 1)) await playMatch(m, 'doubles', 1);
+
+  // Đơn nam loại trực tiếp, bốc thăm tại sân: 6 người đăng ký, 4 người đã điểm danh.
+  const onsite = await tournament.service.create({
+    auth,
+    body: {
+      organizerRef: 'bd:branch:1', name: 'Đơn nam loại trực tiếp — bốc thăm tại sân', startsOn: today, startTime: '19:00', tier: 'club', discipline: 'singles',
+      genderRule: 'men', format: 'knockout', thirdPlaceMatch: true, checkInRequired: true, scoring: '1x21', courtRefs: ['bd:court:7', 'bd:court:8'], matchMinutes: 15
+    }
+  });
+  await tournament.service.open({ auth, id: onsite.id });
+  for (const pid of [...men.slice(8, 12), ...extra.male.slice(6, 8)]) await tournament.service.register({ auth, id: onsite.id, playerId: pid });
+  const onsiteEntries = await models.TournamentEntry.findAll({ where: { tournamentId: onsite.id }, order: [['registeredAt', 'ASC'], ['id', 'ASC']] });
+  for (const e of onsiteEntries.slice(0, 4)) await tournament.service.checkIn({ auth, id: onsite.id, entryId: e.id, present: true });
+
   const champion = t1.result.placements.find((p) => p.from === 1);
   console.log(`Seed demo xong (tenant ${TENANT}):`);
-  console.log(`  ${PEOPLE.length + 1} người chơi (bd:customer:1 chưa chấm trình — để tự làm form)`);
+  console.log(`  ${PEOPLE.length + EXTRA.length + 1} người chơi (bd:customer:1 chưa chấm trình — để tự làm form)`);
   console.log(`  Giải 1 "${t1.t.name}": ${t1.result.placements.length} đội, vô địch ${champion.players.map((p) => p.name).join(' + ')}, ${t1.result.ratingChanges.length} người đổi điểm`);
   console.log(`  Giải 2 "${t2.t.name}": ${t2.result.placements.length} người, ${t2.result.rankingPoints.length} kết quả điểm BXH`);
   console.log(`  Giải 3 "${open.name}": đang mở, ${registered} người đủ điều kiện đã đăng ký — sẵn sàng bốc thăm`);
+  console.log(`  Giải "${rr.name}": 3 lượt đã đánh, lượt 4 đang đánh ở Sân 4 (${rrState.current.join('–')})`);
+  console.log(`  Giải "${fixed.name}": 6 cặp / 2 bảng, lượt 1 đã đánh — thử "Gọi trận kế tiếp"`);
+  console.log(`  Giải "${onsite.name}": 6 người đăng ký, 4 người đã điểm danh — thử điểm danh rồi bốc thăm`);
   console.log(`  Buổi giao lưu "${past.s.name}": đã đóng, ${closed.result.completedMatches} trận có tỉ số, ${closed.result.unscoredMatches} trận không tỉ số, ${closed.result.ratingChanges.length} người đổi điểm (hệ số 0.5)`);
   console.log(`  Buổi giao lưu "${live.s.name}": đang diễn ra, ${live.playing.size} sân đang đánh (tỉ số dở: ${liveScores.join(', ')}) — xem /v1/sessions/${live.s.id}/board`);
   await sequelize.close();

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: competition-service API
-  version: 0.4.0
+  version: 0.5.0
   description: |
     Dịch vụ Thi đấu của Badminton Digital — chấm trình, điểm trình, bảng xếp hạng, xếp cặp.
     Bước 1: người chơi, chấm trình, BXH trình độ, thuật toán xếp cặp. Bước 2: trận đấu, giải đấu, BXH thành tích, thống kê.
@@ -1258,6 +1258,10 @@ paths:
     post:
       tags: [match]
       summary: Gọi trận ra sân → in_play
+      description: |
+        Kiểm trên mọi giải / buổi của tenant (plan 20): sân đang có trận → 409 COURT_BUSY; một người của trận đang đánh
+        ở sân khác → 409 PLAYER_BUSY. Giải có danh sách sân (courtRefs) thì bắt buộc courtRef thuộc danh sách
+        (thiếu → 422 COURT_REQUIRED, ngoài danh sách → 422 COURT_NOT_IN_CONTEXT).
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -1408,6 +1412,31 @@ paths:
               required: [revision]
               properties:
                 revision: { type: integer, minimum: 0, description: 'Phiên bản tỉ số client đang thấy' }
+      responses:
+        '200': { $ref: '#/components/responses/Match' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/matches/{id}/live/retire:
+    parameters: [{ $ref: '#/components/parameters/MatchId' }]
+    post:
+      tags: [match]
+      summary: Không đánh tiếp được — đội side bỏ cuộc giữa trận, đối thủ thắng (plan 20)
+      description: |
+        Kết quả outcome retired: giữ các game đã xong (game đang dở bỏ), đối thủ thắng; đang ở sơ đồ thì đối thủ đi tiếp.
+        Chỉ nhân viên (người chơi → 403 RETIRE_REQUIRES_STAFF). Trận giao lưu → 409 RESULT_NOT_REQUIRED (dùng huỷ trận /
+        xong không tỉ số). Đã đủ điểm thắng → 409 MATCH_DECIDED. revision lệch → 409 LIVE_CONFLICT.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [side, revision]
+              properties:
+                side: { type: string, enum: [A, B], description: 'Đội không đánh tiếp được' }
+                revision: { type: integer, minimum: 0, description: 'Phiên bản tỉ số client đang thấy (0 nếu chưa bấm điểm)' }
       responses:
         '200': { $ref: '#/components/responses/Match' }
         default: { $ref: '#/components/responses/Error' }
@@ -1591,6 +1620,196 @@ paths:
       summary: Rút (sau bốc thăm cả đội rút, trận chưa đánh thành W.O.)
       responses:
         '200': { $ref: '#/components/responses/EntryList' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/entries/{entryId}/check-in:
+    parameters:
+      - { $ref: '#/components/parameters/TournamentId' }
+      - { name: entryId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [tournament]
+      summary: Điểm danh ngày thi đấu (từng người; đôi = cả hai người đã điểm danh)
+      description: 'Scope: tournament:operate. Giải open / drawn / in_progress. Người đã rút → 409 INVALID_STATE. Gọi lại không đổi giờ điểm danh.'
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200': { $ref: '#/components/responses/EntryList' }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [tournament]
+      summary: Bỏ điểm danh (bấm nhầm)
+      responses:
+        '200': { $ref: '#/components/responses/EntryList' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/entries/{entryId}/partner:
+    parameters:
+      - { $ref: '#/components/parameters/TournamentId' }
+      - { name: entryId, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      tags: [tournament]
+      summary: Đổi đồng đội (đôi cặp sẵn, trước bốc thăm)
+      description: |
+        Người cũ rời giải, người mới vào đúng chỗ của cặp (cùng trạng thái, cùng thứ tự đăng ký). Kiểm lại điều kiện
+        như lúc đăng ký (NEEDS_ASSESSMENT, NOT_ELIGIBLE, ALREADY_REGISTERED). Giải không phải đôi cặp sẵn → 422
+        PARTNER_NOT_ALLOWED.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [partnerPlayerId]
+              properties:
+                partnerPlayerId: { type: string, format: uuid }
+      responses:
+        '200': { $ref: '#/components/responses/EntryList' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/courts:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    put:
+      tags: [tournament]
+      summary: Sân của giải (sửa được tới khi chốt; bỏ sân đang có trận → 409 COURT_BUSY)
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [courtRefs]
+              properties:
+                courtRefs: { type: array, minItems: 1, maxItems: 32, items: { type: string, minLength: 1, maxLength: 64 } }
+      responses:
+        '200': { $ref: '#/components/responses/TournamentDetail' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/no-shows:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [tournament]
+      summary: Đội vắng — chưa đánh trận nào (không tính trận được W.O.) và chưa đủ người điểm danh
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [items]
+                        properties:
+                          items: { type: array, items: { $ref: '#/components/schemas/Team' } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      tags: [tournament]
+      summary: Xử W.O. các đội vắng (đi đúng đường rút lui sau bốc thăm)
+      description: 'teamIds = các đội BTC đã xem và chọn; bỏ trống = mọi đội vắng. Đội không còn vắng → 409 NOT_ABSENT; không có ai → 422 NOTHING_TO_DO.'
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                teamIds: { type: array, minItems: 1, items: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [tournament, teamIds]
+                        properties:
+                          tournament: { $ref: '#/components/schemas/Tournament' }
+                          teamIds: { type: array, items: { type: string, format: uuid } }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/next-matches:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [tournament]
+      summary: Trận kế tiếp cho sân vừa trống + các sân đang trống
+      description: |
+        Ứng viên: trận đang chờ, đủ hai đội, không ai đang ở sân (mọi giải / buổi). Thứ tự: đã nghỉ đủ (5 phút) trước →
+        lượt sớm hơn → đội nghỉ lâu hơn → vòng bảng trước sơ đồ.
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 20, default: 5 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [freeCourts, blocked, items]
+                        properties:
+                          freeCourts: { type: array, nullable: true, items: { type: string }, description: 'null = giải chưa có danh sách sân' }
+                          blocked:
+                            type: array
+                            description: Trận đủ đội nhưng chưa gọi được vì có người đang ở sân (giải này hoặc giải / buổi khác)
+                            items:
+                              type: object
+                              required: [matchId, players]
+                              properties:
+                                matchId: { type: string, format: uuid }
+                                players:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required: [id, courtRef]
+                                    properties:
+                                      id: { type: string, format: uuid }
+                                      courtRef: { type: string, nullable: true }
+                          items:
+                            type: array
+                            items:
+                              type: object
+                              required: [match, restMinutes, rested]
+                              properties:
+                                match: { $ref: '#/components/schemas/MatchView' }
+                                restMinutes: { type: integer, nullable: true, description: 'Người nghỉ ít nhất của trận đã nghỉ bao lâu; null = chưa ai đánh trận nào' }
+                                rested: { type: boolean }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/tournaments/{id}/call-next:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    post:
+      tags: [tournament]
+      summary: Gọi trận kế tiếp ra sân courtRef (cùng kiểm tra như gọi ra sân)
+      description: 'Không có trận nào gọi được → 422 NOTHING_TO_CALL.'
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                courtRef: { type: string, maxLength: 64 }
+      responses:
+        '200': { $ref: '#/components/responses/Match' }
         default: { $ref: '#/components/responses/Error' }
 
   /v1/tournaments/{id}/draw/preview:
@@ -2028,7 +2247,7 @@ paths:
     post:
       tags: [session]
       summary: Điểm danh (người đến muộn được bù số trận); chưa có điểm thì gửi kèm quickLevel để chấm nhanh
-      description: 'Scope: session:operate (+ rating:assess khi có quickLevel). Chưa có điểm, không quickLevel → 422 NEEDS_ASSESSMENT.'
+      description: 'Scope: session:operate (+ rating:assess khi có quickLevel). Chưa có điểm, không quickLevel → 422 NEEDS_ASSESSMENT. Đang có mặt ở buổi khác chưa đóng → 409 PRESENT_ELSEWHERE (errors[].field = id buổi kia).'
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -2856,6 +3075,7 @@ components:
         completedAt: { type: string, format: date-time, nullable: true }
         live: { $ref: '#/components/schemas/MatchLive' }
         version: { type: integer }
+        expectedTime: { type: string, nullable: true, description: 'Lịch giải: giờ dự kiến HH:MM của lượt (giải có giờ bắt đầu)' }
 
     ScoringObject:
       type: object
@@ -2886,12 +3106,15 @@ components:
         name: { type: string, minLength: 3, maxLength: 120 }
         description: { type: string, nullable: true, maxLength: 5000 }
         startsOn: { type: string, format: date }
+        startTime: { type: string, nullable: true, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', description: 'Giờ bắt đầu HH:MM (giờ chi nhánh) — giờ dự kiến từng lượt' }
         tier: { type: string, enum: [club, open, chain] }
         discipline: { $ref: '#/components/schemas/Discipline' }
         genderRule: { type: string, enum: [open, men, women, mixed] }
         pairingMode: { type: string, enum: [fixed, random_balanced] }
         maxPartnerGap: { type: number, nullable: true, minimum: 0, maximum: 6 }
         maxEntries: { type: integer, nullable: true, minimum: 2, maximum: 512 }
+        checkInRequired: { type: boolean, description: 'Bốc thăm tại sân: chỉ lấy người đã điểm danh (đôi cặp sẵn cần cả hai)' }
+        courtRefs: { type: array, nullable: true, minItems: 1, maxItems: 32, items: { type: string, minLength: 1, maxLength: 64 }, description: 'Sân của giải; có thì courtCount = số sân' }
         ratingRule: { $ref: '#/components/schemas/RatingRule' }
         format: { type: string, enum: [round_robin, groups_knockout, knockout] }
         groupCount: { type: integer, nullable: true, minimum: 1, maximum: 64 }
@@ -2920,12 +3143,14 @@ components:
         name: { type: string }
         description: { type: string, nullable: true }
         startsOn: { type: string, format: date }
+        startTime: { type: string, nullable: true }
         tier: { type: string, enum: [club, open, chain] }
         discipline: { $ref: '#/components/schemas/Discipline' }
         genderRule: { type: string, enum: [open, men, women, mixed] }
         pairingMode: { type: string, enum: [fixed, random_balanced] }
         maxPartnerGap: { type: number, nullable: true }
         maxEntries: { type: integer, nullable: true }
+        checkInRequired: { type: boolean }
         ratingRule: { $ref: '#/components/schemas/RatingRule' }
         format: { type: string, enum: [round_robin, groups_knockout, knockout] }
         groupCount: { type: integer, nullable: true }
@@ -2934,6 +3159,7 @@ components:
         thirdPlaceMatch: { type: boolean }
         scoring: { $ref: '#/components/schemas/ScoringObject' }
         courtCount: { type: integer }
+        courtRefs: { type: array, nullable: true, items: { type: string }, description: 'null = giải tạo trước plan 20, chỉ có số sân' }
         matchMinutes: { type: integer }
         rated: { type: boolean }
         ranked: { type: boolean }
@@ -2953,6 +3179,7 @@ components:
                 registered: { type: integer }
                 waitlisted: { type: integer }
                 withdrawn: { type: integer }
+                checkedIn: { type: integer, description: 'Người chưa rút đã điểm danh' }
             matches:
               type: object
               properties:
@@ -2962,7 +3189,7 @@ components:
     Entry:
       type: object
       additionalProperties: false
-      required: [id, playerId, name, gender, partnerPlayerId, status, waitlistReason, rating, pairingRating, flags, registeredAt]
+      required: [id, playerId, name, gender, partnerPlayerId, status, waitlistReason, rating, pairingRating, flags, registeredAt, checkedInAt]
       properties:
         id: { type: string, format: uuid }
         playerId: { type: string, format: uuid }
@@ -2970,11 +3197,12 @@ components:
         gender: { type: string, nullable: true }
         partnerPlayerId: { type: string, nullable: true }
         status: { type: string, enum: [registered, waitlisted, withdrawn] }
-        waitlistReason: { type: string, nullable: true, enum: [capacity, draw, null] }
+        waitlistReason: { type: string, nullable: true, enum: [capacity, draw, absent, null], description: 'absent = vắng lúc bốc thăm tại sân' }
         rating: { type: number, nullable: true }
         pairingRating: { type: number, nullable: true }
         flags: { type: array, items: { type: string } }
         registeredAt: { type: string, format: date-time }
+        checkedInAt: { type: string, format: date-time, nullable: true, description: 'Điểm danh ngày thi đấu' }
 
     Team:
       type: object
@@ -2999,7 +3227,7 @@ components:
     DrawProposal:
       type: object
       additionalProperties: false
-      required: [seed, teams, waitlist, groups, bracket, matches, estimate, stats]
+      required: [seed, teams, waitlist, absent, groups, bracket, matches, estimate, stats]
       properties:
         seed: { type: string }
         teams:
@@ -3029,6 +3257,15 @@ components:
               playerId: { type: string, format: uuid }
               name: { type: string, nullable: true }
               reason: { type: string, enum: [ODD_COUNT, GENDER_IMBALANCE] }
+        absent:
+          type: array
+          description: Đã đăng ký nhưng chưa điểm danh (giải bốc thăm tại sân) — không vào bốc thăm, xác nhận thì sang danh sách chờ (absent)
+          items:
+            type: object
+            required: [playerId, name]
+            properties:
+              playerId: { type: string, format: uuid }
+              name: { type: string, nullable: true }
         groups:
           type: array
           items:

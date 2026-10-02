@@ -46,7 +46,7 @@ npm run dev
 - Bước `cp` xong thì điền `DB_*` trong `.env`, và tạo DB rỗng `competition_service` trước khi migrate.
 - `keys:generate` tạo cặp khoá ES256 dev trong `.keys/`.
 - `migrate` tạo 20 bảng trong DB riêng.
-- `npm run seed:demo` (tuỳ chọn) tạo dữ liệu demo bằng chính các service: 25 người chơi, 2 giải đã chốt, 1 giải đang mở để thử bốc thăm, 1 buổi giao lưu đã đóng và 1 buổi đang diễn ra có sẵn tỉ số dở ở các sân (xem màn hình lớn ở `/v1/sessions/{id}/board`, luồng TV ở `…/stream`). Buổi giao lưu chạy theo đồng hồ giả lập nên seed lần nào cũng ra cùng dữ liệu. Chỉ chạy trên DB trống; production cần `ALLOW_DEMO_SEED=true`.
+- `npm run seed:demo` (tuỳ chọn) tạo dữ liệu demo bằng chính các service: 39 người chơi, 2 giải đã chốt, 1 giải đang mở để thử bốc thăm, 3 giải hôm nay để thử vận hành (đơn nữ vòng tròn đang đánh, đôi cặp đăng ký sẵn vòng bảng + loại trực tiếp — thử "Gọi trận kế tiếp", đơn nam bốc thăm tại sân — thử điểm danh rồi bốc thăm), 1 buổi giao lưu đã đóng và 1 buổi đang diễn ra có sẵn tỉ số dở ở các sân (xem màn hình lớn ở `/v1/sessions/{id}/board`, luồng TV ở `…/stream`). Buổi giao lưu chạy theo đồng hồ giả lập nên seed lần nào cũng ra cùng dữ liệu. Chỉ chạy trên DB trống; production cần `ALLOW_DEMO_SEED=true`.
 - `dev` chạy ở http://127.0.0.1:5100; Swagger UI ở `/docs`.
 
 Gọi API bằng token dev (không cần app chính):

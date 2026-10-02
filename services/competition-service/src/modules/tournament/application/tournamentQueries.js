@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const { canAccessOrganizer } = require('../../../platform/http/auth');
 const { round2 } = require('../../../shared/numbers');
 const { computeStandings } = require('../domain/standings');
+const { expectedTime } = require('../domain/operations');
 
 // Đọc dữ liệu giải — không ghi gì.
 
@@ -9,11 +10,16 @@ const createTournamentQueries = ({ models, players, matches, ctx }) => {
   const { Tournament, TournamentEntry, TournamentTeam, TournamentPlacement } = models;
 
   const progress = async (t) => {
-    const entries = await TournamentEntry.findAll({ where: { tournamentId: t.id }, attributes: ['status'] });
+    const entries = await TournamentEntry.findAll({ where: { tournamentId: t.id }, attributes: ['status', 'checkedInAt'] });
     const list = await matches.listForContext(t.tenantId, 'tournament', t.id);
     const count = (s) => entries.filter((e) => e.status === s).length;
     return {
-      entries: { registered: count('registered'), waitlisted: count('waitlisted'), withdrawn: count('withdrawn') },
+      entries: {
+        registered: count('registered'),
+        waitlisted: count('waitlisted'),
+        withdrawn: count('withdrawn'),
+        checkedIn: entries.filter((e) => e.status !== 'withdrawn' && e.checkedInAt).length
+      },
       matches: { total: list.filter((m) => m.status !== 'cancelled').length, completed: list.filter((m) => m.status === 'completed').length }
     };
   };
@@ -49,7 +55,8 @@ const createTournamentQueries = ({ models, players, matches, ctx }) => {
         rating: r ? r.rating : e.ratingSnapshot === null ? null : round2(Number(e.ratingSnapshot)),
         pairingRating: r ? r.pairingRating : e.pairingRatingSnapshot === null ? null : round2(Number(e.pairingRatingSnapshot)),
         flags: v ? v.flags || [] : [],
-        registeredAt: new Date(e.registeredAt).toISOString()
+        registeredAt: new Date(e.registeredAt).toISOString(),
+        checkedInAt: e.checkedInAt ? new Date(e.checkedInAt).toISOString() : null
       };
     });
   };
@@ -64,7 +71,8 @@ const createTournamentQueries = ({ models, players, matches, ctx }) => {
     const t = await ctx.load(null, auth.tenant, id);
     ctx.authorize(auth, t, 'read');
     const rows = await matches.listForContext(auth.tenant, 'tournament', t.id);
-    return matches.views(auth.tenant, rows);
+    // Giờ dự kiến theo lượt (plan 20) — chỉ khi giải có giờ bắt đầu.
+    return (await matches.views(auth.tenant, rows)).map((v) => ({ ...v, expectedTime: expectedTime(t.startTime, v.slotNo, t.matchMinutes) }));
   };
 
   const standings = async ({ auth, id }) => {

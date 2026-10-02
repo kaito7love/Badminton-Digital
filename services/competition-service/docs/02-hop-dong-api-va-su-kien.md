@@ -26,11 +26,11 @@ Dùng đúng envelope của app chính để gateway chuyển thẳng, không ph
 |---|---|---|
 | 400 | Body sai định dạng / sai spec OpenAPI | `VALIDATION_FAILED` |
 | 401 | Thiếu / sai / hết hạn token | `UNAUTHENTICATED` |
-| 403 | Đủ token nhưng thiếu scope; người chơi bấm điểm trận không phải của mình; người chơi xác nhận trận tính điểm | `FORBIDDEN_SCOPE`, `NOT_A_PARTICIPANT`, `CONFIRM_REQUIRES_STAFF` |
+| 403 | Đủ token nhưng thiếu scope; người chơi bấm điểm trận không phải của mình; người chơi xác nhận trận tính điểm / xử bỏ cuộc | `FORBIDDEN_SCOPE`, `NOT_A_PARTICIPANT`, `CONFIRM_REQUIRES_STAFF`, `RETIRE_REQUIRES_STAFF` |
 | 404 | Không có, **hoặc** thuộc tenant / organizer khác, **hoặc** hồ sơ `hidden` với người xem không phải nhân viên | `NOT_FOUND` |
-| 409 | Sai trạng thái nghiệp vụ, lệch version | `INVALID_STATE`, `VERSION_CONFLICT`, `SELF_ASSESSMENT_LOCKED`, `ROLLBACK_BLOCKED`, `MERGE_CONFLICT`, `NEXT_MATCH_STARTED`, `LIVE_CONFLICT`, `MATCH_DECIDED`, `MATCH_NOT_DECIDED`, `NOTHING_TO_UNDO`, `RALLIES_STARTED` |
+| 409 | Sai trạng thái nghiệp vụ, lệch version | `INVALID_STATE`, `VERSION_CONFLICT`, `SELF_ASSESSMENT_LOCKED`, `ROLLBACK_BLOCKED`, `MERGE_CONFLICT`, `NEXT_MATCH_STARTED`, `LIVE_CONFLICT`, `MATCH_DECIDED`, `MATCH_NOT_DECIDED`, `NOTHING_TO_UNDO`, `RALLIES_STARTED`, `COURT_BUSY`, `PLAYER_BUSY`, `PRESENT_ELSEWHERE`, `RESULT_NOT_REQUIRED`, `NOT_ABSENT` |
 | 412 | Thiếu `If-Match` ở endpoint bắt buộc | `PRECONDITION_REQUIRED` |
-| 422 | Đúng định dạng nhưng sai luật nghiệp vụ | `SCORE_INVALID`, `NOT_ELIGIBLE`, `NEEDS_ASSESSMENT`, `DRAW_INVALID`, `BRACKET_INVALID`, `NICKNAME_TAKEN`, `IDEMPOTENCY_KEY_REUSED` |
+| 422 | Đúng định dạng nhưng sai luật nghiệp vụ | `SCORE_INVALID`, `NOT_ELIGIBLE`, `NEEDS_ASSESSMENT`, `DRAW_INVALID`, `BRACKET_INVALID`, `NICKNAME_TAKEN`, `IDEMPOTENCY_KEY_REUSED`, `COURT_REQUIRED`, `COURT_NOT_IN_CONTEXT`, `PARTNER_NOT_ALLOWED`, `NOTHING_TO_CALL`, `NOTHING_TO_DO` |
 | 503 | DB chưa sẵn sàng | `NOT_READY` |
 
 ### 1.3 Idempotency, đồng thời, phân trang, thời gian
@@ -122,7 +122,7 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 | Method + đường dẫn | Scope | Việc |
 |---|---|---|
 | `GET /v1/matches/{id}` | `t:read` hoặc `s:read` (theo ngữ cảnh), hoặc `ms` (người chơi trong trận) | Chi tiết trận, kèm `live` = tỉ số đang bấm (`null` nếu chưa ai bấm) |
-| `POST /v1/matches/{id}/call` | `t:operate` / `s:operate` | Gọi ra sân `{ courtRef }` → `in_play` |
+| `POST /v1/matches/{id}/call` | `t:operate` / `s:operate` | Gọi ra sân `{ courtRef }` → `in_play`. Kiểm trên **mọi** giải / buổi của tenant (sân, người là thật — plan 20): sân đang có trận → 409 `COURT_BUSY`; một người của trận đang đánh ở sân khác → 409 `PLAYER_BUSY` (kèm tên, sân). Giải có danh sách sân thì bắt buộc chọn sân trong danh sách (422 `COURT_REQUIRED` / `COURT_NOT_IN_CONTEXT`) |
 | `PUT /v1/matches/{id}/result` | `t:operate` / `s:operate` | `{ games }` \| `{ outcome: "walkover", winnerSide }` \| `{ games, outcome: "retired", winnerSide }`. `If-Match` bắt buộc. Trận loại trực tiếp: người thắng tự vào ô sau; đổi người thắng khi trận sau đã bắt đầu → 409 `NEXT_MATCH_STARTED` |
 | `POST /v1/matches/{id}/cancel` | `t:manage` / `s:operate` | Huỷ trận chưa có kết quả. Trận trong sơ đồ loại trực tiếp không huỷ được (xử W.O.). Trận giao lưu bị huỷ không tính là đã đánh |
 | `POST /v1/matches/{id}/end` | `s:operate` | Trận giao lưu "xong, không nhập tỉ số" → `ended`, sân được nhả; nhập tỉ số sau vẫn được. Trận giải → 409 `RESULT_REQUIRED` |
@@ -131,22 +131,29 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 | `POST /v1/matches/{id}/live/undo` | như trên | `{ revision }` → bỏ điểm vừa bấm (kể cả điểm vừa xong game). Chưa có điểm → 409 `NOTHING_TO_UNDO` |
 | `PUT /v1/matches/{id}/live/server` | như trên | `{ firstServer, revision }` → đội giao trước; đã bấm điểm → 409 `RALLIES_STARTED` |
 | `POST /v1/matches/{id}/live/confirm` | như trên | `{ revision }` → lưu kết quả từ tỉ số đã bấm, cùng đường với `PUT …/result`. Người chơi (`ms`) chỉ xác nhận được trận **không tính điểm** (403 `CONFIRM_REQUIRES_STAFF`); chưa đủ điểm thắng → 409 `MATCH_NOT_DECIDED` |
+| `POST /v1/matches/{id}/live/retire` | như trên (chỉ nhân viên) | **Không đánh tiếp được** (plan 20): `{ side, revision }` — đội `side` bỏ cuộc giữa trận → kết quả `retired`, giữ các game đã xong (game đang dở bỏ), đối thủ thắng / đi tiếp. Người chơi → 403 `RETIRE_REQUIRES_STAFF`; trận giao lưu → 409 `RESULT_NOT_REQUIRED` (dùng huỷ trận / xong không tỉ số); đã đủ điểm thắng → 409 `MATCH_DECIDED` |
 
 ### 2.6 Giải đấu (module `tournament`, tài liệu 06)
 
 | Method + đường dẫn | Scope | Trạng thái | Việc |
 |---|---|---|---|
 | `POST /v1/tournaments/advice` | `t:read` | — | Gợi ý thể thức / số bảng / ước tính thời gian theo số đội dự kiến (wizard bước 3–4) |
-| `POST /v1/tournaments` | `t:manage` | — | Tạo (`draft`). `organizerRef` ∈ `org`; `tier = chain` cần `org = *` |
+| `POST /v1/tournaments` | `t:manage` | — | Tạo (`draft`). `organizerRef` ∈ `org`; `tier = chain` cần `org = *`. Có thể kèm `courtRefs` (sân của giải → `courtCount` = số sân), `startTime` (`HH:MM`, giờ dự kiến từng lượt), `checkInRequired` (bốc thăm tại sân) |
 | `GET /v1/tournaments` · `GET /v1/tournaments/{id}` | `t:read` | — | Danh sách (lọc trạng thái, ngày, nội dung) · chi tiết + tiến độ |
 | `PATCH /v1/tournaments/{id}` | `t:manage` | `draft`, `open` | Sửa (`If-Match` bắt buộc); đã có người đăng ký thì không đổi nội dung / giới / cách ghép / luật điểm / điều kiện trình → 409 `LOCKED_AFTER_ENTRIES` |
 | `POST /v1/tournaments/{id}/open` | `t:manage` | `draft` | Mở đăng ký |
-| `GET/POST /v1/tournaments/{id}/entries` · `DELETE …/entries/{entryId}` | `t:operate` | `open` (thêm) · mọi lúc trước chốt (rút) | Đăng ký / rút (06, mục 4.2, 7.4) |
-| `POST /v1/tournaments/{id}/draw/preview` | `t:manage` | `open`, `drawn` chưa có kết quả | `{ seed? }` → đội + chờ + bảng + lịch theo lượt + thống kê cân bằng |
+| `GET/POST /v1/tournaments/{id}/entries` · `DELETE …/entries/{entryId}` | `t:operate` | `open` (thêm) · mọi lúc trước chốt (rút) | Đăng ký / rút (06, mục 4.2, 7.4). Đôi cặp sẵn: `{ playerId, partnerPlayerId }` — 2 người đăng ký chung một đội |
+| `POST` · `DELETE /v1/tournaments/{id}/entries/{entryId}/check-in` | `t:operate` | `open`, `drawn`, `in_progress` | Điểm danh ngày thi đấu / bỏ điểm danh (từng người; đôi = cả hai người) |
+| `PUT /v1/tournaments/{id}/entries/{entryId}/partner` | `t:operate` | `open` | Đổi đồng đội `{ partnerPlayerId }` (đôi cặp sẵn): người cũ rời giải, người mới vào đúng chỗ của cặp, kiểm lại điều kiện |
+| `PUT /v1/tournaments/{id}/courts` | `t:manage` | trừ `finalized`, `cancelled` | Sân của giải `{ courtRefs }` (thêm / bớt trong ngày; bỏ sân đang có trận → 409 `COURT_BUSY`) |
+| `POST /v1/tournaments/{id}/draw/preview` | `t:manage` | `open`, `drawn` chưa có kết quả | `{ seed? }` → đội + chờ + bảng + lịch theo lượt + thống kê cân bằng; giải bốc thăm tại sân: `absent` = người chưa điểm danh (xác nhận thì sang danh sách chờ, lý do `absent`) |
 | `POST /v1/tournaments/{id}/draw` | `t:manage` | như trên | `{ seed, teams, groups }` đã chỉnh tay → kiểm tra → sinh trận → `drawn` |
 | `POST /v1/tournaments/{id}/reopen` | `t:manage` | `drawn` chưa có kết quả | Huỷ bốc thăm, về `open` |
 | `GET /v1/tournaments/{id}/teams` · `…/matches` · `…/standings` · `…/bracket` | `t:read` | — | Các đội · lịch theo lượt / bảng · xếp hạng từng bảng · sơ đồ |
 | `POST /v1/tournaments/{id}/matches` | `t:manage` | `in_progress` | Thêm trận tay `{ teamAId, teamBId, label }` |
+| `GET /v1/tournaments/{id}/next-matches` | `t:read` | `drawn`, `in_progress` | Trận kế tiếp cho sân vừa trống: `freeCourts`, `items` (trận gọi được: đã nghỉ đủ 5 phút trước → lượt sớm hơn → đội nghỉ lâu hơn), `blocked` (trận đủ đội nhưng có người đang ở sân — ai, sân nào). Lịch (`…/matches`) có `expectedTime` theo `startTime` |
+| `POST /v1/tournaments/{id}/call-next` | `t:operate` | `drawn`, `in_progress` | `{ courtRef }` → gọi trận đầu danh sách ra sân (cùng kiểm tra như gọi ra sân); không có → 422 `NOTHING_TO_CALL` |
+| `GET` · `POST /v1/tournaments/{id}/no-shows` | `t:operate` | `drawn`, `in_progress` | Đội vắng (chưa đánh trận nào, chưa đủ người điểm danh) / xử W.O. `{ teamIds? }` theo đúng đường rút lui |
 | `POST /v1/tournaments/{id}/knockout/preview` · `POST …/knockout` | `t:manage` | vòng bảng xong | Xem trước / khoá sơ đồ (kèm đổi ô) → `stage = knockout` |
 | `GET /v1/tournaments/{id}/finalize-preview` | `t:read` | mọi trận xong | Thứ hạng + điểm trình trước / sau + điểm thành tích |
 | `POST /v1/tournaments/{id}/finalize` · `…/unfinalize` | `t:manage` | `in_progress` / `finalized` | Chốt / huỷ chốt (06, mục 7) |
@@ -159,7 +166,7 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 | Method + đường dẫn | Scope | Việc |
 |---|---|---|
 | `POST /v1/sessions` · `GET /v1/sessions` · `GET/PATCH /v1/sessions/{id}` | `s:operate` / `s:read` | Tạo (mở ngay) / xem (kèm tiến độ) / sửa buổi (`PATCH` bắt buộc `If-Match`; có trận thì khoá Đơn / Đôi; không bỏ được sân đang có trận) |
-| `GET /v1/sessions/{id}/players` · `POST …/players` · `DELETE …/players/{playerId}` | `s:read` / `s:operate` | Danh sách điểm danh / điểm danh (kèm `quickLevel` nếu chưa có điểm — cần thêm `rating:assess`) / rời buổi (đang ở sân → 409 `PLAYER_ON_COURT`) |
+| `GET /v1/sessions/{id}/players` · `POST …/players` · `DELETE …/players/{playerId}` | `s:read` / `s:operate` | Danh sách điểm danh / điểm danh (kèm `quickLevel` nếu chưa có điểm — cần thêm `rating:assess`; đang có mặt ở buổi khác chưa đóng → 409 `PRESENT_ELSEWHERE`, `errors[].field` = id buổi kia) / rời buổi (đang ở sân → 409 `PLAYER_ON_COURT`) |
 | `POST /v1/sessions/{id}/fill-courts/preview` · `POST …/fill-courts` | `s:operate` | Xếp sân trống: xem trước (đổi tay được, có `repeatPartners`) / xác nhận bản gửi lại nguyên văn hoặc để hệ thống tự xếp → sinh trận đang đánh. Bản cũ → 409 `FILL_STALE`; không có gì để xếp → 422 `NOTHING_TO_FILL` |
 | `GET /v1/sessions/{id}/matches` | `s:read` | Các trận của buổi theo lượt |
 | `GET /v1/sessions/{id}/board` | `s:read` | Dữ liệu màn hình lớn: sân – ai với ai – từ lúc nào (kèm `serverTime`); `upcoming` = ai sẽ vào các sân đang trống nếu bấm "Xếp sân trống" ngay (cùng hàm, cùng seed — rỗng khi không có sân trống); hàng chờ theo thứ tự ưu tiên của thuật toán, `next` = nằm trong `upcoming`; kết quả gần nhất |

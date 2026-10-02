@@ -17,7 +17,13 @@ const ALLOWED = Object.freeze({
   knockout: ['in_progress'],
   finalize: ['in_progress'],
   unfinalize: ['finalized'],
-  cancel: ['draft', 'open', 'drawn', 'in_progress']
+  cancel: ['draft', 'open', 'drawn', 'in_progress'],
+  // Vận hành ngày thi đấu (plan 20).
+  courts: ['draft', 'open', 'drawn', 'in_progress'],
+  checkIn: ['open', 'drawn', 'in_progress'],
+  partner: ['open'],
+  noShows: ['drawn', 'in_progress'],
+  callNext: ['drawn', 'in_progress']
 });
 
 const LABELS = {

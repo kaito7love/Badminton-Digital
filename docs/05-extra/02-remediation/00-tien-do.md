@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-10-02 (mục 19 — bấm điểm trực tiếp, tỉ số lên màn hình TV — xong trên nhánh `feat/competition-live-score`, chờ duyệt merge). Trước đó 2026-09-28 (mục 18 — competition-service bước 1–3 kèm phần sửa sau khi bấm thử — đã merge vào `main`). Trước đó 2026-09-25 (mục 16 — nhóm sửa 4, hạ tầng deploy + bản demo công khai — và mục 17 — nhóm sửa 5, thao tác tại quầy — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-4-5`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-10-03 (mục 20 — giải đấu tổ chức + vận hành được ngày thi đấu — xong trên nhánh `feat/competition-tournament-ops`, chờ duyệt merge). Trước đó 2026-10-02 (mục 19 — bấm điểm trực tiếp, tỉ số lên màn hình TV — xong trên nhánh `feat/competition-live-score`, chờ duyệt merge). Trước đó 2026-09-28 (mục 18 — competition-service bước 1–3 kèm phần sửa sau khi bấm thử — đã merge vào `main`). Trước đó 2026-09-25 (mục 16 — nhóm sửa 4, hạ tầng deploy + bản demo công khai — và mục 17 — nhóm sửa 5, thao tác tại quầy — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-4-5`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -766,6 +766,24 @@ rồi mới nhả số của hồ sơ đã xoá).
   - Từ lúc chạm điểm tới lúc TV đổi số: khoảng 0.3–0.5 giây trên trình duyệt.
   - Test chịu tải bắt được và đã sửa một deadlock.
 - **App chính chưa bị sửa dòng nào.** Giao diện thật thuộc bước 4.
+
+### 20. `feat/competition-tournament-ops` — giải đấu tổ chức + vận hành được ngày thi đấu (chưa merge)
+
+- **Nhánh tách từ** `feat/competition-live-score` (cần màn hình bấm điểm của mục 19).
+- **Nội dung:**
+  - rà lại luồng giao lưu + giải đấu bằng API thật;
+  - gọi ra sân không còn cho một người ở hai sân / hai trận một sân;
+  - sân của giải, giờ dự kiến, "gọi trận kế tiếp";
+  - điểm danh (bốc thăm tại sân / xử W.O. đội vắng), đổi đồng đội;
+  - "không đánh tiếp được" = xử thua (trận giải);
+  - chặn điểm danh một người ở hai buổi giao lưu;
+  - bàn thử tổ chức được giải trọn vòng + TV giải.
+- **Plan + kết quả:** `20-ke-hoach-van-hanh-giai-dau.md`; thiết kế ở `services/competition-service/docs/06` mục 4, 7.4, 14.
+- **Tiến độ:** xong 03/10/2026, chờ duyệt merge (sau mục 19).
+  - 285 test xanh trên MySQL 9.5 và MySQL 8.4 kiểu Aiven.
+  - Seed tái lập được.
+  - Bàn thử bấm thử trọn vòng trên trình duyệt.
+- **App chính chưa bị sửa dòng nào.**
 
 ---
 

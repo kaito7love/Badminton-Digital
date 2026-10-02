@@ -82,6 +82,16 @@ const createMatchRouter = ({ matches, live, players, profile, idempotency }) => 
   );
 
   router.post(
+    '/matches/:id/live/retire',
+    requireScope(...SCORE),
+    idempotency.middleware,
+    asyncHandler(async (req, res) => {
+      const match = await live.retire({ auth: req.auth, matchId: req.params.id, side: req.body.side, revision: req.body.revision, requestId: req.requestId });
+      return ok(res, await one(req, match), { etag: match.version, message: 'Đã xử bỏ cuộc — đối thủ thắng' });
+    })
+  );
+
+  router.post(
     '/matches/:id/call',
     requireScope(...OPERATE),
     idempotency.middleware,

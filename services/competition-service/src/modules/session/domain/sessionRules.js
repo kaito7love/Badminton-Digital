@@ -1,8 +1,8 @@
 const { DomainError } = require('../../../shared/domainError');
+const { MAX_COURTS, courtErrors } = require('../../../shared/courts');
 
 // Luật thuần của buổi giao lưu (docs/06 mục 8) — không DB, test rẻ.
 
-const MAX_COURTS = 32;
 // Hệ số trận giao lưu khi buổi bật "tính điểm" (docs/03 mục 3.1, MATCH_WEIGHT).
 const SESSION_MATCH_WEIGHT = 0.5;
 
@@ -10,13 +10,9 @@ const perCourt = (format) => (format === 'singles' ? 2 : 4);
 const discipline = (format) => (format === 'singles' ? 'singles' : 'doubles');
 
 const validateCourts = (courtRefs) => {
-  const list = Array.isArray(courtRefs) ? courtRefs : [];
-  const errors = [];
-  if (!list.length || list.length > MAX_COURTS) errors.push({ field: 'courtRefs', message: `Chọn từ 1 đến ${MAX_COURTS} sân` });
-  if (list.some((c) => typeof c !== 'string' || !c.trim())) errors.push({ field: 'courtRefs', message: 'Mã sân không được trống' });
-  if (new Set(list).size !== list.length) errors.push({ field: 'courtRefs', message: 'Mã sân bị trùng' });
+  const errors = courtErrors(courtRefs);
   if (errors.length) throw new DomainError('INVALID_SESSION', `Thông tin buổi không hợp lệ: ${errors[0].message}`, errors);
-  return list;
+  return courtRefs;
 };
 
 // Người đến muộn (hoặc quay lại) được tính như đã đánh bằng số trận ít nhất của

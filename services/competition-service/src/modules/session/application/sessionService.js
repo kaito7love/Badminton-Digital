@@ -167,6 +167,19 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
       const roster = await PlaySessionPlayer.findAll({ where: { sessionId: s.id }, transaction });
       const existing = roster.find((r) => r.playerId === player.id);
       if (existing && existing.status === 'present') throw conflict('ALREADY_CHECKED_IN', `${player.displayName} đã điểm danh`);
+      // Đang "có mặt" ở buổi khác chưa đóng (thường là buổi trước quên đóng / quên bấm "Rời buổi") →
+      // chặn, để một người không bị xếp ra sân ở hai nơi (plan 20). errors[].field = id buổi kia.
+      const elsewhere = await PlaySessionPlayer.findAll({ where: { tenantId: auth.tenant, playerId: player.id, status: 'present', sessionId: { [Op.ne]: s.id } }, transaction });
+      if (elsewhere.length) {
+        const open = await PlaySession.findAll({ where: { id: elsewhere.map((r) => r.sessionId), status: 'open' }, transaction });
+        if (open.length) {
+          throw conflict(
+            'PRESENT_ELSEWHERE',
+            `${player.displayName} đang có mặt ở buổi "${open[0].name}" — cho rời buổi đó trước`,
+            open.map((o) => ({ field: o.id, message: o.name }))
+          );
+        }
+      }
       const presentEffective = roster.filter((r) => r.status === 'present').map((r) => r.gamesPlayed + r.gamesCredit);
       const now = new Date();
       let row;

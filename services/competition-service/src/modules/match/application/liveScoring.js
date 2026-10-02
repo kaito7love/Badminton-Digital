@@ -1,4 +1,5 @@
 const { AppError, notFound, conflict } = require('../../../platform/http/errors');
+const { DomainError } = require('../../../shared/domainError');
 const { liveState, addRally, undoRally } = require('../domain/liveScore');
 const { liveView, emptyLive } = require('./liveView');
 
@@ -109,6 +110,33 @@ const createLiveScoring = ({ models, sequelize, realtime, core }) => {
       return applyResult(transaction, { auth, match, handler, ctx, body: { games: state.games, outcome: 'normal' }, requestId, via: 'live' });
     });
 
+  // "Không đánh tiếp được" (plan 20): đội `side` bỏ cuộc giữa trận (đau, có việc phải về) →
+  // đối thủ thắng, giữ các game đã xong, game đang dở bỏ (luật kiểm tỉ số: outcome `retired`).
+  // Đang ở sơ đồ thì đối thủ đi tiếp như mọi kết quả khác. Chỉ nhân viên; chỉ ngữ cảnh bắt buộc
+  // có kết quả (giải) — giao lưu dùng "Huỷ trận" / "Xong (không tỉ số)".
+  const retire = ({ auth, matchId, side, revision, requestId }) =>
+    sequelize.transaction(async (transaction) => {
+      if (side !== 'A' && side !== 'B') throw new DomainError('INVALID_SIDE', 'side (đội bỏ cuộc) phải là A hoặc B');
+      const found = await Match.findOne({ where: { id: matchId, tenantId: auth.tenant }, transaction });
+      if (!found) throw notFound('Không tìm thấy trận');
+      const handler = handlerFor(found);
+      const ctx = await handler.load(transaction, auth.tenant, found.contextId, { lock: true });
+      const match = await Match.findOne({ where: { id: matchId }, transaction, lock: transaction.LOCK.UPDATE });
+      if ((await scorerKind(transaction, auth, handler, ctx, match)) === 'player') {
+        throw new AppError(403, 'RETIRE_REQUIRES_STAFF', 'Xử bỏ cuộc do nhân viên điều hành bấm');
+      }
+      if (handler.allowEndWithoutResult) throw conflict('RESULT_NOT_REQUIRED', 'Trận giao lưu không xử thua — dùng "Huỷ trận" hoặc "Xong (không tỉ số)"');
+      handler.assertCanRecord(ctx, match);
+      if (match.status !== 'in_play') throw conflict('INVALID_STATE', 'Chỉ xử bỏ cuộc được trận đang đánh');
+      const row = await MatchLiveScore.findOne({ where: { matchId: match.id }, transaction, lock: transaction.LOCK.UPDATE });
+      if ((row ? row.revision : 0) !== revision) throw liveConflict(row);
+      const state = liveState({ rallies: row ? row.rallies : '', firstServer: row ? row.firstServer : 'A', scoring: match.scoring });
+      if (state.decided) throw conflict('MATCH_DECIDED', 'Trận đã đủ điểm thắng — bấm "Xác nhận kết quả"');
+      return applyResult(transaction, {
+        auth, match, handler, ctx, body: { games: state.games, outcome: 'retired', winnerSide: side === 'A' ? 'B' : 'A' }, requestId, via: 'live'
+      });
+    });
+
   const get = async ({ auth, matchId }) => {
     const { match, handler, ctx } = await loadMatch(null, auth, matchId);
     try {
@@ -133,7 +161,7 @@ const createLiveScoring = ({ models, sequelize, realtime, core }) => {
     };
   };
 
-  return { rally, undo, setServer, confirm, get, snapshot };
+  return { rally, undo, setServer, confirm, retire, get, snapshot };
 };
 
 module.exports = { createLiveScoring };

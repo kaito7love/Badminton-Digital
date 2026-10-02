@@ -1,7 +1,7 @@
 # Kế hoạch: rà luồng giao lưu + giải đấu, đưa giải đấu từ "xem được" sang "tổ chức và vận hành được"
 
 - **Ngày:** 03/10/2026.
-- **Trạng thái:** đã duyệt (03/10, câu trả lời ở mục 5) → đang làm.
+- **Trạng thái:** đã duyệt (03/10, câu trả lời ở mục 5) → đã làm, kết quả ở mục 6; chờ duyệt merge.
 - **Nhánh:** `feat/competition-tournament-ops`, tách từ `feat/competition-live-score` @ `f24deaa` (cần màn hình bấm
   điểm của nhánh đó).
 - **Phạm vi:** `services/competition-service` + bàn thử. App chính vẫn để bước 4 (plan 18), tài liệu 07 cập nhật cho
@@ -148,3 +148,52 @@ Trả lời **"code đi"** nghĩa là làm A + B + C + D, thêm G2, theo các kh
     - bấm được ngay từ màn hình bấm điểm (chỉ nhân viên);
   - **trận giao lưu** → "Huỷ trận" hoặc "Xong (không tỉ số)" như hiện có, thêm vào màn hình bấm điểm cho tiện.
   - Trước giờ đánh mà vắng: điểm danh + "Xử W.O. các đội vắng" (mục 3 B1).
+
+## 6. Kết quả — xong trên nhánh `feat/competition-tournament-ops` (03/10/2026), chờ duyệt merge
+
+### 6.1 Đã làm
+
+**Service (API 0.5.0, 91 → 100 thao tác, 1 migration chỉ thêm cột):**
+
+| Mục | Làm gì |
+|---|---|
+| T1 gọi ra sân | Giải có **danh sách sân** (`courtRefs`, sửa được trong ngày qua `PUT …/courts`). "Gọi ra sân" kiểm trên **mọi giải / buổi** của chuỗi: sân đang có trận → 409 `COURT_BUSY`; người đang đánh ở sân khác → 409 `PLAYER_BUSY` (kèm tên, sân); sân ngoài giải → 422 `COURT_NOT_IN_CONTEXT`. Giải cũ chưa có danh sách sân vẫn chạy (chỉ kiểm bận) |
+| T2 điểm danh | Điểm danh / bỏ điểm danh **từng người**. Giải "bốc thăm tại sân": bốc thăm chỉ lấy người đã điểm danh (đôi cặp sẵn thiếu một người = cả cặp vắng → danh sách chờ lý do `absent`, mở lại thì trở lại). Bốc trước: `GET / POST …/no-shows` xem danh sách đội vắng rồi xử W.O. theo đúng đường rút lui |
+| T3 đổi đồng đội | `PUT …/entries/{id}/partner` (trước bốc thăm): người cũ rời giải, người mới vào đúng chỗ của cặp, kiểm lại điều kiện |
+| T4 lịch theo giờ, trận kế tiếp | `startTime` → `expectedTime` từng lượt. `GET …/next-matches`: trận gọi được (nghỉ đủ 5 phút trước → lượt sớm hơn → nghỉ lâu hơn) + `blocked` (trận đang chờ ai, ở sân nào). `POST …/call-next {courtRef}` |
+| G1 giao lưu | Điểm danh người đang có mặt ở buổi khác chưa đóng → 409 `PRESENT_ELSEWHERE` (kèm id buổi kia) |
+| Không đánh tiếp được | `POST /v1/matches/{id}/live/retire {side, revision}`: trận giải → đội đó thua (`retired`), giữ game đã xong, đối thủ thắng / đi tiếp. Chỉ nhân viên; trận giao lưu → 409 `RESULT_NOT_REQUIRED` |
+| Sửa lỗi phát hiện khi làm | Hai đội đã rút gặp nhau ở sơ đồ loại trực tiếp: trước đây trận đó "chờ" mãi, **chặn chốt giải**. Giờ xử cho ô A đi tiếp như đội đã rút → gặp đội còn thi đấu ở vòng sau thì đội đó thắng W.O. |
+| T6 seed demo | Thêm 14 người chơi riêng + 3 giải hôm nay: đơn nữ vòng tròn (đang đánh, có tỉ số dở ở Sân 4), đôi cặp đăng ký sẵn vòng bảng + loại trực tiếp (lượt 1 đã đánh, Sân 5–6), đơn nam bốc thăm tại sân (6 đăng ký, 4 đã điểm danh, Sân 7–8). Không ai vừa ở buổi giao lưu đang diễn ra vừa ở giải. Dữ liệu cũ giữ nguyên |
+
+**Bàn thử:** màn hình giải làm lại để **tổ chức và vận hành trọn vòng**:
+- tạo giải (4 phần như wizard, phần "Xem lại" gợi ý thể thức + ước tính giờ xong), mở đăng ký, huỷ;
+- đăng ký **theo cặp** (chọn người + đồng đội; chưa có điểm → chấm nhanh rồi đăng ký), đổi đồng đội, rút, **điểm danh
+  bấm tên**;
+- bốc thăm: người vắng, đổi chỗ **cả đội** giữa hai bảng / hai ô (giải cặp sẵn không tách cặp), lịch theo lượt kèm giờ;
+- khối **Sân**: sân đang đánh (bảng điểm), sân trống + trận kế tiếp + "Gọi trận kế tiếp" / "Chọn trận khác…", lý do
+  chưa gọi được;
+- lịch: gọi ra sân chọn sân, "chờ: X đang ở Sân Y"; nhập tỉ số có **W.O. / bỏ cuộc giữa trận**; thêm trận tay;
+- sơ đồ loại trực tiếp: xem trước, đổi ô (cảnh báo "cùng bảng"), khoá; "Xử W.O. đội vắng"; "Sân của giải";
+- **TV của giải** (`/tv?tournament=…`); màn hình bấm điểm có **"Không đánh tiếp được…"**; điểm danh giao lưu hỏi "Rời
+  buổi kia rồi điểm danh?".
+
+**Tài liệu:** 02 (endpoint, mã lỗi), 06 (mục 2, 4.2, 4.5, 7.4, 8.2, **mục 14 mới**: chốt khi code), 07 (tạo giải, tab
+**Sân**, các tab, bấm điểm, TV), README.
+
+### 6.2 Kiểm thử thật
+
+| Kiểm | Kết quả |
+|---|---|
+| Toàn bộ test service, MySQL 9.5 | **285 / 285** đạt (thêm 19: 7 unit, 12 integration) |
+| Toàn bộ test service, MySQL 8.4.11 bắt buộc khoá chính (kiểu Aiven) | **285 / 285** đạt |
+| Seed demo chạy 2 lần, so dấu vân tay (gồm mọi giải, đăng ký, điểm danh, trận, tỉ số dở) | **Giống hệt**; phần dữ liệu cũ ra như trước (Sân 1 16–12, Sân 2 10–5, Sân 3 2–8) |
+| Bàn thử trên trình duyệt (bản kiểm riêng: service + DB tạm, đã xoá) | Tạo giải đôi cặp sẵn "bốc thăm tại sân" qua form → đăng ký 5 cặp → đổi đồng đội 1 cặp → điểm danh 9 / 10 người → xem trước bốc thăm: 4 cặp, cặp thiếu người ở mục "Vắng" → xác nhận → cặp đó "chờ — vắng lúc bốc" → "Gọi trận kế tiếp" 2 sân. Giải demo cặp sẵn: gọi trận có người đang ở Sân 5 ra Sân 6 → 409 `PLAYER_BUSY`, lịch ghi "chờ: … đang ở Sân 5". Màn hình bấm điểm "Không đánh tiếp được" → đội kia thắng, "← Về giải đấu". Sơ đồ: đổi ô → cảnh báo "cùng bảng", khoá → bán kết. TV giải. Giao lưu: điểm danh người đang ở buổi demo → hỏi → rời buổi kia + điểm danh. Không có lỗi JavaScript |
+
+### 6.3 Còn lại / không làm
+
+- Không làm (theo mục 5): thay người giữa trận, buổi nam nữ, cặp cố định trong buổi, tự đóng buổi, khách tự đăng ký
+  online (bước 4).
+- "Xếp sân trống" của giao lưu chưa trừ người đang đánh ở giải khác (06 mục 14) — hiếm, để sau.
+- DB dev của anh/chị **đã migrate** (thêm cột, không đổi dữ liệu) nhưng **chưa seed lại** — muốn có 3 giải "hôm nay"
+  để thử thì nói "seed lại".

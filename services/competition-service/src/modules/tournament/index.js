@@ -14,6 +14,7 @@ const formatAdvisor = require('./domain/formatAdvisor');
 const bracketPlan = require('./domain/bracketPlan');
 const draw = require('./domain/draw');
 const eligibility = require('./domain/eligibility');
+const operations = require('./domain/operations');
 
 const createTournamentModule = ({ models, sequelize, platform, players, rating, ranking, match, stream }) => {
   const ctx = createTournamentContext({ models });
@@ -34,15 +35,17 @@ const createTournamentModule = ({ models, sequelize, platform, players, rating, 
     afterResult: async (transaction, { ctx: t }) => {
       if (t.status === 'drawn') await t.update({ status: 'in_progress' }, { transaction });
     },
-    withdrawnTeamIds: (transaction, t) => ctx.withdrawnTeamIds(transaction, t)
+    withdrawnTeamIds: (transaction, t) => ctx.withdrawnTeamIds(transaction, t),
+    // "Gọi ra sân" chỉ vào sân của giải (plan 20); giải cũ chưa có danh sách sân → không kiểm.
+    courtRefs: (t) => t.courtRefs || null
   });
 
-  const router = createTournamentRouter({ service, finalizer, queries, ctx, players, idempotency: platform.idempotency, stream });
+  const router = createTournamentRouter({ service, finalizer, queries, ctx, players, matches: match.service, idempotency: platform.idempotency, stream });
   return { service, finalizer, queries, router };
 };
 
 module.exports = {
   defineTournamentModels,
   createTournamentModule,
-  domain: { standings, placements, formatAdvisor, bracketPlan, draw, eligibility }
+  domain: { standings, placements, formatAdvisor, bracketPlan, draw, eligibility, operations }
 };

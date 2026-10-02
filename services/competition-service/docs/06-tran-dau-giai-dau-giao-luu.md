@@ -166,8 +166,8 @@ Trong lúc đánh, một người cầm điện thoại **bấm từng điểm**
 
 | Bước | Trường | Ghi chú |
 |---|---|---|
-| **1. Thông tin** | Tên giải · ngày thi đấu · chi nhánh tổ chức (lấy theo chi nhánh đang chọn) · cấp giải (`club` / `open` / `chain` — `chain` chỉ admin) · điều lệ (văn bản) · số sân dự kiến | Cấp giải quyết định hệ số điểm BXH thành tích (05, mục 3.2) |
-| **2. Nội dung & điều kiện** | Đơn / Đôi · giới (nam / nữ / nam nữ / mở) · cách ghép đôi (**cặp đăng ký sẵn** / **bốc thăm ghép cặp cân bằng**) · điều kiện trình (không giới hạn / từng người min–max / tổng cặp ≤ X) · số đội (hoặc người) tối đa | Vượt số tối đa → danh sách chờ. Tổng cặp chỉ dùng với cặp đăng ký sẵn |
+| **1. Thông tin** | Tên giải · ngày thi đấu · **giờ bắt đầu** · chi nhánh tổ chức (lấy theo chi nhánh đang chọn) · cấp giải (`club` / `open` / `chain` — `chain` chỉ admin) · điều lệ (văn bản) · **sân của giải** (chọn sân của chi nhánh) | Cấp giải quyết định hệ số điểm BXH thành tích (05, mục 3.2). "Gọi ra sân" chỉ vào sân của giải; giờ bắt đầu cho giờ dự kiến từng lượt (plan 20) |
+| **2. Nội dung & điều kiện** | Đơn / Đôi · giới (nam / nữ / nam nữ / mở) · cách ghép đôi (**cặp đăng ký sẵn** — mặc định, 2 người đăng ký chung một đội / **bốc thăm ghép cặp cân bằng**) · điều kiện trình (không giới hạn / từng người min–max / tổng cặp ≤ X) · số đội (hoặc người) tối đa · **bốc thăm tại sân** (cần điểm danh) | Vượt số tối đa → danh sách chờ. Tổng cặp chỉ dùng với cặp đăng ký sẵn. Bốc thăm tại sân: mục 4.2 |
 | **3. Thể thức** | `round_robin` / `groups_knockout` / `knockout` (mục 3) · số bảng · số đội đi tiếp mỗi bảng (1 / 2) · chia bảng (rải hạt giống / theo trình) · có tranh hạng 3 không · luật tỉ số · **tính điểm trình** (bật / tắt) · **tính điểm BXH thành tích** (bật / tắt) | Hệ thống gợi ý số bảng theo số đội dự kiến |
 | **4. Xem lại** | Tóm tắt + **ước tính**: số trận, số lượt thi đấu, thời gian dự kiến (= số lượt × phút / trận), dựa trên số sân | Tạo → `draft`. "Mở đăng ký" → `open` |
 
@@ -214,6 +214,13 @@ mọi trạng thái trừ finalized ──huỷ──▶ cancelled
   - không trùng người trong cùng giải;
   - quá số tối đa → vào danh sách chờ.
 - Danh sách đăng ký hiện cờ **"Tự chấm — chưa xác thực"** / **"Chấm nhanh"** để BTC để ý trước khi bốc thăm.
+- **Đổi đồng đội** (đôi cặp sẵn, trước bốc thăm — plan 20): người cũ rời giải, người mới vào **đúng chỗ của cặp** (cùng
+  trạng thái, cùng thứ tự đăng ký — không mất chỗ ở danh sách chờ), kiểm lại điều kiện như lúc đăng ký.
+- **Điểm danh ngày thi đấu** (plan 20): bấm tên **từng người** khi họ đến (đôi = cả hai người). Hai cách tổ chức:
+  - **bốc thăm tại sân** (giải bật "bốc thăm tại sân"): bốc thăm chỉ lấy người đã điểm danh; đôi cặp sẵn thiếu một
+    người là cả cặp vắng. Người vắng sang danh sách chờ (lý do `absent`); bốc lại / mở lại đăng ký thì trở lại;
+  - **bốc thăm trước**: ngày thi đấu, đội **chưa đánh trận nào và chưa đủ người điểm danh** là đội vắng — BTC xem danh
+    sách rồi bấm "Xử W.O. đội vắng": đi đúng đường rút lui (mục 7.4).
 
 ### 4.3 Ghép đồng đội cân bằng — `formBalancedTeams` (chỉ giải "bốc thăm ghép cặp")
 
@@ -261,6 +268,16 @@ cost = độ lệch chuẩn điểm đội
   - xen kẽ các bảng.
 
   Kết quả là `slot_no` cho từng trận và thời gian dự kiến.
+- **Giờ dự kiến** (plan 20): lượt n = giờ bắt đầu + (n − 1) × phút một trận (`expectedTime` trong lịch). Là kế hoạch —
+  thực tế trận nhanh / chậm thì lệch.
+- **Gọi trận kế tiếp** (plan 20): sân vừa trống → hệ thống đề xuất trận gọi được:
+  - trận đang chờ, đủ hai đội, **không ai đang ở sân** (kiểm trên mọi giải / buổi giao lưu của chuỗi);
+  - thứ tự: đã **nghỉ đủ 5 phút** trước → **lượt sớm hơn** (giữ đúng lịch đã bốc) → đội nghỉ lâu hơn → vòng bảng
+    trước sơ đồ;
+  - trận chưa gọi được vì có người đang đánh thì nói rõ ai, ở sân nào;
+  - người điều hành vẫn gọi tay một trận khác được.
+- **Gọi ra sân** (plan 20): một sân chỉ một trận đang đánh, một người chỉ ở một sân; giải có danh sách sân thì chỉ gọi
+  vào các sân đó. Sân của giải sửa được trong ngày (không bỏ được sân đang có trận).
 
 ### 4.6 Xem trước và xác nhận bốc thăm
 
@@ -364,6 +381,8 @@ lệch so với bản xem trước.
 | Tình huống | Xử lý |
 |---|---|
 | Rút khỏi giải sau bốc thăm | Trận **chưa đánh** thành W.O. cho đối thủ; trận đã đánh vẫn tính. Đang ở sơ đồ loại trực tiếp → đối thủ đi tiếp |
+| Đội vắng ngày thi đấu (plan 20) | Điểm danh + "Xử W.O. đội vắng" = rút lui sau bốc thăm. Hai đội cùng vắng gặp nhau: vòng bảng → trận bị huỷ; sơ đồ → xử cho ô A đi tiếp như một đội đã rút, gặp ai ở vòng sau thì người đó thắng W.O. (sơ đồ không kẹt) |
+| **Không đánh tiếp được giữa trận** (đau, có việc phải về — plan 20) | Trận giải: **xử thua** đội đó — kết quả "bỏ cuộc giữa trận" (`retired`), giữ các game đã xong, game đang dở bỏ; đối thủ thắng, đang ở sơ đồ thì đi tiếp. Bấm từ màn hình bấm điểm (chỉ nhân viên) hoặc "Nhập tỉ số". **Không có thay người.** Trận giao lưu: "Huỷ trận" hoặc "Xong (không tỉ số)" |
 | Một người trong cặp rút | Cả đội rút |
 | Thiếu người lúc bốc thăm (lẻ / lệch nam–nữ) | Người đăng ký sau cùng vào danh sách chờ; BTC đổi tay được |
 | Một người đánh hai giải cùng lúc ở hai chi nhánh | Giải nào chốt trước thì giải sau dùng điểm mới |
@@ -397,7 +416,10 @@ Người điều phối bấm một nút thay cho việc gọi tên bằng miệ
   - thêm người có mặt; ai chưa có hồ sơ thì nhân viên **chấm nhanh** một nhãn (03, mục 2.3);
   - người đến muộn được thêm bất cứ lúc nào (tính như đã đánh bằng số trận ít nhất của những người đang có mặt, để
     không được ưu tiên quá hay bị thiệt);
-  - người về sớm bấm "Rời buổi".
+  - người về sớm bấm "Rời buổi";
+  - một người đang **có mặt ở buổi khác chưa đóng** (thường là buổi trước quên đóng / quên "Rời buổi") → 409
+    `PRESENT_ELSEWHERE`; màn hình hỏi "Rời buổi kia rồi điểm danh?" — để một người không bị xếp ra sân ở hai nơi
+    (plan 20).
 - **"Xếp sân trống"**: hệ thống xếp trận cho **mọi sân đang trống**.
   - Đầu buổi mọi sân trống → xếp cả lượt.
   - Giữa buổi sân nào đánh xong thì bấm lại, chỉ sân đó được xếp; người đang đánh sân khác không bị lấy.
@@ -585,3 +607,22 @@ Những chỗ tài liệu chưa nói rõ; đã quyết khi code, test thật xá
 - **Seed demo:**
   - các sân đang đánh của buổi giao lưu demo có sẵn tỉ số dở, bấm qua chính API, khoảng 2.5 pha / phút đã đánh;
   - buổi kết thúc đúng 26 phút sau lúc bắt đầu (không đọc lại giờ thật), nên seed qua ranh giới phút vẫn ra giống hệt.
+
+## 14. Chốt khi code (plan 20 — vận hành giải ngày thi đấu)
+
+- **Sân, người bận kiểm trên cả chuỗi (tenant)**, không chỉ trong giải: mã sân do app chính cấp là sân thật; một người
+  đánh giao lưu xong mới vào giải được. Hai lần gọi cùng một giải xếp hàng nhờ khoá giải; gọi cùng lúc ở hai giải / buổi
+  khác nhau không có khoá chung (hiếm — chấp nhận, ghi ở đây). "Xếp sân trống" của buổi giao lưu chưa trừ người đang
+  đánh ở giải khác (không nằm trong plan 20).
+- **Giải cũ** (tạo trước plan 20) không có danh sách sân: chỉ kiểm sân / người bận, không bắt chọn sân trong danh sách.
+- **Nghỉ tối thiểu** `MIN_REST_MINUTES = 5`: trận có người vừa đánh chưa đủ 5 phút vẫn được đề xuất, nhưng sau mọi trận
+  đã nghỉ đủ (không để sân trống).
+- **Điểm danh theo người**, không theo đội: đôi cặp sẵn hay đến lệch giờ.
+- **Đội vắng** = chưa đánh trận nào (trận được W.O. không tính là đã đánh) và chưa đủ người điểm danh. Xử W.O. chỉ khi BTC
+  bấm (danh sách xem trước, bỏ chọn được) — không tự động theo giờ.
+- **Hai đội đã rút gặp nhau ở sơ đồ** (trước đây trận đó nằm "chờ" mãi, chặn chốt giải): xử cho ô A đi tiếp; vào ô
+  trận sau gặp đội còn thi đấu thì đội đó thắng W.O. Test: hai đội vắng ở vòng 1 → chung kết W.O. → chốt được.
+- **"Không đánh tiếp được"** dùng `POST /v1/matches/{id}/live/retire` (lấy các game đã xong từ chuỗi pha cầu, kiểm
+  `revision`), chỉ nhân viên, chỉ trận giải. Chủ dự án chốt: không làm thay người.
+- **Seed demo**: thêm 14 người chơi riêng (`demo:player:24…37`) cho 3 giải "hôm nay" để không ai vừa ở buổi giao lưu
+  đang diễn ra vừa ở giải. Phần mới chạy sau mọi phần cũ nên dữ liệu cũ giữ nguyên; seed hai lần vẫn ra giống hệt.

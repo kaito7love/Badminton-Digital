@@ -365,7 +365,8 @@ describe('trận giải', () => {
     const semi = list.find((m) => m.status === 'scheduled' && m.teamA && m.teamB);
     const scheduled = await rally(manager, semi.id, 'A', 0);
     expect([scheduled.status, scheduled.body.code]).toEqual([409, 'INVALID_STATE']); // chưa gọi ra sân
-    expect((await manager.post(`/v1/matches/${semi.id}/call`).send({ courtRef: 'c1' })).status).toBe(200);
+    // Sân riêng của giải: sân c1 đang có trận giao lưu của test trước (kiểm sân bận trên mọi giải / buổi, plan 20).
+    expect((await manager.post(`/v1/matches/${semi.id}/call`).send({ courtRef: 't1' })).status).toBe(200);
 
     const stream = await openStream(`/v1/tournaments/${t.id}/stream`, await ctx.token({ scope: 'tournament:read', org: ['bd:branch:1'], ttl: 60 }));
     expect(stream.status).toBe(200);

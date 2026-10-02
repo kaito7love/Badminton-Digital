@@ -4,6 +4,7 @@ const { requireScope } = require('../../../../platform/http/auth');
 const { ok, paged } = require('../../../../platform/http/envelope');
 const { parsePagination } = require('../../../../platform/http/pagination');
 const { advise } = require('../../domain/formatAdvisor');
+const { expectedTime } = require('../../domain/operations');
 
 // Route của module tournament (docs/02 mục 2.6). Route kiểm scope tối thiểu; quyền
 // theo chi nhánh + hành động kiểm ở tournamentContext.authorize.
@@ -12,7 +13,7 @@ const READ = ['tournament:read', 'tournament:operate', 'tournament:manage'];
 const OPERATE = ['tournament:operate', 'tournament:manage'];
 const MANAGE = ['tournament:manage'];
 
-const createTournamentRouter = ({ service, finalizer, queries, ctx, players, idempotency, stream }) => {
+const createTournamentRouter = ({ service, finalizer, queries, ctx, players, matches, idempotency, stream }) => {
   const router = express.Router();
   const base = (req) => ({ auth: req.auth, id: req.params.id, requestId: req.requestId });
   const detail = async (t) => ctx.view(t, { progress: await queries.progress(t) });
@@ -102,6 +103,92 @@ const createTournamentRouter = ({ service, finalizer, queries, ctx, players, ide
     asyncHandler(async (req, res) => {
       await service.withdraw({ ...base(req), entryId: req.params.entryId });
       return ok(res, { items: await queries.entries(base(req)) }, { message: 'Đã rút khỏi giải' });
+    })
+  );
+
+  // --- Vận hành ngày thi đấu (plan 20) ---
+  router.put(
+    '/tournaments/:id/courts',
+    requireScope(...MANAGE),
+    idempotency.middleware,
+    asyncHandler(async (req, res) => {
+      const t = await service.setCourts({ ...base(req), courtRefs: req.body.courtRefs });
+      return ok(res, await detail(t), { etag: t.version, message: 'Đã cập nhật sân của giải' });
+    })
+  );
+
+  const entriesAfter = (fn, message) =>
+    asyncHandler(async (req, res) => {
+      await fn(req);
+      return ok(res, { items: await queries.entries(base(req)) }, { message });
+    });
+  router.post(
+    '/tournaments/:id/entries/:entryId/check-in',
+    requireScope(...OPERATE),
+    idempotency.middleware,
+    entriesAfter((req) => service.checkIn({ ...base(req), entryId: req.params.entryId, present: true }), 'Đã điểm danh')
+  );
+  router.delete(
+    '/tournaments/:id/entries/:entryId/check-in',
+    requireScope(...OPERATE),
+    entriesAfter((req) => service.checkIn({ ...base(req), entryId: req.params.entryId, present: false }), 'Đã bỏ điểm danh')
+  );
+  router.put(
+    '/tournaments/:id/entries/:entryId/partner',
+    requireScope(...OPERATE),
+    idempotency.middleware,
+    entriesAfter((req) => service.changePartner({ ...base(req), entryId: req.params.entryId, partnerPlayerId: req.body.partnerPlayerId }), 'Đã đổi đồng đội')
+  );
+
+  // Đội vắng: xem trước (đội chưa đánh trận nào, chưa đủ người điểm danh) → xử W.O.
+  router.get(
+    '/tournaments/:id/no-shows',
+    requireScope(...OPERATE),
+    asyncHandler(async (req, res) => {
+      const t = await ctx.load(null, req.auth.tenant, req.params.id);
+      ctx.authorize(req.auth, t, 'operate');
+      const teams = await service.absentTeams(t);
+      const people = new Map((await players.findByIds(req.auth.tenant, teams.flatMap((x) => [x.player1Id, x.player2Id]).filter(Boolean))).map((p) => [p.id, p]));
+      return ok(res, { items: teams.map((x) => ctx.teamView(x, people)) });
+    })
+  );
+  router.post(
+    '/tournaments/:id/no-shows',
+    requireScope(...OPERATE),
+    idempotency.middleware,
+    asyncHandler(async (req, res) => {
+      const { tournament, teamIds } = await service.noShows({ ...base(req), teamIds: req.body.teamIds });
+      return ok(res, { tournament: await detail(tournament), teamIds }, { message: `Đã xử W.O. ${teamIds.length} đội vắng` });
+    })
+  );
+
+  // Trận kế tiếp cho sân vừa trống: lượt sớm nhất mà mọi người đều rảnh, đội nghỉ lâu hơn trước.
+  router.get(
+    '/tournaments/:id/next-matches',
+    requireScope(...READ),
+    asyncHandler(async (req, res) => {
+      const { tournament: t, freeCourts, candidates, blocked, byId } = await service.nextMatches(base(req));
+      const top = candidates.slice(0, Math.min(Number(req.query.limit) || 5, 20));
+      const views = await matches.views(req.auth.tenant, top.map((c) => byId.get(c.id)));
+      return ok(res, {
+        freeCourts,
+        blocked,
+        items: top.map((c, i) => ({
+          match: { ...views[i], expectedTime: expectedTime(t.startTime, views[i].slotNo, t.matchMinutes) },
+          restMinutes: Number.isFinite(c.restMs) ? Math.floor(c.restMs / 60000) : null,
+          rested: c.rested
+        }))
+      });
+    })
+  );
+  router.post(
+    '/tournaments/:id/call-next',
+    requireScope(...OPERATE),
+    idempotency.middleware,
+    asyncHandler(async (req, res) => {
+      const match = await service.callNext({ ...base(req), courtRef: req.body.courtRef });
+      const [view] = await matches.views(req.auth.tenant, [match]);
+      return ok(res, view, { etag: match.version, message: 'Đã gọi trận kế tiếp ra sân' });
     })
   );
 

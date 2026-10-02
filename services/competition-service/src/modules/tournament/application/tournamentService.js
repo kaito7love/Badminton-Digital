@@ -11,6 +11,8 @@ const { checkPlayer, checkPair, validateRatingRule } = require('../domain/eligib
 const { buildTeams, buildStructure, validateDraw, teamStats } = require('../domain/draw');
 const { planBracket } = require('../domain/bracketPlan');
 const { computeStandings } = require('../domain/standings');
+const { validateStartTime, teamPresent, pickNextMatches } = require('../domain/operations');
+const { courtErrors } = require('../../../shared/courts');
 
 // Lệnh của module tournament (docs/06 mục 2–5): tạo / sửa / mở / huỷ giải, đăng
 // ký / rút, bốc thăm (xem trước → xác nhận bản đã chỉnh tay), mở lại, thêm trận,
@@ -49,13 +51,19 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
       }
     }
     if (t.pairingMode === 'random_balanced' && t.discipline !== 'doubles') errors.push({ field: 'pairingMode', message: 'Bốc thăm ghép cặp chỉ dùng cho đánh đôi' });
+    // Sân của giải (plan 20): có danh sách thì số sân = số phần tử.
+    if (t.courtRefs !== undefined && t.courtRefs !== null) {
+      errors.push(...courtErrors(t.courtRefs));
+      if (!errors.length) t.courtCount = t.courtRefs.length;
+    }
     if (errors.length) throw invalid(errors);
+    t.startTime = validateStartTime(t.startTime);
     return t;
   };
 
   const FIELDS = [
-    'name', 'description', 'startsOn', 'tier', 'discipline', 'genderRule', 'pairingMode', 'maxPartnerGap', 'maxEntries', 'ratingRule',
-    'format', 'groupCount', 'groupMode', 'advancePerGroup', 'thirdPlaceMatch', 'scoring', 'courtCount', 'matchMinutes', 'rated', 'ranked'
+    'name', 'description', 'startsOn', 'startTime', 'tier', 'discipline', 'genderRule', 'pairingMode', 'maxPartnerGap', 'maxEntries', 'checkInRequired',
+    'ratingRule', 'format', 'groupCount', 'groupMode', 'advancePerGroup', 'thirdPlaceMatch', 'scoring', 'courtCount', 'courtRefs', 'matchMinutes', 'rated', 'ranked'
   ];
   const pick = (obj) => Object.fromEntries(FIELDS.filter((k) => obj[k] !== undefined).map((k) => [k, obj[k]]));
 
@@ -180,6 +188,38 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
       return { tournament: t, entries: out };
     });
 
+  // Cả đội rút sau bốc thăm (rút lui / vắng mặt): trận chưa đánh thành W.O. cho đối thủ.
+  // Đánh dấu MỌI đội rút trước rồi mới xử trận, để hai đội cùng rút gặp nhau không "thắng" nhau:
+  //  - vòng bảng / trận thêm → huỷ;
+  //  - sơ đồ → xử cho ô A đi tiếp như một đội đã rút: vào ô trận sau gặp ai thì người đó thắng W.O.
+  //    (advance của module match), sơ đồ không bị kẹt một trận mãi không xong.
+  const withdrawTeams = async (transaction, auth, t, teams) => {
+    const ids = new Set(teams.map((x) => x.id));
+    for (const team of teams) {
+      await team.update({ withdrawnAt: new Date() }, { transaction });
+      await TournamentEntry.update(
+        { status: 'withdrawn' },
+        { where: { tournamentId: t.id, playerId: [team.player1Id, team.player2Id].filter(Boolean) }, transaction }
+      );
+    }
+    const withdrawn = await ctx.withdrawnTeamIds(transaction, t);
+    const list = await matches.listForContext(auth.tenant, 'tournament', t.id, { transaction });
+    for (const m of list) {
+      if (!['scheduled', 'in_play'].includes(m.status)) continue;
+      if (!ids.has(m.teamAId) && !ids.has(m.teamBId)) continue;
+      if (!m.teamAId || !m.teamBId) continue; // ô trận sau chưa có đối thủ — xử khi đối thủ vào
+      const aOut = withdrawn.has(m.teamAId);
+      const bOut = withdrawn.has(m.teamBId);
+      if (aOut && bOut) {
+        if (m.nextMatchId) await matches.forfeit(transaction, m, 'A', auth.sub, t);
+        else await m.update({ status: 'cancelled' }, { transaction });
+        continue;
+      }
+      await matches.forfeit(transaction, m, aOut ? 'B' : 'A', auth.sub, t);
+    }
+    if (t.status === 'drawn' && list.some((m) => m.status === 'completed')) await t.update({ status: 'in_progress' }, { transaction });
+  };
+
   // Rút: trước bốc thăm → nhường chỗ cho người chờ; sau bốc thăm → cả đội rút, trận
   // chưa đánh thành W.O. cho đối thủ (docs/06 mục 7.4).
   const withdraw = async ({ auth, id, entryId, requestId }) =>
@@ -219,23 +259,7 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
           transaction
         });
         if (team) {
-          await team.update({ withdrawnAt: new Date() }, { transaction });
-          const teammates = await TournamentEntry.findAll({ where: { tournamentId: t.id, playerId: [team.player1Id, team.player2Id].filter(Boolean) }, transaction });
-          for (const e of teammates) await e.update({ status: 'withdrawn' }, { transaction });
-          const withdrawn = await ctx.withdrawnTeamIds(transaction, t);
-          const list = await matches.listForContext(auth.tenant, 'tournament', t.id, { transaction });
-          for (const m of list) {
-            if (!['scheduled', 'in_play'].includes(m.status)) continue;
-            if (m.teamAId !== team.id && m.teamBId !== team.id) continue;
-            const other = m.teamAId === team.id ? m.teamBId : m.teamAId;
-            if (!other) continue; // ô trận sau chưa có đối thủ — xử khi đối thủ vào
-            if (withdrawn.has(other)) {
-              if (!m.nextMatchId) await m.update({ status: 'cancelled' }, { transaction });
-              continue;
-            }
-            await matches.forfeit(transaction, m, m.teamAId === team.id ? 'B' : 'A', auth.sub, t);
-          }
-          if (t.status === 'drawn' && list.some((m) => m.status === 'completed')) await t.update({ status: 'in_progress' }, { transaction });
+          await withdrawTeams(transaction, auth, t, [team]);
         } else {
           for (const e of group) await e.update({ status: 'withdrawn' }, { transaction });
         }
@@ -249,12 +273,23 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
     });
 
   // ---------- bốc thăm ----------
+  // Người vào bốc thăm. Giải "bốc thăm tại sân" (checkInRequired) chỉ lấy người đã điểm danh; đôi
+  // cặp sẵn cần cả hai người — thiếu một là cả cặp vắng (plan 20).
+  const presentSplit = (t, entries) => {
+    if (!t.checkInRequired) return { present: entries, absent: [] };
+    const checked = new Set(entries.filter((e) => e.checkedInAt).map((e) => e.playerId));
+    const fixedPairs = t.discipline === 'doubles' && t.pairingMode === 'fixed';
+    const ok = (e) => checked.has(e.playerId) && (!fixedPairs || checked.has(e.partnerPlayerId));
+    return { present: entries.filter(ok), absent: entries.filter((e) => !ok(e)) };
+  };
+
   const drawInputs = async (tenant, t, transaction) => {
-    const entries = await TournamentEntry.findAll({
+    const registered = await TournamentEntry.findAll({
       where: { tournamentId: t.id, status: 'registered' },
       order: [['registeredAt', 'ASC'], ['id', 'ASC']],
       transaction
     });
+    const { present: entries } = presentSplit(t, registered);
     const ids = entries.map((e) => e.playerId);
     const people = new Map((await players.findByIds(tenant, ids, { transaction })).map((p) => [p.id, p]));
     const ratings = await ratingQueries.disciplineRatings(tenant, ids, t.discipline);
@@ -275,6 +310,9 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
     });
   };
 
+  const absentEntries = async (t, transaction) =>
+    presentSplit(t, await TournamentEntry.findAll({ where: { tournamentId: t.id, status: 'registered' }, order: [['registeredAt', 'ASC'], ['id', 'ASC']], transaction })).absent;
+
   const hasResults = async (tenant, t, transaction) =>
     (await matches.listForContext(tenant, 'tournament', t.id, { transaction })).some((m) => m.status === 'completed' || m.status === 'in_play');
 
@@ -284,8 +322,12 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
     assertAction(t, 'draw');
     if (t.status === 'drawn' && (await hasResults(auth.tenant, t))) throw conflict('HAS_RESULTS', 'Đã có kết quả — không bốc thăm lại được');
     const inputs = await drawInputs(auth.tenant, t);
+    const absent = await absentEntries(t);
+    const absentPeople = new Map((await players.findByIds(auth.tenant, absent.map((e) => e.playerId))).map((p) => [p.id, p]));
     const minPlayers = t.discipline === 'singles' ? 2 : 4;
-    if (inputs.length < minPlayers) throw unprocessable('NOT_ENOUGH_ENTRIES', `Cần ít nhất ${minPlayers} người đăng ký để bốc thăm`);
+    if (inputs.length < minPlayers) {
+      throw unprocessable('NOT_ENOUGH_ENTRIES', `Cần ít nhất ${minPlayers} người ${t.checkInRequired ? 'đã điểm danh' : 'đăng ký'} để bốc thăm`);
+    }
     const s = seed || newSeed();
     const teamsResult = buildTeams({ tournament: t, entries: inputs, seed: s });
     if (teamsResult.teams.length < 2) throw unprocessable('NOT_ENOUGH_ENTRIES', 'Chưa đủ 2 đội');
@@ -301,6 +343,8 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
           teamRating: team.teamRating
         })),
         waitlist: teamsResult.waitlist.map((w) => ({ playerId: w.playerId, name: byId.get(w.playerId).name, reason: w.reason })),
+        // Đã đăng ký nhưng chưa điểm danh (giải bốc thăm tại sân) — không vào bốc thăm.
+        absent: absent.map((e) => ({ playerId: e.playerId, name: absentPeople.get(e.playerId) ? absentPeople.get(e.playerId).displayName : null })),
         groups: structure.groups,
         bracket: structure.bracket,
         matches: structure.matches.map((m) => ({ stage: m.stage, groupNo: m.groupNo ?? null, round: m.round, slotNo: m.slotNo ?? null, teams: m.teams })),
@@ -354,7 +398,7 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
     await TournamentTeam.destroy({ where: { tournamentId: t.id }, transaction });
     await TournamentEntry.update(
       { status: 'registered', waitlistReason: null },
-      { where: { tournamentId: t.id, status: 'waitlisted', waitlistReason: 'draw' }, transaction }
+      { where: { tournamentId: t.id, status: 'waitlisted', waitlistReason: ['draw', 'absent'] }, transaction }
     );
   };
 
@@ -368,6 +412,7 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
         await resetDraw(auth.tenant, t, transaction);
       }
       const inputs = await drawInputs(auth.tenant, t, transaction);
+      const absent = await absentEntries(t, transaction);
       validateDraw({ tournament: t, entries: inputs, teams: body.teams, groups: body.groups, bracket: body.bracket });
       const byId = new Map(inputs.map((i) => [i.playerId, i]));
       const teamRatings = body.teams.map((team) => round3(mean(team.players.map((pid) => byId.get(pid).pairingRating))));
@@ -401,6 +446,8 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
           await input.entry.update({ status: 'waitlisted', waitlistReason: 'draw' }, { transaction });
         }
       }
+      // Vắng lúc bốc thăm tại sân → danh sách chờ (lý do `absent`); bốc lại / mở lại thì về đăng ký.
+      for (const e of absent) await e.update({ status: 'waitlisted', waitlistReason: 'absent' }, { transaction });
 
       let rows;
       if (t.format === 'knockout') {
@@ -502,6 +549,176 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
       return idOf.get('X');
     });
 
+  // ---------- vận hành ngày thi đấu (plan 20) ----------
+  // Sân của giải: sửa được tới khi chốt (thêm / bớt sân trong ngày). Không bỏ được sân đang có trận.
+  const setCourts = async ({ auth, id, courtRefs, requestId }) =>
+    sequelize.transaction(async (transaction) => {
+      const t = await ctx.load(transaction, auth.tenant, id, { lock: true });
+      ctx.authorize(auth, t, 'manage');
+      assertAction(t, 'courts');
+      const errors = courtErrors(courtRefs);
+      if (errors.length) throw invalid(errors);
+      const live = (await matches.listForContext(auth.tenant, 'tournament', t.id, { transaction })).filter((m) => m.status === 'in_play' && m.courtRef);
+      const removedBusy = [...new Set(live.map((m) => m.courtRef))].filter((c) => !courtRefs.includes(c));
+      if (removedBusy.length) throw conflict('COURT_BUSY', `Sân đang có trận, chưa bỏ ra được: ${removedBusy.join(', ')}`);
+      const before = { courtRefs: t.courtRefs, courtCount: t.courtCount };
+      await t.update({ courtRefs, courtCount: courtRefs.length }, { transaction });
+      await audit.record(transaction, {
+        tenant: auth.tenant, actorRef: auth.sub, action: 'tournament.courts_changed', targetType: 'tournament', targetId: t.id, before, after: { courtRefs }, requestId
+      });
+      boardChanged(transaction, t, 'courts');
+      return t;
+    });
+
+  // Điểm danh từng người (đôi: mỗi người tự đến). present = false → bỏ điểm danh.
+  const checkIn = async ({ auth, id, entryId, present, requestId }) =>
+    sequelize.transaction(async (transaction) => {
+      const t = await ctx.load(transaction, auth.tenant, id, { lock: true });
+      ctx.authorize(auth, t, 'operate');
+      assertAction(t, 'checkIn');
+      const entry = await TournamentEntry.findOne({ where: { id: entryId, tournamentId: t.id }, transaction });
+      if (!entry) throw notFound('Không tìm thấy lượt đăng ký');
+      if (entry.status === 'withdrawn') throw conflict('INVALID_STATE', 'Người này đã rút khỏi giải');
+      if (present && entry.checkedInAt) return t;
+      if (!present && !entry.checkedInAt) return t;
+      await entry.update(present ? { checkedInAt: new Date(), checkedInByRef: auth.sub } : { checkedInAt: null, checkedInByRef: null }, { transaction });
+      await audit.record(transaction, {
+        tenant: auth.tenant, actorRef: auth.sub, action: present ? 'tournament.checked_in' : 'tournament.check_in_undone', targetType: 'tournament', targetId: t.id,
+        after: { entryId, playerId: entry.playerId }, requestId
+      });
+      boardChanged(transaction, t, 'checked_in');
+      return t;
+    });
+
+  // Đổi đồng đội (đôi cặp sẵn, trước bốc thăm): người cũ rời giải, người mới vào đúng chỗ của cặp
+  // (cùng trạng thái, cùng thứ tự đăng ký), kiểm lại điều kiện như lúc đăng ký.
+  const changePartner = async ({ auth, id, entryId, partnerPlayerId, requestId }) =>
+    sequelize.transaction(async (transaction) => {
+      const t = await ctx.load(transaction, auth.tenant, id, { lock: true });
+      ctx.authorize(auth, t, 'operate');
+      assertAction(t, 'partner');
+      if (!(t.discipline === 'doubles' && t.pairingMode === 'fixed')) throw unprocessable('PARTNER_NOT_ALLOWED', 'Chỉ giải đôi cặp đăng ký sẵn mới có đồng đội cố định');
+      const entry = await TournamentEntry.findOne({ where: { id: entryId, tournamentId: t.id }, transaction });
+      if (!entry) throw notFound('Không tìm thấy lượt đăng ký');
+      if (entry.status === 'withdrawn') throw conflict('INVALID_STATE', 'Cặp này đã rút khỏi giải');
+      if (!partnerPlayerId) throw unprocessable('PARTNER_REQUIRED', 'Chọn đồng đội mới');
+      if (partnerPlayerId === entry.partnerPlayerId) return t;
+      const ids = [entry.playerId, partnerPlayerId];
+      const people = await players.findByIds(auth.tenant, ids, { transaction });
+      const byId = new Map(people.map((p) => [p.id, p]));
+      if (!byId.has(partnerPlayerId)) throw notFound('Không tìm thấy người chơi');
+      const ratings = await ratingQueries.disciplineRatings(auth.tenant, ids, t.discipline);
+      checkPlayer({ tournament: t, player: byId.get(partnerPlayerId), rating: ratings.get(partnerPlayerId) });
+      checkPair({ tournament: t, a: byId.get(entry.playerId), b: byId.get(partnerPlayerId), ratingA: ratings.get(entry.playerId), ratingB: ratings.get(partnerPlayerId) });
+      const existing = await TournamentEntry.findOne({ where: { tournamentId: t.id, playerId: partnerPlayerId }, transaction });
+      if (existing && existing.status !== 'withdrawn') throw conflict('ALREADY_REGISTERED', `${byId.get(partnerPlayerId).displayName} đã đăng ký giải này`);
+      const old = await TournamentEntry.findOne({ where: { tournamentId: t.id, playerId: entry.partnerPlayerId }, transaction });
+      if (old) await old.update({ status: 'withdrawn', waitlistReason: null, checkedInAt: null, checkedInByRef: null }, { transaction });
+      const values = {
+        tenantId: auth.tenant, tournamentId: t.id, playerId: partnerPlayerId, partnerPlayerId: entry.playerId, status: entry.status, waitlistReason: entry.waitlistReason,
+        ratingSnapshot: ratings.get(partnerPlayerId).rating, pairingRatingSnapshot: ratings.get(partnerPlayerId).pairingRating,
+        registeredAt: entry.registeredAt, registeredByRef: auth.sub, checkedInAt: null, checkedInByRef: null
+      };
+      if (existing) await existing.update(values, { transaction });
+      else await TournamentEntry.create(values, { transaction });
+      await entry.update({ partnerPlayerId }, { transaction });
+      await audit.record(transaction, {
+        tenant: auth.tenant, actorRef: auth.sub, action: 'tournament.partner_changed', targetType: 'tournament', targetId: t.id,
+        before: { partnerPlayerId: old ? old.playerId : null }, after: { entryId, playerId: entry.playerId, partnerPlayerId }, requestId
+      });
+      return t;
+    });
+
+  // Đội vắng sau bốc thăm: chưa đánh trận nào (không tính trận được W.O.) và chưa đủ người điểm danh.
+  const absentTeams = async (t, transaction) => {
+    const teams = await TournamentTeam.findAll({ where: { tournamentId: t.id, withdrawnAt: null }, order: [['seed', 'ASC']], transaction });
+    const checked = new Set(
+      (await TournamentEntry.findAll({ where: { tournamentId: t.id, checkedInAt: { [Op.ne]: null } }, attributes: ['playerId'], transaction })).map((e) => e.playerId)
+    );
+    const list = await matches.listForContext(t.tenantId, 'tournament', t.id, { transaction });
+    const played = new Set(
+      list.filter((m) => m.status === 'in_play' || (m.status === 'completed' && m.outcome !== 'walkover')).flatMap((m) => [m.teamAId, m.teamBId])
+    );
+    return teams.filter((x) => !played.has(x.id) && !teamPresent([x.player1Id, x.player2Id].filter(Boolean), checked));
+  };
+
+  // "Xử W.O. các đội vắng": teamIds = danh sách BTC đã xem và chọn (bỏ trống = mọi đội vắng).
+  const noShows = async ({ auth, id, teamIds, requestId }) =>
+    sequelize.transaction(async (transaction) => {
+      const t = await ctx.load(transaction, auth.tenant, id, { lock: true });
+      ctx.authorize(auth, t, 'operate');
+      assertAction(t, 'noShows');
+      const absent = await absentTeams(t, transaction);
+      let chosen = absent;
+      if (teamIds) {
+        const ok = new Set(absent.map((x) => x.id));
+        const bad = teamIds.filter((x) => !ok.has(x));
+        if (bad.length) throw conflict('NOT_ABSENT', 'Có đội đã điểm danh đủ hoặc đã đánh — không xử vắng được', bad.map((x) => ({ field: x, message: 'Không vắng' })));
+        chosen = absent.filter((x) => teamIds.includes(x.id));
+      }
+      if (!chosen.length) throw unprocessable('NOTHING_TO_DO', 'Không có đội nào vắng');
+      await withdrawTeams(transaction, auth, t, chosen);
+      await audit.record(transaction, {
+        tenant: auth.tenant, actorRef: auth.sub, action: 'tournament.no_shows', targetType: 'tournament', targetId: t.id,
+        after: { teams: chosen.map((x) => x.id) }, requestId
+      });
+      boardChanged(transaction, t, 'no_shows');
+      return { tournament: t, teamIds: chosen.map((x) => x.id) };
+    });
+
+  // Trận kế tiếp (đọc, không khoá): ứng viên cho một sân vừa trống + các sân đang trống của giải.
+  const nextMatches = async ({ auth, id }) => {
+    const t = await ctx.load(null, auth.tenant, id);
+    ctx.authorize(auth, t, 'read');
+    const list = await matches.listForContext(auth.tenant, 'tournament', t.id);
+    const parts = await matches.participantsOf(list.map((m) => m.id));
+    const lastPlayedAt = new Map();
+    for (const m of list) {
+      if (m.status !== 'completed' || !m.completedAt || m.outcome === 'walkover') continue;
+      for (const p of parts.get(m.id)) if (!lastPlayedAt.has(p.playerId) || lastPlayedAt.get(p.playerId) < m.completedAt) lastPlayedAt.set(p.playerId, m.completedAt);
+    }
+    const busy = await matches.busyPlayers(auth.tenant);
+    const busyCourts = new Set([...busy.values()].map((b) => b.courtRef).filter(Boolean));
+    // Trận đủ đội nhưng chưa gọi được vì có người đang ở sân (giải này hoặc giải / buổi khác) — để
+    // màn hình nói rõ "chờ X đang đánh ở sân Y" thay vì im lặng.
+    const blocked = list
+      .filter((m) => m.status === 'scheduled' && m.teamAId && m.teamBId)
+      .map((m) => ({ matchId: m.id, players: parts.get(m.id).filter((p) => busy.has(p.playerId)).map((p) => ({ id: p.playerId, courtRef: busy.get(p.playerId).courtRef })) }))
+      .filter((b) => b.players.length);
+    const candidates = pickNextMatches({
+      matches: list.map((m) => ({ id: m.id, status: m.status, slotNo: m.slotNo, stage: m.stage, teamIds: [m.teamAId, m.teamBId], players: parts.get(m.id).map((p) => p.playerId) })),
+      busy: new Set(busy.keys()),
+      lastPlayedAt,
+      withdrawn: await ctx.withdrawnTeamIds(null, t),
+      now: new Date()
+    });
+    return {
+      tournament: t,
+      freeCourts: t.courtRefs ? t.courtRefs.filter((c) => !busyCourts.has(c)) : null,
+      candidates,
+      blocked,
+      byId: new Map(list.map((m) => [m.id, m]))
+    };
+  };
+
+  // Gọi trận kế tiếp ra sân `courtRef` — đi đúng đường "Gọi ra sân" (kiểm sân / người bận trong
+  // transaction của nó). Ứng viên vừa bị người khác gọi mất thì thử ứng viên sau.
+  const callNext = async ({ auth, id, courtRef, requestId }) => {
+    const t = await ctx.load(null, auth.tenant, id);
+    ctx.authorize(auth, t, 'operate');
+    assertAction(t, 'callNext');
+    const { candidates } = await nextMatches({ auth, id });
+    if (!candidates.length) throw unprocessable('NOTHING_TO_CALL', 'Chưa có trận nào gọi được: các trận còn lại đang chờ đội từ trận trước hoặc có người đang đánh');
+    for (const c of candidates.slice(0, 5)) {
+      try {
+        return await matches.callMatch({ auth, matchId: c.id, courtRef, requestId });
+      } catch (err) {
+        if (!['PLAYER_BUSY', 'INVALID_STATE'].includes(err.code)) throw err;
+      }
+    }
+    throw conflict('NOTHING_TO_CALL', 'Các trận kế tiếp vừa được gọi ở sân khác — tải lại rồi thử lại');
+  };
+
   // ---------- sơ đồ loại trực tiếp từ vòng bảng ----------
   const knockoutInputs = async (tenant, t, transaction) => {
     if (t.format !== 'groups_knockout') throw conflict('INVALID_STATE', 'Chỉ thể thức vòng bảng + loại trực tiếp mới cần bước này');
@@ -577,7 +794,10 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
       return t;
     });
 
-  return { create, update, open, cancel, register, withdraw, previewDraw, confirmDraw, reopen, addMatch, previewKnockout, confirmKnockout };
+  return {
+    create, update, open, cancel, register, withdraw, previewDraw, confirmDraw, reopen, addMatch, previewKnockout, confirmKnockout,
+    setCourts, checkIn, changePartner, absentTeams, noShows, nextMatches, callNext
+  };
 };
 
 module.exports = { createTournamentService };

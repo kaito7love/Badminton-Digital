@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { newId } = require('../../../platform/db/ids');
-const { AppError, notFound, conflict } = require('../../../platform/http/errors');
+const { AppError, notFound, conflict, unprocessable } = require('../../../platform/http/errors');
 const { assertVersion } = require('../../../platform/http/preconditions');
 const { validateResult } = require('../domain/badmintonScore');
 const { linesForMatch, accumulate } = require('../domain/matchStats');
@@ -213,6 +213,41 @@ const createMatchService = ({ models, sequelize, players, platform }) => {
     if (handler.afterStatusChange && change.from !== change.to) await handler.afterStatusChange(transaction, change);
   };
 
+  // Ai đang ở sân nào, trên MỌI giải / buổi của tenant (sân là sân thật, người là người thật):
+  // playerId → { matchId, courtRef, contextType, contextId }.
+  const busyPlayers = async (tenant, { transaction } = {}) => {
+    const live = await Match.findAll({ where: { tenantId: tenant, status: 'in_play' }, attributes: ['id', 'courtRef', 'contextType', 'contextId'], transaction });
+    const byId = new Map(live.map((m) => [m.id, m]));
+    const out = new Map();
+    if (!live.length) return out;
+    for (const p of await MatchParticipant.findAll({ where: { matchId: live.map((m) => m.id) }, transaction })) {
+      const m = byId.get(p.matchId);
+      out.set(p.playerId, { matchId: m.id, courtRef: m.courtRef ?? null, contextType: m.contextType, contextId: m.contextId });
+    }
+    return out;
+  };
+
+  // Gọi ra sân (plan 20): một sân chỉ một trận đang đánh, một người chỉ ở một sân. Hai lần gọi
+  // cùng giải xếp hàng nhờ khoá giải; khác giải / buổi cùng lúc thì không khoá chung (hiếm, ghi
+  // ở 06 mục 14).
+  const assertFree = async (transaction, { tenant, match, courtRef, playerIds }) => {
+    if (courtRef) {
+      const onCourt = await Match.findOne({ where: { tenantId: tenant, status: 'in_play', courtRef, id: { [Op.ne]: match.id } }, transaction });
+      if (onCourt) throw conflict('COURT_BUSY', `Sân ${courtRef} đang có trận — chờ trận đó xong hoặc chọn sân khác`, [{ field: 'courtRef', message: `Trận ${onCourt.id} đang đánh` }]);
+    }
+    const busy = await busyPlayers(tenant, { transaction });
+    const clash = playerIds.filter((pid) => busy.has(pid) && busy.get(pid).matchId !== match.id);
+    if (clash.length) {
+      const people = new Map((await players.findByIds(tenant, clash, { transaction })).map((p) => [p.id, p]));
+      const where = (pid) => (busy.get(pid).courtRef ? `sân ${busy.get(pid).courtRef}` : 'một trận khác');
+      throw conflict(
+        'PLAYER_BUSY',
+        `${clash.map((pid) => `${people.get(pid) ? people.get(pid).displayName : pid} đang đánh ở ${where(pid)}`).join('; ')} — chờ trận đó xong`,
+        clash.map((pid) => ({ field: pid, message: `Đang ở ${where(pid)}` }))
+      );
+    }
+  };
+
   const callMatch = async ({ auth, matchId, courtRef, requestId }) =>
     sequelize.transaction(async (transaction) => {
       const { match, handler, ctx } = await loadForAction(transaction, auth, matchId, 'operate');
@@ -220,6 +255,15 @@ const createMatchService = ({ models, sequelize, players, platform }) => {
       if (match.status !== 'scheduled') throw conflict('INVALID_STATE', 'Chỉ gọi ra sân được trận đang chờ');
       const parts = (await participantsOf([match.id], { transaction })).get(match.id);
       if (!hasBothSides(parts)) throw conflict('TEAMS_NOT_SET', 'Trận chưa đủ hai đội');
+      // Ngữ cảnh có danh sách sân (giải tạo từ plan 20) → bắt buộc chọn một sân trong đó.
+      const courts = handler.courtRefs ? handler.courtRefs(ctx) : null;
+      if (courts) {
+        if (!courtRef) throw unprocessable('COURT_REQUIRED', 'Chọn sân để gọi trận ra', [{ field: 'courtRef', message: `Sân của giải: ${courts.join(', ')}` }]);
+        if (!courts.includes(courtRef)) {
+          throw unprocessable('COURT_NOT_IN_CONTEXT', `Sân ${courtRef} không thuộc giải này`, [{ field: 'courtRef', message: `Sân của giải: ${courts.join(', ')}` }]);
+        }
+      }
+      await assertFree(transaction, { tenant: auth.tenant, match, courtRef, playerIds: parts.map((p) => p.playerId) });
       await match.update({ status: 'in_play', courtRef: courtRef || null, calledAt: new Date() }, { transaction });
       await audit.record(transaction, {
         tenant: auth.tenant, actorRef: auth.sub, action: 'match.called', targetType: 'match', targetId: match.id, after: { courtRef }, requestId
@@ -482,6 +526,7 @@ const createMatchService = ({ models, sequelize, players, platform }) => {
     forfeit,
     recordResult,
     callMatch,
+    busyPlayers,
     cancelMatch,
     endMatch,
     mergeHandler,
