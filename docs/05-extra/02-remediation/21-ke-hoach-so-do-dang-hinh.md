@@ -1,7 +1,7 @@
 # Kế hoạch: sơ đồ loại trực tiếp dạng hình (giống ảnh mẫu), 8–16 đội và 16–32 đội
 
 - **Ngày:** 03/10/2026.
-- **Trạng thái:** đã duyệt ("code đi") → đã làm, kết quả ở mục 4; **chờ chủ dự án bấm thử + duyệt merge**.
+- **Trạng thái:** đã duyệt ("code đi") → đã làm, kết quả ở mục 4; **đã merge vào `main` 03/10/2026** (fast-forward tới `62cb891`).
 - **Nhánh:** `feat/competition-bracket-view`, tách từ `main` @ `b7f4434`. Hai nhánh `feat/competition-tournament-ops`
   và `feat/competition-live-score` đã merge vào `main` (mục 19, 20) nên không làm tiếp trên đó.
 - **Phạm vi:** bàn thử (không vào repo) + module vẽ sơ đồ tham chiếu

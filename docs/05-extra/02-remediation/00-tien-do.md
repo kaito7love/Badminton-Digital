@@ -787,14 +787,14 @@ rồi mới nhả số của hồ sơ đã xoá).
 
 ---
 
-### 21. `feat/competition-bracket-view` — sơ đồ loại trực tiếp dạng hình (chờ bấm thử + duyệt merge)
+### 21. `feat/competition-bracket-view` — sơ đồ loại trực tiếp dạng hình (đã merge vào `main` 03/10/2026)
 
 - **Yêu cầu:** hiển thị sơ đồ giải như hai ảnh mẫu — một chiều cho 8–16 đội, đối xứng hai nửa cho 16–32 đội.
 - **Làm:** module `services/competition-service/docs/ui-prototype/bracket-view.js` (HTML + SVG), nhúng vào bàn thử: tab sơ đồ, hộp xem
   trước khoá sơ đồ (bấm hai ô đổi chỗ), màn hình TV của giải. Service không đổi. Giao diện giải đấu vẫn chưa vào repo
   (bước 4 của plan 18).
 - **Plan + kết quả bấm thử:** `21-ke-hoach-so-do-dang-hinh.md`; thiết kế ở `services/competition-service/docs/07` mục 5.
-- **Tiến độ:** xong 03/10/2026, chờ chủ dự án bấm thử rồi duyệt merge. Chưa push.
+- **Tiến độ:** xong 03/10/2026; chủ dự án duyệt "merge vào main đi" cùng ngày (main fast-forward `b7f4434` → `62cb891`). Chưa push.
 
 ## Chưa làm — xem plan riêng từng phần
 
