@@ -1,7 +1,7 @@
 # Kế hoạch: sửa số proxy của Render + hiện tài khoản admin (không mật khẩu) trên trang đăng nhập demo
 
 - **Ngày:** 05/10/2026.
-- **Trạng thái:** đã duyệt ("code đi") → đã làm, kết quả ở mục 3; chờ duyệt merge.
+- **Trạng thái:** đã duyệt ("code đi") → đã làm, kết quả ở mục 3; **đã merge vào `main` 05/10/2026** (fast-forward tới `9da0c0a`) và push.
 - **Nhánh:** `fix/render-proxy-hops-admin-hint`, tách từ `main` @ `5631d4b`.
 - **Phạm vi:** `render.yaml`, khối "Tài khoản thử nghiệm" ở `LoginPage.jsx`, một test, tài liệu. Không có migration,
   không đổi API.
