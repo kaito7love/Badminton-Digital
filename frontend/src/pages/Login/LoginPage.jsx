@@ -8,10 +8,12 @@ import { redirectAfterLogin } from '../../utils/roles';
 // điều kiện là hằng số lúc build nên Vite bỏ luôn cả chuỗi mật khẩu khỏi bundle.
 const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === 'true';
 
-// Admin chỉ có trên máy dev. Bản demo công khai mà mở quyền admin thì người xem
-// trước có thể xoá nhân viên, đổi giá, huỷ hoá đơn — hỏng demo của người xem sau.
+// Admin: bản demo công khai chỉ hiện email để người xem biết có vai trò này —
+// mật khẩu là DEMO_ADMIN_PASSWORD bí mật của chủ dự án (demoSeedGuard.js), không
+// in ra: ai cũng vào admin thì người xem trước xoá nhân viên, đổi giá, huỷ hoá đơn
+// — hỏng demo của người xem sau. `password: null` → hiện "không công khai".
 const DEMO_ACCOUNTS = [
-  ...(import.meta.env.DEV ? [{ label: 'Admin (toàn chuỗi)', identifier: 'admin@badminton.com', password: 'Admin@123' }] : []),
+  { label: 'Admin (toàn chuỗi)', identifier: 'admin@badminton.com', password: import.meta.env.DEV ? 'Admin@123' : null },
   { label: 'Quản lý Chi nhánh Quận 3', identifier: 'manager.q3@badminton.com', password: 'Manager@123' },
   { label: 'Quản lý Chi nhánh Quận 7', identifier: 'manager.q7@badminton.com', password: 'Manager@123' },
   { label: 'NV Chi nhánh chính', identifier: 'employee@badminton.com', password: 'Employee@123' },
@@ -26,7 +28,10 @@ function DemoAccounts() {
       <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">Tài Khoản Thử Nghiệm System</p>
       {DEMO_ACCOUNTS.map((account) => (
         <p key={account.identifier}>
-          {account.label}: <span className="text-emerald-400 font-mono">{account.identifier}</span> / <span className="text-emerald-400 font-mono">{account.password}</span>
+          {account.label}: <span className="text-emerald-400 font-mono">{account.identifier}</span> /{' '}
+          {account.password
+            ? <span className="text-emerald-400 font-mono">{account.password}</span>
+            : <span className="italic text-slate-500">mật khẩu không công khai</span>}
         </p>
       ))}
       {/* Chỉ bản demo công khai có reset hằng đêm và khoá tài khoản (DEMO_MODE) — máy dev thì không. */}

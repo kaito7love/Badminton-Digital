@@ -37,7 +37,8 @@ const resolveCorsOrigin = (env = process.env) => {
  * phải — entry do chính proxy của mình ghi, client không giả được.
  *
  * Mặc định 0 ở MỌI môi trường; nơi nào thật sự có proxy thì khai rõ — cụm
- * compose (nginx) và render.yaml (load balancer của Render) đều đặt 1. Lý do
+ * compose đặt 1 (nginx); render.yaml đặt 3 (Cloudflare → lớp vào của Render →
+ * load balancer nội bộ — đo trên bản demo thật, 1 hay 2 đều ra IP proxy). Lý do
  * không mặc định 1 ở production: chạy image mà không có proxy phía trước thì
  * "1 hop" chính là client, tức ai cũng tự đặt `X-Forwarded-For` để né giới hạn
  * đăng nhập (đã tái hiện khi gọi thẳng cổng container). Quên khai thì hậu quả

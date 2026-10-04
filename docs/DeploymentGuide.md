@@ -36,7 +36,7 @@ Nguồn tham chiếu chính thức là `backend/.env.example` — đọc comment
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Kết nối MySQL |
 | `DB_SSL`, `DB_SSL_CA` | TLS tới MySQL — bắt buộc với Aiven. CA là PEM hoặc base64 của PEM; luôn kiểm chứng chứng chỉ |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | Hai chuỗi ngẫu nhiên khác nhau, ≥ 32 ký tự; server từ chối khởi động nếu sai |
-| `TRUST_PROXY_HOPS` | Số reverse proxy trước Express. Mặc định 0; compose và `render.yaml` đặt 1. Sai thì rate limit đăng nhập đếm sai người |
+| `TRUST_PROXY_HOPS` | Số reverse proxy trước Express. Mặc định 0; compose đặt 1 (nginx), `render.yaml` đặt 3 (Cloudflare → lớp vào của Render → load balancer nội bộ). Sai thì rate limit đăng nhập đếm sai người |
 | `CORS_ORIGIN` | Chỉ cần khi frontend ở origin khác. Cả hai đường ở đây đều cùng origin → để trống (production khi đó không cho origin nào khác) |
 | `FRONTEND_URL` | Dựng link đặt lại mật khẩu; trên Render tự lấy `RENDER_EXTERNAL_URL` |
 | `MAIL_*` | SMTP cho "Quên mật khẩu" (bỏ trống thì tính năng này không gửi được mail) |
@@ -81,7 +81,7 @@ Chép từ `docker/.env.example`: `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `DEMO_MODE`
 ### 4.4 Kiểm tra sau khi deploy
 - `https://<tên>.onrender.com` mở được trang chủ; F5 ở một trang con không ra 404.
 - Đăng nhập bằng từng tài khoản trong khối "Tài khoản thử nghiệm"; đăng nhập admin bằng `admin@badminton.com` + `DEMO_ADMIN_PASSWORD`.
-- Mở `https://<tên>.onrender.com/api/v1/health`: trường `ip` phải là IP của bạn. Nếu ra IP nội bộ của Render (10.x, 172.x…) thì đổi `TRUST_PROXY_HOPS` thành 2 trong dashboard.
+- Mở `https://<tên>.onrender.com/api/v1/health`: trường `ip` phải là IP của bạn. Đo lần đầu deploy (05/10/2026): `TRUST_PROXY_HOPS=1` ra IP nội bộ của Render (10.x), `2` ra IP của Cloudflare (104.x, 162.158.x, 172.64–71.x…), `3` ra đúng IP người xem — nên `render.yaml` đặt 3. Nếu sau này lại ra IP proxy thì Render đã đổi hạ tầng: tăng/giảm số này trong dashboard rồi sửa `render.yaml` theo.
 - Trang Sân: mở/đóng sân ở tab khác thấy cập nhật realtime.
 
 ### 4.5 Giới hạn của gói miễn phí (đã biết, chấp nhận cho demo)

@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-10-03 (mục 19 — bấm điểm trực tiếp, tỉ số lên màn hình TV — và mục 20 — giải đấu tổ chức + vận hành được ngày thi đấu — đã merge vào `main` sau khi chủ dự án bấm thử: main fast-forward tới `030513f`, gồm cả hai nhánh). Trước đó 2026-09-28 (mục 18 — competition-service bước 1–3 kèm phần sửa sau khi bấm thử — đã merge vào `main`). Trước đó 2026-09-25 (mục 16 — nhóm sửa 4, hạ tầng deploy + bản demo công khai — và mục 17 — nhóm sửa 5, thao tác tại quầy — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-4-5`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-10-05 (bản demo công khai đã lên Render; mục 22 — sửa số proxy của Render trong `render.yaml` + dòng admin không mật khẩu trên trang đăng nhập demo — chờ duyệt merge). Trước đó 2026-10-03 (mục 19 — bấm điểm trực tiếp, tỉ số lên màn hình TV — và mục 20 — giải đấu tổ chức + vận hành được ngày thi đấu — đã merge vào `main` sau khi chủ dự án bấm thử: main fast-forward tới `030513f`, gồm cả hai nhánh). Trước đó 2026-09-28 (mục 18 — competition-service bước 1–3 kèm phần sửa sau khi bấm thử — đã merge vào `main`). Trước đó 2026-09-25 (mục 16 — nhóm sửa 4, hạ tầng deploy + bản demo công khai — và mục 17 — nhóm sửa 5, thao tác tại quầy — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-4-5`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -794,7 +794,21 @@ rồi mới nhả số của hồ sơ đã xoá).
   trước khoá sơ đồ (bấm hai ô đổi chỗ), màn hình TV của giải. Service không đổi. Giao diện giải đấu vẫn chưa vào repo
   (bước 4 của plan 18).
 - **Plan + kết quả bấm thử:** `21-ke-hoach-so-do-dang-hinh.md`; thiết kế ở `services/competition-service/docs/07` mục 5.
-- **Tiến độ:** xong 03/10/2026; chủ dự án duyệt "merge vào main đi" cùng ngày (main fast-forward `b7f4434` → `62cb891`). Chưa push.
+- **Tiến độ:** xong 03/10/2026; chủ dự án duyệt "merge vào main đi" cùng ngày (main fast-forward `b7f4434` → `62cb891`). Chủ dự án đã push sau đó (`origin/main` = `5631d4b`).
+
+---
+
+### 22. `fix/render-proxy-hops-admin-hint` — số proxy của Render + dòng admin trên trang đăng nhập demo (chờ duyệt merge)
+
+- **Bối cảnh:** bản demo công khai đã lên Render 05/10/2026 (https://badminton-digital-demo.onrender.com, DB Aiven
+  Singapore). Kiểm từ bên ngoài thấy server chỉ thấy IP nội bộ của Render → giới hạn đăng nhập bị mọi người xem dùng chung.
+- **Đo trên Render thật:** `TRUST_PROXY_HOPS` 1 → IP `10.x` của Render, 2 → IP Cloudflare, 3 → đúng IP người xem và
+  không giả được bằng `X-Forwarded-For`. Chủ dự án đã đặt 3 trong dashboard; nhánh này sửa `render.yaml` theo để lần
+  đồng bộ Blueprint sau không đặt lại 1.
+- **Dòng admin:** khối "Tài khoản thử nghiệm" ở bản demo hiện `admin@badminton.com / mật khẩu không công khai` (theo yêu
+  cầu chủ dự án); máy dev vẫn in `Admin@123`; bundle demo không chứa `Admin@123`.
+- **Kiểm thử:** Jest 338/338, Vitest 61/61, bundle demo/thường, trình duyệt laptop + điện thoại, bản demo thật 20/20.
+  Chi tiết: `22-ke-hoach-proxy-render-va-dong-admin.md`.
 
 ## Chưa làm — xem plan riêng từng phần
 

@@ -29,12 +29,12 @@ describe('resolveTrustProxy — AUTH-02', () => {
     expect(resolveTrustProxy({})).toBe(0);
   });
 
-  test('compose và render.yaml khai rõ 1 hop', () => {
+  test('compose khai 1 hop (nginx), render.yaml khai 3 hop (Cloudflare → Render → LB nội bộ)', () => {
     const fs = require('fs');
     const path = require('path');
     const root = path.join(__dirname, '..', '..');
     expect(fs.readFileSync(path.join(root, 'docker', 'docker-compose.yml'), 'utf8')).toMatch(/TRUST_PROXY_HOPS: "1"/);
-    expect(fs.readFileSync(path.join(root, 'render.yaml'), 'utf8')).toMatch(/key: TRUST_PROXY_HOPS\s+value: "1"/);
+    expect(fs.readFileSync(path.join(root, 'render.yaml'), 'utf8')).toMatch(/key: TRUST_PROXY_HOPS\s+value: "3"/);
   });
 
   test('đặt số hop rõ ràng', () => {

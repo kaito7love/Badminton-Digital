@@ -21,10 +21,13 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Request tới app đi qua đúng 1 load balancer của Render. Kiểm sau khi
-      # deploy: GET /api/v1/health → "ip" phải là IP của bạn (không thì đặt 2).
+      # Request tới app đi qua 3 proxy: Cloudflare → lớp vào của Render → load
+      # balancer nội bộ. Đo trên bản demo 05/10/2026: 1 ra IP 10.x của Render, 2 ra
+      # IP Cloudflare, 3 ra đúng IP người xem (tự đặt X-Forwarded-For vẫn không giả
+      # được). Kiểm lại khi Render đổi hạ tầng: GET /api/v1/health → "ip" phải là
+      # IP của bạn.
       - key: TRUST_PROXY_HOPS
-        value: "1"
+        value: "3"
       # Khoá mật khẩu/SĐT/xoá của các tài khoản demo in trên trang đăng nhập.
       - key: DEMO_MODE
         value: "true"
