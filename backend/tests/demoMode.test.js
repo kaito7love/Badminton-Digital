@@ -11,7 +11,7 @@ const {
   isLockedDemoAccount,
   assertNotLockedDemoAccount
 } = require('../src/utils/demoMode');
-const { sequelize, User, Employee, Customer } = require('../src/models');
+const { sequelize, User, Employee, Customer, IntegrationOutbox } = require('../src/models');
 const AuthService = require('../src/services/AuthService');
 const EmployeeService = require('../src/services/EmployeeService');
 const CustomerService = require('../src/services/CustomerService');
@@ -129,7 +129,8 @@ describe('demoMode — các service gọi đúng chỗ', () => {
   test('nhân viên đổi SĐT hồ sơ khách demo → 403; đổi tên thì vẫn được', async () => {
     process.env.DEMO_MODE = 'true';
     jest.spyOn(sequelize, 'transaction').mockImplementation(async () => fakeTransaction());
-    const customer = { id: 1, userId: 3, phone: '0903333333', email: 'customer@badminton.com', update: jest.fn(async () => customer) };
+    jest.spyOn(IntegrationOutbox, 'create').mockResolvedValue({});
+    const customer = { id: 1, userId: 3, phone: '0903333333', email: 'customer@badminton.com', fullName: 'Tên cũ', update: jest.fn(async () => customer) };
     jest.spyOn(Customer, 'findByPk').mockResolvedValue(customer);
     jest.spyOn(User, 'findByPk').mockResolvedValue({ id: 3, email: 'customer@badminton.com' });
 
@@ -139,5 +140,6 @@ describe('demoMode — các service gọi đúng chỗ', () => {
 
     await CustomerService.updateCustomer(1, { fullName: 'Tên mới' }, {});
     expect(customer.update).toHaveBeenCalledWith({ fullName: 'Tên mới' }, expect.anything());
+    expect(IntegrationOutbox.create).toHaveBeenCalledWith(expect.objectContaining({ type: 'bd.customer.updated', subject: 'customer/1' }), expect.anything());
   });
 });

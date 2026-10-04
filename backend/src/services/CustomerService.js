@@ -6,6 +6,7 @@ const { normalizePhone } = require('../utils/phone');
 const { computeLoyaltyTier } = require('../utils/loyalty');
 const { assertNotLockedDemoAccount } = require('../utils/demoMode');
 const AuditService = require('./AuditService');
+const { enqueueCustomerUpdated, enqueueCustomerMerged, enqueueCustomerDeleted } = require('../integrations/competition/outbox');
 
 const httpError = (message, statusCode) => {
   const error = new Error(message);
@@ -290,7 +291,10 @@ class CustomerService {
           await User.update({ phone: payload.phone }, { where: { id: customer.userId }, transaction });
         }
       }
+      // Tên hiển thị đổi thì báo competition-service (outbox, cùng transaction) để hồ sơ thi đấu đổi theo.
+      const nameChanged = payload.fullName !== undefined && payload.fullName !== customer.fullName;
       const updated = await customer.update(payload, { transaction });
+      if (nameChanged) await enqueueCustomerUpdated(updated, { transaction });
       await transaction.commit();
       return updated;
     } catch (error) {
@@ -322,6 +326,7 @@ class CustomerService {
       const oldValues = customer.toJSON();
       if (customer.phone) await customer.update({ phone: null }, { transaction });
       await customer.destroy({ transaction });
+      await enqueueCustomerDeleted(customer.id, { transaction });
       await AuditService.record({
         actor: context.actor,
         action: 'customer.deleted',
@@ -443,6 +448,7 @@ class CustomerService {
       await walkIn.update({ phone: null }, { transaction });
       await walkIn.destroy({ transaction });
       await account.update({ phone, email, totalSpent, loyaltyTier }, { transaction });
+      await enqueueCustomerMerged({ sourceId: walkIn.id, targetId: account.id }, { transaction });
 
       await AuditService.record({
         actor: context.actor,

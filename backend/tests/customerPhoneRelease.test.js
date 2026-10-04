@@ -1,12 +1,14 @@
 const CustomerService = require('../src/services/CustomerService');
 const AuditService = require('../src/services/AuditService');
-const { Customer, sequelize } = require('../src/models');
+const { Customer, IntegrationOutbox, sequelize } = require('../src/models');
 
 const fakeTransaction = () => ({ LOCK: { UPDATE: 'UPDATE' }, commit: jest.fn().mockResolvedValue(), rollback: jest.fn().mockResolvedValue() });
 
 describe('DATA-01 — số điện thoại của hồ sơ khách đã xoá mềm', () => {
   beforeEach(() => {
     jest.spyOn(AuditService, 'record').mockResolvedValue();
+    // Xoá / gộp / đổi tên khách ghi thêm một dòng outbox cho competition-service (plan 23).
+    jest.spyOn(IntegrationOutbox, 'create').mockResolvedValue({});
   });
   afterEach(() => jest.restoreAllMocks());
 
@@ -81,5 +83,17 @@ describe('DATA-01 — số điện thoại của hồ sơ khách đã xoá mềm
       action: 'customer.deleted', oldValues: { id: 5, phone: '0909000111' }
     }));
     expect(transaction.commit).toHaveBeenCalled();
+    // Sự kiện bd.customer.deleted ghi cùng transaction với việc xoá.
+    expect(IntegrationOutbox.create).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'bd.customer.deleted', subject: 'customer/5', payload: expect.objectContaining({ data: { externalRef: 'bd:customer:5' } }) }),
+      { transaction }
+    );
+  });
+
+  test('deleteCustomer: hồ sơ gắn tài khoản bị từ chối → không có sự kiện nào được ghi', async () => {
+    jest.spyOn(sequelize, 'transaction').mockResolvedValue(fakeTransaction());
+    jest.spyOn(Customer, 'findByPk').mockResolvedValue({ id: 5, userId: 12, phone: null, update: jest.fn(), destroy: jest.fn(), toJSON: () => ({}) });
+    await expect(CustomerService.deleteCustomer(5, {})).rejects.toMatchObject({ statusCode: 409 });
+    expect(IntegrationOutbox.create).not.toHaveBeenCalled();
   });
 });

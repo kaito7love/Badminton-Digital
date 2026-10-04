@@ -40,6 +40,9 @@ db.ProductStock = require('./ProductStock')(sequelize);
 db.SalesOrder = require('./SalesOrder')(sequelize);
 db.SalesOrderLine = require('./SalesOrderLine')(sequelize);
 db.Voucher = require('./Voucher')(sequelize);
+// Tích hợp competition-service (plan 23) — không có quan hệ với các bảng khác
+db.IntegrationOutbox = require('./IntegrationOutbox')(sequelize);
+db.IntegrationInbox = require('./IntegrationInbox')(sequelize);
 
 // Associations
 // Role <-> User

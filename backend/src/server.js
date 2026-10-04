@@ -11,6 +11,15 @@ const OnlineOrderService = require('./services/OnlineOrderService');
 const SalesOrderService = require('./services/SalesOrderService');
 const { resolveCorsOrigin, resolveTrustProxy } = require('./utils/serverConfig');
 const { createFrontendHandlers } = require('./utils/frontendStatic');
+const { getCompetitionConfig } = require('./integrations/competition/config');
+const { createGatewayRouter } = require('./integrations/competition/gateway');
+const { createDispatcher } = require('./integrations/competition/dispatcher');
+const { createCompetitionWebhookRouter } = require('./routes/competitionWebhookRoutes');
+const AuditService = require('./services/AuditService');
+
+// Tích hợp competition-service (plan 23): không đặt biến COMPETITION_* → tắt hẳn; đặt dở dang thì dừng ngay ở đây
+// (cùng tinh thần jwt secrets) thay vì chạy nửa vời.
+const competition = getCompetitionConfig();
 
 const app = express();
 
@@ -24,6 +33,13 @@ app.use(cors({
   credentials: true,
   // Cho phép frontend đọc tên file khi tải báo cáo Excel/PDF
   exposedHeaders: ['Content-Disposition']
+}));
+// Webhook của competition-service tự giữ rawBody để kiểm chữ ký — phải đứng trước express.json() toàn cục.
+app.use('/api/v1/integrations/competition', createCompetitionWebhookRouter({
+  config: competition,
+  sequelize,
+  models: require('./models'),
+  record: AuditService.record
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -106,6 +122,8 @@ app.use('/api/v1/invoices', require('./routes/invoiceRoutes'));
 app.use('/api/v1/activity-logs', require('./routes/activityLogRoutes'));
 app.use('/api/v1/reports', require('./routes/reportRoutes'));
 app.use('/api/v1/settings', require('./routes/settingRoutes'));
+// Cổng nối tới competition-service (tắt → 503 COMPETITION_DISABLED, phần còn lại của app không bị ảnh hưởng)
+app.use('/api/v1/competition', createGatewayRouter({ config: competition }));
 
 // Image 1 container (Render): backend phục vụ luôn bản build frontend, cùng
 // origin với API. Không đặt FRONTEND_DIST_DIR (dev, cụm compose) thì bỏ qua.
@@ -159,5 +177,11 @@ setInterval(() => {
     console.error('❌ Lỗi khi dọn đơn tại quầy bỏ dở:', err.message);
   });
 }, 5 * 60 * 1000);
+
+// Gửi sự kiện khách (gộp / xoá / đổi tên) sang competition-service — chỉ khi đã cấu hình.
+if (competition.enabled) {
+  createDispatcher({ config: competition, sequelize, model: require('./models').IntegrationOutbox }).start();
+  console.log('🏸 Tích hợp competition-service đã bật:', competition.serviceUrl);
+}
 
 module.exports = app;
