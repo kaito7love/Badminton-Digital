@@ -818,7 +818,7 @@ rồi mới nhả số của hồ sơ đã xoá).
   | Phần | Nội dung | Trạng thái |
   |---|---|---|
   | (a) | Cổng nối `/api/v1/competition/*` (token ES256, vai trò → scope) + sự kiện hai chiều (outbox `bd.customer.*`, webhook nhận `competition.*`) | **Xong 05/10/2026**: Jest backend 492/492, chạy thật 33 + 36 + 9 kiểm đạt (bắt và sửa 1 lỗi múi giờ ở dispatcher). Chờ chủ dự án duyệt merge, chưa push |
-  | (b) | Hạ tầng: compose, `render.yaml`, `app.Dockerfile`, `demo-reset.yml`, DeploymentGuide, Postman; kiểm RAM (< 512 MB) + DB thứ hai trên Aiven | Chưa lập plan |
+  | (b) | Hạ tầng: compose, `render.yaml`, `app.Dockerfile`, `demo-reset.yml`, CI, Postman, DeploymentGuide; kiểm RAM (< 512 MB) + DB thứ hai trên Aiven | **Plan 24 viết xong 05/10/2026, chờ chủ dự án duyệt + trả lời 6 câu — chưa có code.** Chủ dự án quyết: làm xong (a)(b)(c) rồi mới merge vào `main` (nhánh đã push lên origin) |
   | (c) | Giao diện `frontend/src/features/competition/` (tài liệu 07; sơ đồ dạng hình đã có module ở mục 21) + menu / route | Chưa lập plan |
 
 - **Căn cứ:** kiểm tra deploy 05/10/2026 — service chạy độc lập đạt (Jest 23 suite / 285 test; image Docker production
