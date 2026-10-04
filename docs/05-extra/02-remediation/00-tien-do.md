@@ -811,6 +811,20 @@ rồi mới nhả số của hồ sơ đã xoá).
   Chi tiết: `22-ke-hoach-proxy-render-va-dong-admin.md`.
 - **Tiến độ:** chủ dự án duyệt "merge vào main đi" 05/10/2026 → main fast-forward `5631d4b` → `9da0c0a`, push; Render tự build lại từ `main`.
 
+### 23. `feat/competition-integration` — bước 4 của plan 18: tích hợp app chính ↔ competition-service (đang lập plan)
+
+- **Chia ba phần**, mỗi phần một plan để duyệt:
+
+  | Phần | Nội dung | Trạng thái |
+  |---|---|---|
+  | (a) | Cổng nối `/api/v1/competition/*` (token ES256, vai trò → scope) + sự kiện hai chiều (outbox `bd.customer.*`, webhook nhận `competition.*`) | **Plan 23 viết xong 05/10/2026, chờ chủ dự án duyệt + trả lời 6 câu — chưa có code** |
+  | (b) | Hạ tầng: compose, `render.yaml`, `app.Dockerfile`, `demo-reset.yml`, DeploymentGuide, Postman; kiểm RAM (< 512 MB) + DB thứ hai trên Aiven | Chưa lập plan |
+  | (c) | Giao diện `frontend/src/features/competition/` (tài liệu 07; sơ đồ dạng hình đã có module ở mục 21) + menu / route | Chưa lập plan |
+
+- **Căn cứ:** kiểm tra deploy 05/10/2026 — service chạy độc lập đạt (Jest 23 suite / 285 test; image Docker production
+  migrate + `/health/ready` xanh) nhưng app chính chưa có cổng nối, sự kiện khách, giao diện, cấu hình hạ tầng.
+- **Plan:** `23-ke-hoach-tich-hop-cong-noi-va-su-kien.md` (mục 8 là danh sách theo dõi từng việc).
+
 ## Chưa làm — xem plan riêng từng phần
 
 | Việc | File plan | Ưu tiên gốc |
