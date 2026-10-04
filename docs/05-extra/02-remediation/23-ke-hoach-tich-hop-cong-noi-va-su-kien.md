@@ -1,14 +1,14 @@
 # Kế hoạch: bước 4(a) — cổng nối app chính ↔ competition-service + sự kiện hai chiều
 
 - **Ngày:** 05/10/2026.
-- **Trạng thái:** **CHỜ CHỦ DỰ ÁN DUYỆT — chưa viết dòng code nào.** Cần chốt 6 câu ở mục 4 trước khi làm.
+- **Trạng thái:** chủ dự án duyệt 05/10/2026 ("theo đề xuất hết, code đi" — cả 6 câu ở mục 4 theo đề xuất) → **đã làm xong, đã chạy thật, kết quả ở mục 9; chờ chủ dự án duyệt merge.** Chưa push.
 - **Nhánh:** `feat/competition-integration`, tách từ `main` @ `379e634`.
 - **Thuộc:** bước 4 của plan 18 (`18-ke-hoach-cham-trinh-xep-cap.md`, mục "Bước 4"). Chia ba phần, mỗi phần một plan
   riêng để duyệt từng cái:
 
   | Phần | Nội dung | Trạng thái |
   |---|---|---|
-  | **(a)** | Cổng nối trong app chính + sự kiện hai chiều (plan này) | Chờ duyệt |
+  | **(a)** | Cổng nối trong app chính + sự kiện hai chiều (plan này) | Xong 05/10/2026, chờ duyệt merge |
   | (b) | Hạ tầng: compose, `render.yaml`, `app.Dockerfile`, `demo-reset.yml`, DeploymentGuide, Postman, RAM / DB thứ hai trên Aiven | Chưa lập plan |
   | (c) | Giao diện (`frontend/src/features/competition/`, menu, route) | Chưa lập plan |
 
@@ -101,7 +101,7 @@ Cách xác định người gọi:
 | `backend/scripts/competition-keys.js` + script npm | `backend/.env.example`, `backend/package.json` |
 | `backend/tests/competition*.test.js` | `CLAUDE.md` (mục kiến trúc), `docs/05-extra/02-remediation/00-tien-do.md`, README service (bảng trạng thái) |
 
-## 4. Cần chủ dự án quyết (mỗi câu có đề xuất)
+## 4. Câu hỏi đã chốt (05/10/2026: chủ dự án chọn đúng đề xuất ở cả 6 câu)
 
 1. **Kiểu danh sách cho phép của cổng.** (A) *Theo tiền tố tài nguyên + method, cấp trần scope theo vai trò, service
    tự kiểm từng route* — ít code, không lệch khi service thêm route, đã có test phía service cho từng scope. (B) *Liệt kê
@@ -155,14 +155,74 @@ process như ghi chú hiện hữu), đổi bất kỳ hợp đồng nào của 
 
 - [x] Đọc code app chính + hợp đồng service, chọn thiết kế (05/10/2026)
 - [x] Plan này (05/10/2026)
-- [ ] **Chủ dự án duyệt plan + trả lời 6 câu ở mục 4**
-- [ ] 2.1 Cổng nối (config, token, scope, danh sách cho phép, client, gateway) + test
-- [ ] 2.2 Outbox + dispatcher + sửa `CustomerService` + test
-- [ ] 2.3 Webhook nhận + inbox + `ActivityLog` + test
-- [ ] 2.4 Script khoá + `.env.example`
-- [ ] Chạy thật toàn bộ kịch bản mục 5, ghi kết quả vào mục 9
-- [ ] Báo cáo → chủ dự án duyệt merge → merge vào `main` (không tự push)
+- [x] Chủ dự án duyệt plan + trả lời 6 câu ở mục 4 (05/10/2026, theo đề xuất)
+- [x] 2.1 Cổng nối (config, token, scope, danh sách cho phép, client, gateway) + test
+- [x] 2.2 Outbox + dispatcher + sửa `CustomerService` + test
+- [x] 2.3 Webhook nhận + inbox + `ActivityLog` + test
+- [x] 2.4 Script khoá + `.env.example`
+- [x] Chạy thật toàn bộ kịch bản mục 5, ghi kết quả vào mục 9 (có 1 lỗi thật bắt được và đã sửa)
+- [ ] Báo cáo → **chủ dự án duyệt merge** → merge vào `main` (không tự push)
 
 ## 9. Kết quả
 
-_(điền sau khi làm)_
+Môi trường chạy thật (không đụng DB dev của chủ dự án): backend :5002 + DB `bd_int_tmp` (migrate đủ + seed demo,
+kể cả 2 migration mới), competition-service :5102 + DB `cs_int_tmp`, hai bên nối bằng bộ khoá sinh từ
+`npm run competition:keys`; gọi qua HTTP thật bằng các tài khoản seed (admin, nhân viên chi nhánh 1, quản lý chi nhánh 2,
+khách). Kịch bản ở scratchpad (không vào repo).
+
+### 9.1 Jest
+
+- backend **492 / 492** (40 suite; mới 9 suite `competition*` + sửa 2 test cũ vì `CustomerService` giờ ghi thêm một dòng outbox).
+- services/competition-service không đổi dòng nào (đã chạy 285 / 285 hôm 05/10 trước khi làm).
+
+### 9.2 Chạy thật — phần A: quyền, chi nhánh, khách bấm điểm, SSE (33 / 33)
+
+| Kiểm | Kết quả |
+|---|---|
+| Chưa đăng nhập: xem BXH công khai | 200; xem `/tournaments` → 401 |
+| `/events`, `/ops/outbox` | 404 ngay tại cổng, kể cả với admin (không lọt vào service) |
+| Admin (chi nhánh 1) / quản lý chi nhánh 2 tạo giải | 201 / 201; quản lý chi nhánh 2 tạo giải cho chi nhánh 1 → bị từ chối |
+| Nhân viên tạo giải; khách tạo giải, xem danh sách giải | 403 / 403 / 403 |
+| Quản lý chi nhánh 2 xem giải chi nhánh 1; nhân viên chi nhánh 1 xem giải chi nhánh 2 | 404 / 404 (không lộ tồn tại) |
+| Admin chọn chi nhánh 2 → chỉ thấy giải chi nhánh 2; không chọn → thấy cả hai | đúng |
+| Nhân viên chỉnh điểm trình (`rating:adjust`); nhân viên chốt giải (`tournament:manage`); khách chốt giải | 403 / 403 / 403 |
+| Khách bấm điểm trận **của mình** (xem tỉ số, chọn đội giao trước, +1 điểm) | 200 |
+| Khách bấm điểm trận **người khác**; khách "không đánh tiếp được" | 403 / 404; 403 |
+| SSE qua cổng, token trên query như EventSource | 200 `text/event-stream`, nhận `snapshot` ngay; nhân viên bấm điểm → luồng nhận `score` sau ~0,6 giây (không bị đệm); không token → 401 |
+
+### 9.3 Chạy thật — phần B: sự kiện hai chiều, service tắt / bật (36 kiểm; chạy lại sau khi sửa lỗi ở 9.5)
+
+| Kiểm | Kết quả |
+|---|---|
+| Đổi tên khách | hồ sơ thi đấu đổi theo trong ~1–2 giây; đúng 1 dòng outbox `bd.customer.updated`, gửi 1 lần; sửa email (không đổi tên) → không sinh sự kiện |
+| Gộp hồ sơ tại quầy vào tài khoản | hồ sơ thi đấu chuyển sang `bd:customer:<tài khoản>` giữ nguyên tên; mã cũ → 404 |
+| Xoá khách | hồ sơ thi đấu ẩn danh, không còn tên cũ |
+| Service tắt | sân, đặt sân vẫn 200; `/competition` → 503 `COMPETITION_UNAVAILABLE`; vẫn đổi tên khách được, sự kiện nằm chờ + ghi lỗi + thử lại; ngắt mạch mở → trả 503 sau 7–13 ms (không treo) |
+| Bật lại service | sự kiện tự được gửi, hồ sơ cập nhật **đúng một lần**; ngắt mạch tự đóng sau ~30 giây |
+| Chốt giải (admin) | (lần chạy lại có 1 kiểm kịch bản hụt chỉ vì truy vấn inbox lấy 5 dòng mới nhất, đã đối chiếu bằng SQL: inbox có `finalized` × 2 và `unfinalized` × 2 đều `processed`) ActivityLog `competition.tournament_finalized` ở chi nhánh 1, không gắn nhân viên; inbox `processed`; huỷ chốt → `…unfinalized` |
+| Webhook sai chữ ký / lệch giờ 10 phút / ký bằng secret của chiều ngược lại | 401 cả ba, mỗi lần một dòng `competition.webhook_rejected` |
+| Sự kiện hợp lệ; gửi lại đúng sự kiện đó; loại không dùng | 200 `processed` (đúng 1 ActivityLog ở chi nhánh 2); `duplicate`; `ignored` |
+
+### 9.4 Chạy thật — phần C: tắt hẳn tính năng (9 / 9)
+
+Không đặt biến `COMPETITION_*`: `/competition` → 503 `COMPETITION_DISABLED` (kể cả BXH công khai), webhook → 503, phần còn lại của
+app chạy bình thường; đổi tên khách vẫn 200 và **vẫn ghi outbox** (quyết định câu 2), dispatcher không chạy (dòng chờ, 0 lần
+thử); bật tính năng sau đó → sự kiện tồn đọng được gửi bù. Đặt dở dang (chỉ có URL) → server từ chối khởi động, nêu đích danh
+biến thiếu.
+
+### 9.5 Lỗi bắt được khi chạy thật
+
+- **Dispatcher gửi lại ngay thay vì lùi dần** (đã sửa, có test chặn lại): câu SQL thô lấy dòng đến hạn truyền `Date` thẳng
+  làm tham số; driver định dạng theo múi giờ của tiến trình Node (+07 trên máy chủ Việt Nam) trong khi cột lưu UTC → mọi
+  dòng lùi dần dưới 7 giờ bị coi là đã đến hạn: sự kiện chạm 12 lần thử trong 8 giây rồi thành `dead`. Jest với mock
+  không thấy được; chỉ lộ khi tắt service thật. Sửa: tự định dạng chuỗi UTC (`toSqlUtc`). Chạy lại 2 lần phần B: pass.
+- **Hai quyết định thiết kế ghi lại:** (1) service trả 401 cho token của cổng (lệch khoá / issuer) bị đổi thành 502
+  `COMPETITION_AUTH_FAILED` — trả nguyên 401 thì `apiClient` của frontend tưởng hết phiên và đăng xuất người dùng; (2) khách
+  không có hồ sơ khách hàng, nhân viên không xác định được chi nhánh → 403 tại cổng, không bao giờ cấp `org` rỗng hay `*`.
+
+### 9.6 Chưa làm / để phần sau
+
+- Postman + OpenAPI của route cổng, compose / `render.yaml` / `demo-reset.yml` / DeploymentGuide: phần (b).
+- Giao diện, và việc frontend nối SSE qua cổng (`?token=` lấy từ `apiClient`, làm mới token trước mỗi lần nối): phần (c).
+- Chưa đo RAM hai process trên Render, chưa kiểm Aiven free có tạo được DB thứ hai: phần (b).
+- Dọn: DB tạm `bd_int_tmp`, `cs_int_tmp` và hai tiến trình :5002 / :5102 vẫn đang chạy theo yêu cầu "chưa tắt server thử cho tới khi chủ dự án nói".

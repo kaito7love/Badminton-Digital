@@ -811,19 +811,20 @@ rồi mới nhả số của hồ sơ đã xoá).
   Chi tiết: `22-ke-hoach-proxy-render-va-dong-admin.md`.
 - **Tiến độ:** chủ dự án duyệt "merge vào main đi" 05/10/2026 → main fast-forward `5631d4b` → `9da0c0a`, push; Render tự build lại từ `main`.
 
-### 23. `feat/competition-integration` — bước 4 của plan 18: tích hợp app chính ↔ competition-service (đang lập plan)
+### 23. `feat/competition-integration` — bước 4 của plan 18: tích hợp app chính ↔ competition-service (phần (a) xong, chờ duyệt merge)
 
 - **Chia ba phần**, mỗi phần một plan để duyệt:
 
   | Phần | Nội dung | Trạng thái |
   |---|---|---|
-  | (a) | Cổng nối `/api/v1/competition/*` (token ES256, vai trò → scope) + sự kiện hai chiều (outbox `bd.customer.*`, webhook nhận `competition.*`) | **Plan 23 viết xong 05/10/2026, chờ chủ dự án duyệt + trả lời 6 câu — chưa có code** |
+  | (a) | Cổng nối `/api/v1/competition/*` (token ES256, vai trò → scope) + sự kiện hai chiều (outbox `bd.customer.*`, webhook nhận `competition.*`) | **Xong 05/10/2026**: Jest backend 492/492, chạy thật 33 + 36 + 9 kiểm đạt (bắt và sửa 1 lỗi múi giờ ở dispatcher). Chờ chủ dự án duyệt merge, chưa push |
   | (b) | Hạ tầng: compose, `render.yaml`, `app.Dockerfile`, `demo-reset.yml`, DeploymentGuide, Postman; kiểm RAM (< 512 MB) + DB thứ hai trên Aiven | Chưa lập plan |
   | (c) | Giao diện `frontend/src/features/competition/` (tài liệu 07; sơ đồ dạng hình đã có module ở mục 21) + menu / route | Chưa lập plan |
 
 - **Căn cứ:** kiểm tra deploy 05/10/2026 — service chạy độc lập đạt (Jest 23 suite / 285 test; image Docker production
   migrate + `/health/ready` xanh) nhưng app chính chưa có cổng nối, sự kiện khách, giao diện, cấu hình hạ tầng.
-- **Plan:** `23-ke-hoach-tich-hop-cong-noi-va-su-kien.md` (mục 8 là danh sách theo dõi từng việc).
+- **Plan + kết quả:** `23-ke-hoach-tich-hop-cong-noi-va-su-kien.md` (mục 8: theo dõi từng việc; mục 9: kết quả chạy thật).
+- **Cách bật:** `npm run competition:keys` rồi chép hai khối trong file sinh ra vào `backend/.env` và `.env` của service; để trống `COMPETITION_*` = tắt (xem `backend/.env.example`).
 
 ## Chưa làm — xem plan riêng từng phần
 

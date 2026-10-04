@@ -1,4 +1,4 @@
-const { createDispatcher, backoffSeconds } = require('../src/integrations/competition/dispatcher');
+const { createDispatcher, backoffSeconds, toSqlUtc } = require('../src/integrations/competition/dispatcher');
 const { verify } = require('../src/integrations/competition/signature');
 const { enabledConfig, EVENT_SECRET } = require('./competitionTestKit');
 
@@ -60,6 +60,15 @@ describe('dispatcher outbox → competition-service', () => {
     const [values, options] = model.update.mock.calls[0];
     expect(values.nextAttemptAt.getTime()).toBe(NOW.getTime() + 60_000);
     expect(options.where).toEqual({ id: [1] });
+  });
+
+  test('mốc thời gian trong câu SQL thô là chuỗi UTC, không phụ thuộc múi giờ của máy (lỗi gặp khi chạy thật: dòng lùi dần bị gửi lại ngay)', async () => {
+    const row = makeRow();
+    const { sequelize, model, query } = makeDeps([row]);
+    const dispatcher = createDispatcher({ config, sequelize, model, fetchImpl: async () => okResponse, logger: silent, now: () => NOW });
+    await dispatcher.runOnce();
+    expect(query.mock.calls[0][1].replacements.at).toBe('2026-10-05 03:00:00');
+    expect(toSqlUtc(new Date('2026-12-31T23:59:59.999Z'))).toBe('2026-12-31 23:59:59');
   });
 
   test('service trả 5xx → vẫn pending, lùi dần, ghi lỗi', async () => {

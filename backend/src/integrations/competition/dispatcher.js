@@ -12,6 +12,11 @@ const { sign } = require('./signature');
 const LEASE_SECONDS = 60;
 const PURGE_AFTER_DAYS = 30;
 
+// Cột DATETIME lưu UTC (config timezone +00:00). Truyền Date thẳng vào câu SQL thô thì driver định dạng theo múi giờ của
+// tiến trình Node (+07 trên máy chủ Việt Nam) → mọi dòng lùi dần dưới 7 giờ đều bị coi là đã đến hạn và gửi lại ngay
+// (bắt được khi chạy thật: 12 lần thử trong 8 giây → dead). Nên tự định dạng UTC.
+const toSqlUtc = (date) => date.toISOString().slice(0, 19).replace('T', ' ');
+
 const backoffSeconds = (attempts) => Math.min(3600, 5 * 2 ** (attempts - 1));
 
 const createDispatcher = ({
@@ -38,7 +43,7 @@ const createDispatcher = ({
             AND NOT EXISTS (SELECT 1 FROM integration_outbox p WHERE p.subject = o.subject AND p.status = 'pending' AND p.id < o.id)
           ORDER BY o.id LIMIT :batchSize
           FOR UPDATE SKIP LOCKED`,
-        { replacements: { at, batchSize }, type: QueryTypes.SELECT, transaction }
+        { replacements: { at: toSqlUtc(at), batchSize }, type: QueryTypes.SELECT, transaction }
       );
       if (rows.length === 0) return [];
       const ids = rows.map((r) => r.id);
@@ -144,4 +149,4 @@ const createDispatcher = ({
   };
 };
 
-module.exports = { createDispatcher, backoffSeconds };
+module.exports = { createDispatcher, backoffSeconds, toSqlUtc };

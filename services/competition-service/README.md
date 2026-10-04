@@ -29,7 +29,9 @@ Có thể chạy và test **một mình**, không cần app chính. Kết nối 
 | 2 | `match`, `tournament`, BXH thành tích, thống kê, dữ liệu demo | Xong trên nhánh `feat/competition-service` |
 | 3 | `session` (buổi giao lưu), sửa thuật toán xếp sân, gộp hồ sơ đủ các module | Xong, đã merge |
 | Plan 19 | Bấm điểm trực tiếp + luồng SSE cho màn hình TV | Xong trên nhánh `feat/competition-live-score` |
-| 4 | Tích hợp app chính + giao diện (nhánh riêng) | Chưa làm |
+| 4a | Cổng nối + sự kiện hai chiều ở app chính (plan 23) | Xong trên nhánh `feat/competition-integration`, chờ duyệt merge |
+| 4b | Hạ tầng: compose / Render / reset demo | Chưa làm |
+| 4c | Giao diện (`frontend/src/features/competition/`) | Chưa làm |
 
 ## Chạy một mình (dev)
 
