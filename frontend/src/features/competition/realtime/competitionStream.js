@@ -34,6 +34,7 @@ export const connectCompetitionStream = ({ kind, id, branchId, onEvent, onReconn
   let closed = false;
   let attempt = 0;
   let hasConnectedBefore = false;
+  let suspended = false; // trang đang rời đi (pagehide) — không mở lại cho tới khi được khôi phục từ bộ nhớ đệm trang (pageshow)
   let lastSeen = Date.now();
 
   const setStatus = (status) => onStatusChange?.(status);
@@ -50,7 +51,7 @@ export const connectCompetitionStream = ({ kind, id, branchId, onEvent, onReconn
   };
 
   async function open() {
-    if (closed) return;
+    if (closed || suspended) return;
     let token;
     try {
       token = await freshToken();
@@ -91,6 +92,24 @@ export const connectCompetitionStream = ({ kind, id, branchId, onEvent, onReconn
     };
   }
 
+  // Rời trang (đổi URL, đóng tab) thì đóng luồng NGAY: trình duyệt có thể giữ tài liệu cũ trong bộ nhớ đệm trang (bfcache) cùng ổ kết nối SSE còn mở —
+  // chạm giới hạn 6 kết nối / máy chủ thì trang kế tiếp treo ở "đang tải" (bắt được khi rà 18 màn hình liên tiếp trong một tab).
+  const onPageHide = () => {
+    suspended = true;
+    clearTimeout(reconnectTimer);
+    source?.close();
+    source = null;
+  };
+  const onPageShow = (e) => {
+    if (!e.persisted || !suspended || closed) return;
+    suspended = false;
+    attempt = 0;
+    setStatus('reconnecting');
+    open();
+  };
+  window.addEventListener('pagehide', onPageHide);
+  window.addEventListener('pageshow', onPageShow);
+
   open();
   const watchdog = setInterval(() => {
     if (closed || !source || source.readyState !== EventSource.OPEN) return;
@@ -104,6 +123,8 @@ export const connectCompetitionStream = ({ kind, id, branchId, onEvent, onReconn
     closed = true;
     clearTimeout(reconnectTimer);
     clearInterval(watchdog);
+    window.removeEventListener('pagehide', onPageHide);
+    window.removeEventListener('pageshow', onPageShow);
     source?.close();
   };
 };

@@ -174,3 +174,19 @@ Vẽ theo hai ảnh mẫu của chủ dự án (03/10/2026), tự chọn kiểu 
   outcome, winnerSide, status). Ô miễn đấu không có trận ở vòng 1 → client dựng lại từ trận vòng 2.
 - Code tham chiếu cho bước 4: `services/competition-service/docs/ui-prototype/bracket-view.js` (HTML + SVG, không phụ
   thuộc thư viện; chuyển sang React chỉ cần bọc `render` / `mount`).
+
+## 6. Hiện thực trong app chính (plan 25, 05–06/10/2026)
+
+Toàn bộ nằm ở `frontend/src/features/competition/`; app chính chỉ thêm route (`routes/AppRoutes.jsx` chèn ba nhóm route: nhân viên, khách, công khai), menu (`SidebarLayout`, `CustomerLayout`), nút "🏆 Trình độ" ở trang Khách hàng và `CompetitionProvider` ở `App.jsx`. Chi tiết từng slice + kết quả bấm thử thật: `docs/05-extra/02-remediation/25-ke-hoach-giao-dien-thi-dau.md` mục 9.
+
+Khác với bản thiết kế ở mục 1–5 (do hợp đồng service hoặc bấm thử mà ra):
+
+- **Hồ sơ người chơi của nhân viên là một trang** (`/competition/players/:id`, form chấm trình ở `/competition/players/:id/assess`), không phải hộp thoại; trang Khách hàng có nút "🏆 Trình độ" mở trang đó (khách chưa có hồ sơ thi đấu thì tạo `bd:customer:<id>` rồi mở).
+- **Chấm trình** là một thành phần dùng chung (`components/AssessmentWizard.jsx`) cho nhân viên (`staff`: có ô ghi chú, không trần 4.5) và khách (`self`); bộ tiêu chí lấy từ `GET /v1/rubrics/current`.
+- **Giải của tôi:** `GET /v1/me/tournaments` trả `upcomingMatches` / `playedMatches` là **số đếm**; lịch trận lấy từ `GET /v1/me/matches?scope=upcoming`, kết quả đã chốt từ `scope=history`. Khách không có scope `t:read` nên **không mở được SSE của giải** → trang "Giải của tôi" và màn hình bấm điểm của người chơi tự tải lại (8 s / 4 s).
+- **Màn hình TV** mở bằng chính phiên đăng nhập của nhân viên (không có đường xem công khai): `/competition/tournaments/:id/board`, `/competition/sessions/:id/board`.
+- **Xếp sân trống / bốc thăm:** đổi chỗ bằng **bấm hai người** (không kéo-thả — dùng được cả trên điện thoại); service không có endpoint tính lại cảnh báo "đồng đội đã chung đội" sau khi sửa tay nên cảnh báo chỉ cho bản gốc.
+- **SSE:** token đi qua query (EventSource không gửi được header), `?branchId=` cho admin; client đóng luồng khi rời trang (`pagehide`, nối lại khi khôi phục từ bộ nhớ đệm trang) để không chạm giới hạn 6 kết nối / máy chủ của trình duyệt.
+- **Chịu lỗi:** service tắt → thông báo dễ hiểu + nút "Thử lại", lần tải đầu lỗi vì service tắt thì tự thử lại 5 → 30 s; luồng SSE đứt thì báo "Mất kết nối — đang nối lại" và poll dự phòng; `GET /api/v1/competition/status` (công khai) cho biết `enabled` / `available` (ngắt mạch) để ẩn menu hoặc báo "đang tạm ngưng".
+- **Bấm điểm:** mỗi lần bấm chờ service trả lời rồi mới nhận điểm (không cộng "lạc quan"), bấm hai lần trong chớp mắt thì lần hai bị bỏ — để mạng chập chờn không làm lệch tỉ số.
+

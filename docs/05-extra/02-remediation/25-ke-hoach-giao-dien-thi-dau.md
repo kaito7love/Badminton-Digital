@@ -123,8 +123,8 @@ thêm thư viện UI / state (dùng React + context + hook như phần còn lạ
 - [x] c3 Giao lưu
 - [x] c4 Người chơi + hàng chờ duyệt
 - [x] c5 Khách hàng (trình độ, tự chấm, BXH, hồ sơ, giải của tôi, bấm điểm trận của mình, nút ở trang Khách hàng)
-- [ ] c6 Hoàn thiện (điện thoại / sáng-tối / lỗi / hiệu năng / tài liệu)
-- [ ] Báo cáo (c) → **cả ba phần (a)(b)(c) xong → xin chủ dự án duyệt merge `main`** (không tự push main)
+- [x] c6 Hoàn thiện (điện thoại / sáng-tối / lỗi / hiệu năng / tài liệu)
+- [x] Báo cáo (c) → **cả ba phần (a)(b)(c) xong → xin chủ dự án duyệt merge `main`** (không tự push main) — đã báo cáo 06/10/2026, chờ duyệt
 
 ## 8. Việc chủ dự án phải làm sau cùng (khi deploy thật)
 
@@ -184,3 +184,30 @@ Giữ nguyên danh sách ở plan 24 mục 5 (database thứ hai trên Aiven, se
 - **Vitest 238/238** toàn frontend (+17 `lib/customer`: bảng mặc định, xu hướng, khi nào chấm lại được, biểu đồ gộp mốc trùng, patch hồ sơ chỉ gồm ô đổi, trạng thái giải, gom trận theo giải, câu đối đầu); `npm run build` xanh.
 - **Trình độ thật (Chrome ngầm, khách đăng ký mới qua `/auth/register`; laptop + 390 px) 38/38:** chưa đăng nhập xem BXH + che tên + đổi hạng mục + tab Thành tích; khách mới: "Bạn chưa có điểm" → form tự chấm → xem trước **bị trần 4.5** + báo cần xác nhận + không ô ghi chú → kết quả 4.50 "tạm tính" → "Trình độ của tôi" ("chờ nhân viên xác nhận", "Chấm lại", vị trí dự kiến); hồ sơ: nút khoá khi chưa sửa, tên 1 ký tự bị chặn, lưu → service nhận tên / công khai / chi nhánh; BXH đã đăng nhập (tên đầy đủ + "vị trí dự kiến"); hồ sơ người khác + "Đối đầu với tôi"; **người ẩn hồ sơ → khách không mở được**; giải của tôi + **tự bấm điểm trận của mình** (21 điểm → "Trận đã xong" nhưng **không có nút xác nhận**, service từ chối khách tự xác nhận 403, nhân viên xác nhận → màn hình khách tự báo "Đã lưu kết quả"); mở trận của người khác → bị chặn; nút "Trình độ" ở trang Khách hàng; 390 px không tràn ngang; không lỗi console / 5xx. Thêm kiểm với tài khoản khách demo: biểu đồ recharts vẽ đường, "Chấm lại" khoá có lý do, `/my-rating/assess` không mở form.
 - **Lỗi bắt được lúc bấm thật (đã sửa):** (1) "Giải của tôi" sập trang vì giả định sai hợp đồng — `upcomingMatches` / `playedMatches` là **số đếm** chứ không phải danh sách → lấy lịch từ `GET /me/matches?scope=upcoming` (và kết quả đã chốt từ `scope=history`); trận đang đánh chưa chốt giải thì khách chỉ thấy số trận đã đánh (service không cho khách đọc danh sách trận của giải); (2) React cảnh báo trùng khoá ở biểu đồ — chấm trình ghi hai dòng sổ điểm (Đơn + Đôi) cùng một lúc → gộp thành một mốc; (3) menu khách 9 mục bị rớt dòng trên màn 1024–1280 px → chỉ hiện thanh trên từ 1280 px khi thi đấu bật.
+
+### 9.c6 Hoàn thiện (06/10/2026)
+
+- **Rà toàn bộ màn hình:** 18 route của nhân viên / quản lý + 7 route của khách × (390 px tối, 390 px sáng, 1440 px sáng) = 75 lượt mở trang: không tràn ngang, không trang trắng, không "sự cố hiển thị", không lỗi console / 5xx; xem mắt thường các ảnh sáng + điện thoại. Sửa: bảng xếp hạng trên điện thoại gọn lại (cột phụ chuyển xuống dưới tên).
+- **Lỗi thật bắt được khi rà (đã sửa):** mở nhiều trang có SSE liên tiếp trong **một tab** thì trang thứ 7 treo ở "đang tải" mãi — trình duyệt giữ tài liệu cũ (bộ nhớ đệm trang) cùng kết nối SSE còn mở, chạm giới hạn 6 kết nối / máy chủ. `competitionStream` giờ đóng luồng ngay khi rời trang (`pagehide`) và nối lại khi khôi phục (`pageshow`); đo lại: cả 18 route liên tiếp chạy được.
+- **Chịu lỗi (chạy thật, tắt / bật competition-service trong lúc đang mở trang) 14/14:** luồng đứt → chấm "Mất kết nối — đang nối lại", trang giữ dữ liệu cũ; "Tải lại" lúc service tắt → câu báo dễ hiểu (không trang trắng); danh sách giải / BXH / "Trình độ của tôi" của khách → thông báo + "Thử lại"; đủ lỗi liên tiếp thì ngắt mạch → trang Thi đấu báo "đang tạm ngưng" và `/status` trả `available=false`; **app chính (Quản lý sân…) vẫn chạy**; bật lại → trang giải tự nối lại SSE trong ≤ 70 s không cần thao tác, `/status` trở lại `available=true`, khách tải lại bình thường. **Sửa thêm:** lần tải ĐẦU lỗi vì service tắt (chưa có dữ liệu để giữ) trước đây phải bấm "Thử lại" → `useLiveResource` tự thử lại 5 → 10 → 20 → 30 s.
+- **Token hết hạn khi giữ luồng SSE (chạy thật 330 s):** luồng mở 2 lần (service đóng luồng đúng lúc token 300 s hết hạn, client lấy token mới và nối lại), điểm bấm sau 5,5 phút vẫn lên TV không cần tải lại.
+- **Tính năng TẮT (giả lập `status.enabled=false`) 16/16:** menu ẩn (nhân viên + khách), mọi trang thi đấu báo "chưa được bật" thay vì lỗi; **không có lời gọi API thi đấu nào ngoài `/status`** (trước đó trang giải / "Trình độ của tôi" vẫn gọi API rồi báo lỗi 503 → thêm `FeatureGate` ở cấp route: không dựng trang khi tắt); app chính không đổi.
+- **Hiệu năng:** mọi trang thi đấu là chunk lazy riêng (chi tiết giải 42 kB, chi tiết buổi 14 kB, bấm điểm 11 kB, hồ sơ 10 kB, BXH 7 kB…); recharts chỉ kéo vào trang "Trình độ của tôi" (11 kB LineChart; phần lõi 372 kB dùng chung với Dashboard / Báo cáo như cũ); chunk chính 298 → 305 kB (route + ngữ cảnh + menu).
+- **Hồi quy sau mọi thay đổi c6** (chạy lại toàn bộ kịch bản Chrome thật): c1 24/24, c1 phần 2 20/20, c2 45/45, c3 34/34, c4 30/30, c5 38/38, c0 10/11 (kiểm "thẻ ghi Sắp có" hết đúng nghĩa vì cả bốn thẻ đã mở); Vitest **238/238**; Jest backend **503/503**; `npm run build` xanh.
+- **Tài liệu:** `services/competition-service/docs/07-giao-dien.md` mục 6 (khác biệt giữa thiết kế và hiện thực), `CLAUDE.md` (cấu trúc frontend thi đấu), plan này mục 9.
+
+## 10. Báo cáo tổng (c) — 06/10/2026
+
+| Slice | Commit | Nội dung |
+|---|---|---|
+| c0 | `0e434b7` | Nền: cổng `/status` + SSE `branchId`, api / stream / context / component dùng chung, menu |
+| c1 | `4492a88` | Giải đấu: danh sách, tạo, 5 tab vận hành, bốc thăm, khoá sơ đồ, chốt, sơ đồ dạng hình |
+| c2 | `97cfba8` | Bấm điểm trực tiếp, nhập tỉ số nhanh, màn hình TV giải + buổi |
+| c3 | `25b5728` | Giao lưu: tạo, điểm danh (chấm nhanh, rời buổi kia), xếp sân trống, đóng buổi |
+| c4 | `cb0c966` | Người chơi, form chấm trình dùng chung, xác nhận / chỉnh điểm, hàng chờ duyệt; **sửa cổng nối** (khoảng trắng trong query) |
+| c5 | `cdf5642` | Khách: trình độ, tự chấm, hồ sơ, BXH công khai, giải của tôi, tự bấm điểm; nút "Trình độ" ở trang Khách hàng |
+| c6 | (commit này) | Rà 75 lượt mở trang, chịu lỗi, tính năng tắt, SSE `pagehide`, tự thử lại, tài liệu |
+
+- **Lỗi thật tìm ra nhờ bấm trên Chrome thật (đều đã sửa, có test hoặc kịch bản giữ lại):** khoảng trắng trong query bị cổng nối mã hoá "+" → service 400 (backend); SSE giữ kết nối khi rời trang → trang thứ 7 treo; trang "Giải của tôi" sập vì giả định sai hợp đồng; cờ "đang gõ dở" làm máy khác không tự cập nhật; z-index bị nhốt trong sidebar; lần tải đầu không tự thử lại khi service tắt; trang vẫn gọi API khi tính năng tắt; biểu đồ trùng mốc; menu khách rớt dòng.
+- **Còn lại / chủ dự án:** (1) duyệt merge `feat/competition-integration` vào `main` (mình **không** tự merge / push `main`); (2) lúc deploy thật: tạo database thứ hai trên Aiven + secret `COMPETITION_DB_NAME` (GitHub + Render) — mục 8; (3) dọn máy thử khi chủ dự án nói (tiến trình :5000 / :5102 / :5173 / :5303, container `bd-app` / `bd-mysql-tls`, DB `bd_int_tmp` / `cs_int_tmp` / `bd_demo` / `cs_demo`, file `backend/.keys/competition.env`).
+- **Không làm (đã nói ở mục 5):** đổi nghiệp vụ service, app di động riêng, phân tích video AI, thông báo đẩy, in / xuất sơ đồ, i18n.

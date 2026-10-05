@@ -26,16 +26,16 @@ function Row({ row, points }) {
       <tr className={`border-t border-slate-800 ${row.isMe ? 'bg-emerald-500/10' : ''}`} data-rank={row.rank} data-me={row.isMe ? 'true' : undefined}>
         <td className="py-2 pr-3 text-lg font-black tabular-nums text-emerald-400">{row.rank}</td>
         <td className="py-2 pr-3 text-xs text-slate-400">{movementText(row.movement)}</td>
-        <td className="py-2 pr-3">{name}{row.isMe && <Badge variant="emerald"> bạn</Badge>}</td>
+        <td className="py-2 pr-3">{name}{row.isMe && <Badge variant="emerald"> bạn</Badge>}<small className="block text-xs text-slate-400 sm:hidden">{points ? `${row.countedResults} kết quả` : `${row.ratedMatches} trận${row.verified ? ' · đã xác nhận' : ''}`}</small></td>
         {points ? (
           <>
-            <td className="py-2 pr-3 font-black tabular-nums">{row.points} <small className="font-normal text-slate-500">điểm</small></td>
-            <td className="py-2 text-xs text-slate-400">{row.countedResults} kết quả {row.results && row.results.length > 0 && <button type="button" className="ml-2 font-bold text-emerald-400 hover:underline" onClick={() => setOpen(!open)}>{open ? 'Ẩn' : 'Chi tiết'}</button>}</td>
+            <td className="py-2 pr-3 font-black tabular-nums">{row.points} <small className="font-normal text-slate-500">điểm</small>{row.results && row.results.length > 0 && <button type="button" className="block text-xs font-bold text-emerald-400 hover:underline" onClick={() => setOpen(!open)}>{open ? 'Ẩn chi tiết' : 'Chi tiết'}</button>}</td>
+            <td className="hidden py-2 text-xs text-slate-400 sm:table-cell">{row.countedResults} kết quả</td>
           </>
         ) : (
           <>
             <td className="py-2 pr-3 font-black tabular-nums">{fmtNumber(row.rating)} <small className="font-normal text-emerald-400">{row.level}</small></td>
-            <td className="py-2 text-xs text-slate-400">{row.ratedMatches} trận{row.verified ? ' · đã xác nhận' : ''}</td>
+            <td className="hidden py-2 text-xs text-slate-400 sm:table-cell">{row.ratedMatches} trận{row.verified ? ' · đã xác nhận' : ''}</td>
           </>
         )}
       </tr>
@@ -135,7 +135,7 @@ export default function RankingsPage() {
             <span>{state.data.total} người{organizerRef ? ` · ${orgName(organizerRef)}` : ''}</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[420px] text-left text-sm" data-testid="leaderboard">
+            <table className="w-full text-left text-sm" data-testid="leaderboard">
               <tbody>{items.map((r) => <Row key={`${r.rank}-${r.player.id || r.rating || r.points}`} row={r} points={tab === 'points'} />)}</tbody>
             </table>
           </div>

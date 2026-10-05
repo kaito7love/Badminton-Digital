@@ -52,6 +52,17 @@ export function useLiveResource({ load, stream = null, onEvent, pollMs = 10000, 
     if (!busy && pendingRef.current) reload({ silent: true });
   }, [reload]);
 
+  // Lần tải ĐẦU lỗi vì dịch vụ đang tắt / khởi động lại (không có dữ liệu cũ để giữ) → tự thử lại 5 → 10 → 20 → 30 giây, bật lại là tự vào được,
+  // không bắt người dùng ngồi bấm "Thử lại". Lỗi khác (404, 403…) thì không thử lại mù.
+  const retryRef = useRef(0);
+  useEffect(() => {
+    if (state.data) { retryRef.current = 0; return undefined; }
+    if (!enabled || !state.error || !state.error.unavailable) return undefined;
+    const delay = Math.min(5000 * 2 ** retryRef.current, 30000);
+    const timer = setTimeout(() => { retryRef.current += 1; reload({ silent: true }); }, delay);
+    return () => clearTimeout(timer);
+  }, [enabled, state.data, state.error, reload]);
+
   // Tải lần đầu và mỗi khi đổi tài nguyên.
   const streamKey = stream ? `${stream.kind}:${stream.id}` : '';
   useEffect(() => {

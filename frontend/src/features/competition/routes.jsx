@@ -1,6 +1,7 @@
 import React, { lazy } from 'react';
 import { Route } from 'react-router-dom';
 import ProtectedRoute from '../../routes/ProtectedRoute';
+import FeatureGate from './components/FeatureGate';
 
 // Toàn bộ route của tính năng thi đấu — app chính chỉ chèn `{competitionStaffRoutes}` vào AppRoutes (Fragment hợp lệ trong
 // <Routes> của react-router 6). Trang nào cũng lazy-load: không kéo mã thi đấu (và recharts) vào các trang không dùng.
@@ -31,37 +32,37 @@ const SessionBoardPage = lazy(() => import('./pages/board/SessionBoardPage'));
 export const competitionStaffRoutes = (
   <>
     <Route path="/competition" element={<CompetitionHome />} />
-    <Route path="/competition/tournaments" element={<TournamentsPage />} />
-    <Route path="/competition/tournaments/new" element={<TournamentFormPage />} />
-    <Route path="/competition/tournaments/:id" element={<TournamentDetailPage />} />
-    <Route path="/competition/tournaments/:id/board" element={<TournamentBoardPage />} />
-    <Route path="/competition/sessions" element={<SessionsPage />} />
-    <Route path="/competition/sessions/:id" element={<SessionDetailPage />} />
-    <Route path="/competition/sessions/:id/board" element={<SessionBoardPage />} />
-    <Route path="/competition/players" element={<PlayersPage />} />
-    <Route path="/competition/players/:id" element={<PlayerProfilePage />} />
-    <Route path="/competition/players/:id/assess" element={<PlayerAssessPage />} />
-    <Route path="/competition/reviews" element={<ReviewsPage />} />
-    <Route path="/competition/live/:matchId" element={<LiveScorePage />} />
-    <Route path="/competition/score/:matchId" element={<QuickScorePage />} />
+    <Route path="/competition/tournaments" element={<FeatureGate><TournamentsPage /></FeatureGate>} />
+    <Route path="/competition/tournaments/new" element={<FeatureGate><TournamentFormPage /></FeatureGate>} />
+    <Route path="/competition/tournaments/:id" element={<FeatureGate><TournamentDetailPage /></FeatureGate>} />
+    <Route path="/competition/tournaments/:id/board" element={<FeatureGate><TournamentBoardPage /></FeatureGate>} />
+    <Route path="/competition/sessions" element={<FeatureGate><SessionsPage /></FeatureGate>} />
+    <Route path="/competition/sessions/:id" element={<FeatureGate><SessionDetailPage /></FeatureGate>} />
+    <Route path="/competition/sessions/:id/board" element={<FeatureGate><SessionBoardPage /></FeatureGate>} />
+    <Route path="/competition/players" element={<FeatureGate><PlayersPage /></FeatureGate>} />
+    <Route path="/competition/players/:id" element={<FeatureGate><PlayerProfilePage /></FeatureGate>} />
+    <Route path="/competition/players/:id/assess" element={<FeatureGate><PlayerAssessPage /></FeatureGate>} />
+    <Route path="/competition/reviews" element={<FeatureGate><ReviewsPage /></FeatureGate>} />
+    <Route path="/competition/live/:matchId" element={<FeatureGate><LiveScorePage /></FeatureGate>} />
+    <Route path="/competition/score/:matchId" element={<FeatureGate><QuickScorePage /></FeatureGate>} />
   </>
 );
 
 /** Trang của khách đã đăng nhập (đặt cạnh /my-bookings, /account trong AppRoutes). */
 export const competitionCustomerRoutes = (
   <>
-    <Route path="/my-rating" element={<ProtectedRoute roles={['customer']}><MyRatingPage /></ProtectedRoute>} />
-    <Route path="/my-rating/assess" element={<ProtectedRoute roles={['customer']}><SelfAssessPage /></ProtectedRoute>} />
-    <Route path="/my-rating/profile" element={<ProtectedRoute roles={['customer']}><MyProfilePage /></ProtectedRoute>} />
-    <Route path="/my-tournaments" element={<ProtectedRoute roles={['customer']}><MyTournamentsPage /></ProtectedRoute>} />
-    <Route path="/my-matches/:matchId/score" element={<ProtectedRoute roles={['customer']}><LiveScorePage mode="player" /></ProtectedRoute>} />
+    <Route path="/my-rating" element={<ProtectedRoute roles={['customer']}><FeatureGate customer><MyRatingPage /></FeatureGate></ProtectedRoute>} />
+    <Route path="/my-rating/assess" element={<ProtectedRoute roles={['customer']}><FeatureGate customer><SelfAssessPage /></FeatureGate></ProtectedRoute>} />
+    <Route path="/my-rating/profile" element={<ProtectedRoute roles={['customer']}><FeatureGate customer><MyProfilePage /></FeatureGate></ProtectedRoute>} />
+    <Route path="/my-tournaments" element={<ProtectedRoute roles={['customer']}><FeatureGate customer><MyTournamentsPage /></FeatureGate></ProtectedRoute>} />
+    <Route path="/my-matches/:matchId/score" element={<ProtectedRoute roles={['customer']}><FeatureGate customer><LiveScorePage mode="player" /></FeatureGate></ProtectedRoute>} />
   </>
 );
 
 /** Công khai: bảng xếp hạng (chưa đăng nhập xem được, người "Thành viên" bị che tên) và hồ sơ người khác (service quyết định theo quyền riêng tư). */
 export const competitionPublicRoutes = (
   <>
-    <Route path="/rankings" element={<RankingsPage />} />
-    <Route path="/players/:id" element={<PublicProfilePage />} />
+    <Route path="/rankings" element={<FeatureGate customer><RankingsPage /></FeatureGate>} />
+    <Route path="/players/:id" element={<FeatureGate customer><PublicProfilePage /></FeatureGate>} />
   </>
 );
