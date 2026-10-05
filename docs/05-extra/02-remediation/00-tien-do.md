@@ -819,7 +819,7 @@ rồi mới nhả số của hồ sơ đã xoá).
   |---|---|---|
   | (a) | Cổng nối `/api/v1/competition/*` (token ES256, vai trò → scope) + sự kiện hai chiều (outbox `bd.customer.*`, webhook nhận `competition.*`) | **Xong 05/10/2026**: Jest backend 492/492, chạy thật 33 + 36 + 9 kiểm đạt (bắt và sửa 1 lỗi múi giờ ở dispatcher). Chờ chủ dự án duyệt merge, chưa push |
   | (b) | Hạ tầng: compose, `render.yaml`, `app.Dockerfile`, `demo-reset.yml`, CI, Postman, DeploymentGuide; kiểm RAM (< 512 MB) + DB thứ hai trên Aiven | **Xong 05/10/2026** (plan 24): giả lập Render 512 MB + Aiven TLS — đỉnh RAM 153 MiB, khởi động nguội 38 s (như khi không có thi đấu), reset hai DB, compose profile, newman 40/40, Jest backend 498/498. **Còn:** chủ dự án tạo database thứ hai trên Aiven (chưa kiểm được). Chủ dự án quyết: làm xong (a)(b)(c) rồi mới merge vào `main` (nhánh đã push) |
-  | (c) | Giao diện `frontend/src/features/competition/` (tài liệu 07; sơ đồ dạng hình đã có module ở mục 21) + menu / route | Chưa lập plan |
+  | (c) | Giao diện `frontend/src/features/competition/` (tài liệu 07; sơ đồ dạng hình đã có module ở mục 21) + menu / route | **Plan 25 viết xong 05/10/2026, chờ chủ dự án duyệt + trả lời 7 câu — chưa có code.** Chia 7 slice (c0 nền → c1 giải đấu → c2 bấm điểm + TV → c3 giao lưu → c4 người chơi → c5 khách → c6 hoàn thiện) |
 
 - **Căn cứ:** kiểm tra deploy 05/10/2026 — service chạy độc lập đạt (Jest 23 suite / 285 test; image Docker production
   migrate + `/health/ready` xanh) nhưng app chính chưa có cổng nối, sự kiện khách, giao diện, cấu hình hạ tầng.

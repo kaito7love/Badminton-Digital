@@ -1,0 +1,135 @@
+# Kế hoạch: bước 4(c) — giao diện thi đấu trong app chính (`frontend/src/features/competition/`)
+
+- **Ngày:** 05/10/2026.
+- **Trạng thái:** **CHỜ CHỦ DỰ ÁN DUYỆT — chưa viết dòng code nào.** Cần chốt 7 câu ở mục 4.
+- **Nhánh:** `feat/competition-integration` (tiếp tục; (a) = plan 23 và (b) = plan 24 đã xong, đã push). **Chưa merge `main` cho tới khi
+  (c) xong và chủ dự án duyệt** — merge một lần cho cả ba phần.
+- **Thuộc:** bước 4 của plan 18. Đặc tả màn hình: `services/competition-service/docs/07-giao-dien.md` (đã chốt qua các đợt bấm thử plan 18–21).
+- **Phạm vi:** `frontend/` (thư mục tính năng mới + vài dòng ở route, menu, trang Khách hàng), một thay đổi nhỏ ở cổng nối của `backend/`
+  (mục 2.1) và tài liệu. **Không** sửa nghiệp vụ của `competition-service`.
+
+## 0. Bối cảnh
+
+Service + cổng nối + hạ tầng đã chạy (plan 23, 24). Người dùng thật chưa dùng được vì app chính chưa có màn hình nào; cái đang bấm thử là
+**bàn thử ở scratchpad** (~2 300 dòng JS thuần, không vào repo): giao lưu, giải đấu (đăng ký, bốc thăm, vận hành ngày thi đấu, sơ đồ dạng
+hình, chốt giải), bấm điểm trực tiếp, nhập tỉ số, màn hình TV, BXH, hồ sơ, tự chấm trình. Phần (c) chuyển các màn hình đó sang React của app chính
+**qua cổng nối**, thêm các màn hình của khách mà bàn thử chưa có, và nối vào menu.
+
+## 1. Hiện trạng đã đọc
+
+- Frontend: React 18 + react-router 6 + Tailwind (`darkMode: 'class'`) + axios + recharts, không TypeScript, không thư viện UI. Route lazy-load; bàn làm việc
+  nhân viên dùng `SidebarLayout` (menu theo vai trò, thanh dưới trên điện thoại); khách dùng `CustomerLayout` (hệ Kinetic tối). `UIComponents.jsx` có
+  `Modal`, `Badge`, `StatBox`, `Pagination`, `Table`.
+- `apiClient.js`: một instance axios, gắn token + `X-Branch-Id` (admin), tự refresh khi 401; `realtimeClient.js` có sẵn các hàm thuần để mở lại SSE
+  (`nextBackoffMs`, `tokenExpiresWithin`, `isConnectionSilent`) và EventSource phải truyền token qua `?token=`.
+- `roles.js` (một chỗ khai ai vào đâu), `AuthContext`, `BranchContext`, `ThemeContext`.
+- Vitest chạy **môi trường node**, chưa có jsdom / Testing Library; test hiện có chỉ cho hàm thuần và client.
+- Cổng nối trả 503 `COMPETITION_DISABLED` khi tắt, 503 `COMPETITION_UNAVAILABLE` khi service lỗi; hai SSE `…/tournaments/:id/stream`,
+  `…/sessions/:id/stream` nhận `?token=`, nhưng **chưa nhận `branchId` trên query** (EventSource không gửi được header `X-Branch-Id` của admin).
+- Bàn thử + module `docs/ui-prototype/bracket-view.js` cho thấy toàn bộ hành vi cần có và các bài học bấm thử (plan 19–21) — là bản mẫu để chuyển, không làm lại từ đầu.
+
+## 2. Thiết kế
+
+### 2.1 Nền (slice c0)
+
+- **Backend (nhỏ, trong cổng nối của plan 23):**
+  - `GET /api/v1/competition/status` → `{ enabled, available }` (không cần đăng nhập, không gọi service; `available` theo trạng thái ngắt mạch). Frontend dùng để **ẩn menu khi
+    tính năng tắt** ("Service tắt → menu ẩn", 07 đầu trang) mà không phải bắn request lỗi.
+  - Cổng nhận `?branchId=` cho đường SSE và đổi sang `X-Branch-Id` (như `/realtime/stream`), để admin đang chọn chi nhánh xem đúng luồng. Có test.
+- **`frontend/src/features/competition/`** — toàn bộ tính năng nằm trong thư mục này, **tháo ra được**; app chính chỉ thêm: các `<Route>`, vài mục menu, một nút ở trang Khách hàng.
+  ```
+  api/            competitionApi.js (axios qua apiClient: Idempotency-Key cho POST/PUT/PATCH, If-Match / ETag, dịch lỗi sang câu tiếng Việt, mã sân → tên sân)
+  realtime/       competitionStream.js (SSE + refresh token trước mỗi lần nối, lùi 2→30 s, 60 s im lặng = chết, onReconnect → tải lại, dự phòng poll 10 s)
+  context/        CompetitionContext.jsx (status, quyền theo vai trò: ai tạo giải, ai chỉnh điểm…)
+  components/     BracketView (đã có bản mẫu), ScoreBoard, TeamNames, StatusBadge, PersonPicker (gõ tìm không dấu), ConfirmDialog, UpdateBanner ("Có cập nhật mới — Tải lại"), PhaseBar…
+  pages/          mỗi màn hình một thư mục (khách / nhân viên / TV / bấm điểm)
+  lib/            hàm thuần: định dạng, pha của giải ("việc cần làm"), luật tỉ số, hình học sơ đồ — có Vitest
+  ```
+- **Quy ước chung** (07 mục 3): điện thoại trước; ghi một lần (nút khóa khi đang gửi + `Idempotency-Key`); không tự tải lại khi đang gõ / mở hộp thoại (dải "có cập nhật mới");
+  lỗi nói bằng câu dễ hiểu (409 do máy khác vừa đổi → "Trận này vừa được gọi hoặc vừa có kết quả ở máy khác" rồi tải lại); luôn giải thích con số điểm trình.
+
+### 2.2 Các màn hình, chia theo slice (mỗi slice commit riêng, có kiểm thử thật, rồi báo cáo ngắn)
+
+| Slice | Nội dung | Route (đề xuất) |
+|---|---|---|
+| **c0 Nền** | Mục 2.1 + menu "Thi đấu" trong `SidebarLayout` (ẩn khi tắt / khi vai trò không có quyền) + mục "Trình độ" / "Xếp hạng" / "Giải của tôi" trong `CustomerLayout` | — |
+| **c1 Giải đấu (nhân viên / quản lý)** | Danh sách giải; **tạo giải** (wizard 4 bước kèm bản xem trước thể thức); **chi tiết giải**: thanh tiến trình + "việc cần làm" + nút chính, 5 tab (Sân · Đăng ký & điểm danh · Lịch & kết quả · Bảng đấu & sơ đồ · Kết quả); hộp bốc thăm, khoá sơ đồ (bấm hai ô đổi chỗ), chốt giải (xem trước điểm trình), W.O. đội vắng, thêm trận tay, đổi đồng đội, sân của giải; **sơ đồ dạng hình** (plan 21) | `/competition/tournaments`, `/new`, `/:id` |
+| **c2 Bấm điểm + TV** | Bấm điểm trực tiếp (điện thoại, cầm dọc: hai nửa, giao cầu, hoàn tác, đổi sân, "không đánh tiếp được"); nhập tỉ số nhanh (W.O. / bỏ cuộc); **màn hình TV** của giải và của buổi (chỉ đọc, chữ lớn, tự cập nhật) | `/competition/live/:matchId`, `/competition/score/:matchId`, `/competition/tournaments/:id/board`, `/competition/sessions/:id/board` |
+| **c3 Giao lưu** | Danh sách + tạo buổi (luật điểm); chi tiết buổi: điểm danh, xếp sân trống (xem trước kéo-thả, cảnh báo cặp đã chung đội), sân đang đánh, người chờ, đổi luật, đóng buổi (xem trước điểm trình trước / sau) | `/competition/sessions`, `/:id` |
+| **c4 Người chơi** | Danh sách người chơi + hồ sơ (nhân viên): chấm trình (kể cả chấm nhanh), xác nhận trình, chỉnh điểm (quản lý, bắt buộc lý do), sổ điểm; **hàng chờ duyệt** (quản lý) | `/competition/players`, `/competition/reviews` |
+| **c5 Khách hàng** | **Trình độ của tôi** (hai thẻ điểm Đơn / Đôi + biểu đồ recharts + "chi tiết từng trận"); **form tự chấm** 7 bước; hồ sơ thi đấu của tôi (quyền riêng tư…); **BXH** (công khai, hai tab, lọc); hồ sơ người khác + đối đầu; **Giải của tôi**; **bấm điểm trận của tôi** (cùng màn hình bấm điểm, nút xác nhận → "chờ nhân viên xác nhận" với trận tính điểm); nút "Trình độ" ở trang **Khách hàng** (nhân viên) | `/rankings`, `/players/:id`, `/my-rating`, `/my-rating/assess`, `/my-rating/profile`, `/my-tournaments`, `/my-matches/:id/score` |
+| **c6 Hoàn thiện** | Rà điện thoại 390 px + sáng / tối cho mọi màn hình, mất kết nối / service tắt (trạng thái rõ ràng, không trang trắng), hiệu năng (chunk riêng, không kéo recharts vào trang không dùng), tài liệu 07 + DeploymentGuide + `CLAUDE.md`, báo cáo tổng | — |
+
+Thứ tự đề xuất theo giá trị với chủ dự án: **c0 → c1 → c2 → c3 → c4 → c5 → c6** (giải đấu + bấm điểm trước vì đã bấm thử nhiều nhất).
+
+### 2.3 Phân quyền trên giao diện
+
+Theo bảng vai trò → scope của cổng (plan 23): nhân viên thấy vận hành (đăng ký, điểm danh, gọi sân, nhập tỉ số, giao lưu); **quản lý / admin** thêm tạo giải, bốc thăm, khoá sơ đồ, chốt giải,
+chỉnh điểm, duyệt; khách chỉ phần của mình. Giao diện **ẩn** nút không có quyền (khai một chỗ trong `lib/permissions.js`, có test) nhưng **service mới là chốt chặn thật** (vẫn trả 403).
+
+### 2.4 Giao diện / kiểu dáng
+
+- Màn hình nhân viên đi theo hệ Tailwind sáng / tối của `SidebarLayout`, dùng lại `Modal`, `Badge`, `Table`…; màn hình khách đi theo hệ Kinetic của `CustomerLayout`.
+- Sơ đồ dạng hình (vàng đồng / xanh lá, nền tối) là một khối độc lập trong cả hai chế độ sáng / tối; TV luôn tối, chữ lớn.
+- Tiếng Việt, ngày giờ theo múi giờ chi nhánh như phần còn lại của app.
+
+## 3. Kiểm thử sẽ làm (thật)
+
+- **Vitest (không thêm thư viện):** hàm thuần trong `lib/` (pha của giải, luật tỉ số, quyền, định dạng, mã sân → tên, dịch lỗi); hình học sơ đồ; **render phía máy chủ**
+  (`react-dom/server`) cho các thành phần chính (sơ đồ 8 / 12 / 16 / 32 đội, bảng điểm, thẻ điểm trình) — kiểm cấu trúc HTML mà không cần jsdom.
+- **Jest backend:** endpoint `status`, `?branchId=` ở SSE.
+- **Trình duyệt thật (Chrome), từng slice** trên stack thật (backend + service + DB tạm, đã có sẵn): đi đúng luồng người dùng bằng chuột / phím — **laptop và điện thoại 390 px, sáng và tối** — với từng vai trò:
+  - c1: tạo giải → mở đăng ký → đăng ký (gõ tìm không dấu) → điểm danh → bốc thăm → gọi trận ra sân → nhập tỉ số → khoá sơ đồ → hết giải → chốt (đúng các kịch bản plan 20–21);
+  - c2: bấm điểm trên điện thoại (3 game, đổi sân, hoàn tác, retire), hai máy cùng một trận (409 → "máy khác vừa bấm"), TV nhận `score` tức thì;
+  - c3: điểm danh → xếp sân → bấm điểm → đóng buổi; c4: chấm trình, chỉnh điểm; c5: khách tự chấm, xem BXH khi chưa đăng nhập, bấm điểm trận của mình, bị chặn trận người khác.
+- **Chịu lỗi:** tắt service giữa chừng (giao diện báo rõ, tự nối lại khi bật), token hết hạn khi đang giữ luồng SSE, mở hai tab, F5 giữa thao tác.
+- **Hồi quy:** toàn bộ Vitest + Jest backend + `npm run build` frontend xanh; kích thước chunk không phình các trang không liên quan; app **tắt tính năng** vẫn như cũ (menu ẩn, không request thừa).
+- Dọn sạch dữ liệu / tiến trình thử sau khi xong. Ghi kết quả từng slice vào mục 9.
+
+## 4. Cần chủ dự án quyết (mỗi câu có đề xuất)
+
+1. **Cách làm việc theo slice:** mỗi slice xong thì **commit + push + báo cáo ngắn** rồi mình làm slice kế tiếp luôn (chỉ dừng hỏi khi vướng quyết định), hay **dừng chờ bạn bấm thử và duyệt từng slice**?
+   **Đề xuất: làm liên tục, báo cáo từng slice; bạn có thể chen vào bấm thử và góp ý bất cứ lúc nào** (vì phạm vi lớn, chờ duyệt từng slice sẽ kéo dài nhiều ngày).
+2. **Thứ tự slice** như mục 2.2 (giải đấu + bấm điểm trước, khách sau) — hay muốn đưa phần khách (c5) lên trước?
+3. **Endpoint `GET /api/v1/competition/status`** và `?branchId=` cho SSE ở cổng nối (mục 2.1) — đồng ý thêm vào cổng (đề xuất: có)?
+4. **Đường dẫn / menu:** màn hình nhân viên dưới `/competition/*` với nhóm menu "Thi đấu" trong sidebar; khách có `/rankings`, `/my-rating`, `/my-tournaments`… — chấp nhận như bảng 2.2 (đề xuất: có)?
+5. **Màn hình TV** mở bằng chính phiên đăng nhập của nhân viên trên máy TV (07 đã ghi "nhân viên mở trên TV"), **không** làm đường xem công khai không cần đăng nhập — chấp nhận (đề xuất: có)?
+6. **Kiểm thử giao diện:** Vitest hàm thuần + render phía máy chủ + chạy trình duyệt thật, **không thêm thư viện** (đề xuất) — hay thêm jsdom + Testing Library vào `devDependencies` để có test component tương tác?
+7. **Bàn thử:** sau (c) chỉ còn là công cụ tạm ngoài repo, mình **không** cập nhật thêm — đồng ý (đề xuất: có)?
+
+## 5. Không làm trong (c)
+
+Đổi nghiệp vụ / hợp đồng của service; ứng dụng di động riêng; phân tích video AI (04); thông báo đẩy khi điểm trình đổi; xuất / in sơ đồ; i18n (chỉ tiếng Việt như app hiện tại);
+thêm thư viện UI / state (dùng React + context + hook như phần còn lại).
+
+## 6. Rủi ro
+
+| Rủi ro | Giảm bằng |
+|---|---|
+| Phạm vi lớn (~30 màn hình / hộp thoại; bàn thử gần 2 300 dòng + màn hình khách mới) | Chia 7 slice, mỗi slice chạy thật + commit riêng; chuyển từ bản mẫu đã bấm thử thay vì thiết kế lại |
+| Mất thao tác dở khi tự cập nhật (lỗi đã gặp ở bàn thử) | Dải "Có cập nhật mới" + `UpdateBanner` dùng chung; test hành vi trên trình duyệt thật |
+| SSE qua cổng: token 15 phút, EventSource không refresh | `competitionStream.js` refresh trước mỗi lần nối (như `realtimeClient`), service đóng luồng đúng lúc token hết hạn → nối lại |
+| Kéo recharts / sơ đồ nặng vào mọi trang | Route lazy-load theo slice; kiểm kích thước chunk sau `npm run build` |
+| Hai máy bấm một trận | `revision` + `Idempotency-Key`; 409 `LIVE_CONFLICT` → tải lại, báo "máy khác vừa bấm" (đã có bài học ở bàn thử) |
+| Tính năng tắt mà menu vẫn hiện / bắn request lỗi | `status` + `CompetitionContext`; kiểm riêng chế độ tắt |
+
+## 7. Theo dõi tiến độ
+
+- [x] Đọc frontend + bàn thử + đặc tả 07, lập plan (05/10/2026)
+- [ ] **Chủ dự án duyệt plan + trả lời 7 câu mục 4**
+- [ ] c0 Nền (status + SSE branchId ở cổng; api / stream / context / component dùng chung; menu)
+- [ ] c1 Giải đấu (danh sách, tạo, chi tiết 5 tab, bốc thăm, khoá sơ đồ, chốt, sơ đồ dạng hình)
+- [ ] c2 Bấm điểm trực tiếp + nhập tỉ số + màn hình TV (giải, buổi)
+- [ ] c3 Giao lưu
+- [ ] c4 Người chơi + hàng chờ duyệt
+- [ ] c5 Khách hàng (trình độ, tự chấm, BXH, hồ sơ, giải của tôi, bấm điểm trận của mình, nút ở trang Khách hàng)
+- [ ] c6 Hoàn thiện (điện thoại / sáng-tối / lỗi / hiệu năng / tài liệu)
+- [ ] Báo cáo (c) → **cả ba phần (a)(b)(c) xong → xin chủ dự án duyệt merge `main`** (không tự push main)
+
+## 8. Việc chủ dự án phải làm sau cùng (khi deploy thật)
+
+Giữ nguyên danh sách ở plan 24 mục 5 (database thứ hai trên Aiven, secret `COMPETITION_DB_NAME`); (c) không thêm việc nào.
+
+## 9. Kết quả
+
+_(điền theo từng slice)_
