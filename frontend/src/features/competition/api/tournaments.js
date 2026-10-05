@@ -61,8 +61,34 @@ export const liveApi = {
 };
 
 export const playersApi = {
+  /** Tìm: `search`, `flag` (unverified | needs_verification | quick), `discipline`, `status`, `page`, `limit`. */
   list: (params = { limit: 100, status: 'active' }) => api.get('/players', { params }).then(data),
-  quickAssessment: (id, body) => api.post(`/players/${id}/assessments/quick`, body).then(data)
+  get: (id) => api.get(`/players/${id}`).then(data),
+  /** Sổ điểm (để hiện "vì sao điểm đổi" / vẽ biểu đồ). */
+  history: (id, discipline, params = {}) => api.get(`/players/${id}/rating-history`, { params: { ...(discipline ? { discipline } : {}), ...params } }).then(data),
+  matches: (id, params = { limit: 10 }) => api.get(`/players/${id}/matches`, { params }).then(data),
+  partners: (id) => api.get(`/players/${id}/partners`).then(data),
+  stats: (id) => api.get(`/players/${id}/stats`).then(data),
+  /** Chấm nhanh một nhãn — chỉ cho người chưa có điểm. */
+  quickAssessment: (id, body) => api.post(`/players/${id}/assessments/quick`, body).then(data),
+  /** Nhân viên chấm đủ form (không trần 4.5). Người đã có trận tính điểm: chỉ quản lý (`rating:assess:any`), điểm không đổi. */
+  assess: (id, body) => api.post(`/players/${id}/assessments`, body).then(data),
+  verify: (id, discipline) => api.post(`/players/${id}/verify`, { discipline }).then(data),
+  /** Chỉnh điểm tay (quản lý): `{ discipline, newRating, reason }`, lý do ≥ 10 ký tự. */
+  adjust: (id, body) => api.post(`/players/${id}/rating-adjustments`, body).then(data)
+};
+
+/** Chấm trình: bộ tiêu chí (frontend không chép lại), tính thử, hàng chờ duyệt. */
+export const ratingApi = {
+  rubric: () => api.get('/rubrics/current').then(data),
+  /** Tính thử, không lưu. `source`: self | staff. */
+  preview: (body) => api.post('/assessments/preview', body).then(data),
+  /** Hàng chờ duyệt (quản lý): `status` (pending_review), `flag` (needs_verification). */
+  assessments: (params = {}) => api.get('/assessments', { params: { limit: 50, ...params } }).then(data),
+  /** `{ decision: 'approve'|'reject', answers?, note? }` — duyệt kèm sửa / điền nốt tiêu chí thì gửi `answers`. */
+  review: (id, body) => api.post(`/assessments/${id}/review`, body).then(data),
+  /** Tự chấm của khách (c5). */
+  submitSelf: (body) => api.post('/me/assessments', body).then(data)
 };
 
 export const sessionsApi = {

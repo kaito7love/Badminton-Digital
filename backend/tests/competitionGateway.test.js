@@ -136,6 +136,12 @@ describe('cổng /api/v1/competition', () => {
     expect(seen).toBeNull();
   });
 
+  test('khoảng trắng trong query sang service là %20 chứ không phải "+" (service từ chối "+" bằng 400); dấu + thật vẫn là %2B', async () => {
+    reply = { status: 200, headers: {}, body: { success: true, data: { items: [] }, message: 'OK', errors: null } };
+    await request(appWith()).get('/api/v1/competition/players?search=thanh%20nhan&q=a%2Bb&limit=25').set('x-test-user', EMPLOYEE);
+    expect(seen.url).toBe('/v1/players?search=thanh%20nhan&q=a%2Bb&limit=25');
+  });
+
   test('nhân viên: chuyển tiếp đường dẫn + query, ký ES256 với org = chi nhánh của mình, envelope / ETag giữ nguyên', async () => {
     reply = { status: 200, headers: { ETag: '"3"' }, body: { success: true, data: { items: [] }, message: 'OK', errors: null } };
     const res = await request(appWith()).get('/api/v1/competition/tournaments?status=open&page=2').set('x-test-user', EMPLOYEE).set('X-Request-Id', 'req-1');

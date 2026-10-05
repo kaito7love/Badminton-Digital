@@ -10,8 +10,8 @@ import { Card, EmptyState, Notice, PageHeader } from '../components/ui';
 const AREAS = [
   { key: 'tournaments', to: '/competition/tournaments', icon: '🏆', title: 'Giải đấu', text: 'Tạo giải, đăng ký, bốc thăm, vận hành ngày thi đấu, sơ đồ, chốt giải.', ready: true },
   { key: 'sessions', to: '/competition/sessions', icon: '🏸', title: 'Giao lưu', text: 'Buổi giao lưu: điểm danh, xếp sân trống, bấm điểm, đóng buổi.', ready: true },
-  { key: 'players', to: '/competition/players', icon: '👥', title: 'Người chơi', text: 'Điểm trình, chấm trình, sổ điểm, hồ sơ thi đấu.', ready: false },
-  { key: 'reviews', to: '/competition/reviews', icon: '📋', title: 'Hàng chờ duyệt', text: 'Bài chấm trình cần quản lý xác nhận.', ready: false, managerOnly: true }
+  { key: 'players', to: '/competition/players', icon: '👥', title: 'Người chơi', text: 'Điểm trình, chấm trình, sổ điểm, hồ sơ thi đấu.', ready: true },
+  { key: 'reviews', to: '/competition/reviews', icon: '📋', title: 'Hàng chờ duyệt', text: 'Bài chấm trình cần quản lý xác nhận.', ready: true, managerOnly: true }
 ];
 
 export default function CompetitionHome() {

@@ -47,6 +47,8 @@ const NAV_GROUPS = [
       { path: '/competition', label: 'Thi Đấu', icon: TrophyIcon, needsCompetition: true },
       { path: '/competition/tournaments', label: 'Giải Đấu', icon: TrophyIcon, needsCompetition: true, prefix: true },
       { path: '/competition/sessions', label: 'Giao Lưu', icon: ShuttlecockIcon, needsCompetition: true, prefix: true },
+      { path: '/competition/players', label: 'Người Chơi', icon: UserGroupIcon, needsCompetition: true, prefix: true },
+      { path: '/competition/reviews', label: 'Chờ Duyệt', icon: ClipboardCheckIcon, needsCompetition: true, prefix: true, roles: ['admin', 'branch_manager'] },
     ],
   },
   {

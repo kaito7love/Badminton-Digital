@@ -86,6 +86,9 @@ const createGatewayRouter = ({
       const incoming = new URL(req.originalUrl, 'http://gateway');
       incoming.searchParams.delete('token'); // token của app chính không được lọt sang service
       if (route.isStream) incoming.searchParams.delete('branchId'); // service chặn tham số lạ
+      // Sửa searchParams làm URL tự mã hoá lại khoảng trắng thành "+", mà bộ kiểm hợp đồng của service từ chối "+" (400 "must be url encoded")
+      // → ô tìm người chơi gõ có khoảng trắng bị lỗi. "+" thật luôn được mã hoá thành %2B nên đổi "+" còn lại sang %20 là an toàn.
+      const search = incoming.search.replace(/\+/g, '%20');
       const headers = {
         Authorization: `Bearer ${signServiceToken(config, principal, { stream: route.isStream })}`,
         Accept: route.isStream ? 'text/event-stream' : 'application/json',
@@ -107,7 +110,7 @@ const createGatewayRouter = ({
       let upstream;
       try {
         upstream = await client.request({
-          url: `${config.serviceUrl}/v1${req.path}${incoming.search}`,
+          url: `${config.serviceUrl}/v1${req.path}${search}`,
           method: req.method,
           headers,
           body,

@@ -11,6 +11,10 @@ const TournamentFormPage = lazy(() => import('./pages/tournaments/TournamentForm
 const TournamentDetailPage = lazy(() => import('./pages/tournaments/TournamentDetailPage'));
 const SessionsPage = lazy(() => import('./pages/sessions/SessionsPage'));
 const SessionDetailPage = lazy(() => import('./pages/sessions/SessionDetailPage'));
+const PlayersPage = lazy(() => import('./pages/players/PlayersPage'));
+const PlayerProfilePage = lazy(() => import('./pages/players/PlayerProfilePage'));
+const PlayerAssessPage = lazy(() => import('./pages/players/PlayerAssessPage'));
+const ReviewsPage = lazy(() => import('./pages/reviews/ReviewsPage'));
 const LiveScorePage = lazy(() => import('./pages/live/LiveScorePage'));
 const QuickScorePage = lazy(() => import('./pages/live/QuickScorePage'));
 const TournamentBoardPage = lazy(() => import('./pages/board/TournamentBoardPage'));
@@ -27,6 +31,10 @@ export const competitionStaffRoutes = (
     <Route path="/competition/sessions" element={<SessionsPage />} />
     <Route path="/competition/sessions/:id" element={<SessionDetailPage />} />
     <Route path="/competition/sessions/:id/board" element={<SessionBoardPage />} />
+    <Route path="/competition/players" element={<PlayersPage />} />
+    <Route path="/competition/players/:id" element={<PlayerProfilePage />} />
+    <Route path="/competition/players/:id/assess" element={<PlayerAssessPage />} />
+    <Route path="/competition/reviews" element={<ReviewsPage />} />
     <Route path="/competition/live/:matchId" element={<LiveScorePage />} />
     <Route path="/competition/score/:matchId" element={<QuickScorePage />} />
   </>

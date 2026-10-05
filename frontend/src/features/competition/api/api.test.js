@@ -17,6 +17,7 @@ describe('dựng request tới cổng', () => {
   test('đường dẫn có tiền tố /competition; GET không có Idempotency-Key', () => {
     const cfg = buildRequest('get', '/tournaments', { params: { status: 'open' } });
     expect(cfg).toMatchObject({ method: 'GET', url: '/competition/tournaments', params: { status: 'open' } });
+    expect(cfg.paramsSerializer.serialize({ search: 'thanh nhan', page: 2, skip: undefined, empty: '' })).toBe('search=thanh%20nhan&page=2');
     expect(cfg.headers['Idempotency-Key']).toBeUndefined();
   });
 

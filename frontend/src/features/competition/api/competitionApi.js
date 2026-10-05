@@ -17,6 +17,15 @@ export const quoteEtag = (etag) => {
   return s.startsWith('"') || s.startsWith('W/') ? s : `"${s}"`;
 };
 
+/**
+ * Chuỗi truy vấn: khoảng trắng thành %20 (axios mặc định dùng "+", mà bộ kiểm hợp đồng của service từ chối "+" — gõ "thanh nhan" ở ô tìm
+ * người chơi bị 400 "must be url encoded"). Bỏ tham số trống / undefined.
+ */
+export const serializeParams = (params) => Object.entries(params || {})
+  .filter(([, v]) => v !== undefined && v !== null && v !== '')
+  .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+  .join('&');
+
 /** Dựng cấu hình axios — hàm thuần để test. */
 export const buildRequest = (method, path, { params, body, etag, key } = {}) => {
   const verb = method.toUpperCase();
@@ -25,7 +34,7 @@ export const buildRequest = (method, path, { params, body, etag, key } = {}) => 
   if (WRITE.has(verb)) headers['Idempotency-Key'] = key || newKey();
   const ifMatch = quoteEtag(etag);
   if (ifMatch) headers['If-Match'] = ifMatch;
-  return { method: verb, url: `${PREFIX}${path}`, params, data: body, headers };
+  return { method: verb, url: `${PREFIX}${path}`, params, paramsSerializer: { serialize: serializeParams }, data: body, headers };
 };
 
 /**
