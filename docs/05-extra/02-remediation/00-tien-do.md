@@ -811,15 +811,16 @@ rồi mới nhả số của hồ sơ đã xoá).
   Chi tiết: `22-ke-hoach-proxy-render-va-dong-admin.md`.
 - **Tiến độ:** chủ dự án duyệt "merge vào main đi" 05/10/2026 → main fast-forward `5631d4b` → `9da0c0a`, push; Render tự build lại từ `main`.
 
-### 23. `feat/competition-integration` — bước 4 của plan 18: tích hợp app chính ↔ competition-service (phần (a) xong, chờ duyệt merge)
+### 23. `feat/competition-integration` — bước 4 của plan 18: tích hợp app chính ↔ competition-service (cả ba phần (a)(b)(c) xong, đã merge vào `main` 06/10/2026)
 
+- **Tiến độ:** chủ dự án duyệt "merge vô main đi" 06/10/2026 sau khi (a)(b)(c) xong → main fast-forward `379e634` → `f8f9204` (13 commit); chạy lại trên `main`: Jest backend 503/503, Vitest 238/238, `npm run build` xanh. Chưa push `main` (chờ chủ dự án). Việc còn lại của chủ dự án: tạo database thứ hai trên Aiven + đặt secret `COMPETITION_DB_NAME` (GitHub + Render) khi muốn bật thi đấu trên demo thật.
 - **Chia ba phần**, mỗi phần một plan để duyệt:
 
   | Phần | Nội dung | Trạng thái |
   |---|---|---|
   | (a) | Cổng nối `/api/v1/competition/*` (token ES256, vai trò → scope) + sự kiện hai chiều (outbox `bd.customer.*`, webhook nhận `competition.*`) | **Xong 05/10/2026**: Jest backend 492/492, chạy thật 33 + 36 + 9 kiểm đạt (bắt và sửa 1 lỗi múi giờ ở dispatcher). Chờ chủ dự án duyệt merge, chưa push |
   | (b) | Hạ tầng: compose, `render.yaml`, `app.Dockerfile`, `demo-reset.yml`, CI, Postman, DeploymentGuide; kiểm RAM (< 512 MB) + DB thứ hai trên Aiven | **Xong 05/10/2026** (plan 24): giả lập Render 512 MB + Aiven TLS — đỉnh RAM 153 MiB, khởi động nguội 38 s (như khi không có thi đấu), reset hai DB, compose profile, newman 40/40, Jest backend 498/498. **Còn:** chủ dự án tạo database thứ hai trên Aiven (chưa kiểm được). Chủ dự án quyết: làm xong (a)(b)(c) rồi mới merge vào `main` (nhánh đã push) |
-  | (c) | Giao diện `frontend/src/features/competition/` (tài liệu 07; sơ đồ dạng hình đã có module ở mục 21) + menu / route | **Xong 06/10/2026 (plan 25, c0–c6): giao diện thi đấu cho nhân viên / quản lý / khách, bấm thử trên Chrome thật từng slice + rà 75 lượt mở trang + tắt / bật service giữa chừng; Vitest 238/238, Jest 503/503. Nhánh `feat/competition-integration` đã push; chờ chủ dự án duyệt merge vào `main` (a)(b)(c) cùng lúc.** Chia 7 slice (c0 nền → c1 giải đấu → c2 bấm điểm + TV → c3 giao lưu → c4 người chơi → c5 khách → c6 hoàn thiện) |
+  | (c) | Giao diện `frontend/src/features/competition/` (tài liệu 07; sơ đồ dạng hình đã có module ở mục 21) + menu / route | **Xong 06/10/2026 (plan 25, c0–c6): giao diện thi đấu cho nhân viên / quản lý / khách, bấm thử trên Chrome thật từng slice + rà 75 lượt mở trang + tắt / bật service giữa chừng; Vitest 238/238, Jest 503/503. Nhánh `feat/competition-integration` đã push; chủ dự án duyệt merge (a)(b)(c) cùng lúc vào `main` 06/10/2026.** Chia 7 slice (c0 nền → c1 giải đấu → c2 bấm điểm + TV → c3 giao lưu → c4 người chơi → c5 khách → c6 hoàn thiện) |
 
 - **Căn cứ:** kiểm tra deploy 05/10/2026 — service chạy độc lập đạt (Jest 23 suite / 285 test; image Docker production
   migrate + `/health/ready` xanh) nhưng app chính chưa có cổng nối, sự kiện khách, giao diện, cấu hình hạ tầng.

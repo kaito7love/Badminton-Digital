@@ -1,14 +1,14 @@
 # Kế hoạch: bước 4(a) — cổng nối app chính ↔ competition-service + sự kiện hai chiều
 
 - **Ngày:** 05/10/2026.
-- **Trạng thái:** chủ dự án duyệt 05/10/2026 ("theo đề xuất hết, code đi" — cả 6 câu ở mục 4 theo đề xuất) → **đã làm xong, đã chạy thật, kết quả ở mục 9; chờ chủ dự án duyệt merge.** Chưa push.
+- **Trạng thái:** chủ dự án duyệt 05/10/2026 ("theo đề xuất hết, code đi" — cả 6 câu ở mục 4 theo đề xuất) → **đã làm xong, đã chạy thật, kết quả ở mục 9; đã merge vào `main` 06/10/2026 cùng (b)(c).** Chưa push `main`.
 - **Nhánh:** `feat/competition-integration`, tách từ `main` @ `379e634`.
 - **Thuộc:** bước 4 của plan 18 (`18-ke-hoach-cham-trinh-xep-cap.md`, mục "Bước 4"). Chia ba phần, mỗi phần một plan
   riêng để duyệt từng cái:
 
   | Phần | Nội dung | Trạng thái |
   |---|---|---|
-  | **(a)** | Cổng nối trong app chính + sự kiện hai chiều (plan này) | Xong 05/10/2026, chờ duyệt merge |
+  | **(a)** | Cổng nối trong app chính + sự kiện hai chiều (plan này) | Xong 05/10/2026; đã merge vào `main` 06/10/2026 cùng (b)(c) |
   | (b) | Hạ tầng: compose, `render.yaml`, `app.Dockerfile`, `demo-reset.yml`, DeploymentGuide, Postman, RAM / DB thứ hai trên Aiven | Chưa lập plan |
   | (c) | Giao diện (`frontend/src/features/competition/`, menu, route) | Chưa lập plan |
 

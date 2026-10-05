@@ -124,7 +124,7 @@ thêm thư viện UI / state (dùng React + context + hook như phần còn lạ
 - [x] c4 Người chơi + hàng chờ duyệt
 - [x] c5 Khách hàng (trình độ, tự chấm, BXH, hồ sơ, giải của tôi, bấm điểm trận của mình, nút ở trang Khách hàng)
 - [x] c6 Hoàn thiện (điện thoại / sáng-tối / lỗi / hiệu năng / tài liệu)
-- [x] Báo cáo (c) → **cả ba phần (a)(b)(c) xong → xin chủ dự án duyệt merge `main`** (không tự push main) — đã báo cáo 06/10/2026, chờ duyệt
+- [x] Báo cáo (c) → **cả ba phần (a)(b)(c) xong → xin chủ dự án duyệt merge `main`** (không tự push main) — đã báo cáo 06/10/2026; chủ dự án duyệt "merge vô main đi" cùng ngày → `main` fast-forward `379e634` → `f8f9204`
 
 ## 8. Việc chủ dự án phải làm sau cùng (khi deploy thật)
 
