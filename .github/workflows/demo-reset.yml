@@ -29,7 +29,10 @@ permissions:
 jobs:
   reset:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Đo thật 06/10/2026 (run #14): DB chính ~3 phút + DB thi đấu ~15 phút = ~19 phút. Phần lớn là độ trễ mạng runner ↔ Aiven
+    # (~0,15 s) nhân ~5.400 câu lệnh của seed thi đấu (cục bộ chỉ ~30 s). 30 phút từng chỉ dư ~11 phút: mạng chậm thêm một chút
+    # là GitHub huỷ job giữa chừng, DB nằm nửa vời tới đêm sau. 60 phút để mạng chậm gấp ba vẫn chạy xong. Plan 26.
+    timeout-minutes: 60
     env:
       NODE_ENV: production
       ALLOW_DEMO_SEED: 'true'

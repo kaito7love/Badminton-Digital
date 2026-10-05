@@ -159,6 +159,8 @@ chạy `--memory 512m --memory-swap 512m --cpus 0.5` (kịch bản chức năng,
 | `services/competition-service/scripts/demo-reset.js` | migrate 8,3 s → seed 39 người chơi, 3 giải, 2 buổi, tổng 32,2 s |
 | Chạy lần hai (đã có bảng) | xoá 21 bảng đúng, chạy lại sạch, tổng 31,0 s |
 
+> **Bổ sung 06/10/2026 (plan 26):** các số trên đo trên MySQL cùng máy (độ trễ ~0). Trên GitHub Actions → Aiven thật, seed thi đấu (~5.400 câu lệnh nối tiếp, ~0,15 s mỗi câu) mất **~15 phút**, cả job Demo reset ~19 phút; `timeout-minutes` nới 30 → 60.
+
 ### 9.2 Chạy thật — container demo (một container, hai process)
 
 | Kiểm | Kết quả |

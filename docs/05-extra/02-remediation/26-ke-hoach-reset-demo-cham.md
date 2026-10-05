@@ -1,7 +1,7 @@
 # Kế hoạch: job "Demo reset" mất ~19 phút — đo nguyên nhân, nới giới hạn thời gian, sửa tài liệu
 
 - **Ngày:** 06/10/2026.
-- **Trạng thái:** **chờ chủ dự án duyệt** (chọn phương án ở mục 3).
+- **Trạng thái:** chủ dự án duyệt phương án **A** ("code đi, làm phương án A", 06/10/2026) → **đã làm xong, kết quả ở mục 7; chờ duyệt merge vào `main`**.
 - **Nhánh:** `fix/demo-reset-slow-and-timeout`, tách từ `main` @ `4c36f19`.
 - **Phạm vi (phương án A, đề xuất):** `.github/workflows/demo-reset.yml` (một dòng), tài liệu. Không đổi code ứng dụng,
   không migration, không đổi API.
@@ -68,6 +68,18 @@ C chỉ đáng làm nếu chủ dự án hay chạy tay giữa ngày và muốn 
 - Đọc lại tài liệu sửa; không có test ứng dụng nào đụng tới (Jest backend 503 và Vitest 238 chạy lại để chắc).
 - Chạy thật: Demo reset trên GitHub sau khi merge và push — kỳ vọng ~19 phút, xanh, BXH vẫn có dữ liệu.
 
-## 6. Câu hỏi cho chủ dự án
+## 6. Quyết định của chủ dự án
 
-1. Chọn **A** (đề xuất), **A + B** hay **A + C** (C làm thành plan riêng).
+Chọn **A** (06/10/2026). B và C không làm; C vẫn là hướng nếu sau này cần reset nhanh (plan riêng).
+
+## 7. Kết quả
+
+| Kiểm | Kết quả |
+|---|---|
+| Parse `demo-reset.yml` (js-yaml) so với bản trên `main` | chỉ khác `timeout-minutes` 30 → 60; `on`, `concurrency`, `permissions`, 7 bước và mọi `if` giữ nguyên |
+| Jest backend | 503/503 |
+| Vitest frontend | 238/238 |
+| Tài liệu | `DeploymentGuide.md` 4.2 ("~30 giây" → ~15 phút trên Aiven thật, cả job ~19 phút, giới hạn 60 phút, API thi đấu 503 trong lúc chạy); plan 24 §9.1 có ghi chú số đo mới |
+| Chạy thật trên GitHub | **Chưa** — workflow chạy từ `main`, nên chạy sau khi merge + push: kỳ vọng ~19 phút, xanh, BXH vẫn có dữ liệu |
+
+Lưu ý khi chạy tay giữa ngày: trong ~15 phút API thi đấu của demo trả 503.
