@@ -43,7 +43,21 @@ export const matchesApi = {
   get: (id) => api.get(`/matches/${id}`).then(data),
   call: (id, courtRef) => api.post(`/matches/${id}/call`, { courtRef }).then(data),
   /** Ghi / sửa kết quả. `version` = `match.version` (If-Match) để hai máy không đè nhau. */
-  result: (id, body, version) => api.put(`/matches/${id}/result`, body, { etag: version }).then(data)
+  result: (id, body, version) => api.put(`/matches/${id}/result`, body, { etag: version }).then(data),
+  /** Kết thúc trận không nhập tỉ số (buổi giao lưu). */
+  end: (id) => api.post(`/matches/${id}/end`).then(data),
+  cancel: (id) => api.post(`/matches/${id}/cancel`).then(data)
+};
+
+// Bấm điểm trực tiếp (docs/02 mục 2.5, 06 mục 1.5): mọi lần đổi gửi kèm `revision` đã thấy — lệch → 409 LIVE_CONFLICT (máy khác vừa bấm).
+export const liveApi = {
+  get: (id) => api.get(`/matches/${id}/live`).then(data),
+  rally: (id, side, revision) => api.post(`/matches/${id}/live/rallies`, { side, revision }).then(data),
+  undo: (id, revision) => api.post(`/matches/${id}/live/undo`, { revision }).then(data),
+  setServer: (id, firstServer, revision) => api.put(`/matches/${id}/live/server`, { firstServer, revision }).then(data),
+  confirm: (id, revision) => api.post(`/matches/${id}/live/confirm`, { revision }).then(data),
+  /** Đội `side` không đánh tiếp được (chỉ nhân viên, trận giải). */
+  retire: (id, side, revision) => api.post(`/matches/${id}/live/retire`, { side, revision }).then(data)
 };
 
 export const playersApi = {
@@ -53,6 +67,9 @@ export const playersApi = {
 
 export const sessionsApi = {
   list: (params = { limit: 50 }) => api.get('/sessions', { params }).then(data),
+  get: (id) => api.get(`/sessions/${id}`).then(data),
+  /** Dữ liệu màn hình lớn (TV): sân, hàng chờ, sắp vào sân, kết quả gần nhất. */
+  board: (id) => api.get(`/sessions/${id}/board`).then(data),
   players: (id) => api.get(`/sessions/${id}/players`).then(data)
 };
 

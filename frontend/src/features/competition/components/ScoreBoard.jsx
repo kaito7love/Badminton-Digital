@@ -36,7 +36,7 @@ export default function ScoreBoard({ match, live, variant = 'card', label = '' }
           {row.games.map((g, k) => (
             <span key={k} className={`${size.game} text-center font-bold tabular-nums ${g.won ? '' : 'opacity-40'}`}>{g.points}</span>
           ))}
-          <span className="w-5 text-center" aria-label={row.serving ? 'đang giao' : undefined}>{row.serving ? '🏸' : ''}</span>
+          <span className={`${tv ? 'w-10 text-3xl' : 'w-5'} text-center`} aria-label={row.serving ? 'đang giao' : undefined}>{row.serving ? '🏸' : ''}</span>
           <span className={`${size.cur} rounded-xl border-2 text-center font-black tabular-nums leading-none ${tv ? 'border-white/20 px-2 py-2' : 'border-slate-300 px-1 py-1 dark:border-slate-700'}`}>{row.current}</span>
         </div>
       ))}

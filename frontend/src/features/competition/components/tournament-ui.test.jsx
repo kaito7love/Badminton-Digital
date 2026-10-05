@@ -6,6 +6,7 @@ import BracketView from './BracketView';
 import { buildOptions } from '../pages/tournaments/TabRegistration';
 import { FILTERS, defaultFilter, sortMatches } from '../pages/tournaments/TabSchedule';
 import { computeCourtUsage } from '../hooks/useCourtUsage';
+import { TvCourt } from './TvShell';
 
 describe('PersonPicker.filterPeople', () => {
   const people = [
@@ -97,5 +98,30 @@ describe('BracketView (render phía server)', () => {
   });
   test('không có trận thì không vẽ gì', () => {
     expect(renderToStaticMarkup(<BracketView rounds={[]} />)).toBe('');
+  });
+});
+
+describe('TvCourt (màn hình lớn, render phía server)', () => {
+  const team = (...n) => ({ players: n.map((x) => ({ id: x, name: x })) });
+  const match = { id: 'm', scoring: { bestOf: 3, points: 21 }, calledAt: '2026-10-05T10:00:00Z', stage: 'group', groupNo: 1, slotNo: 2, teamA: team('An'), teamB: team('Bình') };
+  const live = { matchId: 'm', revision: 4, games: [[21, 18]], current: [3, 5], gameNo: 2, gamesWon: [1, 0], server: 'B', serveFrom: 'left', endsSwapped: true, decided: false, winnerSide: null };
+  test('sân trống ghi rõ chờ gọi trận', () => {
+    const html = renderToStaticMarkup(<TvCourt courtRef="bd:court:2" match={null} skew={0} />);
+    expect(html).toContain('Trống');
+    expect(html).toContain('chờ gọi trận kế tiếp');
+  });
+  test('sân đang đánh: nhãn trận, "3 game", bảng điểm với số điểm hai đội', () => {
+    const html = renderToStaticMarkup(<TvCourt courtRef="bd:court:1" match={match} live={live} skew={0} />);
+    expect(html).toContain('Đang đánh');
+    expect(html).toContain('3 game');
+    expect(html).toContain('Bảng 1 · lượt 2');
+    expect(html).toContain('data-testid="scoreboard"');
+    expect(html).toContain('An');
+    expect(html).toContain('Bình');
+  });
+  test('chưa ai bấm điểm: hiện tên hai đội, không bảng điểm', () => {
+    const html = renderToStaticMarkup(<TvCourt courtRef="bd:court:1" match={match} live={null} skew={0} />);
+    expect(html).not.toContain('scoreboard');
+    expect(html).toContain('vs');
   });
 });

@@ -9,6 +9,10 @@ const CompetitionHome = lazy(() => import('./pages/CompetitionHome'));
 const TournamentsPage = lazy(() => import('./pages/tournaments/TournamentsPage'));
 const TournamentFormPage = lazy(() => import('./pages/tournaments/TournamentFormPage'));
 const TournamentDetailPage = lazy(() => import('./pages/tournaments/TournamentDetailPage'));
+const LiveScorePage = lazy(() => import('./pages/live/LiveScorePage'));
+const QuickScorePage = lazy(() => import('./pages/live/QuickScorePage'));
+const TournamentBoardPage = lazy(() => import('./pages/board/TournamentBoardPage'));
+const SessionBoardPage = lazy(() => import('./pages/board/SessionBoardPage'));
 
 /** Nằm trong khối STAFF_ROLES của AppRoutes (cùng SidebarLayout). */
 export const competitionStaffRoutes = (
@@ -17,5 +21,9 @@ export const competitionStaffRoutes = (
     <Route path="/competition/tournaments" element={<TournamentsPage />} />
     <Route path="/competition/tournaments/new" element={<TournamentFormPage />} />
     <Route path="/competition/tournaments/:id" element={<TournamentDetailPage />} />
+    <Route path="/competition/tournaments/:id/board" element={<TournamentBoardPage />} />
+    <Route path="/competition/sessions/:id/board" element={<SessionBoardPage />} />
+    <Route path="/competition/live/:matchId" element={<LiveScorePage />} />
+    <Route path="/competition/score/:matchId" element={<QuickScorePage />} />
   </>
 );
