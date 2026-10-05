@@ -34,6 +34,7 @@ Mặc định **chỉ chạy request đọc** để không làm bẩn CSDL. Ba c
 | `runDestructive` | `false` | Request tác động lên dữ liệu có sẵn: checkout, void hoá đơn, điều chỉnh kho, đổi cấu hình, xoá bản ghi seed, `logout` |
 | `runStream` | `false` | `GET /realtime/stream` — SSE, kết nối mở vô hạn nên **newman sẽ treo** |
 | `runManual` | `false` | `POST /auth/reset-password` — cần token thật lấy từ email, không tự động hoá được |
+| `runCompetition` | `false` | Nhóm `24 · Competition` — cổng `/api/v1/competition/*` tới competition-service (cần backend đã đặt `COMPETITION_*` và service đang chạy; kết hợp `runWrites` để chạy cặp tạo + huỷ giải) |
 
 ```bash
 # Kèm nhóm ghi tự dọn

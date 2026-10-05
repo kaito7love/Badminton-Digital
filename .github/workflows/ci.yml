@@ -51,6 +51,37 @@ jobs:
       - run: npm run check-boundaries
       - run: npm test
 
+  # Build hai image + kiểm compose ngay trong PR (plan 24): bắt lỗi Dockerfile / .dockerignore / compose (vd quên cho
+  # services/ vào image Render) thay vì lúc deploy.
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Image bản demo Render (backend + frontend + competition-service)
+        run: docker build -f docker/app.Dockerfile -t bd-app-demo .
+      - name: Image competition-service
+        run: docker build -t competition-service services/competition-service
+      - name: Image app chứa đủ competition-service và không lọt file bí mật
+        run: |
+          docker run --rm --entrypoint sh bd-app-demo -c '
+            test -f competition-service/src/main.js &&
+            test -f competition-service/openapi/competition-service.v1.yaml &&
+            test -f competition-service/node_modules/jose/package.json &&
+            test -f scripts/competition-boot.js &&
+            test -x demo-entrypoint.sh &&
+            ! test -e competition-service/.env &&
+            ! test -e competition-service/.keys &&
+            ! test -e competition-service/tests'
+      - name: Cấu hình compose hợp lệ (có và không profile competition)
+        working-directory: docker
+        env:
+          DB_PASSWORD: ci-only
+          DB_ROOT_PASSWORD: ci-only
+        run: |
+          touch ../backend/.env
+          docker compose config -q
+          docker compose --profile competition config -q
+
   frontend-build:
     runs-on: ubuntu-latest
     defaults:

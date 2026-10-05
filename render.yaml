@@ -39,6 +39,16 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      # Thi đấu (competition-service, chạy cạnh backend trong cùng container — plan 24). Chỉ bật khi COMPETITION_DB_NAME
+      # có giá trị: tên database THỨ HAI trong cùng service Aiven (tạo tay một lần, xem docs/DeploymentGuide.md 4.1).
+      # Để trống = tắt hẳn, image chạy y như trước. Khoá ES256 do container tự sinh mỗi lần khởi động; hai secret HMAC
+      # dưới đây Render tự sinh và chỉ dùng bên trong container.
+      - key: COMPETITION_DB_NAME
+        sync: false
+      - key: COMPETITION_EVENT_SECRET
+        generateValue: true
+      - key: COMPETITION_WEBHOOK_SECRET
+        generateValue: true
       # Thông số Aiven — Render hỏi lúc tạo Blueprint.
       - key: DB_HOST
         sync: false

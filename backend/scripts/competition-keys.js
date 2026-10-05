@@ -29,13 +29,14 @@ const parseArgs = (argv) => {
 };
 
 /** Hàm thuần (test được): trả về nội dung file env và khoá công khai. */
-const generateKeyset = ({ now = new Date(), serviceUrl = 'http://127.0.0.1:5100', backendUrl = 'http://127.0.0.1:5000', kid, issuer = 'badminton-digital-core', tenant = 'badminton-digital' } = {}) => {
+const generateKeyset = ({ now = new Date(), serviceUrl = 'http://127.0.0.1:5100', backendUrl = 'http://127.0.0.1:5000', kid, issuer = 'badminton-digital-core', tenant = 'badminton-digital', eventSecret: givenEventSecret, webhookSecret: givenWebhookSecret } = {}) => {
   const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
   const keyId = kid || `core-${now.toISOString().slice(0, 7)}`;
   const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).trim().replace(/\n/g, '\\n');
   const jwk = { ...publicKey.export({ format: 'jwk' }), kid: keyId, alg: 'ES256', use: 'sig' };
-  const eventSecret = crypto.randomBytes(48).toString('hex');
-  const webhookSecret = crypto.randomBytes(48).toString('hex');
+  // Bản demo một container (backend/scripts/competition-boot.js) đưa vào hai secret Render đã sinh sẵn.
+  const eventSecret = givenEventSecret || crypto.randomBytes(48).toString('hex');
+  const webhookSecret = givenWebhookSecret || crypto.randomBytes(48).toString('hex');
 
   const trustedIssuers = JSON.stringify([{ issuer, jwks: { keys: [jwk] } }]);
   const inbound = JSON.stringify([{ source: issuer, secret: eventSecret, tenant }]);
@@ -61,7 +62,18 @@ const generateKeyset = ({ now = new Date(), serviceUrl = 'http://127.0.0.1:5100'
     ''
   ].join('\n');
 
-  return { env, keyId, publicJwks: { keys: [jwk] } };
+  // Biến môi trường dạng đối tượng, đúng các khoá trong `env`: khối 1 cho backend, khối 2 cho service.
+  const vars = {
+    backend: {
+      COMPETITION_SERVICE_URL: serviceUrl,
+      COMPETITION_KEY_ID: keyId,
+      COMPETITION_SIGNING_KEY: privateKey.export({ type: 'pkcs8', format: 'pem' }).trim(),
+      COMPETITION_EVENT_SECRET: eventSecret,
+      COMPETITION_WEBHOOK_SECRET: webhookSecret
+    },
+    service: { TRUSTED_ISSUERS: trustedIssuers, INBOUND_SOURCES: inbound, WEBHOOK_TARGETS: targets }
+  };
+  return { env, keyId, publicJwks: { keys: [jwk] }, vars };
 };
 
 const main = () => {

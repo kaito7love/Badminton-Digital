@@ -234,6 +234,14 @@
       "key": "runManual",
       "value": "false",
       "type": "string"
+    },
+    {
+      "key": "runCompetition",
+      "value": "false"
+    },
+    {
+      "key": "competitionTournamentId",
+      "value": ""
     }
   ],
   "item": [
@@ -6530,6 +6538,741 @@
               }
             }
           ]
+        }
+      ]
+    },
+    {
+      "name": "24 · Competition (cổng nối tới competition-service)",
+      "description": "Cổng `/api/v1/competition/*` (plan 23): app chính xác thực, ký token ES256 theo vai trò rồi chuyển tiếp sang competition-service. Chỉ chạy khi `runCompetition=true` (backend đã cấu hình `COMPETITION_*` và service đang chạy). Chi tiết từng endpoint thi đấu: `services/competition-service/openapi/competition-service.v1.yaml`. Nhóm này không nằm trong OpenAPI sinh tự động của app chính (docs:build bỏ qua).",
+      "item": [
+        {
+          "name": "BXH trình độ (công khai, không cần đăng nhập)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/competition/leaderboards/rating?category=MS",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "leaderboards",
+                "rating"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "MS"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Cổng thi đấu chỉ có khi backend đã cấu hình COMPETITION_* và service đang chạy (xem postman/README.md).",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> envelope', function () { const b = pm.response.json(); pm.expect(b).to.have.property('success'); pm.expect(b).to.have.property('data'); });",
+                  "pm.test(pm.info.requestName + ' -> đúng hạng mục', function () { pm.expect(pm.response.json().data.category).to.eql('MS'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "BXH thành tích (công khai)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/competition/leaderboards/points?category=MS",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "leaderboards",
+                "points"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "MS"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Cổng thi đấu chỉ có khi backend đã cấu hình COMPETITION_* và service đang chạy (xem postman/README.md).",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> envelope', function () { const b = pm.response.json(); pm.expect(b).to.have.property('success'); pm.expect(b).to.have.property('data'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Chưa đăng nhập xem giải → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/competition/tournaments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "tournaments"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Cổng thi đấu chỉ có khi backend đã cấu hình COMPETITION_* và service đang chạy (xem postman/README.md).",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Danh sách giải (admin, theo chi nhánh)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Branch-Id",
+                "value": "{{branchId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/competition/tournaments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "tournaments"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Cổng thi đấu chỉ có khi backend đã cấu hình COMPETITION_* và service đang chạy (xem postman/README.md).",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> envelope', function () { const b = pm.response.json(); pm.expect(b).to.have.property('success'); pm.expect(b).to.have.property('data'); });",
+                  "pm.test(pm.info.requestName + ' -> items là mảng', function () { pm.expect(pm.response.json().data.items).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đường nội bộ /events không lọt qua cổng → 404",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/competition/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "events"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"x\",\n  \"type\": \"bd.customer.deleted\",\n  \"data\": {}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Cổng thi đấu chỉ có khi backend đã cấu hình COMPETITION_* và service đang chạy (xem postman/README.md).",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đường vận hành /ops/outbox không lọt qua cổng → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/competition/ops/outbox",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "ops",
+                "outbox"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Cổng thi đấu chỉ có khi backend đã cấu hình COMPETITION_* và service đang chạy (xem postman/README.md).",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đường của dịch vụ phân tích video …/assessments/ai → 404",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/competition/players/00000000-0000-0000-0000-000000000000/assessments/ai",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "players",
+                "00000000-0000-0000-0000-000000000000",
+                "assessments",
+                "ai"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Cổng thi đấu chỉ có khi backend đã cấu hình COMPETITION_* và service đang chạy (xem postman/README.md).",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Khách xem danh sách giải vận hành → 403",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/competition/tournaments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "tournaments"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Cổng thi đấu chỉ có khi backend đã cấu hình COMPETITION_* và service đang chạy (xem postman/README.md).",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Khách tạo giải → 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/competition/tournaments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "tournaments"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"organizerRef\": \"bd:branch:{{branchId}}\",\n  \"name\": \"Khách tạo giải\",\n  \"startsOn\": \"{{tomorrow}}\",\n  \"tier\": \"club\",\n  \"discipline\": \"singles\",\n  \"genderRule\": \"open\",\n  \"format\": \"knockout\",\n  \"scoring\": \"1x21\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Cổng thi đấu chỉ có khi backend đã cấu hình COMPETITION_* và service đang chạy (xem postman/README.md).",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hồ sơ thi đấu của khách đang đăng nhập",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/competition/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Cổng thi đấu chỉ có khi backend đã cấu hình COMPETITION_* và service đang chạy (xem postman/README.md).",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200 hoặc 404 (chưa có hồ sơ)', function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "pm.test(pm.info.requestName + ' -> envelope', function () { const b = pm.response.json(); pm.expect(b).to.have.property('success'); pm.expect(b).to.have.property('data'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tạo giải (nháp) — tự dọn ở request kế tiếp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Branch-Id",
+                "value": "{{branchId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/competition/tournaments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "tournaments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"organizerRef\": \"bd:branch:{{branchId}}\",\n  \"name\": \"QA Postman — giải thử (tự huỷ)\",\n  \"startsOn\": \"{{tomorrow}}\",\n  \"tier\": \"club\",\n  \"discipline\": \"singles\",\n  \"genderRule\": \"open\",\n  \"pairingMode\": \"fixed\",\n  \"format\": \"knockout\",\n  \"scoring\": \"1x21\",\n  \"matchMinutes\": 20\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request ghi: chỉ chạy khi runWrites=true; giải tạo ra được huỷ ngay ở request sau.",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "} else if (String(pm.variables.get('runWrites')) !== 'true') {",
+                  "  console.log('SKIP (runWrites=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 201', function () { pm.response.to.have.status(201); });",
+                  "const b = pm.response.json(); pm.collectionVariables.set('competitionTournamentId', b.data.id);",
+                  "pm.test(pm.info.requestName + ' -> có id', function () { pm.expect(pm.response.json().data.id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Huỷ giải vừa tạo (dọn)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Branch-Id",
+                "value": "{{branchId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/competition/tournaments/{{competitionTournamentId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "tournaments",
+                "{{competitionTournamentId}}",
+                "cancel"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"QA Postman dọn dữ liệu\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Dọn giải do request trước tạo.",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "} else if (String(pm.variables.get('runWrites')) !== 'true') {",
+                  "  console.log('SKIP (runWrites=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mở luồng SSE của giải (qua cổng)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/competition/tournaments/{{competitionTournamentId}}/stream?token={{accessToken}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "competition",
+                "tournaments",
+                "{{competitionTournamentId}}",
+                "stream"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// SSE mở vô hạn — newman sẽ treo, chỉ chạy tay khi runStream=true.",
+                  "if (String(pm.variables.get('runCompetition')) !== 'true') {",
+                  "  console.log('SKIP (runCompetition=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "} else if (String(pm.variables.get('runStream')) !== 'true') {",
+                  "  console.log('SKIP (runStream=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Đăng nhập vai trò customer một lần cho cả nhóm (3 request dùng token khách).",
+              "// Chỉ khi runCompetition bật (tắt thì cả nhóm bị bỏ qua, đăng nhập là đốt vô ích một lượt rate limit 10 lần / 15 phút / IP)",
+              "// và chỉ khi chưa có token (script này chạy trước TỪNG request trong nhóm).",
+              "if (String(pm.variables.get('runCompetition')) === 'true' && !pm.collectionVariables.get('customerAccessToken')) {",
+              "  pm.sendRequest({",
+              "    url: pm.variables.get('baseUrl') + '/auth/login',",
+              "    method: 'POST', header: { 'Content-Type': 'application/json' },",
+              "    body: { mode: 'raw', raw: JSON.stringify({",
+              "      identifier: pm.variables.get('customerPhone') || '0903333333',",
+              "      password: pm.variables.get('customerPassword') || 'Customer@123'",
+              "    }) }",
+              "  }, function (err, res) {",
+              "    if (!err && res.code === 200) {",
+              "      pm.collectionVariables.set('customerAccessToken', res.json().data.accessToken);",
+              "    } else {",
+              "      console.log('Không đăng nhập được vai trò customer: ' + (err ? err.message : res.text()));",
+              "    }",
+              "  });",
+              "}"
+            ]
+          }
         }
       ]
     }

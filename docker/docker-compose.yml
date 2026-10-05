@@ -12,6 +12,8 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Đặt DB_ROOT_PASSWORD trong docker/.env}
     volumes:
       - mysql_data:/var/lib/mysql
+      # Tạo thêm database `competition_service` lần đầu khởi tạo volume (plan 24).
+      - ./mysql-init:/docker-entrypoint-initdb.d:ro
     ports:
       # Chỉ bind 127.0.0.1 — xem DB từ máy host (Workbench/DBeaver) được, nhưng
       # không mở ra mạng ngoài. Mặc định 3307 để không đụng MySQL cài sẵn ở 3306.
@@ -64,6 +66,34 @@ services:
       retries: 6
       # Lần đầu (DB trống) entrypoint chạy đủ migration trước khi server nghe cổng.
       start_period: 600s
+
+  # competition-service (thi đấu) — mặc định KHÔNG chạy; bật bằng `docker compose --profile competition up --build`
+  # sau khi đã chạy `npm run competition:keys -- --service-url http://competition:5100 --backend-url http://backend:5000`
+  # trong backend/ và chép hai khối của file sinh ra vào backend/.env và services/competition-service/.env
+  # (docs/DeploymentGuide.md mục 5). Không publish cổng: chỉ backend gọi vào qua mạng nội bộ compose.
+  competition:
+    profiles: ["competition"]
+    build:
+      context: ../services/competition-service
+    restart: unless-stopped
+    env_file:
+      - path: ../services/competition-service/.env
+        required: false
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 5100
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: competition_service
+      DB_USER: bp_user
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SSL: "false"
+      # .env của service viết cho `npm run dev` có TRUSTED_ISSUERS_FILE trỏ file khoá dev — trong container không có.
+      TRUSTED_ISSUERS_FILE: ""
+    depends_on:
+      mysql:
+        condition: service_healthy
 
   frontend:
     build:

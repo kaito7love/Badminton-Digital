@@ -6,6 +6,10 @@
 # DB_NAME, DB_USER, DB_PASSWORD, DB_SSL_CA, DEMO_ADMIN_PASSWORD. Thiếu thì job
 # bỏ qua (fork, repo chưa deploy).
 #
+# Thi đấu (plan 24): thêm secret COMPETITION_DB_NAME (database THỨ HAI trong cùng service Aiven, dùng chung host / user /
+# mật khẩu / CA với DB chính) thì job reset cả DB đó SAU DB chính (hồ sơ thi đấu trỏ bd:customer:<id>). Không có secret này
+# thì bỏ qua bước đó. Bước hai lỗi → job đỏ, không để hai DB lệch nhau trong im lặng.
+#
 # GitHub tự tắt workflow theo lịch nếu repo công khai không có commit nào trong
 # 60 ngày — khi đó bật lại ở tab Actions.
 name: Demo reset
@@ -39,6 +43,7 @@ jobs:
       DEMO_ADMIN_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD }}
       # Xác nhận tên DB sẽ bị xoá sạch — scripts/demo-reset.js từ chối nếu lệch.
       DEMO_RESET_CONFIRM: ${{ secrets.DB_NAME }}
+      COMPETITION_DB_NAME: ${{ secrets.COMPETITION_DB_NAME }}
     steps:
       - name: Kiểm tra đã cấu hình secrets
         id: config
@@ -49,6 +54,12 @@ jobs:
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
+          if [ -n "$COMPETITION_DB_NAME" ]; then
+            echo "competition=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "competition=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Chưa có secret COMPETITION_DB_NAME — không reset DB thi đấu."
+          fi
 
       - uses: actions/checkout@v4
         if: steps.config.outputs.configured == 'true'
@@ -58,7 +69,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            services/competition-service/package-lock.json
 
       - name: Cài dependency backend
         if: steps.config.outputs.configured == 'true'
@@ -68,4 +81,20 @@ jobs:
       - name: Xoá bảng → migrate → seed
         if: steps.config.outputs.configured == 'true'
         working-directory: backend
+        run: node scripts/demo-reset.js
+
+      - name: Cài dependency competition-service
+        if: steps.config.outputs.configured == 'true' && steps.config.outputs.competition == 'true'
+        working-directory: services/competition-service
+        run: npm ci --omit=dev
+
+      # Sau DB chính: hồ sơ thi đấu (bd:customer:1, 2…) khớp khách vừa seed. NODE_ENV=development vì ở production
+      # loadConfig của service đòi TRUSTED_ISSUERS (cấu hình để CHẠY service; reset chỉ cần nối DB).
+      - name: Thi đấu — xoá bảng → migrate → seed
+        if: steps.config.outputs.configured == 'true' && steps.config.outputs.competition == 'true'
+        working-directory: services/competition-service
+        env:
+          NODE_ENV: development
+          DB_NAME: ${{ secrets.COMPETITION_DB_NAME }}
+          DEMO_RESET_CONFIRM: ${{ secrets.COMPETITION_DB_NAME }}
         run: node scripts/demo-reset.js

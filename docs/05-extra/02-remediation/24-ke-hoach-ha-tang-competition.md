@@ -1,7 +1,7 @@
 # Kế hoạch: bước 4(b) — hạ tầng cho competition-service (compose, Render + Aiven, reset demo, CI, Postman, tài liệu)
 
 - **Ngày:** 05/10/2026.
-- **Trạng thái:** **CHỜ CHỦ DỰ ÁN DUYỆT — chưa viết dòng code / cấu hình nào.** Cần chốt 6 câu ở mục 4.
+- **Trạng thái:** chủ dự án duyệt 05/10/2026 ("theo đề xuất hết, code đi" — cả 6 câu ở mục 4 theo đề xuất; câu 1 chưa kiểm được vì cần tài khoản Aiven) → **đã làm xong, đã chạy thật, kết quả ở mục 9.** Nhánh đã push, chưa merge `main` (chờ xong (c)).
 - **Nhánh:** `feat/competition-integration` (tiếp tục nhánh của plan 23; **chưa merge vào `main` cho tới khi (a), (b), (c) xong hết** —
   chủ dự án quyết 05/10/2026). Render deploy từ `main` nên bản demo đang chạy **không bị đổi** cho tới lúc merge.
 - **Thuộc:** bước 4 của plan 18; (a) = plan 23 (xong, đã push), **(b) = plan này**, (c) giao diện (chưa lập plan).
@@ -96,7 +96,7 @@ app chính nói chuyện với service, nhưng chưa nơi nào chạy service: i
 - **Postman:** newman chạy folder mới trên stack thật; toàn bộ test cũ vẫn xanh. `npm test` backend, `check-boundaries` service vẫn xanh.
 - Dọn sạch container, volume, DB tạm sau khi xong.
 
-## 4. Cần chủ dự án quyết (mỗi câu có đề xuất)
+## 4. Câu hỏi đã chốt (05/10/2026: chủ dự án chọn đúng đề xuất ở cả 6 câu)
 
 1. **Aiven free có cho tạo database thứ hai trong cùng service không?** Mình **không có thông tin đăng nhập Aiven** nên không tự kiểm được. Cần bạn
    vào console → service MySQL → tab *Databases* → *Create database* `competition_service` (hoặc `CREATE DATABASE` bằng tài khoản `avnadmin`). Nếu Aiven không
@@ -135,16 +135,92 @@ chuyển service sang web service Render riêng (chỉ làm nếu đo RAM vượ
 ## 8. Theo dõi tiến độ
 
 - [x] Đọc hạ tầng hiện có, viết plan (05/10/2026)
-- [ ] **Chủ dự án duyệt plan + trả lời 6 câu mục 4 (và thử tạo database thứ hai trên Aiven nếu muốn demo có thi đấu)**
-- [ ] 2.1 Image + entrypoint + `competition-boot.js` + `render.yaml` + `.dockerignore`
-- [ ] 2.2 Reset demo hai DB (script + workflow)
-- [ ] 2.3 Compose (mysql-init, service `competition`, nginx)
-- [ ] 2.4 CI `docker-build`
-- [ ] 2.5 Postman + `docs:build`
-- [ ] 2.6 Tài liệu (DeploymentGuide, CLAUDE.md, tiến độ)
-- [ ] Chạy thật toàn bộ mục 3, ghi kết quả vào mục 9
-- [ ] Báo cáo (b) → tiếp (c) → khi (a)(b)(c) xong mới xin merge vào `main`
+- [x] Chủ dự án duyệt plan + trả lời 6 câu mục 4 (05/10/2026, theo đề xuất). **Còn lại cho chủ dự án: tạo database thứ hai trên Aiven (mục 5)**
+- [x] 2.1 Image + entrypoint + `competition-boot.js` (đặt ở `backend/scripts/`) + `render.yaml` + `.dockerignore`
+- [x] 2.2 Reset demo hai DB (script + workflow)
+- [x] 2.3 Compose (mysql-init, service `competition`, nginx)
+- [x] 2.4 CI `docker-build`
+- [x] 2.5 Postman + `docs:build`
+- [x] 2.6 Tài liệu (DeploymentGuide, CLAUDE.md, tiến độ)
+- [x] Chạy thật toàn bộ mục 3, ghi kết quả vào mục 9 (có 3 điểm cần sửa, đã sửa)
+- [ ] Báo cáo (b) → lập plan (c) → khi (a)(b)(c) xong mới xin merge vào `main`
 
 ## 9. Kết quả
 
-_(điền sau khi làm)_
+Môi trường: Docker trên máy này. **Giả lập Aiven:** MySQL 8 container bật TLS, `require_secure_transport=ON`, chứng chỉ do CA
+tự dựng có SAN, CA dán dạng **base64**, hai database (`bd_demo`, `cs_demo`). **Giả lập Render:** image `docker/app.Dockerfile`
+chạy `--memory 512m --memory-swap 512m --cpus 0.5` (kịch bản chức năng, tải) và `--cpus 0.1` (đo khởi động nguội).
+
+### 9.1 Chạy thật — reset hai DB bằng chính script (production, TLS bắt buộc)
+
+| Việc | Kết quả |
+|---|---|
+| `backend/scripts/demo-reset.js` (NODE_ENV=production, base64 CA) | xoá 0 bảng (DB trống) → migrate 29,7 s → seed, tổng 34,9 s |
+| `services/competition-service/scripts/demo-reset.js` | migrate 8,3 s → seed 39 người chơi, 3 giải, 2 buổi, tổng 32,2 s |
+| Chạy lần hai (đã có bảng) | xoá 21 bảng đúng, chạy lại sạch, tổng 31,0 s |
+
+### 9.2 Chạy thật — container demo (một container, hai process)
+
+| Kiểm | Kết quả |
+|---|---|
+| Log khởi động | `wait-for-db` → migration → `competition-service chuẩn bị chạy nền` → `Khởi động server` → `Tích hợp competition-service đã bật` → `competition-service: migration xong, khởi động` |
+| Cổng thi đấu trong container | BXH công khai 200 có dữ liệu demo; nhân viên thấy giải demo; khách xem giải vận hành 403; `/ops/outbox` 404 |
+| Đổi tên khách (backend → service qua 127.0.0.1, cùng TLS) | hồ sơ thi đấu đổi theo |
+| Huỷ giải → ActivityLog `competition.tournament_cancelled` (service → backend qua webhook nội bộ, secret do Render sinh) | có |
+| `kill` process service | cổng trả 503 ngay, `/health` và đặt sân / danh sách sân vẫn 200; service tự dựng lại (PID mới), cổng chạy lại |
+| Không đặt `COMPETITION_DB_NAME` | chỉ 1 process node; cổng trả 503 `COMPETITION_DISABLED`; log "tắt tích hợp thi đấu" |
+| Image | 482 MB; trong image có đủ service, **không có** `.env`, `.keys`, `tests`, file `.pem` nào |
+
+**RAM** (`--memory 512m`, 20 luồng SSE + 200 request đồng thời qua cổng = 200 × 200, 0 × 429, 0 lỗi 5xx):
+
+| Thời điểm | docker stats | RSS backend | RSS service |
+|---|---|---|---|
+| Sau khởi động + vài request | 108–114 MiB | 117 MB | 101 MB |
+| Ngay sau tải | **153 MiB (đỉnh)** | 139 MB | 116 MB |
+| 8 giây sau | 128 MiB | 116 MB | 116 MB |
+
+Đỉnh tổng RSS ~255 MB, đỉnh docker stats 153 MiB — thấp hơn nhiều mục tiêu < 450 MB; `OOMKilled=false`, 0 lần restart.
+
+**Khởi động nguội ở 0,1 CPU** (giống Render free):
+
+| Cấu hình | `/health` xanh | Cổng thi đấu 200 |
+|---|---|---|
+| Không bật thi đấu | 37 s | — |
+| Bật, bản đầu (migrate DB thứ hai **trước** backend) | 73 s | 121 s |
+| Bật, service chạy song song với backend | 62 s | 111 s |
+| **Bật, service đợi backend lên rồi mới migrate (bản chốt)** | **38 s** | **91 s** |
+
+### 9.3 Chạy thật — docker compose
+
+- `docker compose --profile competition up -d --build`: mysql / backend / competition healthy; script init tạo `competition_service` (21 bảng) và
+  `badminton_digital_management` riêng; `env_file` của compose đọc đúng các biến JSON của service.
+- Qua nginx :8080: đăng nhập, danh sách / tạo giải, SSE (snapshot tới sau **69 ms**, không đệm), đổi tên khách → hồ sơ thi đấu đổi theo giữa hai
+  container, huỷ giải → ActivityLog, `/ops/outbox` 404 — **7/7**; log service không có cảnh báo / lỗi.
+- `docker compose up` **không** profile, `backend/.env` thường: chạy như cũ, `/api/v1/competition/*` trả 503 `COMPETITION_DISABLED`.
+- `.env` của chủ dự án đã chép bản sao trước khi thử và đã khôi phục (so sánh `cmp`: giống hệt); `docker/.env` tạm đã xoá; mọi container / volume của compose đã gỡ.
+
+### 9.4 Postman, OpenAPI, test
+
+- Nhóm `24 · Competition (cổng nối)` — 14 request (3 ghi / SSE tách cờ): newman với `runCompetition=true runWrites=true` trên stack thật **16 request, 40 assertion, 0 lỗi**
+  (tạo giải → huỷ giải dọn sạch); chạy mặc định (cờ tắt): cả collection **47 request, 141 assertion, 0 lỗi**.
+- `npm run docs:build`: vẫn khớp 1-1 114 route (script bỏ qua nhóm 24 vì cổng không có route khai báo trong `src/routes/`; thêm đoạn "Thi đấu" vào mô tả spec).
+- Jest backend **498 / 498** (41 suite); Jest service unit **183 / 183** (suite mới: giải mã `DB_SSL_CA` + rào chắn reset); `check-boundaries` đạt.
+
+### 9.5 Điểm bắt được khi làm và đã sửa
+
+1. **`DB_SSL_CA` dạng base64 làm service không nối được DB:** service chỉ nhận PEM hoặc đường dẫn file, trong khi cả demo (Render, GitHub Secrets)
+   dán base64 như backend. Đã sửa `sequelize.js` + `wait-for-db.js` của service nhận cả PEM, PEM có `\\n`, base64 và đường dẫn (có test).
+2. **Khởi động chậm khi migrate DB thứ hai trước backend** (73 s so với 37 s): đổi sang vòng lặp nền đợi backend lên rồi mới migrate / chạy service (bảng 9.2).
+3. **Backend từ chối khởi động nếu cấu hình tích hợp dở dang** — Blueprint luôn sinh hai secret, nên khi `COMPETITION_DB_NAME` trống entrypoint phải gỡ hai secret
+   đó (đã làm, đã kiểm: chạy không thi đấu thì 1 process, cổng 503 `COMPETITION_DISABLED`).
+
+### 9.6 Khác kế hoạch
+
+- `competition-boot.js` đặt ở `backend/scripts/` (không phải `docker/`) để Jest backend kiểm được và dùng chung `generateKeyset`.
+- Postman: không đưa vào OpenAPI sinh tự động (cổng không có route khai báo; endpoint thi đấu đã có OpenAPI của service) — chỉ ghi chú trong mô tả spec.
+- Compose: biến JSON của service nằm ở `services/competition-service/.env` (`env_file` `required: false`), không nhồi vào `docker/.env`.
+- **Chưa kiểm được trên Aiven thật** (không có tài khoản): việc tạo database thứ hai trong gói free. Mọi thứ khác đã chạy trên giả lập TLS.
+
+### 9.7 Dọn dẹp / để lại
+
+Container thử `bd-app` (:5303) và `bd-mysql-tls` (:3399), network `bdnet` vẫn đang chạy để chủ dự án xem nếu muốn (theo quy ước chưa tắt server thử); gỡ khi chủ dự án nói.

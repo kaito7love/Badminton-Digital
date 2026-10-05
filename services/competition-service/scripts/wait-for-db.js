@@ -3,10 +3,11 @@
 require('dotenv').config();
 const mysql = require('mysql2/promise');
 const { loadConfig } = require('../src/platform/config');
+const { sslOptions } = require('../src/platform/db/sequelize');
 
 (async () => {
   const { db } = loadConfig();
-  const ssl = db.ssl ? { ca: db.sslCa && db.sslCa.includes('BEGIN') ? db.sslCa : db.sslCa ? require('fs').readFileSync(db.sslCa, 'utf8') : undefined, rejectUnauthorized: true } : undefined;
+  const ssl = sslOptions(db);
   for (let i = 1; i <= 30; i += 1) {
     try {
       const conn = await mysql.createConnection({ host: db.host, port: db.port, user: db.user, password: db.password, database: db.name, ssl });

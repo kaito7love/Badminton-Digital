@@ -5,11 +5,15 @@
 !backend
 !frontend
 !docker/nginx.conf
+!docker/demo-entrypoint.sh
+# competition-service (bản demo Render chạy nó cạnh backend — plan 24). Tests, docs, khoá và .env bị loại ở dưới.
+!services/competition-service
 
 # Trong các thư mục được cho vào, vẫn loại:
 **/node_modules
 **/.env
 **/.env.*
+**/.keys
 **/*.log
 **/dist
 **/coverage
@@ -17,3 +21,6 @@
 backend/backups
 backend/tests
 backend/docs
+services/competition-service/tests
+services/competition-service/docs
+services/competition-service/coverage

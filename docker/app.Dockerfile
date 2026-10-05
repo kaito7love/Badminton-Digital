@@ -25,13 +25,21 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --chown=node:node backend/ ./
 COPY --from=frontend --chown=node:node /app/dist ./public/app
-RUN sed -i 's/\r$//' docker-entrypoint.sh \
- && chmod +x docker-entrypoint.sh \
+
+# competition-service (plan 24): cài dependency trước để cache layer, rồi mới chép mã.
+COPY services/competition-service/package*.json ./competition-service/
+RUN cd competition-service && npm ci --omit=dev && npm cache clean --force
+COPY --chown=node:node services/competition-service/ ./competition-service/
+
+COPY --chown=node:node docker/demo-entrypoint.sh ./demo-entrypoint.sh
+RUN sed -i 's/\r$//' docker-entrypoint.sh demo-entrypoint.sh \
+ && chmod +x docker-entrypoint.sh demo-entrypoint.sh \
  && mkdir -p public/layouts \
  && chown node:node public/layouts
 
 ENV FRONTEND_DIST_DIR=/app/public/app
 USER node
 EXPOSE 5000
-ENTRYPOINT ["./docker-entrypoint.sh"]
+# Chạy backend, và competition-service nếu đặt COMPETITION_DB_NAME (xem docker/demo-entrypoint.sh).
+ENTRYPOINT ["./demo-entrypoint.sh"]
 CMD ["node", "src/server.js"]

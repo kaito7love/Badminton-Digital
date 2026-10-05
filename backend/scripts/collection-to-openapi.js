@@ -77,8 +77,14 @@ function readRoutes() {
 
 // ── 2. Đọc request từ Postman collection ────────────────────────────────────
 
+// Nhóm "24 · Competition (cổng nối)" (plan 23/24) là cổng chuyển tiếp sang competition-service: không có route khai báo
+// trong src/routes/ (cổng là router riêng ở src/integrations/competition/) và từng endpoint thi đấu đã có OpenAPI riêng ở
+// services/competition-service/openapi/. Bỏ khỏi bước khớp 1-1 và ghi chú ở phần mô tả spec.
+const GATEWAY_FOLDER = /^24 ·/;
+
 function flattenRequests(items, tag, acc) {
   for (const it of items) {
+    if (!tag && it.item && GATEWAY_FOLDER.test(it.name)) continue;
     if (it.item) flattenRequests(it.item, it.name, acc);
     else if (it.request) acc.push({ ...it, tag });
   }
@@ -245,6 +251,11 @@ function assemble({ collection, paths, tags }) {
         '## Xác thực',
         'Bấm **Authorize** rồi dán access token lấy từ `POST /auth/login`',
         '(tài khoản mẫu: `0901111111` / `Admin@123`). Access token sống 15 phút.',
+        '',
+        '## Thi đấu',
+        'Cổng `/api/v1/competition/*` chuyển tiếp sang competition-service (chấm trình, BXH, giải đấu, giao lưu). Không liệt kê ở đây:',
+        'từng endpoint có OpenAPI riêng ở `services/competition-service/openapi/competition-service.v1.yaml`; cổng trả `503 COMPETITION_DISABLED`',
+        'khi chưa cấu hình. Ví dụ request: nhóm `24 · Competition` trong Postman.',
         '',
         '## Đa chi nhánh',
         'Phần lớn endpoint nhận header `X-Branch-Id`. Nhóm `Public` là nhóm duy nhất không cần đăng nhập.'
