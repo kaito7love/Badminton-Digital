@@ -4,7 +4,7 @@ import { toCompetitionError } from '../lib/errors';
 /**
  * "Bấm một lần" (07 mục 3): bọc một thao tác ghi — khoá nút khi đang gửi, nhận lỗi đã dịch.
  *   const [run, { busy, error, clearError }] = useAction();
- *   const result = await run(() => api.post(...));      // undefined nếu lỗi (lỗi nằm ở `error`)
+ *   const result = await run(() => api.post(...), { onError: (e) => toast(e.message, 'error') });   // undefined nếu lỗi
  * Gọi `run` khi đang bận thì bỏ qua (chặn bấm đúp). Lỗi `reload` (máy khác vừa đổi) gọi `onReload` để trang tải lại.
  */
 export function useAction({ onReload } = {}) {
@@ -14,7 +14,7 @@ export function useAction({ onReload } = {}) {
   const onReloadRef = useRef(onReload);
   onReloadRef.current = onReload;
 
-  const run = useCallback(async (fn) => {
+  const run = useCallback(async (fn, options) => {
     if (busyRef.current) return undefined;
     busyRef.current = true;
     setBusy(true);
@@ -24,6 +24,7 @@ export function useAction({ onReload } = {}) {
     } catch (err) {
       const e = toCompetitionError(err);
       if (!e.canceled) setError(e);
+      options?.onError?.(e);
       if (e.reload) onReloadRef.current?.();
       return undefined;
     } finally {

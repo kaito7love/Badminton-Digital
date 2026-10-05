@@ -1,0 +1,43 @@
+/* Sơ đồ loại trực tiếp dạng hình (plan 21). Tông vàng đồng (đối xứng, 17–32 đội) / xanh lá (một chiều, đến 16 đội), nền tối ở cả
+   chế độ sáng lẫn tối của app. Chuyển từ services/competition-service/docs/ui-prototype/bracket-view.js. */
+.bkbox { margin: 0; }
+.bktools { display: flex; gap: 6px; justify-content: flex-end; margin-bottom: 6px; }
+.bktools button { padding: 3px 10px; font-size: 12px; border-radius: 999px; background: transparent; color: inherit; border: 1px solid currentColor; opacity: .6; cursor: pointer; }
+.bktools button.on { opacity: 1; font-weight: 700; }
+.bk { --line: #b9722a; --hi: #ffd166; --p1: #b9bbc2; --p2: #7c7e86; --ptext: #14151a; --w1: #ffe08a; --w2: #d89a1d; --wtext: #1c1300; --lab: #d7a24a;
+  background: radial-gradient(ellipse at 50% -10%, #2a2a31 0, #101013 55%, #08080a 100%); color: #e5e7eb; border-radius: 14px; padding: 14px; }
+.bk.green { --line: #9aa0aa; --hi: #9cff3a; --p1: #49b926; --p2: #2a7b13; --ptext: #fff; --w1: #b7ff6b; --w2: #5fd21c; --wtext: #0d2a02; --lab: #b6e98a; }
+.bkscroll { overflow-x: auto; overflow-y: hidden; }
+.bksizer { position: relative; margin: 0 auto; }
+.bkcanvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.bkcanvas svg.bklines { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.bklines path { fill: none; stroke: var(--line); stroke-width: 2; stroke-linejoin: round; }
+.bklines path.hi { stroke: var(--hi); stroke-width: 2.5; }
+.bkp { position: absolute; display: flex; align-items: center; gap: 6px; padding: 0 14px; box-sizing: border-box; background: linear-gradient(180deg, var(--p1), var(--p2)); color: var(--ptext);
+  clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%); font: 600 12.5px/1.15 system-ui, sans-serif; }
+.bkp .bkn { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.bkp .bkn i { font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bkp .bkn small { font-weight: 500; font-size: 10px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bkp .bks { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 12px; }
+.bkp.pend { opacity: .4; } .bkp.pend .bkn i { font-weight: 500; font-style: italic; }
+.bkp.bye { opacity: .3; } .bkp.bye .bkn i { font-weight: 500; font-style: italic; }
+.bkp.win, .bkp.champ.has { background: linear-gradient(180deg, var(--w1), var(--w2)); color: var(--wtext); }
+.bkp.lose { opacity: .5; }
+.bkp.live::after { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: bkpulse 1.2s infinite; }
+.bkp.sel { background: linear-gradient(180deg, #fbbf24, #d97706) !important; color: #1c1300; opacity: 1; }
+.bkp.fin { background: linear-gradient(180deg, #ffe08a, #c98a1b); color: #1c1300; }
+.bkp.fin.pend { background: linear-gradient(180deg, #8c7a49, #5e5130); color: #e5e7eb; }
+.bkp.champ { font-size: 14px; justify-content: center; text-align: center; }
+.bkp.champ .bkn { align-items: center; }
+.bkp.clickable { cursor: pointer; }
+.bkp.clickable:hover { filter: brightness(1.15); }
+.bklab { position: absolute; top: 6px; text-align: center; font: 700 11px/1 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--lab); opacity: .85; }
+.bkcap { position: absolute; text-align: center; font: 800 15px/1 system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--hi); }
+.bkcap small { display: block; margin-top: 4px; font: 500 11px/1.2 system-ui, sans-serif; letter-spacing: .02em; text-transform: none; color: #9ca3af; }
+.bkcup { position: absolute; filter: drop-shadow(0 4px 10px rgba(255, 190, 40, .35)); }
+.bkthird { position: absolute; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: 500 11.5px/1.35 system-ui, sans-serif; background: rgba(255, 255, 255, .04); }
+.bkthird.clickable { cursor: pointer; }
+.bkthird b { display: block; color: var(--lab); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; }
+.bkthird div { display: flex; justify-content: space-between; gap: 6px; } .bkthird div span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bkthird .w { font-weight: 700; color: var(--hi); }
+@keyframes bkpulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }

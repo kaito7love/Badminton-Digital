@@ -1,3 +1,5 @@
+import { courtName } from './format';
+
 // Dịch lỗi của cổng thi đấu / competition-service sang câu tiếng Việt dễ hiểu (07 mục 3: "Lỗi nói bằng câu dễ hiểu, mã lỗi
 // để nhỏ phía sau; lỗi do máy khác vừa đổi thì nói rõ và tải lại").
 
@@ -25,7 +27,7 @@ const BY_CODE = {
 };
 
 /** `bd:court:5` → `Sân 5` (service chỉ biết mã sân). */
-export const courtText = (text) => String(text ?? '').replace(/(?:sân )?bd:court:(\d+)/gi, 'Sân $1');
+export const courtText = (text) => String(text ?? '').replace(/(?:sân )?(bd:court:\d+)/gi, (_, ref) => courtName(ref));
 
 const statusFallback = (status) => {
   if (status === 401) return BY_CODE.UNAUTHENTICATED;

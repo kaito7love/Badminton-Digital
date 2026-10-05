@@ -118,7 +118,7 @@ thêm thư viện UI / state (dùng React + context + hook như phần còn lạ
 - [x] Đọc frontend + bàn thử + đặc tả 07, lập plan (05/10/2026)
 - [x] Chủ dự án duyệt plan + trả lời 7 câu mục 4 (05/10/2026, theo đề xuất)
 - [x] c0 Nền (status + SSE branchId ở cổng; api / stream / context / component dùng chung; menu)
-- [ ] c1 Giải đấu (danh sách, tạo, chi tiết 5 tab, bốc thăm, khoá sơ đồ, chốt, sơ đồ dạng hình)
+- [x] c1 Giải đấu (danh sách, tạo, chi tiết 5 tab, bốc thăm, khoá sơ đồ, chốt, sơ đồ dạng hình)
 - [ ] c2 Bấm điểm trực tiếp + nhập tỉ số + màn hình TV (giải, buổi)
 - [ ] c3 Giao lưu
 - [ ] c4 Người chơi + hàng chờ duyệt
@@ -138,3 +138,12 @@ Giữ nguyên danh sách ở plan 24 mục 5 (database thứ hai trên Aiven, se
 - **Frontend (`features/competition/`):** `api/competitionApi` (Idempotency-Key cho POST/PUT/PATCH, If-Match/ETag, lỗi dịch sang tiếng Việt), `realtime/competitionStream` (SSE + refresh token trước khi nối, lùi 2→30 s, 60 s im lặng = chết), `hooks/useLiveResource` (tải + tự cập nhật, **không tải lại khi đang dở thao tác** → dải "Có cập nhật mới", poll dự phòng, bỏ kết quả cũ về muộn), `hooks/useAction` (khoá bấm đúp), `context/CompetitionContext` (status + toast), `components/ui`, `lib/{errors,format,permissions,labels}`, trang `/competition` + menu "Thi Đấu" (ẩn khi tắt hoặc sai vai trò) + route lazy.
 - **Vitest 109/109** (48 test mới: dịch lỗi, định dạng, quyền, dựng request, URL SSE, render phía máy chủ các thành phần); `npm run build` xanh, trang thi đấu là chunk riêng (`CompetitionHome`).
 - **Trình duyệt thật (Chrome ngầm, stack thật), 11/11:** nhân viên thấy menu + 3 thẻ (không thấy "Hàng chờ duyệt"), admin thấy cả 4; sáng + tối; 390 px không tràn ngang; **giả lập tính năng tắt** → menu ẩn, trang báo "chưa được bật"; khách bị đưa khỏi `/competition`; không lỗi console / 5xx.
+
+### 9.c1 Giải đấu (05/10/2026)
+
+- **Màn hình:** `/competition/tournaments` (danh sách + lọc), `/new` (form 4 phần, gợi ý thể thức + ước tính số trận, sân bận chỉ chọn sẵn sau khi biết sân nào rảnh), `/:id` (thanh tiến trình 5 bước + "việc cần làm" + nút chính theo giai đoạn; 5 tab Sân · Đăng ký & điểm danh · Lịch & kết quả · Sơ đồ · Kết quả chung cuộc). Hộp thoại: bốc thăm xem trước (bấm hai đội / hai người để đổi chỗ), khoá sơ đồ loại trực tiếp từ vòng bảng (cảnh báo hai đội cùng bảng gặp ngay vòng 1), chốt giải (thứ hạng + điểm trình trước → sau), W.O., thêm trận tay, sân của giải (tên sân thật của chi nhánh), đổi đồng đội, gọi / chọn trận cho sân. Sơ đồ dạng hình (`BracketView` + `lib/bracketLayout`, chuyển từ mục 21) cho 2–32 đội, có bye, tranh hạng 3.
+- **Tự cập nhật:** SSE `snapshot` / `score` cập nhật trang; đang mở hộp thoại hoặc đang gõ thì **không tải lại**, hiện dải "Có cập nhật mới", đóng hộp thì tự tải.
+- **Vitest 167/167** toàn frontend (58 test mới cho c1: giai đoạn, mô hình, bố cục sơ đồ 2/4/8/16/32 đội, bốc thăm / đổi chỗ, nhập tỉ số, lọc người, dựng gợi ý đăng ký, sân đang dùng, vẽ sơ đồ phía máy chủ); `npm run build` xanh, trang chi tiết giải là chunk riêng 78 kB (26 kB gzip).
+- **Trình duyệt thật (Chrome ngầm, stack thật):** luồng chính tạo → đăng ký 8 người → bốc thăm (đổi chỗ) → gọi ra sân → nhập tỉ số → sơ đồ 15 ô → chốt giải: laptop 24/24 (+1 đúng sau sửa kỳ vọng), điện thoại 390 px 25/25 không tràn ngang; phần 2 (vòng bảng + khoá sơ đồ, đôi cặp sẵn + điểm danh cả cặp, W.O., đổi đồng đội, chọn trận / thêm trận / sân của giải, SSE tự cập nhật 1→2, dải "Có cập nhật mới" khi đang mở hộp) 20/20; xem thêm giao diện sáng. Không lỗi console / 5xx.
+- **Lỗi bắt được trong lúc bấm thật (đã sửa):** gõ ô tìm khi lần đăng ký trước chưa xong (giờ khoá ô khi đang gửi, không gợi lại người vừa đăng ký); form tạo giải chọn sẵn sân bận vì chưa tải xong "sân đang dùng".
+- **Chưa bật cờ:** `lib/features.js` `liveScoring` / `tournamentBoard` = false (nút "Bấm điểm" / "Màn hình TV" ẩn đến c2).

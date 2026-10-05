@@ -43,7 +43,10 @@ const NAV_GROUPS = [
   },
   {
     label: 'Thi đấu',
-    items: [{ path: '/competition', label: 'Thi Đấu', icon: TrophyIcon, needsCompetition: true }],
+    items: [
+      { path: '/competition', label: 'Thi Đấu', icon: TrophyIcon, needsCompetition: true },
+      { path: '/competition/tournaments', label: 'Giải Đấu', icon: TrophyIcon, needsCompetition: true, prefix: true },
+    ],
   },
   {
     label: 'Quản lý',
@@ -61,6 +64,9 @@ const NAV_GROUPS = [
 ];
 
 const MOBILE_QUICK_ACCESS_COUNT = 4;
+
+// Mục có `prefix` sáng cả ở các trang con (vd /competition/tournaments/abc), còn lại chỉ sáng đúng đường dẫn.
+const isItemActive = (item, pathname) => pathname === item.path || (item.prefix && pathname.startsWith(`${item.path}/`));
 
 /**
  * 1 mục nav — dùng chung cho sidebar mở rộng/sheet mobile ('full'), rail thu
@@ -271,7 +277,7 @@ export default function SidebarLayout() {
                   </p>
                 )}
                 {group.items.map((item) => (
-                  <NavLink key={item.path} item={item} active={location.pathname === item.path} variant={collapsed ? 'rail' : 'full'} />
+                  <NavLink key={item.path} item={item} active={isItemActive(item, location.pathname)} variant={collapsed ? 'rail' : 'full'} />
                 ))}
               </div>
             ))}
@@ -341,7 +347,7 @@ export default function SidebarLayout() {
       <div className="fixed inset-x-0 bottom-0 z-40 block md:hidden border-t border-slate-200 bg-white/95 dark:border-slate-800/90 dark:bg-slate-950/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md items-center justify-around px-4 py-2.5">
           {mobileQuickItems.map((item) => (
-            <NavLink key={item.path} item={item} active={location.pathname === item.path} variant="bottom" />
+            <NavLink key={item.path} item={item} active={isItemActive(item, location.pathname)} variant="bottom" />
           ))}
           {mobileOverflowCount > 0 && (
             <button
@@ -385,7 +391,7 @@ export default function SidebarLayout() {
                     <NavLink
                       key={item.path}
                       item={item}
-                      active={location.pathname === item.path}
+                      active={isItemActive(item, location.pathname)}
                       variant="full"
                       onNavigate={() => setMobileNavOpen(false)}
                     />

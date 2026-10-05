@@ -1,7 +1,9 @@
 // Định dạng dùng chung cho các màn hình thi đấu — hàm thuần, có test.
 
-/** `bd:court:7` → `Sân 7`; chuỗi khác giữ nguyên. */
-export const courtName = (ref) => String(ref ?? '').replace(/^bd:court:/, 'Sân ');
+// Tên sân thật của chi nhánh (nhân viên tải được từ /courts): `bd:court:3` → "Sân số 3 (Thường)". Chưa biết thì "Sân 3" (khách / màn hình TV không tải được danh sách sân).
+const courtLabels = new Map();
+export const registerCourtNames = (courts) => { for (const c of courts || []) if (c && c.id != null && c.name) courtLabels.set(`bd:court:${c.id}`, c.name); };
+export const courtName = (ref) => courtLabels.get(ref) || String(ref ?? '').replace(/^bd:court:/, 'Sân ');
 
 /** `bd:branch:2` → `Chi nhánh 2`. */
 export const orgName = (ref) => (ref === '*' ? 'Mọi chi nhánh' : String(ref ?? '').replace(/^bd:branch:/, 'Chi nhánh '));

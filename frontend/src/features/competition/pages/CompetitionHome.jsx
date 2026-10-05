@@ -8,7 +8,7 @@ import { Card, EmptyState, Notice, PageHeader } from '../components/ui';
 // Trang chủ khu vực Thi đấu của nhân viên: trạng thái dịch vụ + lối vào từng phần. Mỗi slice của plan 25 bật thêm một thẻ (`ready`).
 
 const AREAS = [
-  { key: 'tournaments', to: '/competition/tournaments', icon: '🏆', title: 'Giải đấu', text: 'Tạo giải, đăng ký, bốc thăm, vận hành ngày thi đấu, sơ đồ, chốt giải.', ready: false },
+  { key: 'tournaments', to: '/competition/tournaments', icon: '🏆', title: 'Giải đấu', text: 'Tạo giải, đăng ký, bốc thăm, vận hành ngày thi đấu, sơ đồ, chốt giải.', ready: true },
   { key: 'sessions', to: '/competition/sessions', icon: '🏸', title: 'Giao lưu', text: 'Buổi giao lưu: điểm danh, xếp sân trống, bấm điểm, đóng buổi.', ready: false },
   { key: 'players', to: '/competition/players', icon: '👥', title: 'Người chơi', text: 'Điểm trình, chấm trình, sổ điểm, hồ sơ thi đấu.', ready: false },
   { key: 'reviews', to: '/competition/reviews', icon: '📋', title: 'Hàng chờ duyệt', text: 'Bài chấm trình cần quản lý xác nhận.', ready: false, managerOnly: true }
