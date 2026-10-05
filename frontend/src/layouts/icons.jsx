@@ -17,3 +17,4 @@ export const ShoppingBagIcon = ({ className }) => <Icon className={className}>�
 export const ClipboardCheckIcon = ({ className }) => <Icon className={className}>📋</Icon>;
 export const MapIcon = ({ className }) => <Icon className={className}>🗺️</Icon>;
 export const TrophyIcon = ({ className }) => <Icon className={className}>🏆</Icon>;
+export const ShuttlecockIcon = ({ className }) => <Icon className={className}>🏸</Icon>;

@@ -9,6 +9,8 @@ const CompetitionHome = lazy(() => import('./pages/CompetitionHome'));
 const TournamentsPage = lazy(() => import('./pages/tournaments/TournamentsPage'));
 const TournamentFormPage = lazy(() => import('./pages/tournaments/TournamentFormPage'));
 const TournamentDetailPage = lazy(() => import('./pages/tournaments/TournamentDetailPage'));
+const SessionsPage = lazy(() => import('./pages/sessions/SessionsPage'));
+const SessionDetailPage = lazy(() => import('./pages/sessions/SessionDetailPage'));
 const LiveScorePage = lazy(() => import('./pages/live/LiveScorePage'));
 const QuickScorePage = lazy(() => import('./pages/live/QuickScorePage'));
 const TournamentBoardPage = lazy(() => import('./pages/board/TournamentBoardPage'));
@@ -22,6 +24,8 @@ export const competitionStaffRoutes = (
     <Route path="/competition/tournaments/new" element={<TournamentFormPage />} />
     <Route path="/competition/tournaments/:id" element={<TournamentDetailPage />} />
     <Route path="/competition/tournaments/:id/board" element={<TournamentBoardPage />} />
+    <Route path="/competition/sessions" element={<SessionsPage />} />
+    <Route path="/competition/sessions/:id" element={<SessionDetailPage />} />
     <Route path="/competition/sessions/:id/board" element={<SessionBoardPage />} />
     <Route path="/competition/live/:matchId" element={<LiveScorePage />} />
     <Route path="/competition/score/:matchId" element={<QuickScorePage />} />

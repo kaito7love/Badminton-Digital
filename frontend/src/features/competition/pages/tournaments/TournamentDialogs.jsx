@@ -3,9 +3,10 @@ import { Badge } from '../../../../components/UIComponents';
 import { Dialog } from '../../components/Dialog';
 import { Button, Notice, Spinner, TeamNames } from '../../components/ui';
 import BracketView from '../../components/BracketView';
-import { Field, inputClass } from '../../components/form';
+import { chip, Field, inputClass } from '../../components/form';
 import { playersApi, tournamentsApi } from '../../api/tournaments';
 import { useAction } from '../../hooks/useAction';
+import { useLoad } from '../../hooks/useLoad';
 import { addMinutes, courtName, fmtDelta, fmtNumber } from '../../lib/format';
 import { PAIRING } from '../../lib/labels';
 import { avgRating, buildDrawBody, initDraw, knockoutRounds, sameGroupPairs, swapCells, swapPeople, swapTeams } from '../../lib/draw';
@@ -13,20 +14,6 @@ import { matchTitle, tourCourts } from '../../lib/tournamentModel';
 
 // Các hộp thoại của trang giải. Mỗi hộp tự tải dữ liệu xem trước (nếu cần), tự khoá nút khi gửi (useAction) và gọi
 // `onDone(thôngBáo)` khi xong để trang tải lại + hiện toast. `onClose` đóng không làm gì.
-
-const chip = (selected) => `inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer ${selected ? 'border-amber-500 bg-amber-500/20 text-amber-800 dark:text-amber-200' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800'}`;
-
-function useLoad(loader, deps) {
-  const [state, setState] = useState({ data: null, error: null, loading: true });
-  useEffect(() => {
-    let alive = true;
-    setState({ data: null, error: null, loading: true });
-    loader().then((data) => { if (alive) setState({ data, error: null, loading: false }); }).catch((error) => { if (alive) setState({ data: null, error, loading: false }); });
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
-  return state;
-}
 
 // ---------------------------------------------------------------------------------------------------------------- bốc thăm
 

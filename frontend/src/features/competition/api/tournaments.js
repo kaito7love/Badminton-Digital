@@ -68,9 +68,21 @@ export const playersApi = {
 export const sessionsApi = {
   list: (params = { limit: 50 }) => api.get('/sessions', { params }).then(data),
   get: (id) => api.get(`/sessions/${id}`).then(data),
+  create: (body) => api.post('/sessions', body).then(data),
+  /** Sửa buổi (tên, sân, luật điểm, cách xếp…). `version` = `session.version` (If-Match). */
+  update: (id, body, version) => api.patch(`/sessions/${id}`, body, { etag: version }).then(data),
+  players: (id) => api.get(`/sessions/${id}/players`).then(data),
+  /** Điểm danh. Chưa có điểm → 422 NEEDS_ASSESSMENT (gửi lại kèm `quickLevel`); đang ở buổi khác → 409 PRESENT_ELSEWHERE. */
+  checkIn: (id, playerId, quickLevel) => api.post(`/sessions/${id}/players`, quickLevel ? { playerId, quickLevel } : { playerId }).then(data),
+  leave: (id, playerId) => api.del(`/sessions/${id}/players/${playerId}`).then(data),
+  fillPreview: (id, seed) => api.post(`/sessions/${id}/fill-courts/preview`, seed ? { seed } : {}).then(data),
+  fill: (id, body) => api.post(`/sessions/${id}/fill-courts`, body).then(data),
+  matches: (id) => api.get(`/sessions/${id}/matches`).then(data),
   /** Dữ liệu màn hình lớn (TV): sân, hàng chờ, sắp vào sân, kết quả gần nhất. */
   board: (id) => api.get(`/sessions/${id}/board`).then(data),
-  players: (id) => api.get(`/sessions/${id}/players`).then(data)
+  closePreview: (id) => api.get(`/sessions/${id}/close-preview`).then(data),
+  close: (id) => api.post(`/sessions/${id}/close`).then(data),
+  cancel: (id) => api.post(`/sessions/${id}/cancel`).then(data)
 };
 
 /**

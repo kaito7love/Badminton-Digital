@@ -25,3 +25,6 @@ export const Fieldset = ({ legend, children }) => (
     {children}
   </fieldset>
 );
+
+/** Ô bấm kiểu "viên thuốc" để chọn / đổi chỗ (bốc thăm, xếp sân): `selected` = đang được chọn. */
+export const chip = (selected) => `inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer ${selected ? 'border-amber-500 bg-amber-500/20 text-amber-800 dark:text-amber-200' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800'}`;

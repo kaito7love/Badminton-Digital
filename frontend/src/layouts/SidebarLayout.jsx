@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBranch } from '../contexts/BranchContext';
 import { useCompetition } from '../features/competition/context/CompetitionContext';
-import { MoonIcon, SunIcon, ChartBarIcon, HomeIcon, TicketIcon, ClipboardListIcon, UserGroupIcon, BuildingOfficeIcon, FileChartBarIcon, Cog6ToothIcon, HistoryIcon, ShoppingBagIcon, ClipboardCheckIcon, MapIcon, TrophyIcon } from './icons';
+import { MoonIcon, SunIcon, ChartBarIcon, HomeIcon, TicketIcon, ClipboardListIcon, UserGroupIcon, BuildingOfficeIcon, FileChartBarIcon, Cog6ToothIcon, HistoryIcon, ShoppingBagIcon, ClipboardCheckIcon, MapIcon, TrophyIcon, ShuttlecockIcon } from './icons';
 import { roleOf } from '../utils/roles';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { scheduleAdminPrefetch } from '../routes/adminPrefetch';
@@ -46,6 +46,7 @@ const NAV_GROUPS = [
     items: [
       { path: '/competition', label: 'Thi Đấu', icon: TrophyIcon, needsCompetition: true },
       { path: '/competition/tournaments', label: 'Giải Đấu', icon: TrophyIcon, needsCompetition: true, prefix: true },
+      { path: '/competition/sessions', label: 'Giao Lưu', icon: ShuttlecockIcon, needsCompetition: true, prefix: true },
     ],
   },
   {
