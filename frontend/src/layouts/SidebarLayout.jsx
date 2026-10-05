@@ -3,7 +3,8 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBranch } from '../contexts/BranchContext';
-import { MoonIcon, SunIcon, ChartBarIcon, HomeIcon, TicketIcon, ClipboardListIcon, UserGroupIcon, BuildingOfficeIcon, FileChartBarIcon, Cog6ToothIcon, HistoryIcon, ShoppingBagIcon, ClipboardCheckIcon, MapIcon } from './icons';
+import { useCompetition } from '../features/competition/context/CompetitionContext';
+import { MoonIcon, SunIcon, ChartBarIcon, HomeIcon, TicketIcon, ClipboardListIcon, UserGroupIcon, BuildingOfficeIcon, FileChartBarIcon, Cog6ToothIcon, HistoryIcon, ShoppingBagIcon, ClipboardCheckIcon, MapIcon, TrophyIcon } from './icons';
 import { roleOf } from '../utils/roles';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { scheduleAdminPrefetch } from '../routes/adminPrefetch';
@@ -39,6 +40,10 @@ const NAV_GROUPS = [
       { path: '/retail', label: 'Bán Lẻ', icon: ShoppingBagIcon },
       { path: '/customers', label: 'Khách Hàng', icon: UserGroupIcon },
     ],
+  },
+  {
+    label: 'Thi đấu',
+    items: [{ path: '/competition', label: 'Thi Đấu', icon: TrophyIcon, needsCompetition: true }],
   },
   {
     label: 'Quản lý',
@@ -113,6 +118,8 @@ export default function SidebarLayout() {
   const { theme, toggleTheme } = useTheme();
   const { isAdmin: canSwitchBranch, branches, selectedBranchId, selectBranch } = useBranch() || {};
   const role = roleOf(user);
+  // Thi đấu là service riêng, tắt được: tắt thì ẩn mục menu (không bày ra đường dẫn chắc chắn trả 503).
+  const { enabled: competitionEnabled } = useCompetition();
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -142,9 +149,9 @@ export default function SidebarLayout() {
     () =>
       NAV_GROUPS.map((group) => ({
         ...group,
-        items: group.items.filter((item) => !item.roles || item.roles.includes(role)),
+        items: group.items.filter((item) => (!item.roles || item.roles.includes(role)) && (!item.needsCompetition || competitionEnabled)),
       })).filter((group) => group.items.length > 0),
-    [role],
+    [role, competitionEnabled],
   );
   const visibleFlatItems = useMemo(() => visibleGroups.flatMap((g) => g.items), [visibleGroups]);
   const mobileQuickItems = visibleFlatItems.slice(0, MOBILE_QUICK_ACCESS_COUNT);

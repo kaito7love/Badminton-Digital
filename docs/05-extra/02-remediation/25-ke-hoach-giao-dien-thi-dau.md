@@ -1,7 +1,7 @@
 # Kế hoạch: bước 4(c) — giao diện thi đấu trong app chính (`frontend/src/features/competition/`)
 
 - **Ngày:** 05/10/2026.
-- **Trạng thái:** **CHỜ CHỦ DỰ ÁN DUYỆT — chưa viết dòng code nào.** Cần chốt 7 câu ở mục 4.
+- **Trạng thái:** chủ dự án duyệt 05/10/2026 ("theo đề xuất" — cả 7 câu ở mục 4 theo đề xuất) → **đang làm theo slice (mục 7, kết quả ở mục 9).**
 - **Nhánh:** `feat/competition-integration` (tiếp tục; (a) = plan 23 và (b) = plan 24 đã xong, đã push). **Chưa merge `main` cho tới khi
   (c) xong và chủ dự án duyệt** — merge một lần cho cả ba phần.
 - **Thuộc:** bước 4 của plan 18. Đặc tả màn hình: `services/competition-service/docs/07-giao-dien.md` (đã chốt qua các đợt bấm thử plan 18–21).
@@ -86,7 +86,7 @@ chỉnh điểm, duyệt; khách chỉ phần của mình. Giao diện **ẩn** 
 - **Hồi quy:** toàn bộ Vitest + Jest backend + `npm run build` frontend xanh; kích thước chunk không phình các trang không liên quan; app **tắt tính năng** vẫn như cũ (menu ẩn, không request thừa).
 - Dọn sạch dữ liệu / tiến trình thử sau khi xong. Ghi kết quả từng slice vào mục 9.
 
-## 4. Cần chủ dự án quyết (mỗi câu có đề xuất)
+## 4. Câu hỏi đã chốt (05/10/2026: chủ dự án chọn đúng đề xuất ở cả 7 câu)
 
 1. **Cách làm việc theo slice:** mỗi slice xong thì **commit + push + báo cáo ngắn** rồi mình làm slice kế tiếp luôn (chỉ dừng hỏi khi vướng quyết định), hay **dừng chờ bạn bấm thử và duyệt từng slice**?
    **Đề xuất: làm liên tục, báo cáo từng slice; bạn có thể chen vào bấm thử và góp ý bất cứ lúc nào** (vì phạm vi lớn, chờ duyệt từng slice sẽ kéo dài nhiều ngày).
@@ -116,8 +116,8 @@ thêm thư viện UI / state (dùng React + context + hook như phần còn lạ
 ## 7. Theo dõi tiến độ
 
 - [x] Đọc frontend + bàn thử + đặc tả 07, lập plan (05/10/2026)
-- [ ] **Chủ dự án duyệt plan + trả lời 7 câu mục 4**
-- [ ] c0 Nền (status + SSE branchId ở cổng; api / stream / context / component dùng chung; menu)
+- [x] Chủ dự án duyệt plan + trả lời 7 câu mục 4 (05/10/2026, theo đề xuất)
+- [x] c0 Nền (status + SSE branchId ở cổng; api / stream / context / component dùng chung; menu)
 - [ ] c1 Giải đấu (danh sách, tạo, chi tiết 5 tab, bốc thăm, khoá sơ đồ, chốt, sơ đồ dạng hình)
 - [ ] c2 Bấm điểm trực tiếp + nhập tỉ số + màn hình TV (giải, buổi)
 - [ ] c3 Giao lưu
@@ -132,4 +132,9 @@ Giữ nguyên danh sách ở plan 24 mục 5 (database thứ hai trên Aiven, se
 
 ## 9. Kết quả
 
-_(điền theo từng slice)_
+### 9.c0 Nền (05/10/2026)
+
+- **Backend:** `GET /api/v1/competition/status` (công khai, không gọi service; `available` theo ngắt mạch) + `?branchId=` cho SSE → `X-Branch-Id` (không lọt sang service). Jest gateway 30/30 (+4 test), backend **502/502**.
+- **Frontend (`features/competition/`):** `api/competitionApi` (Idempotency-Key cho POST/PUT/PATCH, If-Match/ETag, lỗi dịch sang tiếng Việt), `realtime/competitionStream` (SSE + refresh token trước khi nối, lùi 2→30 s, 60 s im lặng = chết), `hooks/useLiveResource` (tải + tự cập nhật, **không tải lại khi đang dở thao tác** → dải "Có cập nhật mới", poll dự phòng, bỏ kết quả cũ về muộn), `hooks/useAction` (khoá bấm đúp), `context/CompetitionContext` (status + toast), `components/ui`, `lib/{errors,format,permissions,labels}`, trang `/competition` + menu "Thi Đấu" (ẩn khi tắt hoặc sai vai trò) + route lazy.
+- **Vitest 109/109** (48 test mới: dịch lỗi, định dạng, quyền, dựng request, URL SSE, render phía máy chủ các thành phần); `npm run build` xanh, trang thi đấu là chunk riêng (`CompetitionHome`).
+- **Trình duyệt thật (Chrome ngầm, stack thật), 11/11:** nhân viên thấy menu + 3 thẻ (không thấy "Hàng chờ duyệt"), admin thấy cả 4; sáng + tối; 390 px không tràn ngang; **giả lập tính năng tắt** → menu ẩn, trang báo "chưa được bật"; khách bị đưa khỏi `/competition`; không lỗi console / 5xx.

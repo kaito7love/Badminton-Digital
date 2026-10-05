@@ -42,6 +42,18 @@ const createGatewayRouter = ({
 
   const router = express.Router();
 
+  // Giao diện hỏi một lần để biết có hiện menu thi đấu không (plan 25). Công khai, không gọi service: `available` chỉ phản
+  // ánh ngắt mạch (đang mở = service vừa lỗi liên tục), còn lỗi thật sẽ lộ ở request thật với mã COMPETITION_UNAVAILABLE.
+  router.get('/status', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      success: true,
+      data: { enabled: Boolean(config.enabled), available: Boolean(config.enabled) && !client.state().open },
+      message: 'OK',
+      errors: null
+    });
+  });
+
   router.use((req, res, next) => {
     if (!config.enabled) return fail(res, 503, 'Tính năng thi đấu chưa được bật.', 'COMPETITION_DISABLED');
     const route = matchRoute(req.method, req.path);
@@ -52,6 +64,9 @@ const createGatewayRouter = ({
 
   router.use((req, res, next) => {
     const route = req.competitionRoute;
+    // EventSource không gửi được header: admin đang chọn chi nhánh truyền ?branchId= như /realtime/stream, đổi sang
+    // X-Branch-Id để branchContextMiddleware xử lý như mọi request khác (ghi đè header giả: chỉ đường SSE mới nhận query).
+    if (route.isStream && req.query.branchId) req.headers['x-branch-id'] = String(req.query.branchId);
     const hasCredentials = Boolean(req.headers.authorization || (route.isStream && req.query.token));
     if (route.isPublic && !hasCredentials) return limiter(req, res, next);
     const authenticate = route.isStream ? mw.sseAuth : mw.auth;
@@ -70,6 +85,7 @@ const createGatewayRouter = ({
 
       const incoming = new URL(req.originalUrl, 'http://gateway');
       incoming.searchParams.delete('token'); // token của app chính không được lọt sang service
+      if (route.isStream) incoming.searchParams.delete('branchId'); // service chặn tham số lạ
       const headers = {
         Authorization: `Bearer ${signServiceToken(config, principal, { stream: route.isStream })}`,
         Accept: route.isStream ? 'text/event-stream' : 'application/json',

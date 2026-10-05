@@ -81,6 +81,32 @@ describe('cổng /api/v1/competition', () => {
   };
   const tokenSeen = () => jwt.verify(seen.headers.authorization.replace('Bearer ', ''), PUBLIC_PEM, { algorithms: ['ES256'], audience: 'competition-service', issuer: 'badminton-digital-core' });
 
+  describe('GET /status (giao diện dùng để ẩn / hiện menu)', () => {
+    test('tắt → enabled=false, không cần đăng nhập, không gọi service', async () => {
+      const app = express();
+      app.use('/api/v1/competition', createGatewayRouter({ config: { enabled: false }, middlewares: fakeMiddlewares, logger: silent }));
+      const res = await request(app).get('/api/v1/competition/status');
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ success: true, data: { enabled: false, available: false } });
+      expect(res.headers['cache-control']).toBe('no-store');
+      expect(seen).toBeNull();
+    });
+
+    test('bật → enabled=true, available=true; không gọi service', async () => {
+      const res = await request(appWith()).get('/api/v1/competition/status');
+      expect(res.body.data).toEqual({ enabled: true, available: true });
+      expect(seen).toBeNull();
+    });
+
+    test('ngắt mạch đang mở → available=false (vẫn enabled)', async () => {
+      const client = createCompetitionClient({ logger: silent, failureThreshold: 1 });
+      const app = appWith({ COMPETITION_SERVICE_URL: 'http://127.0.0.1:1' }, { client });
+      await request(app).get('/api/v1/competition/tournaments').set('x-test-user', EMPLOYEE); // 1 lỗi mạng → mở mạch
+      const res = await request(app).get('/api/v1/competition/status');
+      expect(res.body.data).toEqual({ enabled: true, available: false });
+    });
+  });
+
   test('chưa cấu hình → 503 COMPETITION_DISABLED, không gọi service', async () => {
     const app = express();
     app.use('/api/v1/competition', createGatewayRouter({ config: { enabled: false }, middlewares: fakeMiddlewares, logger: silent }));
@@ -263,6 +289,21 @@ describe('cổng /api/v1/competition', () => {
         expect(claims.exp - claims.iat).toBe(300);
       } finally {
         release();
+        server.closeAllConnections();
+        server.close();
+      }
+    });
+
+    test('?branchId= của EventSource thành X-Branch-Id (admin chọn chi nhánh) và không lọt sang service', async () => {
+      streamHandler = (req, res) => { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.end('event: snapshot' + String.fromCharCode(10) + 'data: {}' + String.fromCharCode(10, 10)); };
+      const server = await listen(appWith());
+      try {
+        const port = server.address().port;
+        const res = await fetch(`http://127.0.0.1:${port}/api/v1/competition/tournaments/abc/stream?token=${ADMIN}&branchId=3`);
+        await res.text();
+        expect(seen.url).toBe('/v1/tournaments/abc/stream');
+        expect(tokenSeen().org).toEqual(['bd:branch:3']);
+      } finally {
         server.closeAllConnections();
         server.close();
       }

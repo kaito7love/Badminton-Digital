@@ -9,6 +9,7 @@ import SidebarLayout from '../layouts/SidebarLayout';
 import HomePage from '../pages/Home/HomePage';
 import LoginPage from '../pages/Login/LoginPage';
 import { STAFF_ROLES } from '../utils/roles';
+import { competitionStaffRoutes } from '../features/competition/routes';
 
 const RegisterPage = lazy(() => import('../pages/Login/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('../pages/Login/ForgotPasswordPage'));
@@ -85,6 +86,7 @@ export default function AppRoutes() {
             <Route path="/retail" element={<RetailPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/history" element={<HistoryPage />} />
+            {competitionStaffRoutes}
 
             <Route element={<ProtectedRoute roles={['admin', 'branch_manager']}><Outlet /></ProtectedRoute>}>
               <Route path="/dashboard" element={<DashboardPage />} />
