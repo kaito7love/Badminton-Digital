@@ -1,5 +1,6 @@
 import React, { lazy } from 'react';
 import { Route } from 'react-router-dom';
+import ProtectedRoute from '../../routes/ProtectedRoute';
 
 // Toàn bộ route của tính năng thi đấu — app chính chỉ chèn `{competitionStaffRoutes}` vào AppRoutes (Fragment hợp lệ trong
 // <Routes> của react-router 6). Trang nào cũng lazy-load: không kéo mã thi đấu (và recharts) vào các trang không dùng.
@@ -15,6 +16,12 @@ const PlayersPage = lazy(() => import('./pages/players/PlayersPage'));
 const PlayerProfilePage = lazy(() => import('./pages/players/PlayerProfilePage'));
 const PlayerAssessPage = lazy(() => import('./pages/players/PlayerAssessPage'));
 const ReviewsPage = lazy(() => import('./pages/reviews/ReviewsPage'));
+const MyRatingPage = lazy(() => import('./pages/me/MyRatingPage'));
+const SelfAssessPage = lazy(() => import('./pages/me/SelfAssessPage'));
+const MyProfilePage = lazy(() => import('./pages/me/MyProfilePage'));
+const MyTournamentsPage = lazy(() => import('./pages/me/MyTournamentsPage'));
+const RankingsPage = lazy(() => import('./pages/public/RankingsPage'));
+const PublicProfilePage = lazy(() => import('./pages/public/PublicProfilePage'));
 const LiveScorePage = lazy(() => import('./pages/live/LiveScorePage'));
 const QuickScorePage = lazy(() => import('./pages/live/QuickScorePage'));
 const TournamentBoardPage = lazy(() => import('./pages/board/TournamentBoardPage'));
@@ -37,5 +44,24 @@ export const competitionStaffRoutes = (
     <Route path="/competition/reviews" element={<ReviewsPage />} />
     <Route path="/competition/live/:matchId" element={<LiveScorePage />} />
     <Route path="/competition/score/:matchId" element={<QuickScorePage />} />
+  </>
+);
+
+/** Trang của khách đã đăng nhập (đặt cạnh /my-bookings, /account trong AppRoutes). */
+export const competitionCustomerRoutes = (
+  <>
+    <Route path="/my-rating" element={<ProtectedRoute roles={['customer']}><MyRatingPage /></ProtectedRoute>} />
+    <Route path="/my-rating/assess" element={<ProtectedRoute roles={['customer']}><SelfAssessPage /></ProtectedRoute>} />
+    <Route path="/my-rating/profile" element={<ProtectedRoute roles={['customer']}><MyProfilePage /></ProtectedRoute>} />
+    <Route path="/my-tournaments" element={<ProtectedRoute roles={['customer']}><MyTournamentsPage /></ProtectedRoute>} />
+    <Route path="/my-matches/:matchId/score" element={<ProtectedRoute roles={['customer']}><LiveScorePage mode="player" /></ProtectedRoute>} />
+  </>
+);
+
+/** Công khai: bảng xếp hạng (chưa đăng nhập xem được, người "Thành viên" bị che tên) và hồ sơ người khác (service quyết định theo quyền riêng tư). */
+export const competitionPublicRoutes = (
+  <>
+    <Route path="/rankings" element={<RankingsPage />} />
+    <Route path="/players/:id" element={<PublicProfilePage />} />
   </>
 );

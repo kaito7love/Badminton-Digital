@@ -9,7 +9,7 @@ import SidebarLayout from '../layouts/SidebarLayout';
 import HomePage from '../pages/Home/HomePage';
 import LoginPage from '../pages/Login/LoginPage';
 import { STAFF_ROLES } from '../utils/roles';
-import { competitionStaffRoutes } from '../features/competition/routes';
+import { competitionStaffRoutes, competitionCustomerRoutes, competitionPublicRoutes } from '../features/competition/routes';
 
 const RegisterPage = lazy(() => import('../pages/Login/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('../pages/Login/ForgotPasswordPage'));
@@ -61,7 +61,10 @@ export default function AppRoutes() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+          {competitionPublicRoutes}
+
           {/* Trang của khách hàng */}
+          {competitionCustomerRoutes}
           <Route path="/my-bookings" element={<ProtectedRoute roles={['customer']}><MyBookingsPage /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute roles={['customer']}><AccountPage /></ProtectedRoute>} />
           <Route path="/checkout" element={<ProtectedRoute roles={['customer']}><CheckoutPage /></ProtectedRoute>} />

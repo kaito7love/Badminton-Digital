@@ -31,12 +31,13 @@ export const loadCourts = () => {
   return promise;
 };
 
-export function useCourts() {
-  const [state, setState] = useState({ courts: cache.list || [], loading: !cache.list });
+export function useCourts(enabled = true) {
+  const [state, setState] = useState({ courts: cache.list || [], loading: enabled && !cache.list });
   useEffect(() => {
+    if (!enabled) return undefined;
     let alive = true;
     loadCourts().then((courts) => { if (alive) setState({ courts, loading: false }); });
     return () => { alive = false; };
-  }, []);
+  }, [enabled]);
   return state;
 }

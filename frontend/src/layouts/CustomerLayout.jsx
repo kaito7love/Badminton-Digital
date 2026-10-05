@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { roleOf, isStaff, homePathForRole } from '../utils/roles';
+import { useCompetition } from '../features/competition/context/CompetitionContext';
 
 /**
  * Vỏ chung cho mặt tiền dành cho khách: cửa hàng, lịch đặt, tài khoản.
@@ -18,6 +19,9 @@ const NAV_ITEMS = [
   { path: '/cart', label: 'Giỏ hàng', icon: '🛒', public: true },
   { path: '/orders', label: 'Đơn mua', icon: '📦', public: false },
   { path: '/my-bookings', label: 'Lịch đặt', icon: '🎟️', public: false },
+  { path: '/rankings', label: 'Xếp hạng', icon: '🏆', public: true, competition: true },
+  { path: '/my-rating', label: 'Trình độ', icon: '📈', public: false, competition: true },
+  { path: '/my-tournaments', label: 'Giải của tôi', icon: '🏸', public: false, competition: true },
   { path: '/account', label: 'Tài khoản', icon: '👤', public: false }
 ];
 
@@ -39,9 +43,20 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
   const { totalQuantity } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const { enabled: competitionOn } = useCompetition();
   const isCustomer = roleOf(user) === 'customer';
-  const visibleNav = NAV_ITEMS.filter((item) => item.public || isCustomer);
-  const isActive = (path) => (path === '/' ? location.pathname === '/' : location.pathname.startsWith(path));
+  const visibleNav = NAV_ITEMS.filter((item) => (item.public || isCustomer) && (!item.competition || competitionOn));
+  // Thanh dưới trên điện thoại chỉ có 5 ô: khi thi đấu bật, nhóm "Thi đấu" thay ô thứ 5 (các mục thi đấu khác nằm trong menu ☰).
+  const baseNav = visibleNav.filter((item) => !item.competition);
+  const COMPETITION_PATHS = ['/rankings', '/my-rating', '/my-tournaments', '/my-matches', '/players'];
+  const bottomNav = competitionOn
+    ? [...baseNav.slice(0, 4), { path: isCustomer ? '/my-rating' : '/rankings', label: 'Thi đấu', icon: '🏆', group: COMPETITION_PATHS }]
+    : visibleNav.slice(0, 5);
+  // Có thêm 3 mục thi đấu thì thanh trên 9 mục chỉ vừa từ 1280 px; hẹp hơn dùng menu ☰ + thanh dưới (như điện thoại).
+  const BP = competitionOn
+    ? { navShow: 'hidden xl:flex', navHide: 'xl:hidden', pad: 'xl:pb-20', gap: 'gap-5' }
+    : { navShow: 'hidden lg:flex', navHide: 'lg:hidden', pad: 'lg:pb-20', gap: 'gap-7' };
+  const isActive = (path, group) => (group ? group.some((p) => location.pathname.startsWith(p)) : path === '/' ? location.pathname === '/' : location.pathname.startsWith(path));
   // Số hàng trong giỏ chỉ gắn lên đúng mục giỏ hàng, và chỉ khi có hàng.
   const badgeFor = (path) => (path === '/cart' && totalQuantity > 0 ? totalQuantity : null);
 
@@ -56,7 +71,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-7 font-kinetic text-xs font-bold uppercase tracking-widest lg:flex">
+          <nav className={`${BP.navShow} items-center ${BP.gap} whitespace-nowrap font-kinetic text-xs font-bold uppercase tracking-widest`}>
             {visibleNav.map((item) => (
               <Link
                 key={item.path}
@@ -115,7 +130,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
 
             <button
               type="button"
-              className="rounded-lg border border-white/20 px-3 py-2 text-xs font-bold text-white lg:hidden"
+              className={`rounded-lg border border-white/20 px-3 py-2 text-xs font-bold text-white ${BP.navHide}`}
               onClick={() => setMobileMenuOpen((open) => !open)}
               aria-expanded={mobileMenuOpen}
               aria-controls="customer-mobile-nav"
@@ -130,7 +145,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
           <nav
             id="customer-mobile-nav"
             aria-label="Điều hướng"
-            className="grid grid-cols-2 gap-3 border-t border-white/10 bg-slate-950/95 px-5 py-4 font-kinetic text-xs font-bold uppercase tracking-widest lg:hidden"
+            className={`grid grid-cols-2 gap-3 border-t border-white/10 bg-slate-950/95 px-5 py-4 font-kinetic text-xs font-bold uppercase tracking-widest ${BP.navHide}`}
           >
             {visibleNav.map((item) => (
               <Link
@@ -147,7 +162,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
         )}
       </header>
 
-      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-5 pb-28 pt-10 sm:px-6 lg:pb-20">
+      <main className={`relative z-10 mx-auto w-full max-w-7xl flex-1 px-5 pb-28 pt-10 sm:px-6 ${BP.pad}`}>
         {(title || eyebrow) && (
           <div className="mb-10 flex flex-wrap items-end justify-between gap-5">
             <div>
@@ -169,14 +184,14 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
       {/* Thanh điều hướng đáy trên mobile — cùng lối với bàn làm việc nhân viên */}
       <nav
         aria-label="Điều hướng nhanh"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 backdrop-blur-xl lg:hidden"
+        className={`fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 backdrop-blur-xl ${BP.navHide}`}
       >
         <div className="mx-auto flex max-w-md items-center justify-around px-3 py-2.5">
-          {visibleNav.slice(0, 5).map((item) => (
+          {bottomNav.map((item) => (
             <Link key={item.path} to={item.path} className="flex flex-col items-center gap-1 text-center">
               <span
                 className={`relative inline-flex h-9 w-9 items-center justify-center rounded-xl text-base ${
-                  isActive(item.path) ? 'bg-emerald-500' : 'bg-slate-900'
+                  isActive(item.path, item.group) ? 'bg-emerald-500' : 'bg-slate-900'
                 }`}
               >
                 {item.icon}
@@ -187,7 +202,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
                 )}
               </span>
               <span
-                className={`text-[10px] font-bold ${isActive(item.path) ? 'text-emerald-400' : 'text-slate-500'}`}
+                className={`text-[10px] font-bold ${isActive(item.path, item.group) ? 'text-emerald-400' : 'text-slate-500'}`}
               >
                 {item.label}
               </span>

@@ -59,7 +59,7 @@ export default function LiveScorePage({ mode = 'staff' }) {
   const { toast } = useCompetition();
   const perms = permissionsFor(user);
   const isStaff = mode === 'staff' && perms.canOperate;
-  useCourts();
+  useCourts(mode === 'staff');
 
   const [live, setLive] = useState(null);
   const [skew, setSkew] = useState(0);
@@ -85,9 +85,15 @@ export default function LiveScorePage({ mode = 'staff' }) {
     }
   }, [matchId]);
 
-  const { data: match, loading, error, reload, status } = useLiveResource({ load, stream, onEvent });
+  // Người chơi (token chỉ có scope bấm điểm) không mở được luồng SSE của giải / buổi → tự tải lại tỉ số mỗi 4 giây thay vào đó.
+  const { data: match, loading, error, reload, status } = useLiveResource({ load, stream: mode === 'staff' ? stream : null, onEvent });
   useEffect(() => {
-    if (match) setStream((s) => {
+    if (mode !== 'player') return undefined;
+    const timer = setInterval(() => { if (document.visibilityState === 'visible') reload({ silent: true }); }, 4000);
+    return () => clearInterval(timer);
+  }, [mode, reload]);
+  useEffect(() => {
+    if (match && mode === 'staff') setStream((s) => {
       const next = { kind: match.contextType === 'session' ? 'sessions' : 'tournaments', id: match.contextId };
       return s && s.kind === next.kind && s.id === next.id ? s : next;
     });
@@ -127,7 +133,7 @@ export default function LiveScorePage({ mode = 'staff' }) {
     );
   }
 
-  const back = backTarget(match);
+  const back = mode === 'player' ? { to: '/my-tournaments', label: '← Về giải của tôi' } : backTarget(match);
   const goBack = () => (location.key !== 'default' ? navigate(-1) : navigate(back.to));
   const blocked = notScorable(match);
   const current = live || { games: [], current: [0, 0], gameNo: 1, gamesWon: [0, 0], server: 'A', serveFrom: 'right', endsSwapped: false, decided: false, revision: 0, rallies: '' };
@@ -251,12 +257,10 @@ export default function LiveScorePage({ mode = 'staff' }) {
       {finished && (
         <div className="mx-3 mb-2 rounded-2xl border-2 border-emerald-400 bg-emerald-400/15 p-3 text-center text-white" data-testid="saved">
           <p className="text-sm font-bold">Đã lưu kết quả{match.games && match.games.length ? `: ${match.games.map((g) => g.join('–')).join(', ')}` : ''}.</p>
-          {isStaff && (
-            <button type="button" onClick={goBack} className="mt-2 w-full rounded-2xl bg-white px-5 py-3 text-base font-black text-slate-950">{back.label}</button>
-          )}
+          <button type="button" onClick={goBack} className="mt-2 w-full rounded-2xl bg-white px-5 py-3 text-base font-black text-slate-950">{back.label}</button>
         </div>
       )}
-      {!finished && blocked && isStaff && (
+      {!finished && blocked && (
         <div className="mx-3 mb-2"><button type="button" onClick={goBack} className="w-full rounded-2xl bg-white px-5 py-3 text-base font-black text-slate-950">{back.label}</button></div>
       )}
 

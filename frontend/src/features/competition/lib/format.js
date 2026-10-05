@@ -5,8 +5,10 @@ const courtLabels = new Map();
 export const registerCourtNames = (courts) => { for (const c of courts || []) if (c && c.id != null && c.name) courtLabels.set(`bd:court:${c.id}`, c.name); };
 export const courtName = (ref) => courtLabels.get(ref) || String(ref ?? '').replace(/^bd:court:/, 'Sân ');
 
-/** `bd:branch:2` → `Chi nhánh 2`. */
-export const orgName = (ref) => (ref === '*' ? 'Mọi chi nhánh' : String(ref ?? '').replace(/^bd:branch:/, 'Chi nhánh '));
+// Tên chi nhánh thật (từ /public/branches của app chính): `bd:branch:2` → "Chi nhánh Quận 3". Chưa biết thì "Chi nhánh 2".
+const branchLabels = new Map();
+export const registerBranchNames = (branches) => { for (const b of branches || []) if (b && b.id != null && b.name) branchLabels.set(`bd:branch:${b.id}`, b.name); };
+export const orgName = (ref) => (ref === '*' ? 'Mọi chi nhánh' : branchLabels.get(ref) || String(ref ?? '').replace(/^bd:branch:/, 'Chi nhánh '));
 
 /** Bỏ dấu + chữ thường để tìm "nguyen" ra "Nguyễn" (đ / Đ cũng đổi). */
 export const fold = (value) =>

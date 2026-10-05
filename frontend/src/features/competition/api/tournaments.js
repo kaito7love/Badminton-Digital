@@ -64,11 +64,19 @@ export const playersApi = {
   /** Tìm: `search`, `flag` (unverified | needs_verification | quick), `discipline`, `status`, `page`, `limit`. */
   list: (params = { limit: 100, status: 'active' }) => api.get('/players', { params }).then(data),
   get: (id) => api.get(`/players/${id}`).then(data),
+  /** Hồ sơ theo mã ngoài (vd `bd:customer:12`); chưa có → 404. */
+  byRef: (ref) => api.get(`/players/by-ref/${encodeURIComponent(ref)}`).then(data),
+  /** Tạo / cập nhật hồ sơ theo mã ngoài (nhân viên nối khách của app chính với hồ sơ thi đấu). */
+  upsertByRef: (ref, body) => api.put(`/players/by-ref/${encodeURIComponent(ref)}`, body).then(data),
   /** Sổ điểm (để hiện "vì sao điểm đổi" / vẽ biểu đồ). */
   history: (id, discipline, params = {}) => api.get(`/players/${id}/rating-history`, { params: { ...(discipline ? { discipline } : {}), ...params } }).then(data),
   matches: (id, params = { limit: 10 }) => api.get(`/players/${id}/matches`, { params }).then(data),
   partners: (id) => api.get(`/players/${id}/partners`).then(data),
   stats: (id) => api.get(`/players/${id}/stats`).then(data),
+  /** Hồ sơ rút gọn theo quyền riêng tư của người đó (khách xem người khác). */
+  publicProfile: (id) => api.get(`/players/${id}/public`).then(data),
+  headToHead: (id, otherId) => api.get(`/players/${id}/head-to-head/${otherId}`).then(data),
+  ranking: (id) => api.get(`/players/${id}/ranking`).then(data),
   /** Chấm nhanh một nhãn — chỉ cho người chưa có điểm. */
   quickAssessment: (id, body) => api.post(`/players/${id}/assessments/quick`, body).then(data),
   /** Nhân viên chấm đủ form (không trần 4.5). Người đã có trận tính điểm: chỉ quản lý (`rating:assess:any`), điểm không đổi. */
@@ -76,6 +84,21 @@ export const playersApi = {
   verify: (id, discipline) => api.post(`/players/${id}/verify`, { discipline }).then(data),
   /** Chỉnh điểm tay (quản lý): `{ discipline, newRating, reason }`, lý do ≥ 10 ký tự. */
   adjust: (id, body) => api.post(`/players/${id}/rating-adjustments`, body).then(data)
+};
+
+/** Của chính mình (khách — scope rating:self): hồ sơ, giải, trận. */
+export const meApi = {
+  get: () => api.get('/me').then(data),
+  patch: (body, version) => api.patch('/me', body, { etag: version }).then(data),
+  tournaments: () => api.get('/me/tournaments').then(data),
+  matches: (params = { limit: 10 }) => api.get('/me/matches', { params }).then(data)
+};
+
+/** Bảng xếp hạng (công khai, chưa đăng nhập cũng xem được; người `members` bị che tên). */
+export const rankingApi = {
+  /** `category` MS | WS | MD | WD; `organizerRef`, `ageGroup`, `level`, `page`, `limit`. */
+  rating: (params) => api.get('/leaderboards/rating', { params }).then(data),
+  points: (params) => api.get('/leaderboards/points', { params }).then(data)
 };
 
 /** Chấm trình: bộ tiêu chí (frontend không chép lại), tính thử, hàng chờ duyệt. */

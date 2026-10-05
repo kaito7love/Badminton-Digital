@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Pagination } from '../../components/UIComponents';
 import { customerService } from '../../services/apiServices';
 import { formatDate } from '../../utils/datetime';
+import CustomerRatingButton from '../../features/competition/components/CustomerRatingButton';
 
 const formatMoney = (n) => {
   if (n == null) return '₫0';
@@ -212,6 +213,7 @@ export default function CustomersPage() {
                           🔗 Gộp vào tài khoản
                         </button>
                       )}
+                      <CustomerRatingButton customer={customer} />
                       <button
                         onClick={() => handleOpenEditModal(customer)}
                         className="text-emerald-600 dark:text-emerald-400 hover:underline text-xs font-medium"

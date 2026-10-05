@@ -7,11 +7,12 @@ import { useLiveResource } from '../../hooks/useLiveResource';
 import { useAction } from '../../hooks/useAction';
 import { useCompetition } from '../../context/CompetitionContext';
 import { permissionsFor } from '../../lib/permissions';
-import { changeText, calcRows, DISCIPLINE_LABEL, FLAG_LABELS, ratingOf, SOURCE_LABEL, ASSESSMENT_STATUS } from '../../lib/rating';
+import { DISCIPLINE_LABEL, FLAG_LABELS, ratingOf, SOURCE_LABEL, ASSESSMENT_STATUS } from '../../lib/rating';
 import { fmtDate, fmtDateTime, fmtNumber, gamesText, teamText } from '../../lib/format';
 import { Button, Card, EmptyState, Notice, Spinner } from '../../components/ui';
 import { ConfirmDialog } from '../../components/Dialog';
 import RatingCards from '../../components/RatingCards';
+import RatingHistoryList from '../../components/RatingHistory';
 import { AdjustDialog, QuickAssessDialog } from './PlayerDialogs';
 
 // Hồ sơ người chơi (nhân viên) — 07 mục 1.2: điểm Đơn / Đôi, chấm trình (đầy đủ / nhanh), xác nhận trình, chỉnh điểm (quản lý), sổ điểm kèm
@@ -30,38 +31,6 @@ const loadAll = async (id) => {
 };
 
 const CONTEXT = { tournament: 'Giải đấu', session: 'Giao lưu' };
-
-function HistoryRow({ c }) {
-  const [open, setOpen] = useState(false);
-  const rows = calcRows(c);
-  return (
-    <li className="border-t border-slate-100 py-2 text-sm dark:border-slate-800" data-change={c.id}>
-      <div className="flex flex-wrap items-baseline gap-x-3">
-        <small className="w-24 text-slate-500">{fmtDate(c.createdAt)}</small>
-        <Badge>{DISCIPLINE_LABEL[c.discipline]}</Badge>
-        <span className="min-w-0 flex-1 font-semibold text-slate-900 dark:text-white">{changeText(c)}</span>
-        {rows.length > 0 && <button type="button" className="text-xs font-bold text-emerald-600 hover:underline" onClick={() => setOpen(!open)}>{open ? 'Ẩn chi tiết' : 'Chi tiết từng trận'}</button>}
-      </div>
-      {c.note && <p className="mt-0.5 text-xs text-slate-500">Lý do: {c.note}</p>}
-      {open && (
-        <table className="mt-2 w-full text-left text-xs">
-          <thead><tr className="text-slate-500"><th className="pr-3">Kết quả</th><th className="pr-3">Kỳ vọng (E)</th><th className="pr-3">Hệ số K</th><th className="pr-3">Hệ số trận</th><th>Điểm</th></tr></thead>
-          <tbody>
-            {rows.map((m) => (
-              <tr key={m.matchId} className="border-t border-slate-100 dark:border-slate-800">
-                <td className="py-1 pr-3">{m.S >= 1 ? 'Thắng' : m.S <= 0 ? 'Thua' : fmtNumber(m.S)}</td>
-                <td className="pr-3 tabular-nums">{fmtNumber(m.E)}</td>
-                <td className="pr-3 tabular-nums">{fmtNumber(m.K)}</td>
-                <td className="pr-3 tabular-nums">{fmtNumber(m.m)} × {fmtNumber(m.w)}</td>
-                <td className="tabular-nums font-bold">{m.delta > 0 ? '+' : ''}{fmtNumber(m.delta, 3)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </li>
-  );
-}
 
 export default function PlayerProfilePage() {
   const { id } = useParams();
@@ -159,7 +128,7 @@ export default function PlayerProfilePage() {
       )}
 
       <Card title="Sổ điểm">
-        {history.length === 0 ? <EmptyState>Chưa có thay đổi điểm nào.</EmptyState> : <ul data-testid="history">{[...history].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map((c) => <HistoryRow key={c.id} c={c} />)}</ul>}
+        <RatingHistoryList items={history} />
       </Card>
 
       {stats.length > 0 && (
