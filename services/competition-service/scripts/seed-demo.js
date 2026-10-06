@@ -389,6 +389,67 @@ const main = async () => {
   const onsiteEntries = await models.TournamentEntry.findAll({ where: { tournamentId: onsite.id }, order: [['registeredAt', 'ASC'], ['id', 'ASC']] });
   for (const e of onsiteEntries.slice(0, 4)) await tournament.service.checkIn({ auth, id: onsite.id, entryId: e.id, present: true });
 
+  // --- Trang công khai /thi-dau (plan 27, p5) — thêm SAU mọi phần trên để không đổi dữ liệu cũ (cùng một chuỗi ngẫu nhiên) ---
+  // 1) Đa số hồ sơ hiện tên với khách CHƯA đăng nhập (public) để trang portfolio có gì để xem; vẫn giữ vài hồ sơ members / hidden để thấy cách che tên
+  //    ("Thành viên A3F2"). Hồ sơ hidden (demo:player:11) giữ nguyên.
+  const keepMembers = new Set([ids['demo:player:02'], ids['demo:player:05'], ids['demo:player:13'], ids['demo:player:16'], extra.male[2], extra.female[3]]);
+  const everyone = [...Object.values(ids), ...extra.male, ...extra.female];
+  for (const pid of everyone) {
+    if (keepMembers.has(pid) || pid === ids['demo:player:11']) continue;
+    await player.service.updateProfile({ tenant: TENANT, playerId: pid, isStaff: true, actorRef: auth.sub, patch: { visibility: 'public' } });
+  }
+  const refOf = new Map([...Object.entries(ids)].map(([ref, id]) => [id, ref]));
+  const nameOf = new Map(PEOPLE.map((p) => [p[0], p[1]]));
+  // "Khách đăng nhập" giả để gọi đúng cửa vào của khách (đăng ký online): cùng luật, cùng hàng chờ như khách thật bấm trên trang công khai.
+  const asCustomer = (ref) => ({ ...auth, sub: `bd:user:${ref}`, player: ref, playerName: nameOf.get(ref) || ref, scopes: new Set(['rating:self', 'entry:self']) });
+  const inDays = (n) => new Date(Date.now() + n * DAY).toISOString().slice(0, 10);
+
+  // 2) Giải đôi cặp cố định đang MỞ ĐĂNG KÝ ONLINE: 10 chỗ (tính theo người), 4 cặp đã vào (còn 2 chỗ) — khách thử đăng ký cả cặp; hai cặp đăng ký "online"
+  //    (một cặp có đồng đội chưa có tài khoản) để nhân viên thấy huy hiệu "đăng ký online" + SĐT.
+  const onlineFixed = await tournament.service.create({
+    auth,
+    body: {
+      organizerRef: 'bd:branch:1', name: 'Đôi cặp cố định — mở đăng ký online (demo)', startsOn: inDays(9), startTime: '08:30', tier: 'club',
+      description: 'Giải đôi giao hữu cuối tuần. Đăng ký cả cặp trong một lần ngay trên trang Thi đấu; hết chỗ thì vào danh sách chờ. Lệ phí thanh toán tại quầy.',
+      discipline: 'doubles', genderRule: 'open', pairingMode: 'fixed', format: 'groups_knockout', groupCount: 2, advancePerGroup: 2, thirdPlaceMatch: true,
+      scoring: '1x21', courtCount: 4, matchMinutes: 15, maxEntries: 10, ratingRule: { scope: 'player', max: 4.5 }
+    }
+  });
+  await tournament.service.open({ auth, id: onlineFixed.id });
+  await tournament.service.register({ auth, id: onlineFixed.id, playerId: men[1], partnerPlayerId: women[1] });
+  await tournament.service.register({ auth, id: onlineFixed.id, playerId: men[2], partnerPlayerId: women[2] });
+  await tournament.selfRegistration.register({ auth: asCustomer('demo:player:03'), id: onlineFixed.id, partner: { playerId: ids['demo:player:15'] } });
+  await tournament.selfRegistration.register({
+    auth: asCustomer('demo:player:09'), id: onlineFixed.id,
+    partner: { guest: { name: 'Nguyễn Hữu Phước', phone: '0900 000 001', gender: 'male', level: 'tb' } }
+  });
+
+  // 3) Giải đơn mở đăng ký online: 8 chỗ, 5 người đã vào.
+  const onlineSingles = await tournament.service.create({
+    auth,
+    body: {
+      organizerRef: 'bd:branch:1', name: 'Đơn mở rộng — mở đăng ký online (demo)', startsOn: inDays(16), startTime: '09:00', tier: 'club',
+      description: 'Giải đơn vòng tròn, ai cũng đăng ký được. Đăng ký xong theo dõi lịch và kết quả ở trang giải.',
+      discipline: 'singles', genderRule: 'open', format: 'round_robin', scoring: '1x21', courtCount: 2, matchMinutes: 15, maxEntries: 8
+    }
+  });
+  await tournament.service.open({ auth, id: onlineSingles.id });
+  for (const pid of [men[4], men[5], women[3], women[4]]) await tournament.service.register({ auth, id: onlineSingles.id, playerId: pid });
+  await tournament.selfRegistration.register({ auth: asCustomer('demo:player:12'), id: onlineSingles.id });
+
+  // 4) Buổi giao lưu sắp tới có sức chứa 12: 8 người đã đăng ký giữ chỗ (còn 4 chỗ) — khách thử "Tham gia buổi này".
+  const soonStart = new Date(Date.now() + 2 * DAY);
+  soonStart.setUTCHours(11, 30, 0, 0); // 18:30 giờ Việt Nam
+  const soon = await session.service.create({
+    auth,
+    body: {
+      organizerRef: 'bd:branch:1', name: 'Giao lưu cuối tuần — Chi nhánh 1 (đăng ký online)', startsAt: soonStart.toISOString(),
+      courtRefs: ['bd:court:1', 'bd:court:2', 'bd:court:3'], format: 'doubles', mode: 'balanced', scoring: '1x21', maxPlayers: 12, seed: 'demo-giao-luu-cuoi-tuan'
+    }
+  });
+  const signedUp = ['demo:player:01', 'demo:player:03', 'demo:player:09', 'demo:player:12', 'demo:player:15', 'demo:player:18', 'demo:player:20', 'demo:player:22'];
+  for (const ref of signedUp) await session.signups.signUp({ auth: asCustomer(ref), id: soon.id });
+
   const champion = t1.result.placements.find((p) => p.from === 1);
   console.log(`Seed demo xong (tenant ${TENANT}):`);
   console.log(`  ${PEOPLE.length + EXTRA.length + 1} người chơi (bd:customer:1 chưa chấm trình — để tự làm form)`);
@@ -400,6 +461,7 @@ const main = async () => {
   console.log(`  Giải "${onsite.name}": 6 người đăng ký, 4 người đã điểm danh — thử điểm danh rồi bốc thăm`);
   console.log(`  Buổi giao lưu "${past.s.name}": đã đóng, ${closed.result.completedMatches} trận có tỉ số, ${closed.result.unscoredMatches} trận không tỉ số, ${closed.result.ratingChanges.length} người đổi điểm (hệ số 0.5)`);
   console.log(`  Buổi giao lưu "${live.s.name}": đang diễn ra, ${live.playing.size} sân đang đánh (tỉ số dở: ${liveScores.join(', ')}) — xem /v1/sessions/${live.s.id}/board`);
+  console.log(`  Trang công khai: "${onlineFixed.name}" (còn 2/10 chỗ, 2 cặp đăng ký online), "${onlineSingles.name}" (còn 3/8 chỗ), buổi "${soon.name}" (${signedUp.length}/12 đã đăng ký)`);
   await sequelize.close();
 };
 

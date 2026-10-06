@@ -95,6 +95,10 @@ function RegisterForm({ t, model, onRegistered }) {
 
 const flagsOf = (u) => u.flatMap((x) => x.flags || []);
 
+/** Số đăng ký do khách tự bấm trên trang công khai (plan 27): đếm theo CẶP ở giải đôi cặp cố định, theo người ở giải khác; người đã rút không tính. */
+export const onlineCount = (units, active, pairsMode) =>
+  (pairsMode ? units : active.map((e) => [e])).filter((u) => u.some((x) => x.via === 'self' && x.status !== 'withdrawn')).length;
+
 /** Dấu "đăng ký online" + liên hệ của đồng đội khách (chỉ nhân viên thấy SĐT) — plan 27. `unit` = một người hoặc một cặp. */
 export function OnlineTags({ unit }) {
   return (
@@ -116,7 +120,7 @@ export default function TabRegistration({ t, model, perms, view, setView, reload
   const [run, { error }] = useAction({ onReload: reload });
   const registered = active.filter((e) => e.status === 'registered');
   const arrived = active.filter((e) => e.checkedInAt).length;
-  const online = active.filter((e) => e.via === 'self' && e.status !== 'withdrawn').length; // khách tự đăng ký trên trang công khai (plan 27)
+  const online = onlineCount(units, active, pairsMode);
   const shown = view.absentOnly ? units.filter((u) => u.some((x) => !x.checkedInAt && x.status !== 'withdrawn')) : units;
 
   const toggle = (entry, present) => run(async () => { await tournamentsApi.checkIn(t.id, entry.id, present); await reload({ silent: true }); });
@@ -152,7 +156,7 @@ export default function TabRegistration({ t, model, perms, view, setView, reload
         <b className="text-sm text-slate-900 dark:text-white">
           {pairsMode ? `${units.filter((u) => u[0].status === 'registered').length} cặp đã đăng ký` : `${registered.length} người đã đăng ký`}
           {t.status !== 'draft' && <> · đã đến <Badge variant={arrived === active.length && active.length ? 'emerald' : 'amber'}>{arrived}/{active.length}</Badge></>}
-          {online > 0 && <> · <Badge variant="sky">{online} đăng ký online</Badge></>}
+          {online > 0 && <> · <Badge variant="sky">{online} {pairsMode ? 'cặp' : 'người'} đăng ký online</Badge></>}
         </b>
         {t.status !== 'draft' && (
           <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">

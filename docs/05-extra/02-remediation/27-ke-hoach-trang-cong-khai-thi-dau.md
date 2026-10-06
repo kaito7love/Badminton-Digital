@@ -1,9 +1,9 @@
 # Kế hoạch: trang công khai "Thi đấu" — khách xem giải / buổi giao lưu và đăng ký online
 
 - **Ngày:** 07/10/2026.
-- **Trạng thái:** chủ dự án duyệt "code đi" (07/10/2026) → **đang làm, từng slice báo cáo ở mục 9**. Giả định ở mục 8 giữ như đã đề xuất (chưa có phản đối).
+- **Trạng thái:** chủ dự án duyệt "code đi" (07/10/2026) → **p0–p5 đều xong, kết quả ở mục 9; chờ chủ dự án duyệt gộp vào `main`** (chưa gộp, chưa đẩy `main`). Giả định ở mục 8 giữ như đã đề xuất (chưa có phản đối).
 - **Nhánh:** `feat/competition-public-hub`, tách từ `main` @ `d89cbfd`.
-- **Phạm vi:** `services/competition-service` (API công khai, tự đăng ký, đăng ký buổi giao lưu, 2 migration),
+- **Phạm vi:** `services/competition-service` (API công khai, tự đăng ký, đăng ký buổi giao lưu, 3 migration),
   `backend/src/integrations/competition` (cổng nối cho khách / người chưa đăng nhập), `frontend/src/features/competition`
   (khu công khai `/thi-dau`). Có migration (DB service), có thêm API; không đụng DB chính.
 
@@ -135,7 +135,7 @@ quản trị nhiều bậc giá theo sự kiện, trang portfolio giới thiệu
 
 ## 7. Theo dõi
 
-- [x] p0 · [x] p1 · [x] p2 · [x] p3 · [x] p4 · [ ] p5
+- [x] p0 · [x] p1 · [x] p2 · [x] p3 · [x] p4 · [x] p5
 - [ ] Báo cáo → xin duyệt merge `main` (không tự push main)
 
 ## 8. Giả định cần chủ dự án xác nhận (khi duyệt)
@@ -266,4 +266,27 @@ thêm test cổng. Ảnh: `p3-*.png` trong scratchpad (không nằm trong repo).
 | Vitest | **302/302** (+22: `registerFlow.test.js` 17 — SĐT / họ tên / form đồng đội / body gửi / lệ phí / lỗi / câu thông báo; `public-ui.test.jsx` +4 — hộp thoại, form đồng đội, huy hiệu nhân viên, dòng đăng ký buổi; `sessionModel` +1 — sức chứa) |
 | `check-boundaries`, `npm run build` | xanh |
 | Chrome thật (stack thử: backend :5000, service :5102, Vite :5173; 3 tài khoản khách — 1 đã có điểm, 1 chưa có điểm, 1 để lấp chỗ) | **57/57**: chưa có điểm → hộp thoại dẫn sang tự chấm trình, không có form; giải đôi: tìm đồng đội → chọn → đăng ký cả cặp (nhân viên thấy 2 dòng `via: self`), rút cả cặp, đồng đội chưa có tài khoản (4 lỗi theo ô khi để trống → nhập đủ → đăng ký; SĐT chuẩn hoá, `online_guest`), nhân viên thấy huy hiệu + SĐT + cờ chấm nhanh; giải đơn một bấm; Giải của tôi + link; buổi: tham gia → đủ chỗ → khách khác vào danh sách chờ (thứ 1) → khách đầu huỷ → người chờ lên (trang cập nhật); nhân viên: điểm danh nhanh, gỡ, sức chứa 1 báo lỗi / 6 lưu; điện thoại 390 px sáng không tràn ngang, hộp thoại nằm gọn; không lỗi console |
+
+### 9.p5 — dữ liệu mẫu cho portfolio, rà toàn bộ màn hình, tài liệu (07/10/2026)
+
+**Đã làm**
+- **Seed demo** (`services/competition-service/scripts/seed-demo.js`, thêm SAU mọi phần cũ nên dữ liệu cũ không đổi): đa số hồ sơ chuyển `public` để khách chưa đăng nhập có tên để xem (vẫn giữ vài hồ sơ `members` và 1 `hidden` để thấy cách che
+  tên "Thành viên A3F2"); **giải đôi cặp cố định mở đăng ký online** (10 chỗ theo người, 4 cặp đã vào — còn 2 chỗ; hai cặp đăng ký qua đúng cửa vào của khách, một cặp có đồng đội chưa có tài khoản để nhân viên thấy huy hiệu + SĐT);
+  **giải đơn mở đăng ký online** (8 chỗ, 5 người — còn 3 chỗ); **buổi giao lưu sắp tới** sức chứa 12 với 8 người đã đăng ký (còn 4 chỗ). Tổng: 39 người chơi, 8 giải, 3 buổi giao lưu; 5.694 câu lệnh SQL (trước p5 ~5.400) → thêm khoảng 1 phút
+  cho job reset hằng đêm trên Aiven (chưa đo lại ở đó; còn dư nhiều so với giới hạn 60 phút).
+- Tài khoản khách demo (`0903333333`) **vẫn chưa có điểm trình** như thiết kế cũ: bấm "Đăng ký" ở giải thì hộp thoại dẫn sang "Tự chấm trình" — đúng luồng một khách thật sẽ gặp.
+- **Tài liệu:** đoạn "Public competition hub" trong `CLAUDE.md`; README service (seed, 21 bảng); `DeploymentGuide.md` (13 migration, dữ liệu mới, số câu lệnh); docs service 02 / 06 / 07.
+- Nhân viên: tab Đăng ký của giải đôi cặp cố định đếm theo **cặp** ("2 cặp đăng ký online"), giải khác đếm theo người (sửa khi rà dữ liệu seed — trước đó đếm theo dòng nên một cặp tính là 2).
+
+**Kiểm**
+| Kiểm | Kết quả |
+|---|---|
+| Reset + seed thật (drop → 13 migration → seed) trên DB trống | chạy hết, không lỗi; số liệu in ra khớp (còn 2/10, còn 3/8, 8/12) |
+| Chrome thật trên dữ liệu seed | **34/34** (29 kịch bản rà + 5 nhân viên xem dữ liệu seed): nội dung (giải mở còn chỗ, buổi sắp tới, tên rút gọn cho người công khai, "Thành viên …" cho người đặt riêng tư, **không lộ tên / SĐT đồng đội khách cho khách ngoài**, nhân viên thấy đủ tên + SĐT); **12 lượt quét** (3 loại người xem × 390 tối / 390 sáng / 1440 tối / 1440 sáng) × 19 trang (trang chủ, lọc chi nhánh, chi nhánh trống, giải mở / đang đấu / đã chốt với mọi tab, buổi sắp tới / đang diễn ra / đã đóng, giải và buổi không có thật) — không tràn ngang, không trang trắng / "sự cố hiển thị", không chữ lạ (`undefined`, `NaN`, `[object`), không lỗi console; **tính năng tắt** → báo "chưa được bật", 0 lời gọi API thi đấu; **service tắt** → báo "tạm ngưng" + nút thử lại, bật lại thì tải được |
+| Chrome thật, luồng đăng ký (chạy lại sau khi sửa cách đếm) | **57/57** (xem 9.p4) |
+| Vitest | **303/303** (+1: đếm đăng ký online theo cặp / người) |
+| Jest backend | **545/545** (42 file) (không đổi mã backend từ p3) |
+| Jest service | 423/423 ở p4; p5 chỉ đổi script seed + tài liệu |
+
+**Còn lại:** chờ chủ dự án duyệt gộp vào `main` (chưa gộp, chưa đẩy `main`). Khi gộp: demo trên Render tự chạy migration `registered_via` của DB thi đấu lúc khởi động; job reset hằng đêm dựng lại dữ liệu có phần trang công khai.
 

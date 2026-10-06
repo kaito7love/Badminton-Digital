@@ -7,7 +7,7 @@ import { SessionCard, TournamentCard } from './Cards';
 import { EntriesList, PlacementsCard, ScheduleList, SessionBoardView, SignupList, StandingsTables } from './Lists';
 import { RegistrationPanel, SessionSignupPanel } from './Panels';
 import RegisterDialog, { GuestForm } from './RegisterDialog';
-import { OnlineTags } from '../../pages/tournaments/TabRegistration';
+import { OnlineTags, onlineCount } from '../../pages/tournaments/TabRegistration';
 import { SignupRow } from '../../pages/sessions/SessionDetailPage';
 
 // Thành phần của khu công khai /thi-dau (plan 27) vẽ ra HTML tĩnh với dữ liệu hình dạng API công khai — kiểm nội dung, che tên, trạng thái, không tên lạ.
@@ -267,6 +267,14 @@ describe('đăng ký online (plan 27, p4)', () => {
     expect(pair).toContain('đồng đội khách');
     expect(pair).toContain('Bích · SĐT 0912 345 678');
     expect(html(<OnlineTags unit={[staff]} />)).toBe('');
+  });
+  test('đếm đăng ký online: cặp ở giải đôi cặp cố định, người ở giải khác, bỏ người đã rút', () => {
+    const e = (id, via, status = 'registered') => ({ id, via, status });
+    const pairs = [[e('a', 'self'), e('b', 'self')], [e('c', 'staff'), e('d', 'staff')], [e('x', 'self', 'withdrawn'), e('y', 'self', 'withdrawn')], [e('p', 'staff'), e('q', 'self')]];
+    expect(onlineCount(pairs, pairs.flat(), true)).toBe(2); // cặp 1 và cặp 4 (một người online đã đủ)
+    const singles = [e('s1', 'self'), e('s2', 'staff'), e('s3', 'self'), e('s4', 'self', 'withdrawn')];
+    expect(onlineCount(singles.map((x) => [x]), singles, false)).toBe(2);
+    expect(onlineCount([], [], true)).toBe(0);
   });
   test('SignupRow: giữ chỗ → điểm danh + gỡ; chờ → thứ mấy; đã đến → không nút; buổi đóng → không nút', () => {
     const base = { id: 'g1', playerId: 'p1', name: 'An', rating: 3.25, flags: [], present: false };
