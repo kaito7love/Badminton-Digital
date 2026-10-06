@@ -17,7 +17,8 @@ let server;
 let port;
 
 beforeAll(async () => {
-  ctx = await createTestContext({ env: { SSE_HEARTBEAT_MS: '300' } });
+  // File này chạy ~5 phút (hàng trăm lần bấm điểm tuần tự) — vượt hạn token mặc định 300 giây nên 401 giữa chừng khi máy bận.
+  ctx = await createTestContext({ tokenTtl: 3000, env: { SSE_HEARTBEAT_MS: '300' } });
   manager = await ctx.as({ scope: `${MANAGER} ${SESSION} ${TOUR}`, sub: 'bd:user:mgr', org: ['bd:branch:1'] });
   op = await ctx.as({ scope: `${STAFF} ${SESSION}`, sub: 'bd:user:op', org: ['bd:branch:1'] });
   other = await ctx.as({ scope: `${STAFF} ${SESSION}`, sub: 'bd:user:other', org: ['bd:branch:2'] });

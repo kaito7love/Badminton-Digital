@@ -23,6 +23,7 @@ tags:
   - name: match
   - name: tournament
   - name: session
+  - name: public
   - name: ops
 
 paths:
@@ -2457,6 +2458,148 @@ paths:
         '200': { $ref: '#/components/responses/SessionDetail' }
         default: { $ref: '#/components/responses/Error' }
 
+  # --- Trang công khai (plan 27): scope public:read — gateway cấp cho cả người chưa đăng nhập ---
+  /v1/public/tournaments:
+    get:
+      tags: [public]
+      summary: Danh sách giải xem công khai (open / drawn / in_progress / finalized, mọi chi nhánh)
+      description: |
+        Scope: public:read. Không kiểm chi nhánh. `status` nhận một hoặc nhiều giá trị cách nhau dấu phẩy; `order` asc
+        (mặc định, ngày sớm nhất trước) hoặc desc; `q` tìm trong tên giải. Giải nháp / đã huỷ không bao giờ có trong kết quả.
+      parameters:
+        - { name: status, in: query, allowReserved: true, schema: { type: string, pattern: '^(open|drawn|in_progress|finalized)(,(open|drawn|in_progress|finalized))*$' } }
+        - { name: organizerRef, in: query, allowReserved: true, schema: { type: string, maxLength: 64 } }
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+        - { name: order, in: query, schema: { type: string, enum: [asc, desc] } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200': { $ref: '#/components/responses/PublicTournamentPage' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/public/tournaments/{id}:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [public]
+      summary: Chi tiết giải xem công khai (kèm số chỗ, số trận)
+      description: 'Scope: public:read. Giải nháp / đã huỷ → 404.'
+      responses:
+        '200': { $ref: '#/components/responses/PublicTournamentDetail' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/public/tournaments/{id}/entries:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [public]
+      summary: Danh sách đăng ký (mỗi dòng một người hoặc một cặp), tên theo quyền riêng tư
+      description: 'Scope: public:read. Người rút không có trong danh sách. `players[].id = null` khi người chơi bị che tên.'
+      responses:
+        '200': { $ref: '#/components/responses/PublicEntries' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/public/tournaments/{id}/matches:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [public]
+      summary: Lịch thi đấu và kết quả
+      description: 'Scope: public:read.'
+      responses:
+        '200': { $ref: '#/components/responses/PublicMatches' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/public/tournaments/{id}/standings:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [public]
+      summary: Bảng xếp hạng vòng bảng
+      description: 'Scope: public:read.'
+      responses:
+        '200': { $ref: '#/components/responses/PublicStandings' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/public/tournaments/{id}/bracket:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [public]
+      summary: Sơ đồ loại trực tiếp
+      description: 'Scope: public:read.'
+      responses:
+        '200': { $ref: '#/components/responses/PublicBracket' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/public/tournaments/{id}/placements:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [public]
+      summary: Thứ hạng cuối giải (sau khi chốt)
+      description: 'Scope: public:read.'
+      responses:
+        '200': { $ref: '#/components/responses/PublicPlacements' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/public/tournaments/{id}/stream:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    get:
+      tags: [public]
+      summary: Luồng SSE công khai của giải (tỉ số trực tiếp, báo lịch / bảng đổi)
+      description: 'Scope: public:read. Cùng sự kiện và cách đóng khi token hết hạn như /v1/tournaments/{id}/stream; chỉ cho giải được xem công khai.'
+      responses:
+        '200':
+          description: Luồng sự kiện — mở tới khi client ngắt hoặc token hết hạn
+          content:
+            text/event-stream:
+              schema: { type: string }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/public/sessions:
+    get:
+      tags: [public]
+      summary: Danh sách buổi giao lưu xem công khai (đang mở, và đã đóng trong 30 ngày gần đây)
+      description: 'Scope: public:read. `status` nhận open và / hoặc closed, cách nhau dấu phẩy. Buổi đã huỷ không có trong kết quả.'
+      parameters:
+        - { name: status, in: query, allowReserved: true, schema: { type: string, pattern: '^(open|closed)(,(open|closed))*$' } }
+        - { name: organizerRef, in: query, allowReserved: true, schema: { type: string, maxLength: 64 } }
+        - { name: order, in: query, schema: { type: string, enum: [asc, desc] } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200': { $ref: '#/components/responses/PublicSessionPage' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/public/sessions/{id}:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      tags: [public]
+      summary: Chi tiết buổi giao lưu xem công khai
+      description: 'Scope: public:read.'
+      responses:
+        '200': { $ref: '#/components/responses/PublicSessionDetail' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/public/sessions/{id}/board:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      tags: [public]
+      summary: Bảng sân công khai — sân đang đánh, người sắp vào sân, hàng chờ, kết quả gần đây
+      description: 'Scope: public:read. Tên người chơi theo quyền riêng tư.'
+      responses:
+        '200': { $ref: '#/components/responses/PublicSessionBoard' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/public/sessions/{id}/stream:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      tags: [public]
+      summary: Luồng SSE công khai của buổi giao lưu
+      description: 'Scope: public:read. Như /v1/sessions/{id}/stream, chỉ cho buổi được xem công khai.'
+      responses:
+        '200':
+          description: Luồng sự kiện — mở tới khi client ngắt hoặc token hết hạn
+          content:
+            text/event-stream:
+              schema: { type: string }
+        default: { $ref: '#/components/responses/Error' }
+
 components:
   securitySchemes:
     serviceToken:
@@ -2640,6 +2783,145 @@ components:
               - type: object
                 properties:
                   data: { $ref: '#/components/schemas/Rubric' }
+
+    PublicTournamentPage:
+      description: Danh sách giải xem công khai
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Paged'
+                      - type: object
+                        properties:
+                          items: { type: array, items: { $ref: '#/components/schemas/PublicTournament' } }
+    PublicTournamentDetail:
+      description: Giải xem công khai
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/PublicTournament' }
+    PublicEntries:
+      description: Danh sách đăng ký xem công khai
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/PublicEntry' } }
+    PublicMatches:
+      description: Lịch và kết quả xem công khai
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/PublicMatchView' } }
+    PublicStandings:
+      description: Bảng vòng bảng xem công khai
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    required: [groups]
+                    properties:
+                      groups: { type: array, items: { $ref: '#/components/schemas/PublicStandingGroup' } }
+    PublicBracket:
+      description: Sơ đồ loại trực tiếp xem công khai
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    required: [rounds]
+                    properties:
+                      rounds:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required: [roundNo, matches]
+                          properties:
+                            roundNo: { type: integer }
+                            matches: { type: array, items: { $ref: '#/components/schemas/PublicMatchView' } }
+    PublicPlacements:
+      description: Thứ hạng cuối giải xem công khai
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/PublicPlacement' } }
+    PublicSessionPage:
+      description: Danh sách buổi giao lưu xem công khai
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Paged'
+                      - type: object
+                        properties:
+                          items: { type: array, items: { $ref: '#/components/schemas/PublicSession' } }
+    PublicSessionDetail:
+      description: Buổi giao lưu xem công khai
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/PublicSession' }
+    PublicSessionBoard:
+      description: Bảng sân công khai
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/PublicSessionBoard' }
 
   schemas:
     Envelope:
@@ -3627,3 +3909,248 @@ components:
               after: { type: number }
               delta: { type: number }
               matches: { type: integer }
+
+    # --- Trang công khai (plan 27). Mọi schema đóng (`additionalProperties: false`): thêm trường nội bộ vào dữ liệu công khai
+    # mà quên khai ở đây thì test hợp đồng đỏ — chặn rò rỉ từ sớm.
+    PublicPlayerRef:
+      type: object
+      additionalProperties: false
+      required: [id, name, masked]
+      properties:
+        id: { type: string, format: uuid, nullable: true, description: 'null khi người chơi bị che theo quyền riêng tư — không mở được hồ sơ' }
+        name: { type: string, description: 'Tên theo quyền riêng tư; bị che thì "Thành viên A3F2" (mã suy từ id, ổn định)' }
+        masked: { type: boolean }
+    PublicTeam:
+      type: object
+      nullable: true
+      additionalProperties: false
+      required: [teamId, players]
+      properties:
+        teamId: { type: string, nullable: true, description: 'Đội của giải; null với trận giao lưu' }
+        players: { type: array, items: { $ref: '#/components/schemas/PublicPlayerRef' } }
+    PublicMatchView: &publicMatchView
+      type: object
+      additionalProperties: false
+      required: [id, discipline, stage, teamA, teamB, scoring, games, outcome, winnerSide, status, live]
+      properties:
+        id: { type: string, format: uuid }
+        discipline: { $ref: '#/components/schemas/Discipline' }
+        stage: { type: string, enum: [group, knockout, extra, session] }
+        label: { type: string, nullable: true }
+        groupNo: { type: integer, nullable: true }
+        roundNo: { type: integer, nullable: true }
+        slotNo: { type: integer, nullable: true }
+        bracketPos: { type: integer, nullable: true }
+        nextMatchId: { type: string, nullable: true }
+        teamA: { $ref: '#/components/schemas/PublicTeam' }
+        teamB: { $ref: '#/components/schemas/PublicTeam' }
+        scoring: { $ref: '#/components/schemas/ScoringObject' }
+        games: { type: array, items: { type: array, items: { type: integer } } }
+        outcome: { type: string, nullable: true, enum: [normal, walkover, retired, null] }
+        winnerSide: { type: string, nullable: true, enum: [A, B, null] }
+        status: { type: string, enum: [scheduled, in_play, completed, cancelled, ended] }
+        courtRef: { type: string, nullable: true }
+        calledAt: { type: string, format: date-time, nullable: true }
+        completedAt: { type: string, format: date-time, nullable: true }
+        live: { $ref: '#/components/schemas/MatchLive' }
+        expectedTime: { type: string, nullable: true }
+    PublicMatchViewOrNull: { <<: *publicMatchView, nullable: true }
+    PublicRegistration:
+      type: object
+      additionalProperties: false
+      required: [open, needsPartner, registered, waitlisted, maxEntries, spotsLeft]
+      properties:
+        open: { type: boolean, description: 'Giải đang mở đăng ký (status = open)' }
+        needsPartner: { type: boolean, description: 'Đôi cặp cố định — đăng ký phải kèm đồng đội' }
+        registered: { type: integer, description: 'Số NGƯỜI đã đăng ký chính thức' }
+        waitlisted: { type: integer, description: 'Số NGƯỜI đang chờ' }
+        maxEntries: { type: integer, nullable: true, description: 'Giới hạn tính theo người' }
+        spotsLeft: { type: integer, nullable: true }
+    PublicTournament:
+      type: object
+      additionalProperties: false
+      required: [id, organizerRef, name, description, startsOn, startTime, tier, discipline, genderRule, pairingMode, maxEntries, ratingRule, format, groupCount, advancePerGroup, thirdPlaceMatch, scoring, courtCount, matchMinutes, rated, ranked, status, stage, finalizedAt, registration]
+      properties:
+        id: { type: string, format: uuid }
+        organizerRef: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        startsOn: { type: string, format: date }
+        startTime: { type: string, nullable: true }
+        tier: { type: string, enum: [club, open, chain] }
+        discipline: { $ref: '#/components/schemas/Discipline' }
+        genderRule: { type: string, enum: [open, men, women, mixed] }
+        pairingMode: { type: string, enum: [fixed, random_balanced] }
+        maxEntries: { type: integer, nullable: true }
+        ratingRule: { $ref: '#/components/schemas/RatingRule' }
+        format: { type: string, enum: [round_robin, groups_knockout, knockout] }
+        groupCount: { type: integer, nullable: true }
+        advancePerGroup: { type: integer, nullable: true }
+        thirdPlaceMatch: { type: boolean }
+        scoring: { $ref: '#/components/schemas/ScoringObject' }
+        courtCount: { type: integer }
+        matchMinutes: { type: integer }
+        rated: { type: boolean }
+        ranked: { type: boolean }
+        status: { type: string, enum: [open, drawn, in_progress, finalized] }
+        stage: { type: string, nullable: true, enum: [group, knockout, null] }
+        finalizedAt: { type: string, format: date-time, nullable: true }
+        registration: { $ref: '#/components/schemas/PublicRegistration' }
+        matches:
+          type: object
+          description: 'Chỉ có ở chi tiết giải'
+          additionalProperties: false
+          required: [total, completed]
+          properties:
+            total: { type: integer }
+            completed: { type: integer }
+    PublicEntry:
+      type: object
+      additionalProperties: false
+      required: [id, status, waitlistReason, waitlistPosition, registeredAt, players, mine]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [registered, waitlisted] }
+        waitlistReason: { type: string, nullable: true, enum: [capacity, draw, absent, null] }
+        waitlistPosition: { type: integer, nullable: true, description: 'Thứ tự trong danh sách chờ vì hết chỗ (1 = được xét đầu tiên)' }
+        registeredAt: { type: string, format: date-time }
+        players: { type: array, minItems: 1, maxItems: 2, items: { $ref: '#/components/schemas/PublicPlayerRef' } }
+        mine: { type: boolean, description: 'Đăng ký có tên người đang xem' }
+    PublicStandingGroup:
+      type: object
+      additionalProperties: false
+      required: [groupNo, rows]
+      properties:
+        groupNo: { type: integer }
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [teamId, rank, played, wins, losses, gamesWon, gamesLost, gameDiff, pointsWon, pointsLost, pointDiff, team]
+            properties:
+              teamId: { type: string, format: uuid }
+              rank: { type: integer }
+              played: { type: integer }
+              wins: { type: integer }
+              losses: { type: integer }
+              gamesWon: { type: integer }
+              gamesLost: { type: integer }
+              gameDiff: { type: integer }
+              pointsWon: { type: integer }
+              pointsLost: { type: integer }
+              pointDiff: { type: integer }
+              team:
+                type: object
+                additionalProperties: false
+                required: [id, players, groupNo, seed, withdrawn]
+                properties:
+                  id: { type: string, format: uuid }
+                  players: { type: array, items: { $ref: '#/components/schemas/PublicPlayerRef' } }
+                  groupNo: { type: integer, nullable: true }
+                  seed: { type: integer, nullable: true }
+                  withdrawn: { type: boolean }
+    PublicPlacement:
+      type: object
+      additionalProperties: false
+      required: [teamId, from, to, label, reachedKnockout, wins, players]
+      properties:
+        teamId: { type: string, format: uuid }
+        from: { type: integer }
+        to: { type: integer }
+        label: { type: string }
+        reachedKnockout: { type: boolean }
+        wins: { type: integer }
+        players: { type: array, items: { $ref: '#/components/schemas/PublicPlayerRef' } }
+    PublicSession:
+      type: object
+      additionalProperties: false
+      required: [id, organizerRef, name, startsAt, format, mode, rated, scoring, status, courtCount, rounds, closedAt, players]
+      properties:
+        id: { type: string, format: uuid }
+        organizerRef: { type: string }
+        name: { type: string }
+        startsAt: { type: string, format: date-time }
+        format: { type: string, enum: [doubles, singles] }
+        mode: { type: string, enum: [balanced, level, random] }
+        rated: { type: boolean }
+        scoring: { $ref: '#/components/schemas/ScoringObject' }
+        status: { type: string, enum: [open, closed] }
+        courtCount: { type: integer }
+        rounds: { type: integer }
+        closedAt: { type: string, format: date-time, nullable: true }
+        players:
+          type: object
+          additionalProperties: false
+          required: [present]
+          properties:
+            present: { type: integer, description: 'Số người đang có mặt (đã điểm danh, chưa rời)' }
+        matches:
+          type: object
+          description: 'Chỉ có ở chi tiết buổi'
+          additionalProperties: false
+          required: [total, inPlay, completed, ended]
+          properties:
+            total: { type: integer }
+            inPlay: { type: integer }
+            completed: { type: integer }
+            ended: { type: integer }
+    PublicSessionBoard:
+      type: object
+      additionalProperties: false
+      required: [session, serverTime, courts, upcoming, queue, recent, counts]
+      properties:
+        session:
+          type: object
+          additionalProperties: false
+          required: [id, name, status, format, mode, rated, rounds]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            status: { type: string, enum: [open, closed] }
+            format: { type: string, enum: [doubles, singles] }
+            mode: { type: string, enum: [balanced, level, random] }
+            rated: { type: boolean }
+            rounds: { type: integer }
+        serverTime: { type: string, format: date-time }
+        courts:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [courtRef, status, match]
+            properties:
+              courtRef: { type: string }
+              status: { type: string, enum: [busy, free] }
+              match: { $ref: '#/components/schemas/PublicMatchViewOrNull' }
+        upcoming:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [courtRef, sideA, sideB]
+            properties:
+              courtRef: { type: string }
+              sideA: { type: array, items: { $ref: '#/components/schemas/PublicPlayerRef' } }
+              sideB: { type: array, items: { $ref: '#/components/schemas/PublicPlayerRef' } }
+        queue:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [position, player, gamesPlayed, waitingSince, next]
+            properties:
+              position: { type: integer }
+              player: { $ref: '#/components/schemas/PublicPlayerRef' }
+              gamesPlayed: { type: integer }
+              waitingSince: { type: string, format: date-time, nullable: true }
+              next: { type: boolean }
+        recent: { type: array, items: { $ref: '#/components/schemas/PublicMatchView' } }
+        counts:
+          type: object
+          additionalProperties: false
+          required: [present, onCourt, waiting]
+          properties:
+            present: { type: integer }
+            onCourt: { type: integer }
+            waiting: { type: integer }

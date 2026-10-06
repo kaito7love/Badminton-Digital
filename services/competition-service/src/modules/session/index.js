@@ -1,10 +1,13 @@
+const express = require('express');
 // Giao diện công khai của module `session` (buổi giao lưu).
 // Phụ thuộc: player, rating, matchmaking (thuần), match.
 const { defineSessionModels } = require('./infrastructure/models');
 const { createSessionContext } = require('./application/sessionContext');
 const { createSessionService } = require('./application/sessionService');
 const { createSessionQueries } = require('./application/sessionQueries');
+const { createSessionPublic } = require('./application/publicQueries');
 const { createSessionRouter } = require('./infrastructure/http/routes');
+const { createSessionPublicRouter } = require('./infrastructure/http/publicRoutes');
 const sessionRules = require('./domain/sessionRules');
 
 const createSessionModule = ({ models, sequelize, platform, players, rating, match, stream }) => {
@@ -26,8 +29,13 @@ const createSessionModule = ({ models, sequelize, platform, players, rating, mat
   });
   players.registerMergeHandler(service.mergeHandler);
 
-  const router = createSessionRouter({ service, queries, ctx, idempotency: platform.idempotency, stream });
-  return { service, queries, router };
+  const staffRouter = createSessionRouter({ service, queries, ctx, idempotency: platform.idempotency, stream });
+  // Trang công khai của buổi giao lưu (plan 27).
+  const pub = createSessionPublic({ models, players, queries, service });
+  const router = express.Router();
+  router.use(staffRouter);
+  router.use(createSessionPublicRouter({ pub, stream }));
+  return { service, queries, pub, router };
 };
 
 module.exports = { defineSessionModels, createSessionModule, domain: { sessionRules } };

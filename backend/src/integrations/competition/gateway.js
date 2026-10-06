@@ -5,13 +5,15 @@ const { matchRoute } = require('./routeMap');
 const { resolvePrincipal } = require('./roleScopes');
 const { signServiceToken } = require('./serviceToken');
 const { createCompetitionClient } = require('./client');
+const { createStreamGuard } = require('./streamGuard');
 
 // Cổng nối /api/v1/competition/* → competition-service /v1/* (docs/02 mục 5).
 //  1. tính năng chưa cấu hình → 503 COMPETITION_DISABLED (phần còn lại của app không bị ảnh hưởng);
 //  2. đường không nằm trong danh sách cho phép → 404 ngay tại đây;
 //  3. xác thực bằng chính JWT của app chính (đường SSE nhận ?token= như /realtime/stream), áp ngữ cảnh chi nhánh;
 //  4. đổi sang service token ES256 theo vai trò và chuyển tiếp nguyên trạng (envelope, status, ETag).
-// Chỉ vài GET bảng xếp hạng công khai được vào mà không cần đăng nhập (có giới hạn tần suất).
+// Chỉ vài GET công khai được vào mà không cần đăng nhập — bảng xếp hạng, hồ sơ công khai và trang xem giải / buổi giao lưu
+// `/public/*` (plan 27) — có giới hạn tần suất; luồng SSE công khai còn bị giới hạn số luồng mở mỗi địa chỉ.
 
 const PASS_HEADERS = ['content-type', 'etag', 'idempotent-replayed', 'retry-after'];
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH']);
@@ -24,6 +26,7 @@ const createGatewayRouter = ({
   client = createCompetitionClient(),
   middlewares = null,
   publicLimiter = null,
+  streamGuard = createStreamGuard(),
   logger = console
 }) => {
   // Nạp muộn: test không cần kéo cả tầng models (và kết nối DB) khi chỉ thử luồng cổng bằng middleware giả.
@@ -81,6 +84,13 @@ const createGatewayRouter = ({
         principal = resolvePrincipal(req);
       } catch (err) {
         return fail(res, err.statusCode || 403, err.message);
+      }
+
+      // Luồng SSE công khai giữ một kết nối + RAM cho tới khi người xem đóng tab: giới hạn số luồng mỗi địa chỉ và cả hệ thống.
+      if (route.isStream && route.resource === 'public') {
+        const release = streamGuard.acquire(req.ip);
+        if (!release) return fail(res, 429, 'Đang có quá nhiều luồng trực tiếp được mở từ địa chỉ này — đóng bớt tab rồi thử lại.', 'TOO_MANY_STREAMS');
+        res.on('close', release);
       }
 
       const incoming = new URL(req.originalUrl, 'http://gateway');

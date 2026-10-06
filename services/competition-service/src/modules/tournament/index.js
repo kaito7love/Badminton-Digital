@@ -1,3 +1,4 @@
+const express = require('express');
 // Giao diện công khai của module `tournament`.
 // Phụ thuộc: player, rating, ranking, matchmaking (thuần), match.
 const { defineTournamentModels } = require('./infrastructure/models');
@@ -5,8 +6,10 @@ const { createTournamentContext } = require('./application/tournamentContext');
 const { createTournamentService } = require('./application/tournamentService');
 const { createFinalizeService } = require('./application/finalizeService');
 const { createTournamentQueries } = require('./application/tournamentQueries');
+const { createTournamentPublic } = require('./application/publicQueries');
 const { createTournamentMergeHandler } = require('./application/playerMerge');
 const { createTournamentRouter } = require('./infrastructure/http/routes');
+const { createTournamentPublicRouter } = require('./infrastructure/http/publicRoutes');
 const { assertAction } = require('./domain/stateMachine');
 const standings = require('./domain/standings');
 const placements = require('./domain/placements');
@@ -40,8 +43,13 @@ const createTournamentModule = ({ models, sequelize, platform, players, rating, 
     courtRefs: (t) => t.courtRefs || null
   });
 
-  const router = createTournamentRouter({ service, finalizer, queries, ctx, players, matches: match.service, idempotency: platform.idempotency, stream });
-  return { service, finalizer, queries, router };
+  const staffRouter = createTournamentRouter({ service, finalizer, queries, ctx, players, matches: match.service, idempotency: platform.idempotency, stream });
+  // Trang công khai của giải (plan 27): xem không cần quyền nhân viên, qua bộ gọt riêng.
+  const pub = createTournamentPublic({ models, players, queries });
+  const router = express.Router();
+  router.use(staffRouter);
+  router.use(createTournamentPublicRouter({ pub, stream }));
+  return { service, finalizer, queries, pub, router };
 };
 
 module.exports = {

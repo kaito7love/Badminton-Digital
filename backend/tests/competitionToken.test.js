@@ -47,14 +47,18 @@ describe('service token ES256', () => {
 describe('vai trò → scope (docs/02 mục 5)', () => {
   const scopesOf = (req) => resolvePrincipal(req).scope;
 
-  test('chưa đăng nhập: chỉ ranking:read', () => {
+  test('chưa đăng nhập: chỉ xem — BXH (ranking:read) và trang giải / buổi giao lưu công khai (public:read)', () => {
     expect(resolvePrincipal({ headers: {} })).toBe(ANONYMOUS);
-    expect(ANONYMOUS.scope).toEqual(['ranking:read']);
+    expect(ANONYMOUS.scope).toEqual(['ranking:read', 'public:read']);
   });
 
   test('khách: tự chấm, xem BXH, bấm điểm trận mình — không có quyền vận hành', () => {
     const scopes = scopesOf(reqOf(user('customer', { customer: { id: 1 } })));
-    expect(scopes).toEqual(['rating:self', 'ranking:read', 'match:score']);
+    expect(scopes).toEqual(['rating:self', 'ranking:read', 'match:score', 'public:read']);
+  });
+
+  test.each(['customer', 'employee', 'branch_manager', 'admin'])('%s xem được trang công khai (public:read)', (role) => {
+    expect(scopesOf(reqOf(user(role, { customer: { id: 1 } }), { branchId: 1 }))).toContain('public:read');
   });
 
   test('nhân viên có quyền vận hành nhưng KHÔNG có tournament:manage / rating:adjust / rating:assess:any', () => {

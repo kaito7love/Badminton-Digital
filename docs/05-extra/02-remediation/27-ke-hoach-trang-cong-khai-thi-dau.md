@@ -1,7 +1,7 @@
 # Kế hoạch: trang công khai "Thi đấu" — khách xem giải / buổi giao lưu và đăng ký online
 
 - **Ngày:** 07/10/2026.
-- **Trạng thái:** **chờ chủ dự án duyệt** (mục 8 có các giả định cần xác nhận).
+- **Trạng thái:** chủ dự án duyệt "code đi" (07/10/2026) → **đang làm, từng slice báo cáo ở mục 9**. Giả định ở mục 8 giữ như đã đề xuất (chưa có phản đối).
 - **Nhánh:** `feat/competition-public-hub`, tách từ `main` @ `d89cbfd`.
 - **Phạm vi:** `services/competition-service` (API công khai, tự đăng ký, đăng ký buổi giao lưu, 2 migration),
   `backend/src/integrations/competition` (cổng nối cho khách / người chưa đăng nhập), `frontend/src/features/competition`
@@ -135,7 +135,7 @@ quản trị nhiều bậc giá theo sự kiện, trang portfolio giới thiệu
 
 ## 7. Theo dõi
 
-- [ ] p0 · [ ] p1 · [ ] p2 · [ ] p3 · [ ] p4 · [ ] p5
+- [x] p0 · [ ] p1 · [ ] p2 · [ ] p3 · [ ] p4 · [ ] p5
 - [ ] Báo cáo → xin duyệt merge `main` (không tự push main)
 
 ## 8. Giả định cần chủ dự án xác nhận (khi duyệt)
@@ -148,3 +148,32 @@ quản trị nhiều bậc giá theo sự kiện, trang portfolio giới thiệu
 5. **Chi nhánh:** trang chủ hiện sự kiện của **mọi chi nhánh** với bộ lọc chi nhánh (mặc định tất cả).
 6. **Đường dẫn:** `/thi-dau`, `/thi-dau/giai/:id`, `/thi-dau/giao-luu/:id` (đổi được trước khi làm).
 7. **Sức chứa buổi giao lưu:** thêm `max_players` (rỗng = không giới hạn); nhân viên nhập khi tạo buổi.
+
+## 9. Kết quả từng slice
+
+### 9.p0 — API công khai + cổng nối (07/10/2026)
+
+**Đã làm**
+- `services/competition-service`: scope `public:read`; route `GET /v1/public/tournaments[/{id}[/entries|matches|standings|bracket|placements|stream]]` và
+  `GET /v1/public/sessions[/{id}[/board|stream]]` — nằm **trong** module `tournament` / `session` (không thêm module mới nên luật ranh giới
+  `check-boundaries` giữ nguyên). Bộ gọt `publicQueries` liệt kê từng trường được lộ; trận dùng chung `match/domain/publicView`
+  (`publicMatchView`); tên người chơi qua `player/domain/profile.publicRef` (mã che "Thành viên A3F2" suy từ SHA-1 id, ổn định).
+- Luật tên: chưa đăng nhập chỉ thấy hồ sơ `public` (tên thi đấu / "An N."); đã đăng nhập thấy đủ trừ `hidden`; nhân viên và **người cùng
+  tham gia giải / buổi đó** thấy đầy đủ (đúng nguyên tắc "đối thủ / đồng đội luôn thấy tên nhau" của docs/05 mục 1.1).
+- OpenAPI: 12 path + 10 response + 12 schema `Public*`, mọi schema đóng (`additionalProperties: false`) — response lệch hợp đồng là test đỏ.
+- Cổng nối (`backend/src/integrations/competition`): `public` thêm vào allowlist, **chỉ GET** (POST / PUT / PATCH / DELETE → 404 tại cổng);
+  `public:read` cấp cho người chưa đăng nhập và mọi vai trò; `streamGuard.js` — tối đa **8 luồng SSE công khai / IP và 300 cả hệ thống**
+  (429 `TOO_MANY_STREAMS`) để giữ RAM của gói free Render; route công khai không đăng nhập vẫn qua bộ giới hạn tần suất sẵn có.
+- Tài liệu: `services/competition-service/docs/02-hop-dong-api-va-su-kien.md` mục 2.10 (bảng endpoint, luật tên, giới hạn) và bảng scope mục 5.
+- Sửa kèm: test `liveScoring` chạy ~5 phút nên token test (300 s) hết hạn giữa chừng khi máy bận (401, đã ghi từ trước) →
+  `createTestContext({ tokenTtl })` + `MAX_TOKEN_LIFETIME_SECONDS` theo context; mặc định giữ 300 nên test "token quá dài" của `auth` không đổi.
+
+**Kiểm**
+| Kiểm | Kết quả |
+|---|---|
+| Jest service (unit + integration) | 25 file đạt; file mới `publicApi.test.js` **30/30** (quyền, nháp / huỷ → 404 ở mọi route con, so tập khoá để bắt rò trường, tên theo 4 loại người xem + người đã rút, danh sách chờ có thứ tự, bảng / sơ đồ / thứ hạng, buổi trong 30 ngày, SSE) |
+| Jest backend | 530/530 (+27: định tuyến, scope, cổng `/public/*`, bộ giới hạn luồng) |
+| Chạy thật qua cổng nối (backend :5000 → service :5102, dữ liệu demo) | 27/27: người chưa đăng nhập xem 8 giải của mọi chi nhánh + 8 buổi, 19 / 24 người bị che, không rò `courtRefs` / `createdByRef` / `drawSeed`, ghi vào `/public/*` → 404, SSE nhận `snapshot`, luồng thứ 9 → 429, đóng bớt thì mở lại được |
+
+**Ghi chú cho p5:** hồ sơ mặc định là `members` nên người chưa đăng nhập thấy phần lớn người chơi bị che — seed demo của portfolio nên đặt
+người trong các giải / buổi công khai ở `public`.

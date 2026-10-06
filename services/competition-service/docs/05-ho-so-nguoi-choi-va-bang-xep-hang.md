@@ -30,6 +30,9 @@ Nguyên tắc: **dữ liệu cá nhân tối thiểu**. Service không lưu SĐT
 
 Đối thủ / đồng đội trong một giải luôn thấy tên nhau trên lịch thi đấu của giải đó, bất kể `visibility`.
 
+**Trang công khai của giải / buổi giao lưu** (plan 27) dùng cùng bảng này cộng nguyên tắc trên (người đang đăng ký giải, hoặc có tên trong
+buổi giao lưu, thấy tên đầy đủ của mọi người trong giải / buổi đó); người bị che hiện "Thành viên A3F2" — chi tiết ở 02 mục 2.10.
+
 **Trên BXH** (chốt khi code, bước 1): thứ hạng tính trên cùng một tập người cho mọi người xem — người `hidden` không có
 hạng; người `members` vẫn có hạng nhưng người xem chưa đăng nhập thấy dòng đó bị che tên ("Thành viên"). Nhờ vậy số
 hạng giống nhau với mọi người xem, không có chuyện khách chưa đăng nhập thấy "hạng 3" còn thành viên thấy "hạng 5".

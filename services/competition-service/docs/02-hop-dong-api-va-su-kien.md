@@ -58,6 +58,7 @@ Scope viết tắt:
 | `t` | `tournament:*` |
 | `s` | `session:*` |
 | `rk` | `ranking:read` |
+| `pub` | `public:read` — xem giải / buổi giao lưu trên trang công khai (mục 2.10) |
 | `mm` | `matchmaking:compute` |
 | `pw` | `player:write` |
 | `ms` | `match:score` — token "chỉ bấm điểm" của người chơi (kèm claim `player`): chỉ trận mình đang đánh |
@@ -201,6 +202,41 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
   thử lại tới 24 giờ — hợp với kết quả trận, không hợp với từng điểm). Xác nhận kết quả vẫn phát
   `competition.match.completed` qua outbox như cũ.
 
+### 2.10 Trang công khai — xem giải / buổi giao lưu không cần quyền nhân viên (plan 27)
+
+Tiền tố riêng `/v1/public/*`, **chỉ GET**, scope `pub` = `public:read` (gateway cấp cho cả người chưa đăng nhập, khách và
+nhân viên). Tách khỏi route của nhân viên thay vì mở chúng ra: dữ liệu đi qua một bộ gọt liệt kê **từng trường được lộ**
+(hợp đồng đóng `additionalProperties: false`, test so tập khoá) và tên người chơi theo quyền riêng tư.
+
+| Method + đường dẫn | Việc |
+|---|---|
+| `GET /v1/public/tournaments` | Danh sách giải của **mọi chi nhánh**: chỉ `open / drawn / in_progress / finalized` (nháp, đã huỷ không có). `status` một hoặc nhiều giá trị cách nhau dấu phẩy, `organizerRef`, `q` (tìm trong tên), `order` `asc` (mặc định, ngày sớm nhất trước) / `desc`, phân trang. Mỗi giải kèm `registration` = { `open`, `needsPartner`, `registered`, `waitlisted`, `maxEntries`, `spotsLeft` } — đếm theo **người**, như lúc đăng ký |
+| `GET /v1/public/tournaments/{id}` | Chi tiết (kèm `matches` { total, completed }). Giải nháp / huỷ / không có → 404 |
+| `GET …/{id}/entries` | Danh sách đăng ký, **mỗi dòng một người hoặc một cặp**: `status` (`registered` / `waitlisted`), `waitlistPosition` (chỉ khi chờ vì hết chỗ), `players[]`, `mine`. Người đã rút không có |
+| `GET …/{id}/matches` · `…/standings` · `…/bracket` · `…/placements` | Lịch + kết quả (có `live` nếu đang bấm điểm, `expectedTime`), bảng vòng bảng, sơ đồ loại trực tiếp, thứ hạng cuối |
+| `GET …/{id}/stream` | Luồng SSE như mục 2.9, chỉ cho giải xem công khai |
+| `GET /v1/public/sessions` | Buổi `open` và buổi `closed` trong **30 ngày** gần đây (huỷ không có); `status`, `organizerRef`, `order`, phân trang; mỗi buổi kèm `players.present` |
+| `GET /v1/public/sessions/{id}` · `…/board` · `…/stream` | Chi tiết (kèm `matches`), bảng sân (sân đang đánh, người sắp vào sân, hàng chờ, kết quả gần đây), luồng SSE |
+
+**Tên người chơi** (`player.domain.profile.publicRef`, cùng luật 05 mục 1.1; mỗi người là `{ id, name, masked }`):
+
+| Người xem | `public` | `members` (mặc định) | `hidden` |
+|---|---|---|---|
+| Chưa đăng nhập (`sub = anonymous`) | tên thi đấu, hoặc "Tên H." (vd "An N.") | **che** | **che** |
+| Đã đăng nhập | tên đầy đủ | tên đầy đủ | **che** |
+| Nhân viên (`rating:read`), chính chủ, **người cùng tham gia giải / buổi đó** | tên đầy đủ | tên đầy đủ | tên đầy đủ |
+
+"Che" = `{ id: null, name: "Thành viên A3F2", masked: true }`: mã 4 ký tự suy từ id người chơi (SHA-1) nên **ổn định** giữa
+các lần gọi và giữa các route (một sơ đồ có nhiều người bị che vẫn phân biệt được) mà không lộ id — và không mở được hồ sơ.
+"Người cùng tham gia" khớp nguyên tắc "đối thủ / đồng đội luôn thấy tên nhau" (05 mục 1.1): người đang đăng ký giải (chưa
+rút) hoặc có tên trong danh sách buổi giao lưu thấy tên đầy đủ của mọi người trong **giải / buổi đó**.
+
+Không có trong dữ liệu công khai: `courtRefs`, `createdByRef`, `drawSeed`, `version`, `contextId`, điểm trình và cờ của người chơi.
+
+**Giới hạn ở gateway:** `GET /public/*` không cần đăng nhập đi qua bộ giới hạn tần suất của route công khai (120 lần / phút / IP);
+luồng SSE công khai còn bị giới hạn **8 luồng / IP và 300 luồng cả hệ thống** (429 `TOO_MANY_STREAMS`) — mỗi luồng giữ một kết nối
+tới service và một ít RAM của gói free. Luồng của nhân viên (`/tournaments/{id}/stream`) không bị giới hạn này.
+
 ## 3. Sự kiện
 
 ### 3.1 Vỏ sự kiện (theo CloudEvents 1.0, dạng JSON)
@@ -341,14 +377,16 @@ vai trò được gọi + scope cấp. Không có dòng thì không chuyển ti�
 
 | Vai trò app chính | Scope được cấp | `org` | `player` |
 |---|---|---|---|
-| Chưa đăng nhập (trang BXH công khai) | `ranking:read` | — | — (chỉ thấy hồ sơ `public`) |
-| `customer` | `rating:self ranking:read match:score` (`match:score`: chỉ bấm điểm trận mình đang đánh — service kiểm người chơi có trong trận) | — | `bd:customer:<customer.id>` |
-| `employee` | `rating:read rating:assess player:write ranking:read matchmaking:compute tournament:read tournament:operate session:read session:operate` | chi nhánh của nhân viên | — |
+| Chưa đăng nhập (trang BXH và trang giải công khai) | `ranking:read public:read` | — | — (chỉ thấy hồ sơ `public`; tên theo mục 2.10) |
+| `customer` | `rating:self ranking:read match:score public:read` (`match:score`: chỉ bấm điểm trận mình đang đánh — service kiểm người chơi có trong trận) | — | `bd:customer:<customer.id>` |
+| `employee` | `rating:read rating:assess player:write ranking:read matchmaking:compute tournament:read tournament:operate session:read session:operate public:read` | chi nhánh của nhân viên | — |
 | `branch_manager` | như `employee` + `rating:assess:any rating:adjust tournament:manage` | chi nhánh của mình | — |
 | `admin` | như `branch_manager` | chi nhánh đang chọn (`X-Branch-Id`); chưa chọn → `*` | — |
 
 - Ví dụ ánh xạ: `GET /api/v1/competition/me` → `GET /v1/me`; `PUT /api/v1/competition/matches/:id/result` →
   `PUT /v1/matches/:id/result`.
+- `GET /api/v1/competition/public/*` (mục 2.10) → `GET /v1/public/*`: **chỉ GET**, không cần đăng nhập; POST / PUT / PATCH / DELETE vào `/public/*` → 404 ngay
+  tại cổng.
 - Envelope, status code, `ETag` giữ nguyên.
 - Luồng SSE (`…/stream`, mục 2.9): chuyển tiếp nguyên trạng, **không đệm** (`X-Accel-Buffering: no`), ký token 5 phút
   cho đường này để trình duyệt không phải nối lại mỗi phút.

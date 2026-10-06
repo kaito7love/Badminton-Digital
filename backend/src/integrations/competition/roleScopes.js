@@ -2,11 +2,12 @@
 // admin / employee; còn từng route cần scope nào thì service tự kiểm (requireScope) — cổng chỉ cấp TRẦN theo vai trò.
 // Không bao giờ cấp `ops:admin` (xem / gửi lại outbox) và `assessment:submit-ai` (chỉ dịch vụ phân tích video).
 
-const ANONYMOUS_SCOPES = ['ranking:read'];
-const CUSTOMER_SCOPES = ['rating:self', 'ranking:read', 'match:score'];
+// `public:read`: xem giải / buổi giao lưu trên trang công khai (plan 27) — cấp cho cả người chưa đăng nhập.
+const ANONYMOUS_SCOPES = ['ranking:read', 'public:read'];
+const CUSTOMER_SCOPES = ['rating:self', 'ranking:read', 'match:score', 'public:read'];
 const EMPLOYEE_SCOPES = [
   'rating:read', 'rating:assess', 'player:write', 'ranking:read', 'matchmaking:compute',
-  'tournament:read', 'tournament:operate', 'session:read', 'session:operate'
+  'tournament:read', 'tournament:operate', 'session:read', 'session:operate', 'public:read'
 ];
 const MANAGER_SCOPES = [...EMPLOYEE_SCOPES, 'rating:assess:any', 'rating:adjust', 'tournament:manage'];
 

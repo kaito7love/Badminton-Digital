@@ -5,6 +5,7 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { createGatewayRouter } = require('../src/integrations/competition/gateway');
 const { createCompetitionClient } = require('../src/integrations/competition/client');
+const { createStreamGuard } = require('../src/integrations/competition/streamGuard');
 const { enabledConfig, PUBLIC_PEM } = require('./competitionTestKit');
 
 // Cổng thật (routeMap + roleScopes + serviceToken + client) trước một "service" giả bằng http thật.
@@ -175,7 +176,7 @@ describe('cổng /api/v1/competition', () => {
     await request(appWith()).get('/api/v1/competition/me').set('x-test-user', CUSTOMER);
     const claims = tokenSeen();
     expect(claims).toMatchObject({ sub: 'bd:user:9', player: 'bd:customer:77', player_name: 'Khách Thử', org: [] });
-    expect(claims.scope).toBe('rating:self ranking:read match:score');
+    expect(claims.scope).toBe('rating:self ranking:read match:score public:read');
   });
 
   test('khách chưa có hồ sơ khách hàng → 403 và service không nhận được gì', async () => {
@@ -231,11 +232,11 @@ describe('cổng /api/v1/competition', () => {
   });
 
   describe('đường công khai (BXH)', () => {
-    test('chưa đăng nhập xem được BXH, token chỉ có ranking:read và sub anonymous', async () => {
+    test('chưa đăng nhập xem được BXH, token chỉ có ranking:read + public:read và sub anonymous', async () => {
       const res = await request(appWith()).get('/api/v1/competition/leaderboards/rating?page=1');
       expect(res.status).toBe(200);
       expect(seen.url).toBe('/v1/leaderboards/rating?page=1');
-      expect(tokenSeen()).toMatchObject({ sub: 'anonymous', scope: 'ranking:read', org: [] });
+      expect(tokenSeen()).toMatchObject({ sub: 'anonymous', scope: 'ranking:read public:read', org: [] });
     });
 
     test('hồ sơ công khai cũng được; hồ sơ không công khai thì không', async () => {
@@ -260,6 +261,102 @@ describe('cổng /api/v1/competition', () => {
     test('đường công khai chỉ GET', async () => {
       const res = await request(appWith()).post('/api/v1/competition/leaderboards/rating').send({});
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('trang công khai /public/* (plan 27)', () => {
+    const listen = (app) => new Promise((resolve) => { const server = app.listen(0, '127.0.0.1', () => resolve(server)); });
+    const SSE_HELLO = 'event: snapshot\ndata: {}\n\n';
+
+    test('chưa đăng nhập xem được danh sách giải / chi tiết / buổi giao lưu; token anonymous có public:read, không org', async () => {
+      for (const path of ['/public/tournaments?status=open&page=1', '/public/tournaments/abc/entries', '/public/sessions/abc/board']) {
+        seen = null;
+        const res = await request(appWith()).get(`/api/v1/competition${path}`);
+        expect([path, res.status]).toEqual([path, 200]);
+        expect(seen.url).toBe(`/v1${path}`);
+        expect(tokenSeen()).toMatchObject({ sub: 'anonymous', scope: 'ranking:read public:read', org: [] });
+      }
+    });
+
+    test('dấu phẩy trong status sang service là %2C (bộ kiểm hợp đồng của service từ chối dấu phẩy thô)', async () => {
+      await request(appWith()).get('/api/v1/competition/public/tournaments?status=open,drawn');
+      expect(seen.url).toBe('/v1/public/tournaments?status=open%2Cdrawn');
+    });
+
+    test('đã đăng nhập thì dùng quyền của vai trò (khách mang claim player để service nhận ra "mình")', async () => {
+      await request(appWith()).get('/api/v1/competition/public/tournaments/abc/entries').set('Authorization', 'Bearer t').set('x-test-user', CUSTOMER);
+      expect(tokenSeen()).toMatchObject({ sub: 'bd:user:9', player: 'bd:customer:77', org: [] });
+      expect(tokenSeen().scope.split(' ')).toContain('public:read');
+    });
+
+    test('chỉ đọc: POST / PUT / PATCH / DELETE vào /public/* → 404 ngay tại cổng, service không nhận được gì', async () => {
+      for (const method of ['post', 'put', 'patch', 'delete']) {
+        const res = await request(appWith())[method]('/api/v1/competition/public/tournaments/abc').set('x-test-user', ADMIN).send({});
+        expect([method, res.status]).toEqual([method, 404]);
+        expect(seen).toBeNull();
+      }
+      expect((await request(appWith()).get('/api/v1/competition/public')).status).toBe(404);
+    });
+
+    test('vượt giới hạn tần suất → 429, service không nhận thêm request', async () => {
+      const limited = (req, res) => res.status(429).json({ success: false, data: null, message: 'Quá nhanh', errors: null });
+      const res = await request(appWith({}, { publicLimiter: limited })).get('/api/v1/competition/public/tournaments');
+      expect(res.status).toBe(429);
+      expect(seen).toBeNull();
+    });
+
+    test('luồng SSE công khai: không cần đăng nhập, token 300 giây, đường dẫn đúng', async () => {
+      streamHandler = (req, res) => { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.end(SSE_HELLO); };
+      const server = await listen(appWith());
+      try {
+        const res = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/competition/public/tournaments/abc/stream`);
+        expect(res.status).toBe(200);
+        expect(await res.text()).toContain('event: snapshot');
+        expect(seen.url).toBe('/v1/public/tournaments/abc/stream');
+        const claims = tokenSeen();
+        expect([claims.sub, claims.exp - claims.iat]).toEqual(['anonymous', 300]);
+      } finally {
+        server.closeAllConnections();
+        server.close();
+      }
+    });
+
+    test('giới hạn số luồng công khai mỗi địa chỉ: quá giới hạn → 429 TOO_MANY_STREAMS; đóng một luồng thì mở lại được', async () => {
+      const open = [];
+      streamHandler = (req, res) => { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.write(SSE_HELLO); open.push(res); };
+      const server = await listen(appWith({}, { streamGuard: createStreamGuard({ perIp: 2, total: 50 }) }));
+      try {
+        const url = `http://127.0.0.1:${server.address().port}/api/v1/competition/public/sessions/abc/stream`;
+        const controllers = [new AbortController(), new AbortController()];
+        const first = await Promise.all(controllers.map((c) => fetch(url, { signal: c.signal })));
+        expect(first.map((r) => r.status)).toEqual([200, 200]);
+        const third = await fetch(url);
+        expect(third.status).toBe(429);
+        expect((await third.json()).code).toBe('TOO_MANY_STREAMS');
+        controllers[0].abort();
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const again = await fetch(url);
+        expect(again.status).toBe(200);
+        controllers[1].abort();
+        await again.body.cancel();
+      } finally {
+        open.forEach((r) => r.end());
+        server.closeAllConnections();
+        server.close();
+      }
+    });
+
+    test('luồng SSE của nhân viên (không phải /public) không bị giới hạn luồng công khai', async () => {
+      streamHandler = (req, res) => { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.end(SSE_HELLO); };
+      const server = await listen(appWith({}, { streamGuard: createStreamGuard({ perIp: 0, total: 0 }) }));
+      try {
+        const res = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/competition/tournaments/abc/stream?token=${EMPLOYEE}`);
+        expect(res.status).toBe(200);
+        await res.text();
+      } finally {
+        server.closeAllConnections();
+        server.close();
+      }
     });
   });
 
