@@ -649,3 +649,22 @@ vì dùng chung lệnh `register`; phần dưới là những gì **khác** so v
 - **Riêng tư:** SĐT và `source` chỉ có ở view nhân viên (`PlayerView`); không xuất hiện ở bất kỳ API công khai nào (test kiểm). Người ngoài thấy
   đồng đội khách là "Thành viên A3F2"; người trong cặp thấy tên đầy đủ (02, mục 2.10).
 - **Hằng số:** `MAX_NEW_GUESTS_PER_DAY = 5`, `GUEST_SOURCE = 'online_guest'` (`player/domain/guest.js`).
+
+## 16. Đăng ký buổi giao lưu online (plan 27, slice p2)
+
+Buổi giao lưu trước đây chỉ có **điểm danh tại quầy**. Giờ khách có thể **báo trước "tôi sẽ đến"** trên trang công khai; nhân viên vẫn điểm danh thật như cũ —
+đăng ký online **không thay** điểm danh, chỉ cho nhân viên biết trước ai sắp đến và cho khách biết còn chỗ không.
+
+- **Hai bảng khác nhau:** `session_signups` = đăng ký online (`registered` giữ chỗ · `waitlisted` đang chờ · `attended` đã đến · `cancelled`); `play_session_players` =
+  điểm danh thật (`present` / `left`). Một người có thể có cả hai (đăng ký trước rồi đến), hoặc chỉ điểm danh (khách vãng lai), hoặc chỉ đăng ký (không đến).
+- **Sức chứa `maxPlayers`** (nhân viên đặt khi tạo / sửa buổi, 2–200; `null` = không giới hạn). **Chỗ đang bị chiếm = đã đăng ký giữ chỗ ∪ đang có mặt** — người
+  vãng lai được điểm danh cũng chiếm chỗ (nhân viên quyết, không bị chặn bởi sức chứa); người đăng ký sau đó sẽ vào danh sách chờ.
+- **Danh sách chờ** theo `signed_up_at` (đăng ký lại sau khi huỷ thì xếp cuối). **Có chỗ trống thì người chờ đầu tiên được lên giữ chỗ** khi: người giữ chỗ huỷ / bị nhân viên gỡ,
+  người đang có mặt **rời buổi**, hoặc nhân viên **tăng / bỏ sức chứa**.
+- **Điểm danh ↔ đăng ký:** nhân viên điểm danh một người đã đăng ký (kể cả đang chờ — nhân viên quyết) → đăng ký thành `attended`, không huỷ được nữa; người đó thấy "Đã đến".
+  Đăng ký khi đang có mặt → 409 `ALREADY_PRESENT`.
+- **Không đòi điểm trình khi đăng ký** (khác giải): người chưa có điểm vẫn báo trước được; lúc điểm danh nhân viên thấy `rating = null` và điểm danh kèm `quickLevel` như cũ.
+- **Chỉ buổi đang mở** đăng ký / huỷ được; buổi đã đóng → 409 `SESSION_CLOSED`, đã huỷ → 404. Mọi thay đổi phát `board` (reason `signup`) để màn hình nhân viên / công khai tải lại.
+- **Nhân viên:** `GET /v1/sessions/{id}/signups` (ai, giới tính, trạng thái, đã có mặt chưa, điểm, cờ); gỡ một đăng ký; chi tiết buổi có `progress.signups`.
+- **Gộp hồ sơ:** đăng ký online chuyển sang hồ sơ đích; hai hồ sơ cùng đăng ký một buổi thì giữ bản "đi xa" hơn (đã đến > giữ chỗ > đang chờ > đã huỷ).
+- **Riêng tư:** như danh sách đăng ký giải (02, mục 2.10): chưa đăng nhập chỉ thấy hồ sơ `public`; người đã đăng ký / có mặt thấy tên đầy đủ của nhau.

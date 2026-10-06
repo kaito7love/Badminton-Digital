@@ -13,7 +13,7 @@ const CLOSED_VISIBLE_DAYS = 30;
 const iso = (d) => (d ? new Date(d).toISOString() : null);
 
 const createSessionPublic = ({ models, players, queries, service }) => {
-  const { PlaySession, PlaySessionPlayer } = models;
+  const { PlaySession, PlaySessionPlayer, SessionSignup } = models;
 
   const internal = (tenant) => ({ tenant, scopes: new Set(['session:read']), org: ['*'], allOrgs: true, sub: 'public', player: null });
 
@@ -33,7 +33,9 @@ const createSessionPublic = ({ models, players, queries, service }) => {
     const me = await players.findByRef(auth.tenant, auth.player);
     if (!me) return viewer;
     viewer.selfPlayerId = me.id;
-    viewer.participant = (await PlaySessionPlayer.count({ where: { sessionId: s.id, playerId: me.id } })) > 0;
+    viewer.participant =
+      (await PlaySessionPlayer.count({ where: { sessionId: s.id, playerId: me.id } })) > 0 ||
+      (await SessionSignup.count({ where: { sessionId: s.id, playerId: me.id, status: ['registered', 'waitlisted', 'attended'] } })) > 0;
     return viewer;
   };
 
@@ -75,6 +77,53 @@ const createSessionPublic = ({ models, players, queries, service }) => {
     return out;
   };
 
+  // Số chỗ đăng ký online của một loạt buổi: chỗ = đã đăng ký giữ chỗ ∪ đang có mặt (như signupService.occupiedCount).
+  const signupSummaries = async (sessions) => {
+    const out = new Map();
+    if (!sessions.length) return out;
+    const ids = sessions.map((s) => s.id);
+    const state = new Map(ids.map((id) => [id, { registered: 0, waitlisted: 0, occupied: new Set() }]));
+    const signs = await SessionSignup.findAll({ attributes: ['sessionId', 'playerId', 'status'], where: { sessionId: ids, status: ['registered', 'waitlisted'] }, raw: true });
+    for (const r of signs) {
+      const e = state.get(r.sessionId);
+      e[r.status] += 1;
+      if (r.status === 'registered') e.occupied.add(r.playerId);
+    }
+    const present = await PlaySessionPlayer.findAll({ attributes: ['sessionId', 'playerId'], where: { sessionId: ids, status: 'present' }, raw: true });
+    for (const r of present) state.get(r.sessionId).occupied.add(r.playerId);
+    for (const s of sessions) {
+      const e = state.get(s.id);
+      out.set(s.id, {
+        open: s.status === 'open',
+        maxPlayers: s.maxPlayers ?? null,
+        registered: e.registered,
+        waitlisted: e.waitlisted,
+        spotsLeft: s.maxPlayers ? Math.max(0, s.maxPlayers - e.occupied.size) : null
+      });
+    }
+    return out;
+  };
+
+  // Đăng ký của chính người xem trong một buổi: giữ chỗ / đang chờ (kèm thứ tự) / đã đến (đã điểm danh, có đăng ký trước hay không).
+  const meOf = async (auth, s) => {
+    const me = auth.player ? await players.findByRef(auth.tenant, auth.player) : null;
+    if (!me) return null;
+    const row = await SessionSignup.findOne({ where: { sessionId: s.id, playerId: me.id, status: { [Op.ne]: 'cancelled' } } });
+    const present = await PlaySessionPlayer.count({ where: { sessionId: s.id, playerId: me.id } });
+    if (row && ['registered', 'waitlisted'].includes(row.status) && !present) {
+      let position = null;
+      if (row.status === 'waitlisted') {
+        const ahead = await SessionSignup.count({
+          where: { sessionId: s.id, status: 'waitlisted', [Op.or]: [{ signedUpAt: { [Op.lt]: row.signedUpAt } }, { signedUpAt: row.signedUpAt, id: { [Op.lt]: row.id } }] }
+        });
+        position = ahead + 1;
+      }
+      return { status: row.status, waitlistPosition: position, canCancel: s.status === 'open' };
+    }
+    if (row || present) return { status: 'attended', waitlistPosition: null, canCancel: false };
+    return null;
+  };
+
   const list = async ({ auth, status, organizerRef, order, page, limit, now = new Date() }) => {
     const wanted = (status ? String(status).split(',') : PUBLIC_STATUSES).filter((x) => PUBLIC_STATUSES.includes(x));
     const parts = [];
@@ -85,13 +134,57 @@ const createSessionPublic = ({ models, players, queries, service }) => {
     const dir = order === 'desc' ? 'DESC' : 'ASC';
     const { rows, count } = await PlaySession.findAndCountAll({ where, order: [['startsAt', dir], ['createdAt', dir]], offset: (page - 1) * limit, limit });
     const present = await presentCounts(rows.map((s) => s.id));
-    return { rows: rows.map((s) => ({ ...shapeSession(s), players: { present: present.get(s.id) } })), count };
+    const signup = await signupSummaries(rows);
+    return { rows: rows.map((s) => ({ ...shapeSession(s), players: { present: present.get(s.id) }, signup: signup.get(s.id) })), count };
   };
 
   const detail = async ({ auth, id }) => {
     const s = await load(auth.tenant, id);
     const { players: counts, matches } = await queries.progress(s);
-    return { ...shapeSession(s), players: { present: counts.present }, matches };
+    const signup = (await signupSummaries([s])).get(s.id);
+    const out = { ...shapeSession(s), players: { present: counts.present }, matches, signup };
+    if (auth.player) out.me = await meOf(auth, s); // chỉ khách đăng nhập có hồ sơ người chơi
+    return out;
+  };
+
+  // Ai đã đăng ký online (giữ chỗ / chờ / đã đến), tên theo quyền riêng tư; người đăng ký thấy tên đầy đủ của nhau.
+  const signups = async ({ auth, id }) => {
+    const s = await load(auth.tenant, id);
+    const viewer = await viewerOf(auth, s);
+    const rows = await SessionSignup.findAll({ where: { sessionId: s.id, status: { [Op.ne]: 'cancelled' } }, order: [['signedUpAt', 'ASC'], ['id', 'ASC']] });
+    const label = await labeller(auth, viewer, rows.map((r) => r.playerId));
+    let waiting = 0;
+    return rows.map((r) => {
+      if (r.status === 'waitlisted') waiting += 1;
+      return {
+        id: r.id,
+        status: r.status,
+        waitlistPosition: r.status === 'waitlisted' ? waiting : null,
+        player: label(r.playerId),
+        mine: Boolean(viewer.selfPlayerId && r.playerId === viewer.selfPlayerId)
+      };
+    });
+  };
+
+  // Buổi giao lưu đang mở mà người xem đã đăng ký (giữ chỗ / đang chờ) — cho trang "của tôi".
+  const mine = async ({ auth }) => {
+    const me = auth.player ? await players.findByRef(auth.tenant, auth.player) : null;
+    if (!me) return [];
+    const rows = await SessionSignup.findAll({ where: { tenantId: auth.tenant, playerId: me.id, status: ['registered', 'waitlisted'] } });
+    if (!rows.length) return [];
+    const sessions = await PlaySession.findAll({ where: { id: rows.map((r) => r.sessionId), status: 'open' }, order: [['startsAt', 'ASC'], ['createdAt', 'ASC']] });
+    const present = await presentCounts(sessions.map((s) => s.id));
+    const signup = await signupSummaries(sessions);
+    const out = [];
+    for (const s of sessions) {
+      const state = await meOf(auth, s);
+      if (!state || state.status === 'attended') continue;
+      out.push({
+        session: { ...shapeSession(s), players: { present: present.get(s.id) }, signup: signup.get(s.id) },
+        signup: { status: state.status, waitlistPosition: state.waitlistPosition }
+      });
+    }
+    return out;
   };
 
   const board = async ({ auth, id }) => {
@@ -116,7 +209,7 @@ const createSessionPublic = ({ models, players, queries, service }) => {
     };
   };
 
-  return { load, list, detail, board, viewerOf, labeller, shapeSession, presentCounts, PUBLIC_STATUSES, service };
+  return { load, list, detail, board, signups, mine, viewerOf, labeller, shapeSession, presentCounts, signupSummaries, PUBLIC_STATUSES, service };
 };
 
 module.exports = { createSessionPublic, PUBLIC_STATUSES, CLOSED_VISIBLE_DAYS };

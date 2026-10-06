@@ -20,7 +20,13 @@ describe('danh sách cho phép của cổng competition', () => {
     ['GET', '/public/sessions/0198-abc/board'],
     ['POST', '/me/tournaments/0198-abc/entries'],
     ['DELETE', '/me/tournaments/0198-abc/entries'],
-    ['GET', '/me/partners']
+    ['GET', '/me/partners'],
+    ['POST', '/me/sessions/0198-abc/signup'],
+    ['DELETE', '/me/sessions/0198-abc/signup'],
+    ['GET', '/me/sessions'],
+    ['GET', '/public/sessions/0198-abc/signups'],
+    ['GET', '/sessions/0198-abc/signups'],
+    ['DELETE', '/sessions/0198-abc/signups/77']
   ])('%s %s → chuyển tiếp', (method, path) => {
     expect(matchRoute(method, path)).not.toBeNull();
   });

@@ -17,13 +17,13 @@ const {
 // Thứ tự khoá: BUỔI trước, TRẬN sau — giống giải, và giống module match khi ghi kết
 // quả trận giao lưu (khoá ngữ cảnh rồi mới khoá trận).
 
-const FIELDS = ['name', 'startsAt', 'courtRefs', 'format', 'mode', 'scoring', 'rated'];
+const FIELDS = ['name', 'startsAt', 'courtRefs', 'format', 'mode', 'scoring', 'rated', 'maxPlayers'];
 const pick = (obj) => Object.fromEntries(FIELDS.filter((k) => obj[k] !== undefined).map((k) => [k, obj[k]]));
 const PLAYED = new Set(['in_play', 'ended', 'completed']); // đã ra sân → vào lịch sử đồng đội / đối thủ
 const DEFAULTS = { format: 'doubles', mode: 'balanced', scoring: '1x21', rated: false };
 
-const createSessionService = ({ models, sequelize, players, ratings, ratingQueries, matches, platform, ctx }) => {
-  const { PlaySession, PlaySessionPlayer } = models;
+const createSessionService = ({ models, sequelize, players, ratings, ratingQueries, matches, platform, ctx, signups }) => {
+  const { PlaySession, PlaySessionPlayer, SessionSignup } = models;
   const { outbox, audit, realtime } = platform;
   // Màn hình TV của buổi tải lại khi sân / hàng chờ đổi — phát sau commit (plan 19).
   const boardChanged = (transaction, s, reason) =>
@@ -139,6 +139,8 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
       }
       const before = Object.fromEntries(Object.keys(changes).map((k) => [k, s[k]]));
       await s.update(changes, { transaction });
+      // Tăng / bỏ sức chứa → người chờ đăng ký online được lên (plan 27).
+      if (changes.maxPlayers !== undefined) await signups.promoteWaiting(transaction, s);
       await audit.record(transaction, {
         tenant: auth.tenant, actorRef: auth.sub, action: 'session.updated', targetType: 'session', targetId: s.id, before, after: changes, requestId
       });
@@ -199,6 +201,7 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
         tenant: auth.tenant, actorRef: auth.sub, action: existing ? 'session.player_rejoined' : 'session.player_joined', targetType: 'session', targetId: s.id,
         after: { playerId: player.id, gamesCredit: row.gamesCredit, quickLevel: quickAssessed ? quickLevel : null }, requestId
       });
+      await signups.markAttended(transaction, s, player.id); // đã đăng ký online thì thành "đã đến" (plan 27)
       boardChanged(transaction, s, 'checked_in');
       return { session: s, row, quickAssessed };
     });
@@ -216,6 +219,7 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
         throw conflict('PLAYER_ON_COURT', `Đang đánh ở sân ${snap.courtOf.get(playerId)} — nhập tỉ số hoặc kết thúc trận trước`);
       }
       await row.update({ status: 'left', leftAt: new Date(), waitingSince: null }, { transaction });
+      await signups.promoteWaiting(transaction, s); // nhường chỗ cho người chờ đăng ký online (plan 27)
       await audit.record(transaction, {
         tenant: auth.tenant, actorRef: auth.sub, action: 'session.player_left', targetType: 'session', targetId: s.id, after: { playerId }, requestId
       });
@@ -428,6 +432,18 @@ const createSessionService = ({ models, sequelize, players, ratings, ratingQueri
         },
         { transaction }
       );
+      await src.destroy({ transaction });
+    }
+    // Đăng ký online (plan 27): hai hồ sơ cùng đăng ký một buổi → giữ bản "đi xa" hơn (đã đến > giữ chỗ > đang chờ > đã huỷ).
+    const sigs = await SessionSignup.findAll({ where: { tenantId: tenant, playerId: [target.id, source.id] }, transaction });
+    const strength = { attended: 3, registered: 2, waitlisted: 1, cancelled: 0 };
+    for (const src of sigs.filter((r) => r.playerId === source.id)) {
+      const tgt = sigs.find((r) => r.playerId === target.id && r.sessionId === src.sessionId);
+      if (!tgt) {
+        await src.update({ playerId: target.id }, { transaction });
+        continue;
+      }
+      if (strength[src.status] > strength[tgt.status]) await tgt.update({ status: src.status, signedUpAt: src.signedUpAt }, { transaction });
       await src.destroy({ transaction });
     }
     return { sessions };

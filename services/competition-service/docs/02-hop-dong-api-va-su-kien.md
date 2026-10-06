@@ -167,11 +167,12 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 
 | Method + đường dẫn | Scope | Việc |
 |---|---|---|
-| `POST /v1/sessions` · `GET /v1/sessions` · `GET/PATCH /v1/sessions/{id}` | `s:operate` / `s:read` | Tạo (mở ngay) / xem (kèm tiến độ) / sửa buổi (`PATCH` bắt buộc `If-Match`; có trận thì khoá Đơn / Đôi; không bỏ được sân đang có trận) |
+| `POST /v1/sessions` · `GET /v1/sessions` · `GET/PATCH /v1/sessions/{id}` | `s:operate` / `s:read` | Tạo (mở ngay) / xem (kèm tiến độ, số đăng ký online) / sửa buổi (`PATCH` bắt buộc `If-Match`; có trận thì khoá Đơn / Đôi; không bỏ được sân đang có trận). `maxPlayers` 2–200 hoặc `null` = sức chứa cho đăng ký online — tăng / bỏ thì người chờ được lên |
 | `GET /v1/sessions/{id}/players` · `POST …/players` · `DELETE …/players/{playerId}` | `s:read` / `s:operate` | Danh sách điểm danh / điểm danh (kèm `quickLevel` nếu chưa có điểm — cần thêm `rating:assess`; đang có mặt ở buổi khác chưa đóng → 409 `PRESENT_ELSEWHERE`, `errors[].field` = id buổi kia) / rời buổi (đang ở sân → 409 `PLAYER_ON_COURT`) |
 | `POST /v1/sessions/{id}/fill-courts/preview` · `POST …/fill-courts` | `s:operate` | Xếp sân trống: xem trước (đổi tay được, có `repeatPartners`) / xác nhận bản gửi lại nguyên văn hoặc để hệ thống tự xếp → sinh trận đang đánh. Bản cũ → 409 `FILL_STALE`; không có gì để xếp → 422 `NOTHING_TO_FILL` |
 | `GET /v1/sessions/{id}/matches` | `s:read` | Các trận của buổi theo lượt |
 | `GET /v1/sessions/{id}/board` | `s:read` | Dữ liệu màn hình lớn: sân – ai với ai – từ lúc nào (kèm `serverTime`); `upcoming` = ai sẽ vào các sân đang trống nếu bấm "Xếp sân trống" ngay (cùng hàm, cùng seed — rỗng khi không có sân trống); hàng chờ theo thứ tự ưu tiên của thuật toán, `next` = nằm trong `upcoming`; kết quả gần nhất |
+| `GET /v1/sessions/{id}/signups` · `DELETE …/signups/{signupId}` | `s:read` / `s:operate` | Đăng ký online (mục 2.11): danh sách ai đã báo trước (kèm đã có mặt chưa, điểm, cờ — để điểm danh nhanh) / gỡ một đăng ký (nhường chỗ cho người chờ). Điểm danh vẫn là `POST …/players` — người đã đăng ký tự thành `attended` |
 | `GET /v1/sessions/{id}/stream` | `s:read` | Luồng SSE cho màn hình TV (mục 2.9) |
 | `GET /v1/sessions/{id}/close-preview` · `POST …/close` · `POST …/cancel` | `s:read` / `s:operate` | Xem trước khi đóng / đóng (trận chưa tỉ số bị huỷ, áp điểm hệ số 0.5 nếu bật, cộng thống kê "giao lưu") / huỷ buổi |
 
@@ -217,7 +218,7 @@ nhân viên). Tách khỏi route của nhân viên thay vì mở chúng ra: dữ
 | `GET …/{id}/matches` · `…/standings` · `…/bracket` · `…/placements` | Lịch + kết quả (có `live` nếu đang bấm điểm, `expectedTime`), bảng vòng bảng, sơ đồ loại trực tiếp, thứ hạng cuối |
 | `GET …/{id}/stream` | Luồng SSE như mục 2.9, chỉ cho giải xem công khai |
 | `GET /v1/public/sessions` | Buổi `open` và buổi `closed` trong **30 ngày** gần đây (huỷ không có); `status`, `organizerRef`, `order`, phân trang; mỗi buổi kèm `players.present` |
-| `GET /v1/public/sessions/{id}` · `…/board` · `…/stream` | Chi tiết (kèm `matches`), bảng sân (sân đang đánh, người sắp vào sân, hàng chờ, kết quả gần đây), luồng SSE |
+| `GET /v1/public/sessions/{id}` · `…/board` · `…/signups` · `…/stream` | Chi tiết (kèm `matches`, `signup` = { `open`, `maxPlayers`, `registered`, `waitlisted`, `spotsLeft` } và — với khách đăng nhập — `me` = { `status` `registered` / `waitlisted` / `attended`, `waitlistPosition`, `canCancel` }), bảng sân (sân đang đánh, người sắp vào sân, hàng chờ, kết quả gần đây), **ai đã đăng ký** (giữ chỗ / chờ / đã đến, tên theo quyền riêng tư; người đã đăng ký thấy tên đầy đủ của nhau), luồng SSE. `signup` cũng có ở danh sách buổi |
 
 **Tên người chơi** (`player.domain.profile.publicRef`, cùng luật 05 mục 1.1; mỗi người là `{ id, name, masked }`):
 
@@ -253,6 +254,14 @@ kiện, cùng khoá giải, cùng hết chỗ → danh sách chờ (06, mục 4.
 `GET /v1/public/tournaments/{id}` (mục 2.10) có thêm **`me`** khi người xem là khách đăng nhập: `{ entry, canWithdraw }` — đăng ký của chính mình
 (gồm cả khi mình chỉ là người được thêm làm đồng đội), `null` nếu chưa đăng ký; không có khoá `me` với người chưa đăng nhập và nhân viên.
 `canWithdraw` chỉ đúng khi giải còn `open`.
+
+**Buổi giao lưu (p2)** — cùng scope `es`:
+
+| Method + đường dẫn | Việc |
+|---|---|
+| `POST /v1/me/sessions/{id}/signup` | Báo trước "tôi sẽ đến". Chỗ = đã đăng ký giữ chỗ ∪ đang có mặt so với `maxPlayers`; hết chỗ → danh sách chờ. `201` + chi tiết buổi công khai kèm `me`. Buổi huỷ / không có → 404; buổi đã đóng → 409 `SESSION_CLOSED`; trùng → 409 `ALREADY_SIGNED_UP`; đã điểm danh → 409 `ALREADY_PRESENT`. Không đòi có điểm trình (điểm danh tại quầy vẫn kèm `quickLevel` nếu chưa có điểm) |
+| `DELETE /v1/me/sessions/{id}/signup` | Huỷ (nhường chỗ cho người chờ). Chưa đăng ký / đã đến → 404 `NOT_SIGNED_UP`; buổi đã đóng → 409 `SESSION_CLOSED` |
+| `GET /v1/me/sessions` | Các buổi **đang mở** mà mình đã đăng ký (giữ chỗ hoặc chờ, kèm thứ tự chờ), sắp theo giờ bắt đầu |
 
 ## 3. Sự kiện
 

@@ -135,7 +135,7 @@ quản trị nhiều bậc giá theo sự kiện, trang portfolio giới thiệu
 
 ## 7. Theo dõi
 
-- [x] p0 · [x] p1 · [ ] p2 · [ ] p3 · [ ] p4 · [ ] p5
+- [x] p0 · [x] p1 · [x] p2 · [ ] p3 · [ ] p4 · [ ] p5
 - [ ] Báo cáo → xin duyệt merge `main` (không tự push main)
 
 ## 8. Giả định cần chủ dự án xác nhận (khi duyệt)
@@ -200,3 +200,20 @@ người trong các giải / buổi công khai ở `public`.
 | Jest service | 27 file / 399 test đạt (mới: `guestRules` 37 test đơn vị, `selfRegistration` **36** test tích hợp: quyền, giải đơn, hết chỗ → chờ → rút nhường chỗ, đăng ký đồng thời, giải nháp / huỷ / bốc thăm, Idempotency-Key, đôi cặp cố định, đồng đội có sẵn, đồng đội khách, SĐT không lộ, giới hạn 5 hồ sơ / ngày, tìm đồng đội theo quyền riêng tư) |
 | Jest backend | 538/538 |
 | Chạy thật qua cổng nối với JWT thật (khách `customer@badminton.com`, admin) | 20/20: đăng ký thiếu đồng đội → 422, chưa đăng nhập → 401, đăng ký + đồng đội khách → 201 nhận 2 người, nhân viên thấy cờ + SĐT chuẩn hoá + điểm tạm 3.25, người ngoài không thấy tên / SĐT đồng đội, đăng ký lại → 409, tìm đồng đội, rút → cả cặp rút |
+
+### 9.p2 — đăng ký buổi giao lưu online (07/10/2026)
+
+**Đã làm**
+- Migration `20261007100002-session-signups`: `play_sessions.max_players` + bảng `session_signups` (unique `session_id + player_id`, `signed_up_at` làm khoá xếp hàng chờ).
+- `signupService`: đăng ký / huỷ / nhân viên gỡ; **chỗ = đã đăng ký giữ chỗ ∪ đang có mặt**; hết chỗ → danh sách chờ; có chỗ trống (huỷ, **rời buổi**, tăng / bỏ sức chứa) → người chờ đầu tiên lên;
+  nhân viên điểm danh → đăng ký thành `attended`. Khoá buổi trước khi ghi nên đăng ký đồng thời không vượt chỗ. Gộp hồ sơ chuyển đăng ký sang hồ sơ đích.
+- Khách (scope `entry:self`, dùng chung với đăng ký giải): `POST` / `DELETE /v1/me/sessions/{id}/signup`, `GET /v1/me/sessions` ("Buổi của tôi"). Công khai: `signup` (chỗ) ở danh sách và chi tiết buổi,
+  `me` ở chi tiết, `GET /v1/public/sessions/{id}/signups` (ai đã đăng ký, tên theo quyền riêng tư). Nhân viên: `GET /v1/sessions/{id}/signups`, gỡ đăng ký, `maxPlayers` khi tạo / sửa buổi, `progress.signups`.
+- Tài liệu: `docs/02` mục 2.7, 2.10, 2.11; `docs/06` mục 16; cổng nối không cần đổi (tài nguyên `me` và `sessions` đã trong danh sách cho phép, scope `entry:self` có từ p1).
+
+**Kiểm**
+| Kiểm | Kết quả |
+|---|---|
+| Jest service | toàn bộ **28 file / 423 test** đạt; `sessionSignup.test.js` mới **24/24** (quyền, sức chứa, danh sách chờ, huỷ / rời buổi / tăng sức chứa nhường chỗ, điểm danh → đã đến, khách vãng lai chiếm chỗ, người chưa có điểm, nhân viên gỡ + chi nhánh khác, "Buổi của tôi", đăng ký đồng thời, Idempotency-Key, quyền riêng tư của danh sách, gộp hồ sơ) |
+| Jest backend | 544/544 |
+| Chạy thật qua cổng nối (JWT thật: khách + admin) | 17/17: tạo buổi sức chứa 2, đăng ký → giữ chỗ, trùng → 409, "Buổi của tôi", người ngoài thấy "Thành viên …", nhân viên điểm danh → khách thấy "đã đến" không huỷ được, đăng ký khi đang có mặt → 409, đóng buổi → 409 `SESSION_CLOSED` |

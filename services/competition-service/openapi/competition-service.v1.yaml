@@ -2642,6 +2642,70 @@ paths:
         '200': { $ref: '#/components/responses/PartnerSearch' }
         default: { $ref: '#/components/responses/Error' }
 
+  # --- Đăng ký buổi giao lưu online (plan 27, p2): khách scope entry:self; nhân viên session:read / session:operate ---
+  /v1/me/sessions/{id}/signup:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    post:
+      tags: [public]
+      summary: Khách đăng ký tham gia buổi giao lưu (báo trước "tôi sẽ đến")
+      description: |
+        Scope: entry:self. Người đăng ký là chính mình (claim `player`). Chỗ = người đã đăng ký giữ chỗ ∪ người đang có mặt, so với
+        `maxPlayers` của buổi (null = không giới hạn); hết chỗ → vào danh sách chờ. Điểm danh thật vẫn do nhân viên làm tại quầy
+        (khi đó đăng ký thành "đã đến"). Trả chi tiết buổi công khai kèm `me`.
+        Lỗi: 404 buổi huỷ / không có; 409 SESSION_CLOSED (buổi đã đóng), ALREADY_SIGNED_UP, ALREADY_PRESENT (đã điểm danh).
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '201': { $ref: '#/components/responses/PublicSessionDetail' }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [public]
+      summary: Khách huỷ đăng ký buổi giao lưu (nhường chỗ cho người chờ)
+      description: 'Scope: entry:self. Chưa đăng ký / đã huỷ / đã điểm danh → 404 NOT_SIGNED_UP; buổi đã đóng → 409 SESSION_CLOSED.'
+      responses:
+        '200': { $ref: '#/components/responses/PublicSessionDetail' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/me/sessions:
+    get:
+      tags: [public]
+      summary: Các buổi giao lưu đang mở mà khách đã đăng ký (giữ chỗ hoặc đang chờ)
+      description: 'Scope: entry:self. Sắp theo giờ bắt đầu. Buổi đã đóng / đã đến không có.'
+      responses:
+        '200': { $ref: '#/components/responses/MySessions' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/public/sessions/{id}/signups:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      tags: [public]
+      summary: Ai đã đăng ký buổi giao lưu (giữ chỗ / đang chờ / đã đến), tên theo quyền riêng tư
+      description: 'Scope: public:read. Người đã huỷ không có. Người đã đăng ký / có mặt trong buổi thấy tên đầy đủ của nhau.'
+      responses:
+        '200': { $ref: '#/components/responses/PublicSessionSignups' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/sessions/{id}/signups:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      tags: [session]
+      summary: Danh sách đăng ký online của buổi (nhân viên) — để điểm danh nhanh tại quầy
+      description: 'Scope: session:read. Điểm danh vẫn là `POST /v1/sessions/{id}/players` (đăng ký tự thành attended). `rating` null = chưa có điểm → điểm danh phải kèm quickLevel.'
+      responses:
+        '200': { $ref: '#/components/responses/StaffSignups' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/sessions/{id}/signups/{signupId}:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+      - { name: signupId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      tags: [session]
+      summary: Nhân viên gỡ một đăng ký online (người không đến, đăng ký nhầm, spam)
+      description: 'Scope: session:operate. Chỉ gỡ được đăng ký đang giữ chỗ / chờ (đã huỷ / đã điểm danh → 409). Nhường chỗ cho người chờ.'
+      responses:
+        '200': { $ref: '#/components/responses/StaffSignups' }
+        default: { $ref: '#/components/responses/Error' }
+
 components:
   securitySchemes:
     serviceToken:
@@ -2979,6 +3043,49 @@ components:
                     required: [items]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/PartnerCandidate' } }
+
+    PublicSessionSignups:
+      description: Ai đã đăng ký buổi giao lưu (xem công khai)
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/PublicSessionSignupEntry' } }
+    MySessions:
+      description: Buổi giao lưu đang mở mà khách đã đăng ký
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/MySession' } }
+    StaffSignups:
+      description: Đăng ký online của buổi (nhân viên)
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/StaffSignup' } }
 
   schemas:
     Envelope:
@@ -3778,6 +3885,7 @@ components:
         mode: { type: string, enum: [balanced, level, random], description: 'balanced = đội cân trong từng sân; level = cùng trình vào cùng sân; random = ngẫu nhiên, chỉ tránh lặp đồng đội' }
         scoring: { $ref: '#/components/schemas/Scoring' }
         rated: { type: boolean, description: 'Tính điểm trình khi đóng buổi (hệ số 0.5). Mặc định tắt.' }
+        maxPlayers: { type: integer, nullable: true, minimum: 2, maximum: 200, description: 'Sức chứa cho đăng ký online (chỗ = đã đăng ký giữ chỗ ∪ đang có mặt); null = không giới hạn. Tăng / bỏ sức chứa thì người chờ được lên.' }
     SessionInput:
       type: object
       additionalProperties: false
@@ -3800,6 +3908,7 @@ components:
         scoring: { $ref: '#/components/schemas/ScoringObject' }
         rated: { type: boolean }
         seed: { type: string }
+        maxPlayers: { type: integer, nullable: true }
         rounds: { type: integer, description: 'Số lần "Xếp sân trống" đã xác nhận' }
         status: { type: string, enum: [open, closed, cancelled] }
         closedAt: { type: string, format: date-time, nullable: true }
@@ -3822,6 +3931,12 @@ components:
                 completed: { type: integer }
                 ended: { type: integer }
             freeCourts: { type: integer }
+            signups:
+              type: object
+              description: 'Đăng ký online (plan 27)'
+              properties:
+                registered: { type: integer }
+                waitlisted: { type: integer }
     PlayerName:
       type: object
       additionalProperties: false
@@ -4133,7 +4248,7 @@ components:
     PublicSession:
       type: object
       additionalProperties: false
-      required: [id, organizerRef, name, startsAt, format, mode, rated, scoring, status, courtCount, rounds, closedAt, players]
+      required: [id, organizerRef, name, startsAt, format, mode, rated, scoring, status, courtCount, rounds, closedAt, players, signup]
       properties:
         id: { type: string, format: uuid }
         organizerRef: { type: string }
@@ -4163,6 +4278,8 @@ components:
             inPlay: { type: integer }
             completed: { type: integer }
             ended: { type: integer }
+        signup: { $ref: '#/components/schemas/PublicSessionSignupSummary' }
+        me: { $ref: '#/components/schemas/PublicSessionMe' }
     PublicSessionBoard:
       type: object
       additionalProperties: false
@@ -4252,3 +4369,60 @@ components:
         nickname: { type: string, nullable: true }
         gender: { type: string, nullable: true, enum: [male, female, null] }
         rated: { type: boolean }
+    PublicSessionSignupSummary:
+      type: object
+      additionalProperties: false
+      required: [open, maxPlayers, registered, waitlisted, spotsLeft]
+      properties:
+        open: { type: boolean, description: 'Buổi còn mở (status = open) — đóng rồi thì không đăng ký / huỷ được' }
+        maxPlayers: { type: integer, nullable: true, description: 'Sức chứa; null = không giới hạn' }
+        registered: { type: integer, description: 'Số người đã đăng ký giữ chỗ (chưa điểm danh)' }
+        waitlisted: { type: integer, description: 'Số người đang chờ' }
+        spotsLeft: { type: integer, nullable: true, description: 'maxPlayers − (đã đăng ký ∪ đang có mặt); null khi không giới hạn' }
+    PublicSessionMe:
+      type: object
+      nullable: true
+      additionalProperties: false
+      required: [status, waitlistPosition, canCancel]
+      properties:
+        status: { type: string, enum: [registered, waitlisted, attended] }
+        waitlistPosition: { type: integer, nullable: true }
+        canCancel: { type: boolean, description: 'Chỉ khi buổi còn mở và chưa điểm danh' }
+    PublicSessionSignupEntry:
+      type: object
+      additionalProperties: false
+      required: [id, status, waitlistPosition, player, mine]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [registered, waitlisted, attended] }
+        waitlistPosition: { type: integer, nullable: true }
+        player: { $ref: '#/components/schemas/PublicPlayerRef' }
+        mine: { type: boolean }
+    MySession:
+      type: object
+      additionalProperties: false
+      required: [session, signup]
+      properties:
+        session: { $ref: '#/components/schemas/PublicSession' }
+        signup:
+          type: object
+          additionalProperties: false
+          required: [status, waitlistPosition]
+          properties:
+            status: { type: string, enum: [registered, waitlisted] }
+            waitlistPosition: { type: integer, nullable: true }
+    StaffSignup:
+      type: object
+      additionalProperties: false
+      required: [id, playerId, name, gender, status, waitlistPosition, signedUpAt, present, rating, flags]
+      properties:
+        id: { type: string, format: uuid }
+        playerId: { type: string, format: uuid }
+        name: { type: string, nullable: true }
+        gender: { type: string, nullable: true }
+        status: { type: string, enum: [registered, waitlisted, attended] }
+        waitlistPosition: { type: integer, nullable: true }
+        signedUpAt: { type: string, format: date-time }
+        present: { type: boolean, description: 'Đang có mặt (đã điểm danh, chưa rời)' }
+        rating: { type: number, nullable: true, description: 'Điểm ở nội dung của buổi; null = chưa có điểm' }
+        flags: { type: array, items: { type: string } }

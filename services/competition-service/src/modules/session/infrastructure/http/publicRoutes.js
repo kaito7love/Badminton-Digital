@@ -23,6 +23,7 @@ const createSessionPublicRouter = ({ pub, stream }) => {
 
   router.get('/public/sessions/:id', readable, asyncHandler(async (req, res) => ok(res, await pub.detail(base(req)))));
   router.get('/public/sessions/:id/board', readable, asyncHandler(async (req, res) => ok(res, await pub.board(base(req)))));
+  router.get('/public/sessions/:id/signups', readable, asyncHandler(async (req, res) => ok(res, { items: await pub.signups(base(req)) })));
 
   router.get(
     '/public/sessions/:id/stream',

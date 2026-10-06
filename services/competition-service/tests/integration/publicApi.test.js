@@ -358,7 +358,7 @@ describe('buổi giao lưu', () => {
 
   test('không rò trường nội bộ của buổi (courtRefs, seed, createdByRef)', async () => {
     const item = (await get(anon, '/v1/public/sessions?status=open')).data.items.find((s) => s.name === 'PUB giao lưu đang mở');
-    expect(Object.keys(item).sort()).toEqual(['closedAt', 'courtCount', 'format', 'id', 'mode', 'name', 'organizerRef', 'players', 'rated', 'rounds', 'scoring', 'startsAt', 'status']);
+    expect(Object.keys(item).sort()).toEqual(['closedAt', 'courtCount', 'format', 'id', 'mode', 'name', 'organizerRef', 'players', 'rated', 'rounds', 'scoring', 'signup', 'startsAt', 'status']);
     const text = JSON.stringify(await get(anon, `/v1/public/sessions/${S.open.id}`));
     for (const leak of ['courtRefs', '"seed"', 'createdByRef', '"version"', 'bd:user']) expect(text).not.toContain(leak);
   });
