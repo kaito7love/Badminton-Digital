@@ -135,7 +135,7 @@ quản trị nhiều bậc giá theo sự kiện, trang portfolio giới thiệu
 
 ## 7. Theo dõi
 
-- [x] p0 · [x] p1 · [x] p2 · [ ] p3 · [ ] p4 · [ ] p5
+- [x] p0 · [x] p1 · [x] p2 · [x] p3 · [ ] p4 · [ ] p5
 - [ ] Báo cáo → xin duyệt merge `main` (không tự push main)
 
 ## 8. Giả định cần chủ dự án xác nhận (khi duyệt)
@@ -162,8 +162,9 @@ quản trị nhiều bậc giá theo sự kiện, trang portfolio giới thiệu
   tham gia giải / buổi đó** thấy đầy đủ (đúng nguyên tắc "đối thủ / đồng đội luôn thấy tên nhau" của docs/05 mục 1.1).
 - OpenAPI: 12 path + 10 response + 12 schema `Public*`, mọi schema đóng (`additionalProperties: false`) — response lệch hợp đồng là test đỏ.
 - Cổng nối (`backend/src/integrations/competition`): `public` thêm vào allowlist, **chỉ GET** (POST / PUT / PATCH / DELETE → 404 tại cổng);
-  `public:read` cấp cho người chưa đăng nhập và mọi vai trò; `streamGuard.js` — tối đa **8 luồng SSE công khai / IP và 300 cả hệ thống**
-  (429 `TOO_MANY_STREAMS`) để giữ RAM của gói free Render; route công khai không đăng nhập vẫn qua bộ giới hạn tần suất sẵn có.
+  `public:read` cấp cho người chưa đăng nhập và mọi vai trò; `streamGuard.js` — tối đa **40 luồng SSE công khai / IP và 300 cả hệ thống**
+  (429 `TOO_MANY_STREAMS`) để giữ RAM của gói free Render; `/public/*` có bộ giới hạn tần suất riêng 900 lần / phút / IP (BXH vẫn 120). *Ban đầu đặt 8 luồng và 120 lần / phút;
+  khi bấm thử p3 trên Chrome thật thấy mức đó làm cả một sân xem chung Wi-Fi (một IP) chặn lẫn nhau nên đã nới — xem 9.p3.*
 - Tài liệu: `services/competition-service/docs/02-hop-dong-api-va-su-kien.md` mục 2.10 (bảng endpoint, luật tên, giới hạn) và bảng scope mục 5.
 - Sửa kèm: test `liveScoring` chạy ~5 phút nên token test (300 s) hết hạn giữa chừng khi máy bận (401, đã ghi từ trước) →
   `createTestContext({ tokenTtl })` + `MAX_TOKEN_LIFETIME_SECONDS` theo context; mặc định giữ 300 nên test "token quá dài" của `auth` không đổi.
@@ -217,3 +218,25 @@ người trong các giải / buổi công khai ở `public`.
 | Jest service | toàn bộ **28 file / 423 test** đạt; `sessionSignup.test.js` mới **24/24** (quyền, sức chứa, danh sách chờ, huỷ / rời buổi / tăng sức chứa nhường chỗ, điểm danh → đã đến, khách vãng lai chiếm chỗ, người chưa có điểm, nhân viên gỡ + chi nhánh khác, "Buổi của tôi", đăng ký đồng thời, Idempotency-Key, quyền riêng tư của danh sách, gộp hồ sơ) |
 | Jest backend | 544/544 |
 | Chạy thật qua cổng nối (JWT thật: khách + admin) | 17/17: tạo buổi sức chứa 2, đăng ký → giữ chỗ, trùng → 409, "Buổi của tôi", người ngoài thấy "Thành viên …", nhân viên điểm danh → khách thấy "đã đến" không huỷ được, đăng ký khi đang có mặt → 409, đóng buổi → 409 `SESSION_CLOSED` |
+
+### 9.p3 — giao diện khu công khai: xem giải / buổi giao lưu (07/10/2026)
+
+**Đã làm** (`frontend/src/features/competition/`)
+- Khu `/thi-dau` với khung riêng `PublicShell` (sáng / tối, menu cuộn ngang trên điện thoại): `HubPage` (hero, lọc chi nhánh, giải đang mở / đang diễn ra, buổi giao lưu, kết quả gần đây),
+  `PublicTournamentPage` (thông tin, khung đăng ký, tab đăng ký / lịch & kết quả / bảng & sơ đồ / kết quả chung cuộc), `PublicSessionPage` (bảng sân trực tiếp, ai đã đăng ký). Route nằm trong `competitionPublicRoutes`
+  (AppRoutes không phải đổi); `FeatureGate hub` khi tính năng tắt; thêm mục "Giải đấu" ở menu khách (`CustomerLayout`).
+- `api/publicApi.js`, `lib/publicHub.js` (nhãn, ngày giờ "Hôm nay / Ngày mai", chỗ còn, lệ phí tạm 200.000đ, nhóm lịch, ghép tỉ số trực tiếp) — **thuần, có test**; `components/public/*` (thẻ giải / buổi, danh sách đăng ký, lịch, bảng, thứ hạng, bảng sân, khung đăng ký).
+- SSE công khai: `buildStreamUrl({ publicView })` và `useLiveResource({ stream: { public: true } })` — nối **không token**; tỉ số trực tiếp ghép vào trang ngay, không tải lại.
+- Dùng lại `BracketView` (sơ đồ dạng hình), `Card` / `Badge` / `Notice` của khu nhân viên.
+
+**Phát hiện khi bấm thử và đã sửa:** giới hạn công khai ở cổng (120 request / phút / IP, 8 luồng SSE / IP) làm trang đột nhiên báo "thao tác quá nhanh" khi chạy nhiều lượt liên tiếp — và
+với thực tế **cả sân xem giải bằng điện thoại trên cùng một Wi-Fi (một IP)** thì sẽ chặn lẫn nhau. Đã tách bộ giới hạn riêng cho `/public/*` (900 / phút / IP; BXH vẫn 120), luồng SSE công khai 40 / IP (tổng 300 vẫn là chốt giữ RAM);
+thêm test cổng. Ảnh: `p3-*.png` trong scratchpad (không nằm trong repo).
+
+**Kiểm**
+| Kiểm | Kết quả |
+|---|---|
+| Vitest | **280/280** (+42: `publicHub.test.js` 24 test logic thuần, `public-ui.test.jsx` 18 test vẽ thành phần với dữ liệu hình dạng API công khai: che tên, huy hiệu, chỗ, lệ phí, danh sách chờ, lịch + tỉ số trực tiếp, khung đăng ký theo người xem) |
+| Jest backend | cổng nối: thêm test giới hạn tần suất riêng cho `/public/*` |
+| `npm run build` | xanh |
+| Chrome thật (stack thử, dữ liệu mẫu: giải đôi hết chỗ + 2 người chờ, giải loại trực tiếp đang đấu có trận đang bấm điểm, buổi giao lưu đang diễn ra) | **38/38**: 1440 px tối + 390 px sáng; trang chủ, lọc chi nhánh, trang giải, lịch, sơ đồ, bảng sân, **tỉ số đổi trực tiếp khi nhân viên bấm (không tải lại)**, đăng nhập rồi quay lại đúng giải, không tràn ngang, giải không có thật báo rõ, không lỗi console |

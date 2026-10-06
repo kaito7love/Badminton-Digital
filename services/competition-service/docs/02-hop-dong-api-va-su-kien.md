@@ -235,9 +235,10 @@ rút) hoặc có tên trong danh sách buổi giao lưu thấy tên đầy đủ
 
 Không có trong dữ liệu công khai: `courtRefs`, `createdByRef`, `drawSeed`, `version`, `contextId`, điểm trình và cờ của người chơi.
 
-**Giới hạn ở gateway:** `GET /public/*` không cần đăng nhập đi qua bộ giới hạn tần suất của route công khai (120 lần / phút / IP);
-luồng SSE công khai còn bị giới hạn **8 luồng / IP và 300 luồng cả hệ thống** (429 `TOO_MANY_STREAMS`) — mỗi luồng giữ một kết nối
-tới service và một ít RAM của gói free. Luồng của nhân viên (`/tournaments/{id}/stream`) không bị giới hạn này.
+**Giới hạn ở gateway:** `GET /public/*` không cần đăng nhập có bộ giới hạn tần suất RIÊNG, thoáng hơn BXH (**900 lần / phút / IP**, BXH vẫn 120): cả sân xem giải
+bằng điện thoại trên cùng một Wi-Fi (một IP công khai) không được chặn lẫn nhau. Luồng SSE công khai bị giới hạn **40 luồng / IP và 300 luồng cả hệ thống**
+(429 `TOO_MANY_STREAMS`) — mỗi luồng giữ một kết nối tới service và một ít RAM của gói free, nên tổng mới là chốt. Luồng của nhân viên (`/tournaments/{id}/stream`)
+không bị giới hạn này; người bị chặn luồng vẫn xem được vì trang tự poll dự phòng.
 
 ### 2.11 Khách tự đăng ký giải (plan 27, p1)
 

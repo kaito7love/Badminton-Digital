@@ -35,13 +35,17 @@ const createGatewayRouter = ({
     sseAuth: require('../../middleware/sseAuthMiddleware'),
     branch: require('../../middleware/branchContextMiddleware')
   };
-  const limiter = publicLimiter || rateLimit({
+  const makeLimiter = (limit) => rateLimit({
     windowMs: 60 * 1000,
-    limit: 120,
+    limit,
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req, res) => fail(res, 429, 'Bạn thao tác quá nhanh, thử lại sau ít phút.', 'RATE_LIMITED')
   });
+  // BXH / hồ sơ công khai: 120 lần / phút / IP. Trang giải công khai (/public/*) thoáng hơn nhiều: cả sân xem giải bằng điện thoại trên CÙNG Wi-Fi
+  // (một IP công khai) — mỗi người vài lần tải mỗi phút — không được bị chặn lẫn nhau (plan 27); chặn lạm dụng đã có ở giới hạn luồng SSE + tổng.
+  const limiter = publicLimiter || makeLimiter(120);
+  const hubLimiter = publicLimiter || makeLimiter(900);
 
   const router = express.Router();
 
@@ -71,7 +75,7 @@ const createGatewayRouter = ({
     // X-Branch-Id để branchContextMiddleware xử lý như mọi request khác (ghi đè header giả: chỉ đường SSE mới nhận query).
     if (route.isStream && req.query.branchId) req.headers['x-branch-id'] = String(req.query.branchId);
     const hasCredentials = Boolean(req.headers.authorization || (route.isStream && req.query.token));
-    if (route.isPublic && !hasCredentials) return limiter(req, res, next);
+    if (route.isPublic && !hasCredentials) return (route.resource === 'public' ? hubLimiter : limiter)(req, res, next);
     const authenticate = route.isStream ? mw.sseAuth : mw.auth;
     return authenticate(req, res, (err) => (err ? next(err) : mw.branch(req, res, next)));
   });

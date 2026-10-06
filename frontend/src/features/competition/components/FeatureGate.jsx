@@ -1,12 +1,15 @@
 import React from 'react';
 import { useCompetition } from '../context/CompetitionContext';
 import CustomerShell from './CustomerShell';
+import PublicShell from './PublicShell';
 import { EmptyState, Spinner } from './ui';
 
 // Cổng ở cấp route: tính năng thi đấu TẮT (chưa cấu hình service) thì KHÔNG dựng trang — nên không có lời gọi API nào tới cổng nối, chỉ có
 // thông báo "chưa được bật". Trang của khách vẽ trong khung khách; trang của nhân viên vẽ ngay trong vỏ sidebar đang có.
-export default function FeatureGate({ children, customer = false, title = 'Thi đấu' }) {
+export default function FeatureGate({ children, customer = false, hub = false, title = 'Thi đấu' }) {
   const { enabled, loading } = useCompetition();
+  // Khu công khai /thi-dau có khung riêng: PublicShell tự báo "đang kiểm tra" / "chưa được bật".
+  if (hub) return enabled && !loading ? children : <PublicShell />;
   if (loading) return customer ? <CustomerShell title={title} /> : <div className="p-8"><Spinner label="Đang kiểm tra tính năng thi đấu…" /></div>;
   if (enabled) return children;
   if (customer) return <CustomerShell title={title} />;

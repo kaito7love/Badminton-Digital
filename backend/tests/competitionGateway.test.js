@@ -321,6 +321,18 @@ describe('cổng /api/v1/competition', () => {
       expect(seen).toBeNull();
     });
 
+    test('giới hạn tần suất mặc định: /public/* thoáng (cả sân xem chung một Wi-Fi) còn BXH vẫn 120 lần / phút / IP', async () => {
+      const app = appWith();
+      const hit = (path) => request(app).get(`/api/v1/competition${path}`);
+      const hub = [];
+      for (let i = 0; i < 200; i += 1) hub.push((await hit('/public/tournaments')).status); // eslint-disable-line no-await-in-loop
+      expect(hub.filter((s) => s === 429)).toHaveLength(0);
+      const board = [];
+      for (let i = 0; i < 130; i += 1) board.push((await hit('/leaderboards/rating')).status); // eslint-disable-line no-await-in-loop
+      expect(board.filter((s) => s === 429).length).toBeGreaterThan(0);
+      expect(board.slice(0, 120).every((s) => s === 200)).toBe(true);
+    });
+
     test('luồng SSE công khai: không cần đăng nhập, token 300 giây, đường dẫn đúng', async () => {
       streamHandler = (req, res) => { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.end(SSE_HELLO); };
       const server = await listen(appWith());

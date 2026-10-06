@@ -3,7 +3,8 @@
 // `perIp` chặn từng địa chỉ, `total` chặn cả hệ thống. Không biết địa chỉ (req.ip rỗng) thì chỉ tính vào `total`.
 // Chạy trong bộ nhớ của MỘT process — đúng với cách chạy hiện nay (một container).
 
-const createStreamGuard = ({ perIp = 8, total = 300 } = {}) => {
+// perIp 40: cả sân (nhiều điện thoại cùng một Wi-Fi, hoặc cùng một IP của nhà mạng) xem giải trực tiếp; `total` mới là chốt giữ RAM.
+const createStreamGuard = ({ perIp = 40, total = 300 } = {}) => {
   const byIp = new Map();
   let open = 0;
 

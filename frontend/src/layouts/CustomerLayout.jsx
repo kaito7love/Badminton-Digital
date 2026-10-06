@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { path: '/cart', label: 'Giỏ hàng', icon: '🛒', public: true },
   { path: '/orders', label: 'Đơn mua', icon: '📦', public: false },
   { path: '/my-bookings', label: 'Lịch đặt', icon: '🎟️', public: false },
+  { path: '/thi-dau', label: 'Giải đấu', icon: '🏸', public: true, competition: true },
   { path: '/rankings', label: 'Xếp hạng', icon: '🏆', public: true, competition: true },
   { path: '/my-rating', label: 'Trình độ', icon: '📈', public: false, competition: true },
   { path: '/my-tournaments', label: 'Giải của tôi', icon: '🏸', public: false, competition: true },
@@ -48,9 +49,9 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
   const visibleNav = NAV_ITEMS.filter((item) => (item.public || isCustomer) && (!item.competition || competitionOn));
   // Thanh dưới trên điện thoại chỉ có 5 ô: khi thi đấu bật, nhóm "Thi đấu" thay ô thứ 5 (các mục thi đấu khác nằm trong menu ☰).
   const baseNav = visibleNav.filter((item) => !item.competition);
-  const COMPETITION_PATHS = ['/rankings', '/my-rating', '/my-tournaments', '/my-matches', '/players'];
+  const COMPETITION_PATHS = ['/thi-dau', '/rankings', '/my-rating', '/my-tournaments', '/my-matches', '/players'];
   const bottomNav = competitionOn
-    ? [...baseNav.slice(0, 4), { path: isCustomer ? '/my-rating' : '/rankings', label: 'Thi đấu', icon: '🏆', group: COMPETITION_PATHS }]
+    ? [...baseNav.slice(0, 4), { path: isCustomer ? '/my-rating' : '/thi-dau', label: 'Thi đấu', icon: '🏆', group: COMPETITION_PATHS }]
     : visibleNav.slice(0, 5);
   // Có thêm 3 mục thi đấu thì thanh trên 9 mục chỉ vừa từ 1280 px; hẹp hơn dùng menu ☰ + thanh dưới (như điện thoại).
   const BP = competitionOn

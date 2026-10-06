@@ -64,7 +64,7 @@ export function useLiveResource({ load, stream = null, onEvent, pollMs = 10000, 
   }, [enabled, state.data, state.error, reload]);
 
   // Tải lần đầu và mỗi khi đổi tài nguyên.
-  const streamKey = stream ? `${stream.kind}:${stream.id}` : '';
+  const streamKey = stream ? `${stream.public ? 'public:' : ''}${stream.kind}:${stream.id}` : '';
   useEffect(() => {
     if (!enabled) return undefined;
     reload();
@@ -80,6 +80,7 @@ export function useLiveResource({ load, stream = null, onEvent, pollMs = 10000, 
       kind: stream.kind,
       id: stream.id,
       branchId,
+      publicView: Boolean(stream.public),
       onStatusChange: setStatus,
       onEvent: (name, payload) => {
         if (name === 'board') {
