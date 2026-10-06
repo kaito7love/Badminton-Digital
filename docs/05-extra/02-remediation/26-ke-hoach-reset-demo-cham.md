@@ -1,7 +1,7 @@
 # Kế hoạch: job "Demo reset" mất ~19 phút — đo nguyên nhân, nới giới hạn thời gian, sửa tài liệu
 
 - **Ngày:** 06/10/2026.
-- **Trạng thái:** chủ dự án duyệt phương án **A** ("code đi, làm phương án A", 06/10/2026) → **đã làm xong, kết quả ở mục 7; chờ duyệt merge vào `main`**.
+- **Trạng thái:** chủ dự án duyệt phương án **A** ("code đi, làm phương án A", 06/10/2026) → **đã làm xong, kết quả ở mục 7; đã merge vào `main` 06/10/2026** (fast-forward `4c36f19` → `81c0c34`, chưa push).
 - **Nhánh:** `fix/demo-reset-slow-and-timeout`, tách từ `main` @ `4c36f19`.
 - **Phạm vi (phương án A, đề xuất):** `.github/workflows/demo-reset.yml` (một dòng), tài liệu. Không đổi code ứng dụng,
   không migration, không đổi API.

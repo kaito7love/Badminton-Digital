@@ -827,11 +827,11 @@ rồi mới nhả số của hồ sơ đã xoá).
 - **Plan + kết quả:** `23-ke-hoach-tich-hop-cong-noi-va-su-kien.md` (mục 8: theo dõi từng việc; mục 9: kết quả chạy thật).
 - **Cách bật:** `npm run competition:keys` rồi chép hai khối trong file sinh ra vào `backend/.env` và `.env` của service; để trống `COMPETITION_*` = tắt (xem `backend/.env.example`).
 
-### 24. `fix/demo-reset-slow-and-timeout` — job "Demo reset" mất ~19 phút (plan 26, phương án A đã làm, **chờ duyệt merge**)
+### 24. `fix/demo-reset-slow-and-timeout` — job "Demo reset" mất ~19 phút (plan 26, phương án A — đã merge vào `main` 06/10/2026)
 
 - **Căn cứ:** lần reset đầu có DB thi đấu (06/10/2026, run #14) chạy 18 m 39 s trên giới hạn `timeout-minutes: 30`. Đo cục bộ:
   5.408 câu lệnh MySQL nối tiếp → ×0,15 s độ trễ runner ↔ Aiven ≈ 15 phút (không phải khoá treo như nghi lúc đầu).
-- **Đã làm (06/10/2026):** chủ dự án chọn phương án A — `timeout-minutes` 30 → 60 + sửa tài liệu "~30 giây"; Jest 503/503, Vitest 238/238, YAML chỉ khác một dòng. B / C (nhanh hơn) không làm. Chạy thật sau khi merge + push. Chi tiết:
+- **Đã làm (06/10/2026):** chủ dự án chọn phương án A — `timeout-minutes` 30 → 60 + sửa tài liệu "~30 giây"; Jest 503/503, Vitest 238/238, YAML chỉ khác một dòng. B / C (nhanh hơn) không làm. Chủ dự án duyệt "merge vào main đi" cùng ngày → main fast-forward `4c36f19` → `81c0c34`; chưa push. Chạy thật sau khi push. Chi tiết:
   `26-ke-hoach-reset-demo-cham.md`.
 
 ## Chưa làm — xem plan riêng từng phần
