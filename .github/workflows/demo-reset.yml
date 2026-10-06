@@ -29,9 +29,9 @@ permissions:
 jobs:
   reset:
     runs-on: ubuntu-latest
-    # Đo thật 06/10/2026 (run #14): DB chính ~3 phút + DB thi đấu ~15 phút = ~19 phút. Phần lớn là độ trễ mạng runner ↔ Aiven
-    # (~0,15 s) nhân ~5.400 câu lệnh của seed thi đấu (cục bộ chỉ ~30 s). 30 phút từng chỉ dư ~11 phút: mạng chậm thêm một chút
-    # là GitHub huỷ job giữa chừng, DB nằm nửa vời tới đêm sau. 60 phút để mạng chậm gấp ba vẫn chạy xong. Plan 26.
+    # Đo thật 06/10/2026: run #14 (chạy tay) 18 m 39 s, run #15 (theo lịch) 27 m 8 s — DB chính ~3–4 phút + DB thi đấu 15–23 phút.
+    # Phần lớn là độ trễ mạng runner ↔ Aiven (0,15–0,23 s) nhân ~5.400 câu lệnh của seed thi đấu (cục bộ chỉ ~30 s). Giới hạn 30
+    # phút đã chỉ còn dư ~3 phút ở run #15: chậm thêm chút là GitHub huỷ job giữa chừng, DB nằm nửa vời tới đêm sau. Plan 26.
     timeout-minutes: 60
     env:
       NODE_ENV: production

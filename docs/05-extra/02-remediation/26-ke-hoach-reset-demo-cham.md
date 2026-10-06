@@ -32,6 +32,8 @@ Trên GitHub Actions, runner nối tới Aiven (Singapore) qua Internet: bước
 **0,15 s mỗi câu lệnh** — đúng cỡ độ trễ một vòng đi–về từ runner (Mỹ/Âu) tới Singapore. Vậy thời gian là **độ trễ mạng
 nhân với số câu lệnh**, không phải khoá treo. DB chính tương tự (42 migration + 7 seeder → ~3 phút).
 
+**Số đo thêm — job theo lịch đêm 06/10/2026 (Demo reset #15, chạy trên bản chưa sửa):** tổng **1.628 s = 27 m 8 s**; DB chính 245 s, DB thi đấu **1.366 s (22,8 phút)** — (1.366 − ~100) ÷ 5.408 ≈ **0,23 s/câu**, cao hơn run #14 (0,15 s). Độ trễ dao động ~50 % giữa hai lần chạy; với giới hạn cũ 30 phút job chỉ qua với biên ~3 phút. Đây đúng là rủi ro của mục 2, và vì sao phương án A là cần thiết.
+
 ## 2. Đính chính + rủi ro thật
 
 - Mình (Claude) từng nói job "không đặt giới hạn thời gian, mặc định 6 giờ": **sai**. `demo-reset.yml` đã có
