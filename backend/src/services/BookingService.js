@@ -149,6 +149,11 @@ class BookingService {
       ],
       include: [
         { model: Court, as: "court", attributes: ["id", "name"] },
+        // Hồ sơ khách dùng chung toàn chuỗi nên danh sách này gộp lịch ở MỌI
+        // chi nhánh. Thiếu `branch`, giao diện vừa không biết lịch ở đâu, vừa
+        // không có múi giờ để trả lời "lịch này còn hiệu lực không" — nó đành
+        // đọc theo đồng hồ máy khách và sai khi khách ở múi giờ khác.
+        { model: Branch, as: "branch", attributes: ["id", "name", "timezone"] },
         { model: Customer, as: "customer", attributes: ["id", "fullName", "phone"] },
       ],
     });
@@ -172,6 +177,7 @@ class BookingService {
   static async getBookingById(id, context = {}) {
     const include = [
       { model: Court, as: "court" },
+      { model: Branch, as: "branch", attributes: ["id", "name", "timezone"] },
       { model: Customer, as: "customer" },
     ];
     // Ai tạo lịch (họ tên, email nhân viên) là thông tin nội bộ — khách xem lịch
@@ -181,7 +187,7 @@ class BookingService {
     }
     const booking = await Booking.findByPk(id, { include });
     if (!booking) {
-      const error = new Error("Booking not found");
+      const error = new Error("Không tìm thấy lịch đặt này");
       error.statusCode = 404;
       throw error;
     }
@@ -199,7 +205,7 @@ class BookingService {
     try {
       const court = await Court.findByPk(data.courtId, { transaction, lock: transaction.LOCK.UPDATE });
       if (!court || (context.branchId && court.branchId !== context.branchId)) {
-        const error = new Error("Court not found");
+        const error = new Error("Không tìm thấy sân");
         error.statusCode = 404;
         throw error;
       }
@@ -275,7 +281,7 @@ class BookingService {
         lock: transaction.LOCK.UPDATE,
       });
       if (!booking) {
-        const error = new Error("Booking not found");
+        const error = new Error("Không tìm thấy lịch đặt này");
         error.statusCode = 404;
         throw error;
       }
@@ -300,7 +306,7 @@ class BookingService {
         lock: transaction.LOCK.UPDATE,
       });
       if (!court) {
-        const error = new Error("Court not found");
+        const error = new Error("Không tìm thấy sân");
         error.statusCode = 404;
         throw error;
       }
@@ -349,7 +355,7 @@ class BookingService {
         lock: transaction.LOCK.UPDATE
       });
       if (!booking) {
-        const error = new Error("Booking not found");
+        const error = new Error("Không tìm thấy lịch đặt này");
         error.statusCode = 404;
         throw error;
       }
@@ -389,7 +395,7 @@ class BookingService {
         lock: transaction.LOCK.UPDATE
       });
       if (!booking) {
-        const error = new Error("Booking not found");
+        const error = new Error("Không tìm thấy lịch đặt này");
         error.statusCode = 404;
         throw error;
       }

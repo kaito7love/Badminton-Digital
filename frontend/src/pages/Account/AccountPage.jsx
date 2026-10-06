@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import CustomerLayout from '../../layouts/CustomerLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService, customerService } from '../../services/apiServices';
-import { formatDateTime, formatDate } from '../../utils/datetime';
+import { formatDateTime, formatDate, wallClockPassed } from '../../utils/datetime';
 
 /**
  * Hồ sơ khách hàng — nơi khách tự xem được những gì hệ thống đang lưu về mình:
@@ -187,13 +187,15 @@ export default function AccountPage() {
   const tier = tierOf(customer?.loyaltyTier);
   const nextTier = TIERS.find((t) => t.from > totalSpent);
 
+  // Tính theo giờ CHI NHÁNH của từng lịch, không theo đồng hồ máy khách:
+  // `new Date('2026-10-09T21:00')` đọc theo máy, nên khách ở múi giờ khác thấy
+  // số "lịch sắp tới" sai. Lịch sử gộp mọi chi nhánh nên múi giờ theo từng dòng.
   const upcomingCount = useMemo(
     () =>
       bookings.filter((booking) => {
         const status = String(booking.status || '').toUpperCase();
         if (!['PENDING', 'CONFIRMED'].includes(status)) return false;
-        const end = new Date(`${String(booking.bookingDate).slice(0, 10)}T${booking.endTime || '23:59'}`);
-        return end > new Date();
+        return !wallClockPassed(booking.bookingDate, booking.endTime || '23:59', booking.branch?.timezone);
       }).length,
     [bookings]
   );

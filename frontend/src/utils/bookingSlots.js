@@ -16,6 +16,10 @@ import { wallClockPassed } from './datetime';
 // và thẻ sân gọi `startBookingFromCard` với 08:00, 12:00, 16:00, 17:00, 20:00).
 // Mốc nào không có ở đây sẽ bị effect "kéo về tập đang chào" của HomePage đẩy
 // sang mốc khác — khách bấm 12:00 mà nhận 05:00.
+// `/public/courts` công bố danh sách này (backend utils/scheduleGrid.js
+// #BOOKING_SLOTS) và `openSlotsFor` nhận nó qua tham số `slots`; hằng số dưới
+// đây chỉ là bản dự phòng khi server chưa trả lời. Hai danh sách phải khớp —
+// đổi một bên thì đổi cả bên kia.
 export const TIME_SLOTS = [
   '05:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '17:00', '19:00', '20:00', '21:00'
 ];
@@ -57,7 +61,7 @@ export const durationsFor = (slot, hours = FALLBACK_HOURS) =>
  *   · còn luật rộng hơn ở server là để quầy mở sân cho khách vừa bước vào giữa
  *     khung giờ — việc của nhân viên, không phải của widget này.
  */
-export const openSlotsFor = ({ date, hours = FALLBACK_HOURS, timezone } = {}) =>
-  TIME_SLOTS.filter(
+export const openSlotsFor = ({ date, hours = FALLBACK_HOURS, timezone, slots = TIME_SLOTS } = {}) =>
+  slots.filter(
     (t) => t >= hours.open && durationsFor(t, hours).length > 0 && !wallClockPassed(date, t, timezone)
   );

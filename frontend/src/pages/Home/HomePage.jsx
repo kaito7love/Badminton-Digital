@@ -27,6 +27,15 @@ const to12h = (hhmm) => {
 
 // Một danh sách dùng cho cả thanh desktop lẫn menu mobile. Trước đây hai chỗ
 // khai báo riêng nên đã lệch nhau (mobile có FAQ, desktop thì không).
+// Nhãn các ô lưới lịch không đặt được. `cyber-slot available|booked` là class
+// sẵn có trong HomePage.css; "đã qua"/"bảo trì" mờ hơn để phân biệt với ô thật
+// sự có người giữ chỗ.
+const SLOT_CELL = {
+  booked: { label: "ĐÃ ĐẶT", cls: "booked" },
+  passed: { label: "ĐÃ QUA", cls: "booked opacity-40" },
+  unavailable: { label: "BẢO TRÌ", cls: "booked opacity-40" },
+};
+
 const SECTION_LINKS = [
   { id: "courts", label: "Courts", icon: "🏟️" },
   { id: "availability", label: "Schedule", icon: "🗓️" },
@@ -50,6 +59,9 @@ export default function HomePage() {
   );
   const [peakHours, setPeakHours] = useState({ peakStartHour: 17, peakEndHour: 22 });
   const [operatingHours, setOperatingHours] = useState(FALLBACK_HOURS);
+  const [serverSlots, setServerSlots] = useState(null);
+  const [schedule, setSchedule] = useState(null);
+  const [scheduleError, setScheduleError] = useState(null);
   const [catalogError, setCatalogError] = useState(null);
   const [selectedCourt, setSelectedCourt] = useState(null);
   const [checking, setChecking] = useState(false);
@@ -69,7 +81,12 @@ export default function HomePage() {
 
   // Mốc giờ và số giờ chơi widget được phép chào bán — luật đầy đủ kèm lý do ở
   // utils/bookingSlots.js (có test riêng).
-  const openSlots = openSlotsFor({ date: booking.date, hours: operatingHours, timezone: branchTimezone });
+  const openSlots = openSlotsFor({
+    date: booking.date,
+    hours: operatingHours,
+    timezone: branchTimezone,
+    slots: serverSlots || undefined,
+  });
   const openSlotsKey = openSlots.join(",");
   const openDurations = durationsFor(booking.time, operatingHours);
   const openDurationsKey = openDurations.join(",");
@@ -133,6 +150,9 @@ export default function HomePage() {
         if (data?.operatingHours?.open && data?.operatingHours?.close) {
           setOperatingHours(data.operatingHours);
         }
+        // Danh sách mốc giờ do server công bố — cùng danh sách lưới lịch dùng,
+        // nên ô khách bấm trên lưới luôn là một lựa chọn thật của widget.
+        if (Array.isArray(data?.slots) && data.slots.length) setServerSlots(data.slots);
         const firstBookable = list.find((c) => c.bookable);
         setBooking((cur) => ({ ...cur, court: firstBookable ? String(firstBookable.id) : "" }));
         // Chưa chọn chi nhánh nào (lần đầu vào trang) thì server tự chọn hộ —
@@ -182,6 +202,29 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openDurationsKey, booking.duration]);
 
+  // Lưới lịch lấy từ server theo đúng NGÀY và CHI NHÁNH khách đang xem. Trước
+  // đây bảng này là HTML ghi cứng: 6 ô dán nhãn "BOOKED" bất biến, không hỏi
+  // server lần nào — khách thấy sân đỏ thì bỏ qua dù giờ đó đang trống.
+  useEffect(() => {
+    let cancelled = false;
+    setSchedule(null);
+    setScheduleError(null);
+    publicService
+      .getSchedule({
+        bookingDate: booking.date,
+        ...(selectedBranchId ? { branchId: selectedBranchId } : {}),
+      })
+      .then((res) => {
+        if (!cancelled) setSchedule(res.data?.data || null);
+      })
+      .catch(() => {
+        if (!cancelled) setScheduleError("Chưa tải được lịch sân. Vui lòng thử lại sau.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [booking.date, selectedBranchId]);
+
   // Quay lại sau khi đăng nhập: dựng lại đúng lựa chọn dở dang.
   useEffect(() => {
     if (!user || courts.length === 0) return;
@@ -230,6 +273,14 @@ export default function HomePage() {
       time,
       duration: String(hours),
     }));
+    scrollToSection("booking-widget");
+  };
+
+  // Bấm một ô trống trên lưới lịch: điền sẵn đúng sân và giờ đó rồi đưa khách
+  // về widget. Nhận ID sân thật (lưới do server trả), khác
+  // `startBookingFromCard` vốn nhận chỉ số trong mảng `courts`.
+  const startBookingFromSlot = (courtId, time) => {
+    setBooking((cur) => ({ ...cur, court: String(courtId), time }));
     scrollToSection("booking-widget");
   };
 
@@ -952,143 +1003,80 @@ export default function HomePage() {
       >
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <div className="live-ticker mb-4">KHUNG GIỜ THAM KHẢO</div>
+            <div className="live-ticker mb-4">CHỖ TRỐNG THỰC TẾ</div>
             <h2 className="font-kinetic text-5xl sm:text-6xl font-black text-white uppercase tracking-tighter">
               COURT{" "}
               <span className="text-gradient-nike">AVAILABILITY GRID</span>
             </h2>
             <p className="text-slate-400 text-lg mt-4 font-medium">
-              Bấm vào khung giờ để điền sẵn form đặt sân — hệ thống sẽ kiểm tra chỗ trống thực tế khi bạn bấm tìm.
+              Lịch {schedule?.branch?.name ? `của ${schedule.branch.name} ` : ""}ngày{" "}
+              <span className="font-bold text-emerald-400">
+                {String(booking.date).split("-").reverse().join("/")}
+              </span>{" "}
+              — bấm vào ô còn trống để đặt ngay. Đổi ngày ở form đặt sân phía trên.
             </p>
           </div>
 
           <div className="nike-card p-8 overflow-x-auto">
-            <table className="w-full min-w-[850px]">
-              <thead>
-                <tr className="border-b border-white/10 font-kinetic text-xs font-black text-slate-400 uppercase tracking-widest">
-                  <th className="text-left py-4 px-4 text-white text-base">
-                    VENUE COURT
-                  </th>
-                  <th className="py-4 px-3">08:00 AM</th>
-                  <th className="py-4 px-3">10:00 AM</th>
-                  <th className="py-4 px-3">12:00 PM</th>
-                  <th className="py-4 px-3">02:00 PM</th>
-                  <th className="py-4 px-3">04:00 PM</th>
-                  <th className="py-4 px-3">06:00 PM</th>
-                  <th className="py-4 px-3">08:00 PM</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                <tr>
-                  <td className="py-5 px-4 font-kinetic font-black text-white">
-                    Court 01 (BWF)
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(0, "08:00", 1)
-                      }
-                    >
-                      {courts[0] ? formatVnd(estimatePrice(courts[0], "08:00", 1)) : "—"}
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div className="cyber-slot booked">BOOKED</div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(0, "12:00", 1)
-                      }
-                    >
-                      {courts[0] ? formatVnd(estimatePrice(courts[0], "12:00", 1)) : "—"}
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div className="cyber-slot booked">BOOKED</div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(0, "16:00", 1)
-                      }
-                    >
-                      {courts[0] ? formatVnd(estimatePrice(courts[0], "16:00", 1)) : "—"}
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div className="cyber-slot booked">BOOKED</div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(0, "20:00", 1)
-                      }
-                    >
-                      {courts[0] ? formatVnd(estimatePrice(courts[0], "20:00", 1)) : "—"}
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-5 px-4 font-kinetic font-black text-white">
-                    Court 02 (VIP)
-                  </td>
-                  <td className="p-2">
-                    <div className="cyber-slot booked">MAINT.</div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(1, "17:00", 2)
-                      }
-                    >
-                      {courts[1] ? formatVnd(estimatePrice(courts[1], "10:00", 1)) : "—"}
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div className="cyber-slot booked">BOOKED</div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(1, "17:00", 2)
-                      }
-                    >
-                      {courts[1] ? formatVnd(estimatePrice(courts[1], "14:00", 1)) : "—"}
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(1, "17:00", 2)
-                      }
-                    >
-                      {courts[1] ? formatVnd(estimatePrice(courts[1], "16:00", 1)) : "—"}
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div className="cyber-slot booked">BOOKED</div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(1, "17:00", 2)
-                      }
-                    >
-                      {courts[1] ? formatVnd(estimatePrice(courts[1], "20:00", 1)) : "—"}
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            {scheduleError ? (
+              <p className="py-10 text-center font-bold text-rose-400">{scheduleError}</p>
+            ) : !schedule ? (
+              <p className="py-10 text-center text-slate-400">⏳ Đang tải lịch sân...</p>
+            ) : schedule.courts.length === 0 || schedule.slots.length === 0 ? (
+              <p className="py-10 text-center text-slate-400">
+                Chi nhánh này chưa có sân nhận đặt trong ngày đã chọn.
+              </p>
+            ) : (
+              <table className="w-full min-w-[850px]">
+                <thead>
+                  <tr className="border-b border-white/10 font-kinetic text-xs font-black text-slate-400 uppercase tracking-widest">
+                    <th className="text-left py-4 px-4 text-white text-base">SÂN</th>
+                    {schedule.slots.map((slot) => (
+                      <th key={slot} className="py-4 px-3">
+                        {slot}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {schedule.courts.map((court) => {
+                    // Bảng giá lấy từ /public/courts (lưới chỉ trả trạng thái,
+                    // không lặp lại giá — một nguồn cho một thứ).
+                    const priced = courts.find((c) => c.id === court.id);
+                    return (
+                      <tr key={court.id}>
+                        <td className="py-5 px-4 font-kinetic font-black text-white">
+                          {court.name}
+                          {court.note && (
+                            <span className="mt-1 block font-kinetic text-[10px] font-black uppercase tracking-widest text-amber-400">
+                              {court.note}
+                            </span>
+                          )}
+                        </td>
+                        {court.slots.map((cell) => (
+                          <td key={cell.time} className="p-2">
+                            {cell.status === "available" ? (
+                              <button
+                                type="button"
+                                className="cyber-slot available w-full cursor-pointer border-0"
+                                onClick={() => startBookingFromSlot(court.id, cell.time)}
+                                aria-label={`Đặt ${court.name} khung ${cell.time}–${cell.endTime}`}
+                              >
+                                {priced ? formatVnd(estimatePrice(priced, cell.time, 1)) : "—"}
+                              </button>
+                            ) : (
+                              <div className={`cyber-slot ${SLOT_CELL[cell.status]?.cls || "booked"}`}>
+                                {SLOT_CELL[cell.status]?.label || "—"}
+                              </div>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </section>

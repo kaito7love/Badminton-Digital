@@ -144,6 +144,19 @@ describe('openSlotsFor — mốc giờ widget chào bán', () => {
     }
   });
 
+  test('nhận danh sách mốc giờ từ server, không dùng hằng số cứng', () => {
+    // `/public/courts` công bố danh sách chuẩn; widget phải đi theo nó để ô
+    // khách bấm trên lưới lịch luôn là một lựa chọn thật của widget.
+    ghimThoiGian('2026-10-06T10:40:00Z');
+    expect(openSlotsFor({ date: MAI, hours: QUAN, timezone: VN, slots: ['07:00', '13:00'] }))
+      .toEqual(['07:00', '13:00']);
+    // Danh sách của server vẫn chịu đủ hai lớp lọc: giờ mở cửa và đã-qua.
+    expect(openSlotsFor({ date: MAI, hours: { open: '10:00', close: '23:00' }, timezone: VN, slots: ['07:00', '13:00'] }))
+      .toEqual(['13:00']);
+    expect(openSlotsFor({ date: '2026-10-06', hours: QUAN, timezone: VN, slots: ['07:00', '13:00'] }))
+      .toEqual([]);
+  });
+
   test('thiếu tham số thì dùng mặc định, không văng lỗi', () => {
     ghimThoiGian('2026-10-06T10:40:00Z');
     expect(() => openSlotsFor()).not.toThrow();

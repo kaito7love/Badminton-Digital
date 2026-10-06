@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const {
+  Booking,
   Branch,
   Court,
   Product,
@@ -8,8 +9,10 @@ const {
   ProductStock
 } = require('../models');
 const BookingService = require('./BookingService');
+const { BOOKING_SLOTS, buildScheduleGrid } = require('../utils/scheduleGrid');
 const SettingService = require('./SettingService');
 const { isTransferEnabled } = require('../utils/paymentConfig');
+const { localDateString, localTimeString } = require('../utils/dateTime');
 
 /**
  * Dữ liệu cho trang chủ công khai — người xem CHƯA đăng nhập.
@@ -55,6 +58,10 @@ class PublicCatalogService {
       branch: { id: branch.id, name: branch.name },
       peakHours,
       operatingHours: { open, close },
+      // Một danh sách mốc giờ duy nhất cho cả widget đặt sân và lưới lịch
+      // (`/public/schedule`), để ô khách bấm trên lưới luôn là lựa chọn thật
+      // của widget.
+      slots: BOOKING_SLOTS,
       courts: courts.map((court) => ({
         id: court.id,
         name: court.name,
@@ -63,6 +70,45 @@ class PublicCatalogService {
         bookable: court.status === 'active',
         note: court.status === 'maintenance' ? 'Đang bảo trì, tạm không nhận đặt' : null
       }))
+    };
+  }
+
+  /**
+   * Lưới "sân × khung giờ" của một ngày — thay cho bảng HTML ghi cứng trước
+   * đây (6 ô dán nhãn "BOOKED" bất biến, không hỏi server lần nào).
+   *
+   * Một truy vấn lịch cho cả ngày rồi tính trạng thái trong bộ nhớ, thay vì gọi
+   * `checkAvailability` cho từng ô: lưới 8 sân × 11 mốc giờ là 88 lượt, mỗi
+   * lượt một truy vấn sân + một truy vấn setting.
+   */
+  static async getSchedule({ branchId = null, bookingDate }) {
+    const branch = await PublicCatalogService.resolveBranch(branchId);
+    const { courts } = await PublicCatalogService.getCourts(branch.id);
+    const hours = await SettingService.getOperatingHours();
+
+    const bookings = await Booking.findAll({
+      where: { branchId: branch.id, bookingDate, status: { [Op.in]: ['pending', 'confirmed'] } },
+      attributes: ['courtId', 'startTime', 'endTime', 'status']
+    });
+
+    // "Hôm nay" và "bây giờ" theo đồng hồ CHI NHÁNH, không theo máy chạy
+    // server: lưới của chi nhánh khác múi giờ phải tô xám đúng phần đã qua
+    // của chi nhánh đó.
+    const today = localDateString(new Date(), branch.timezone);
+    const day = String(bookingDate).slice(0, 10);
+    const dayOffset = day === today ? 0 : (day < today ? -1 : 1);
+
+    return {
+      branch: { id: branch.id, name: branch.name, timezone: branch.timezone },
+      bookingDate: day,
+      operatingHours: { open: hours.open, close: hours.close },
+      ...buildScheduleGrid({
+        courts,
+        bookings,
+        hours,
+        dayOffset,
+        nowSlot: localTimeString(new Date(), branch.timezone).slice(0, 5)
+      })
     };
   }
 

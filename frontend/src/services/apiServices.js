@@ -15,6 +15,7 @@ export const authService = {
 export const publicService = {
   getCourts: (params) => apiClient.get('/public/courts', { params }),
   checkAvailability: (params) => apiClient.get('/public/availability', { params }),
+  getSchedule: (params) => apiClient.get('/public/schedule', { params }),
   getProducts: (params) => apiClient.get('/public/products', { params }),
   getProductById: (id, params) => apiClient.get(`/public/products/${id}`, { params }),
   getBranches: () => apiClient.get('/public/branches'),

@@ -56,6 +56,26 @@ router.get('/products/:id', [productIdRule, branchRule, validate], async (req, r
 });
 
 router.get(
+  '/schedule',
+  [
+    query('bookingDate').isISO8601().withMessage('bookingDate phải dạng YYYY-MM-DD'),
+    branchRule,
+    validate
+  ],
+  async (req, res, next) => {
+    try {
+      const data = await PublicCatalogService.getSchedule({
+        branchId: req.query.branchId || null,
+        bookingDate: req.query.bookingDate
+      });
+      return successResponse(res, data, 'Lưới lịch sân theo ngày');
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.get(
   '/availability',
   [
     query('courtId').isInt({ min: 1 }).withMessage('courtId là bắt buộc'),

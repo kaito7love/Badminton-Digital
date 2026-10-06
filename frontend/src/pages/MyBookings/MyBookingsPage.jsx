@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CustomerLayout from '../../layouts/CustomerLayout';
 import { bookingService } from '../../services/apiServices';
+import { wallClockPassed } from '../../utils/datetime';
 
 // Trang của khách hàng, cố tình KHÔNG dùng SidebarLayout: khách không có việc gì
 // với thanh điều hướng quản trị, và nhìn thấy "Quản Lý Sân", "Nhân Viên" chỉ tổ
@@ -58,11 +59,13 @@ export default function MyBookingsPage() {
     }
   };
 
-  // Lịch đã qua giờ kết thúc thì không còn gì để huỷ nữa
-  const isUpcoming = (b) => {
-    const end = new Date(`${String(b.bookingDate).slice(0, 10)}T${b.endTime || '23:59'}`);
-    return end > new Date();
-  };
+  // Lịch đã qua giờ kết thúc thì không còn gì để huỷ nữa.
+  //
+  // Phải tính theo giờ CHI NHÁNH của chính lịch đó. `new Date('2026-10-09T21:00')`
+  // đọc theo đồng hồ MÁY KHÁCH: khách đi công tác nước ngoài mất nút huỷ trên
+  // lịch còn hiệu lực, hoặc thấy nút huỷ trên lịch đã chơi xong — và danh sách
+  // này gộp lịch ở mọi chi nhánh nên mỗi dòng có thể một múi giờ khác nhau.
+  const isUpcoming = (b) => !wallClockPassed(b.bookingDate, b.endTime || '23:59', b.branch?.timezone);
 
   return (
     <CustomerLayout
@@ -113,6 +116,12 @@ export default function MyBookingsPage() {
                     <h3 className="mt-2 font-kinetic text-lg font-black uppercase tracking-tight text-emerald-400">
                       🏸 {b.court?.name || `Sân #${b.courtId}`}
                     </h3>
+                    {/* Hồ sơ khách dùng chung toàn chuỗi nên danh sách gộp lịch
+                        ở mọi chi nhánh — thiếu dòng này thì hai lịch cùng tên
+                        sân ở hai chi nhánh trông y như nhau. */}
+                    {b.branch?.name && (
+                      <p className="mt-1 text-xs font-semibold text-slate-400">📍 {b.branch.name}</p>
+                    )}
                   </div>
                   <span
                     className={`shrink-0 rounded-full border px-3 py-1 font-kinetic text-[10px] font-black uppercase tracking-widest ${meta.cls}`}

@@ -1,5 +1,5 @@
 const bcrypt = require('bcrypt');
-const { Customer, CourtSession, Booking, SalesOrder, Invoice, Court, User, Role, sequelize } = require('../models');
+const { Branch, Customer, CourtSession, Booking, SalesOrder, Invoice, Court, User, Role, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const { normalizePhone } = require('../utils/phone');
@@ -365,7 +365,12 @@ class CustomerService {
 
     const bookings = await Booking.findAll({
       where: { customerId: id },
-      include: [{ model: Court, as: 'court', attributes: ['name'] }],
+      // `branch.timezone` để trang hồ sơ đếm "lịch sắp tới" theo giờ chi nhánh
+      // chứ không theo đồng hồ máy khách (lịch sử gộp mọi chi nhánh của chuỗi).
+      include: [
+        { model: Court, as: 'court', attributes: ['name'] },
+        { model: Branch, as: 'branch', attributes: ['id', 'name', 'timezone'] }
+      ],
       order: [['createdAt', 'DESC']]
     });
 
