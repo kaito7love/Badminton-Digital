@@ -4,6 +4,8 @@ const { getPagination, getPagingData } = require("../utils/pagination");
 const { toMinutes, zonedTimeToUtc, DEFAULT_TIMEZONE } = require("../utils/dateTime");
 const AuditService = require("./AuditService");
 const CustomerService = require("./CustomerService");
+const SettingService = require("./SettingService");
+const { operatingHoursViolation } = require("../utils/operatingHours");
 
 // Thông điệp khách đọc trực tiếp trên trang chủ (toast của widget đặt sân) nên
 // phải là tiếng Việt — ALREADY_BOOKED trước đây là câu tiếng Anh duy nhất trong
@@ -12,6 +14,7 @@ const UNAVAILABLE = {
   COURT_NOT_FOUND: "Không tìm thấy sân",
   COURT_INACTIVE: "Sân đã ngưng khai thác, không nhận đặt lịch",
   COURT_MAINTENANCE: "Sân đang bảo trì, không nhận đặt lịch mới cho tới khi hoàn tất",
+  OUTSIDE_OPERATING_HOURS: "Khung giờ này nằm ngoài giờ mở cửa của quán",
   SLOT_PASSED: "Khung giờ này đã qua, vui lòng chọn khung giờ khác",
   ALREADY_BOOKED: "Khung giờ này đã có người đặt, vui lòng chọn khung giờ khác",
 };
@@ -66,10 +69,10 @@ class BookingService {
     branchId = null,
     transaction = null,
   }) {
-    const deny = (reason, conflictBookingId = null) => ({
+    const deny = (reason, conflictBookingId = null, message = UNAVAILABLE[reason]) => ({
       available: false,
       reason,
-      message: UNAVAILABLE[reason],
+      message,
       conflictBookingId,
     });
 
@@ -92,6 +95,16 @@ class BookingService {
     if (BookingService.hasSlotPassed({ bookingDate, endTime, timezone: court.branch?.timezone })) {
       return deny("SLOT_PASSED");
     }
+
+    // Ngoài giờ mở cửa thì không nhận đặt — lịch 02:00 sáng trước đây vẫn tạo
+    // được vì `operating_hours.open`/`close` không ai đọc. Thông điệp nêu rõ
+    // khung giờ để khách biết chọn lại thế nào.
+    const outsideHours = operatingHoursViolation({
+      startTime,
+      endTime,
+      hours: await SettingService.getOperatingHours(),
+    });
+    if (outsideHours) return deny("OUTSIDE_OPERATING_HOURS", null, outsideHours);
 
     const whereCondition = {
       courtId,

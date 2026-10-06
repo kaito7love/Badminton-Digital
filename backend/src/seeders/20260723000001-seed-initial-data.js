@@ -210,7 +210,9 @@ module.exports = {
       {
         id: 1,
         key: 'operating_hours',
-        value: JSON.stringify({ open: '06:00', close: '22:00', peak_start: '17:00', peak_end: '21:00' }),
+        // `open`/`close` là khung giờ nhận đặt sân, có hiệu lực thật (xem
+        // utils/operatingHours.js) — không còn là dữ liệu trang trí.
+        value: JSON.stringify({ open: '05:00', close: '23:00', peak_start: '17:00', peak_end: '21:00' }),
         created_at: now,
         updated_at: now
       },

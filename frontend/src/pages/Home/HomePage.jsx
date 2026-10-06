@@ -7,6 +7,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import { roleOf, isStaff, homePathForRole } from "../../utils/roles";
 import { todayInZone, wallClockPassed } from '../../utils/datetime';
+import { FALLBACK_HOURS, addHours, durationsFor, openSlotsFor } from '../../utils/bookingSlots';
 
 // Lựa chọn của khách được giữ lại khi họ phải rẽ qua trang đăng nhập, để quay
 // về là đặt tiếp chứ không phải chọn lại từ đầu.
@@ -15,17 +16,14 @@ const PENDING_BOOKING_KEY = "pending_booking";
 // (BranchContext.jsx) vì đó là bộ chuyển chi nhánh của nhân viên, khác đối tượng.
 const CUSTOMER_BRANCH_KEY = "customer_selected_branch_id";
 
-// Các mốc giờ widget chào bán. Trước đây viết thẳng trong JSX nên không có chỗ
-// nào lọc được chúng theo giờ hiện tại.
-const TIME_SLOTS = ["06:00", "08:00", "10:00", "14:00", "16:00", "17:00", "19:00", "21:00"];
-
-const addHours = (hhmm, hours) => {
-  const [h, m] = hhmm.split(":").map(Number);
-  const end = Math.min(h + Number(hours), 23);
-  return `${String(end).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-};
-
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
+
+// "05:00" → "5AM", "23:00" → "11PM". Chỉ dùng cho khối số liệu tiếng Anh ở hero.
+const to12h = (hhmm) => {
+  const [h, m] = String(hhmm).split(":").map(Number);
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}${m ? `:${String(m).padStart(2, "0")}` : ""}${h >= 12 ? "PM" : "AM"}`;
+};
 
 // Một danh sách dùng cho cả thanh desktop lẫn menu mobile. Trước đây hai chỗ
 // khai báo riêng nên đã lệch nhau (mobile có FAQ, desktop thì không).
@@ -51,6 +49,7 @@ export default function HomePage() {
     () => localStorage.getItem(CUSTOMER_BRANCH_KEY) || "",
   );
   const [peakHours, setPeakHours] = useState({ peakStartHour: 17, peakEndHour: 22 });
+  const [operatingHours, setOperatingHours] = useState(FALLBACK_HOURS);
   const [catalogError, setCatalogError] = useState(null);
   const [selectedCourt, setSelectedCourt] = useState(null);
   const [checking, setChecking] = useState(false);
@@ -68,18 +67,12 @@ export default function HomePage() {
   const currentBranch = branches.find((b) => String(b.id) === String(selectedBranchId));
   const branchTimezone = currentBranch?.timezone;
 
-  // Mốc giờ của HÔM NAY đã trôi qua thì không chào bán nữa. Trước đây danh sách
-  // 8 mốc giờ là cố định nên 21h tối khách vẫn chọn được "06:00 hôm nay", qua
-  // được cả bước kiểm khung giờ, rồi mới lãnh lỗi ở bước bấm xác nhận.
-  //
-  // Lọc theo GIỜ BẮT ĐẦU, chặt hơn luật của server (`BookingService.hasSlotPassed`
-  // chỉ chặn khung giờ đã ĐÓNG hẳn) — có chủ đích, đừng nới ra cho "khớp":
-  //   · chặt hơn thì an toàn, trang chủ không bao giờ chào thứ server từ chối;
-  //   · mời khách đặt khung 16:00 lúc đã 17:40 là mời họ trả tiền cho 20 phút;
-  //   · còn luật rộng hơn ở server là để quầy mở sân cho khách vừa bước vào
-  //     giữa khung giờ — việc của nhân viên, không phải của widget này.
-  const openSlots = TIME_SLOTS.filter((t) => !wallClockPassed(booking.date, t, branchTimezone));
+  // Mốc giờ và số giờ chơi widget được phép chào bán — luật đầy đủ kèm lý do ở
+  // utils/bookingSlots.js (có test riêng).
+  const openSlots = openSlotsFor({ date: booking.date, hours: operatingHours, timezone: branchTimezone });
   const openSlotsKey = openSlots.join(",");
+  const openDurations = durationsFor(booking.time, operatingHours);
+  const openDurationsKey = openDurations.join(",");
 
   // Giá một khung đặt: cộng theo từng giờ, giờ nào rơi vào cao điểm thì tính giá
   // cao điểm — cùng quy tắc với priceCalculator ở backend.
@@ -137,6 +130,9 @@ export default function HomePage() {
         setCourts(list);
         setLayout(null);
         if (data?.peakHours) setPeakHours(data.peakHours);
+        if (data?.operatingHours?.open && data?.operatingHours?.close) {
+          setOperatingHours(data.operatingHours);
+        }
         const firstBookable = list.find((c) => c.bookable);
         setBooking((cur) => ({ ...cur, court: firstBookable ? String(firstBookable.id) : "" }));
         // Chưa chọn chi nhánh nào (lần đầu vào trang) thì server tự chọn hộ —
@@ -167,15 +163,24 @@ export default function HomePage() {
     };
   }, [selectedBranchId]);
 
-  // Mốc giờ đang chọn vừa rơi vào quá khứ (khách đổi ngày về hôm nay, đổi số giờ
-  // chơi, hay để trang mở qua luôn giờ đó): nhảy sang mốc gần nhất còn mở. Thiếu
-  // bước này thì <select> hiện một giờ mà state giữ một giờ khác, và cái gửi lên
-  // server là giờ đã qua.
+  // Mốc giờ đang chọn vừa rơi ra ngoài tập đang chào (khách đổi ngày về hôm nay,
+  // để trang mở qua luôn giờ đó, hoặc giờ mở cửa vừa tải về hẹp hơn mặc định):
+  // nhảy sang mốc gần nhất còn mở. Thiếu bước này thì <select> hiện một giờ mà
+  // state giữ một giờ khác, và cái gửi lên server là giờ đã bị loại.
   useEffect(() => {
     if (openSlots.length === 0 || openSlots.includes(booking.time)) return;
     setBooking((cur) => ({ ...cur, time: openSlots[0] }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openSlotsKey, booking.time]);
+
+  // Cùng lý do, cho số giờ chơi: chọn 3 giờ ở mốc 21:00 thì phải tụt về mức dài
+  // nhất còn vừa khung mở cửa, chứ không được âm thầm gửi lên một khoảng vượt
+  // giờ đóng.
+  useEffect(() => {
+    if (openDurations.length === 0 || openDurations.includes(booking.duration)) return;
+    setBooking((cur) => ({ ...cur, duration: openDurations[openDurations.length - 1] }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDurationsKey, booking.duration]);
 
   // Quay lại sau khi đăng nhập: dựng lại đúng lựa chọn dở dang.
   useEffect(() => {
@@ -603,7 +608,7 @@ export default function HomePage() {
                 </div>
                 <div>
                   <div className="font-kinetic text-4xl font-black text-emerald-400">
-                    6AM–11PM
+                    {to12h(operatingHours.open)}–{to12h(operatingHours.close)}
                   </div>
                   <div className="font-kinetic text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-1">
                     OPEN DAILY
@@ -656,7 +661,7 @@ export default function HomePage() {
                         className="booking-input"
                       >
                         {openSlots.length === 0 && (
-                          <option value="">Hôm nay đã hết giờ — chọn ngày khác</option>
+                          <option value="">Hết giờ nhận đặt hôm nay — chọn ngày khác</option>
                         )}
                         {openSlots.map((t) => {
                           const hour = Number(t.split(":")[0]);
@@ -680,9 +685,11 @@ export default function HomePage() {
                         onChange={handleBookingChange}
                         className="booking-input"
                       >
-                        <option value="1">1 GIỜ</option>
-                        <option value="2">2 GIỜ</option>
-                        <option value="3">3 GIỜ</option>
+                        {openDurations.map((d) => (
+                          <option key={d} value={d}>
+                            {d} GIỜ
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -714,6 +721,10 @@ export default function HomePage() {
                       <p className="mt-2 text-xs font-bold text-rose-400">{catalogError}</p>
                     )}
                   </div>
+
+                  <p className="text-center font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    Nhận đặt sân {operatingHours.open}–{operatingHours.close} hằng ngày
+                  </p>
 
                   <button
                     type="submit"

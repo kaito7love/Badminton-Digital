@@ -97,48 +97,5 @@ describe('wallClockPassed — mốc giờ đã qua theo đồng hồ chi nhánh'
   });
 });
 
-/**
- * Lọc đúng như widget đặt sân ở `HomePage.jsx`: một mốc giờ còn được chào bán
- * khi CHÍNH GIỜ BẮT ĐẦU của nó chưa trôi qua — chặt hơn luật của server (chỉ
- * chặn khung giờ đã đóng hẳn) và đó là chủ đích, xem comment ở `openSlots`.
- */
-describe('danh sách mốc giờ widget chào bán', () => {
-  const TIME_SLOTS = ['06:00', '08:00', '10:00', '14:00', '16:00', '17:00', '19:00', '21:00'];
-  const VN = 'Asia/Ho_Chi_Minh';
-  const openSlots = (date) => TIME_SLOTS.filter((t) => !wallClockPassed(date, t, VN));
-
-  test('17h40 hôm nay: chỉ còn 19:00 và 21:00', () => {
-    ghimThoiGian('2026-10-06T10:40:00Z');
-    expect(openSlots('2026-10-06')).toEqual(['19:00', '21:00']);
-  });
-
-  test('ngày mai thì còn nguyên cả 8 mốc', () => {
-    ghimThoiGian('2026-10-06T10:40:00Z');
-    expect(openSlots('2026-10-07')).toEqual(TIME_SLOTS);
-  });
-
-  test('sáng sớm hôm nay cũng còn nguyên cả 8 mốc', () => {
-    // 05/10 22:30 UTC = 06/10 05:30 giờ Việt Nam.
-    ghimThoiGian('2026-10-05T22:30:00Z');
-    expect(openSlots('2026-10-06')).toEqual(TIME_SLOTS);
-  });
-
-  test('mốc đang diễn ra cũng bị bỏ: 16h01 thì 16:00 không còn được chào', () => {
-    // 06/10 09:01 UTC = 16:01 giờ Việt Nam. Server vẫn nhận khung 16:00–18:00
-    // (quầy cần thế), nhưng trang chủ không mời khách trả tiền cho phần đã mất.
-    ghimThoiGian('2026-10-06T09:01:00Z');
-    expect(openSlots('2026-10-06')).toEqual(['17:00', '19:00', '21:00']);
-  });
-
-  test('đúng 21:00 thì mốc 21:00 cũng hết, không còn mốc nào', () => {
-    // 06/10 14:00 UTC = 21:00 giờ Việt Nam.
-    ghimThoiGian('2026-10-06T14:00:00Z');
-    expect(openSlots('2026-10-06')).toEqual([]);
-  });
-
-  test('qua 21:00 hôm nay thì không còn mốc nào — widget phải mời chọn ngày khác', () => {
-    // 06/10 16:10 UTC = 23:10 giờ Việt Nam.
-    ghimThoiGian('2026-10-06T16:10:00Z');
-    expect(openSlots('2026-10-06')).toEqual([]);
-  });
-});
+// Phép lọc mốc giờ của widget đặt sân dùng hàm này, và được test riêng ở
+// bookingSlots.test.js — nơi gọi đúng logic thật thay vì mô phỏng lại.

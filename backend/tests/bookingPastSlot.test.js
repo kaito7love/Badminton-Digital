@@ -105,9 +105,16 @@ describe('UNAVAILABLE — thông điệp khách đọc phải là tiếng Việt
 
   test('mọi lý do từ chối đều có thông điệp tiếng Việt', () => {
     const messages = BookingService.UNAVAILABLE;
-    expect(Object.keys(messages).sort()).toEqual(
-      ['ALREADY_BOOKED', 'COURT_INACTIVE', 'COURT_MAINTENANCE', 'COURT_NOT_FOUND', 'SLOT_PASSED']
-    );
+    // Danh sách đầy đủ chỉ được khẳng định ở đây — thêm lý do từ chối mới thì
+    // sửa đúng một chỗ, và test này buộc lý do mới phải có câu tiếng Việt.
+    expect(Object.keys(messages).sort()).toEqual([
+      'ALREADY_BOOKED',
+      'COURT_INACTIVE',
+      'COURT_MAINTENANCE',
+      'COURT_NOT_FOUND',
+      'OUTSIDE_OPERATING_HOURS',
+      'SLOT_PASSED'
+    ]);
     for (const [reason, message] of Object.entries(messages)) {
       expect(typeof message).toBe('string');
       expect(message.trim().length).toBeGreaterThan(0);

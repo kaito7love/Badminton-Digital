@@ -46,10 +46,15 @@ class PublicCatalogService {
     // Khung giờ cao điểm đi kèm bảng giá, nếu không trang chủ không biết áp giá
     // nào và sẽ báo một con số khác với lúc thanh toán.
     const peakHours = await SettingService.getPeakHours();
+    // Giờ mở cửa cũng phải đi kèm: widget đặt sân chỉ được chào những mốc giờ
+    // và số giờ chơi nằm trong khung này, nếu không nó lại hứa thứ mà
+    // `checkAvailability` từ chối ở bước cuối.
+    const { open, close } = await SettingService.getOperatingHours();
 
     return {
       branch: { id: branch.id, name: branch.name },
       peakHours,
+      operatingHours: { open, close },
       courts: courts.map((court) => ({
         id: court.id,
         name: court.name,
