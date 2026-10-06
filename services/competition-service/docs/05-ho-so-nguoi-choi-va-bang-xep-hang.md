@@ -17,6 +17,7 @@ Nguyên tắc: **dữ liệu cá nhân tối thiểu**. Service không lưu SĐT
 | Lối chơi ưa thích (đơn / đôi / cả hai) · vị trí đánh đôi (lưới / cuối sân / linh hoạt) | Form bước 0 | Người chơi | Mọi người. Sau này dùng làm ràng buộc mềm khi ghép cặp: tránh ghép hai người cùng chỉ thích lưới |
 | Chi nhánh thường chơi (`home_organizer_ref`) | Người chơi chọn trong danh sách chi nhánh do app chính đưa | Người chơi, nhân viên | Mọi người. Dùng cho BXH theo chi nhánh |
 | Quyền riêng tư (`visibility`) | Mặc định `members` | Người chơi | — (mục 1.1) |
+| SĐT liên hệ (`contact_phone`), nguồn (`source`), người tạo (`created_by_ref`) | Chỉ **hồ sơ khách** do khách đăng ký online tạo hộ đồng đội (`source = online_guest`, luôn `hidden`); null với hồ sơ từ app chính | Hệ thống | Chỉ nhân viên (06, mục 15) |
 | Ảnh đại diện | (sau này) | | |
 | Trạng thái (`active` / `merged` / `anonymized`) | Hệ thống | — | Nhân viên |
 

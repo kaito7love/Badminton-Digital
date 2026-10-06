@@ -2600,6 +2600,48 @@ paths:
               schema: { type: string }
         default: { $ref: '#/components/responses/Error' }
 
+  # --- Khách tự đăng ký giải (plan 27, p1): scope entry:self ---
+  /v1/me/tournaments/{id}/entries:
+    parameters: [{ $ref: '#/components/parameters/TournamentId' }]
+    post:
+      tags: [public]
+      summary: Khách tự đăng ký giải (kèm đồng đội nếu đôi cặp cố định) — nhận cả hai người trong một lần
+      description: |
+        Scope: entry:self. Người đăng ký luôn là CHÍNH MÌNH (claim `player` của token; hồ sơ tự tạo lần đầu từ `player_name`).
+        Giải đánh đôi cặp cố định bắt buộc `partner`: `playerId` (người đã có hồ sơ mà thành viên thấy được — hồ sơ hidden coi như
+        không tồn tại) HOẶC `guest` (người chưa có tài khoản: tên, SĐT, giới tính, mức trình → tạo hồ sơ khách + điểm tạm chưa xác nhận,
+        nhân viên xác nhận sau; cùng SĐT dùng lại hồ sơ cũ). Hết chỗ → cả hai vào danh sách chờ. Trả chi tiết giải kèm `me`.
+        Lỗi: 404 giải nháp / huỷ; 409 INVALID_STATE (giải không còn mở đăng ký) hoặc ALREADY_REGISTERED; 422 NEEDS_ASSESSMENT,
+        NOT_ELIGIBLE, PARTNER_REQUIRED, PARTNER_NOT_ALLOWED, PARTNER_INVALID, INVALID_GUEST, GUEST_LIMIT.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SelfRegisterInput' }
+      responses:
+        '201': { $ref: '#/components/responses/PublicTournamentDetail' }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [public]
+      summary: Khách rút khỏi giải (chỉ trước bốc thăm; giải cặp cố định thì cả cặp rút)
+      description: 'Scope: entry:self. Chưa đăng ký → 404 NOT_REGISTERED; giải đã bốc thăm → 409 WITHDRAW_LOCKED (liên hệ nhân viên). Nhường chỗ cho người chờ.'
+      responses:
+        '200': { $ref: '#/components/responses/PublicTournamentDetail' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /v1/me/partners:
+    get:
+      tags: [public]
+      summary: Tìm đồng đội theo tên (khi đăng ký giải đôi)
+      description: 'Scope: entry:self. Tối thiểu 2 ký tự. Chỉ trả người đang hoạt động mà thành viên được thấy (public / members), không có chính mình, không có hồ sơ hidden và hồ sơ khách. `rated` = đã có điểm (chưa có thì đăng ký sẽ bị 422 NEEDS_ASSESSMENT).'
+      parameters:
+        - { name: search, in: query, required: true, schema: { type: string, minLength: 2, maxLength: 60 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 20 } }
+      responses:
+        '200': { $ref: '#/components/responses/PartnerSearch' }
+        default: { $ref: '#/components/responses/Error' }
+
 components:
   securitySchemes:
     serviceToken:
@@ -2923,6 +2965,21 @@ components:
                 properties:
                   data: { $ref: '#/components/schemas/PublicSessionBoard' }
 
+    PartnerSearch:
+      description: Người có thể chọn làm đồng đội
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/PartnerCandidate' } }
+
   schemas:
     Envelope:
       type: object
@@ -3115,6 +3172,8 @@ components:
         displayName: { type: string }
         nickname: { type: string, nullable: true }
         publicName: { type: string }
+        contactPhone: { type: string, nullable: true, description: 'Hồ sơ khách đăng ký online (plan 27): SĐT do khách nhập, dạng 0xxxxxxxxx' }
+        source: { type: string, nullable: true, enum: [online_guest, null], description: 'online_guest = hồ sơ khách do người đăng ký online tạo; null = từ app chính / nhân viên' }
         gender: { type: string, nullable: true, enum: [male, female, null] }
         birthYear: { type: integer, nullable: true }
         ageGroup: { type: string, nullable: true }
@@ -4004,6 +4063,15 @@ components:
           properties:
             total: { type: integer }
             completed: { type: integer }
+        me:
+          type: object
+          nullable: true
+          description: 'Chỉ có ở chi tiết giải và chỉ khi người xem là khách đăng nhập: đăng ký của chính mình (null = chưa đăng ký)'
+          additionalProperties: false
+          required: [entry, canWithdraw]
+          properties:
+            entry: { $ref: '#/components/schemas/PublicEntry' }
+            canWithdraw: { type: boolean, description: 'Chỉ rút được trước bốc thăm (giải còn mở đăng ký)' }
     PublicEntry:
       type: object
       additionalProperties: false
@@ -4154,3 +4222,33 @@ components:
             present: { type: integer }
             onCourt: { type: integer }
             waiting: { type: integer }
+    SelfRegisterInput:
+      type: object
+      additionalProperties: false
+      properties:
+        partner:
+          type: object
+          additionalProperties: false
+          description: 'Giải cặp cố định: đúng MỘT trong playerId / guest. Giải đăng ký từng người: không gửi.'
+          properties:
+            playerId: { type: string, format: uuid, description: 'Người đã có hồ sơ (chọn từ /v1/me/partners)' }
+            guest:
+              type: object
+              additionalProperties: false
+              description: 'Người chưa có tài khoản — tạo hồ sơ khách + điểm tạm chờ nhân viên xác nhận'
+              required: [name, phone, gender, level]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 100 }
+                phone: { type: string, minLength: 9, maxLength: 20, description: 'SĐT di động VN, nhận 0912345678 / 0912 345 678 / +84912345678' }
+                gender: { $ref: '#/components/schemas/Gender' }
+                level: { type: string, enum: [beginner, weak, tb_minus, tb, tb_plus, kha], description: 'Cùng 6 nhãn "chấm nhanh" của nhân viên' }
+    PartnerCandidate:
+      type: object
+      additionalProperties: false
+      required: [id, name, nickname, gender, rated]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        nickname: { type: string, nullable: true }
+        gender: { type: string, nullable: true, enum: [male, female, null] }
+        rated: { type: boolean }

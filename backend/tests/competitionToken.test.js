@@ -54,7 +54,15 @@ describe('vai trò → scope (docs/02 mục 5)', () => {
 
   test('khách: tự chấm, xem BXH, bấm điểm trận mình — không có quyền vận hành', () => {
     const scopes = scopesOf(reqOf(user('customer', { customer: { id: 1 } })));
-    expect(scopes).toEqual(['rating:self', 'ranking:read', 'match:score', 'public:read']);
+    expect(scopes).toEqual(['rating:self', 'ranking:read', 'match:score', 'public:read', 'entry:self']);
+  });
+
+  test.each(['employee', 'branch_manager', 'admin'])('%s KHÔNG có entry:self (chỉ khách tự đăng ký; nhân viên đăng ký hộ bằng tournament:operate)', (role) => {
+    expect(scopesOf(reqOf(user(role), { branchId: 1 }))).not.toContain('entry:self');
+  });
+
+  test('người chưa đăng nhập không có entry:self (đăng ký cần tài khoản)', () => {
+    expect(ANONYMOUS.scope).not.toContain('entry:self');
   });
 
   test.each(['customer', 'employee', 'branch_manager', 'admin'])('%s xem được trang công khai (public:read)', (role) => {

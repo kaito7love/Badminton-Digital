@@ -117,11 +117,17 @@ const createTournamentPublic = ({ models, players, queries }) => {
     return { rows: rows.map((t) => ({ ...shapeTournament(t), registration: registrationOf(t, counts.get(t.id)) })), count };
   };
 
+  // Chi tiết giải. Người đăng nhập có hồ sơ người chơi (khách) được thêm `me`: đăng ký của chính mình trong giải (null nếu chưa).
   const detail = async ({ auth, id }) => {
     const t = await load(auth.tenant, id);
     const counts = (await entryCounts([t.id])).get(t.id);
     const { matches } = await queries.progress(t);
-    return { ...shapeTournament(t), registration: registrationOf(t, counts), matches };
+    const out = { ...shapeTournament(t), registration: registrationOf(t, counts), matches };
+    if (auth.player) {
+      const mine = (await entries({ auth, id: t.id })).find((unit) => unit.mine);
+      out.me = mine ? { entry: mine, canWithdraw: t.status === 'open' } : null;
+    }
+    return out;
   };
 
   const entries = async ({ auth, id }) => {

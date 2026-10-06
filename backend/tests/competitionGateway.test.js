@@ -176,7 +176,7 @@ describe('cổng /api/v1/competition', () => {
     await request(appWith()).get('/api/v1/competition/me').set('x-test-user', CUSTOMER);
     const claims = tokenSeen();
     expect(claims).toMatchObject({ sub: 'bd:user:9', player: 'bd:customer:77', player_name: 'Khách Thử', org: [] });
-    expect(claims.scope).toBe('rating:self ranking:read match:score public:read');
+    expect(claims.scope).toBe('rating:self ranking:read match:score public:read entry:self');
   });
 
   test('khách chưa có hồ sơ khách hàng → 403 và service không nhận được gì', async () => {
@@ -302,6 +302,22 @@ describe('cổng /api/v1/competition', () => {
       const limited = (req, res) => res.status(429).json({ success: false, data: null, message: 'Quá nhanh', errors: null });
       const res = await request(appWith({}, { publicLimiter: limited })).get('/api/v1/competition/public/tournaments');
       expect(res.status).toBe(429);
+      expect(seen).toBeNull();
+    });
+
+    test('khách tự đăng ký giải (plan 27): POST /me/tournaments/:id/entries chuyển nguyên thân, tự sinh Idempotency-Key, token có entry:self + player; chưa đăng nhập → 401', async () => {
+      const body = { partner: { guest: { name: 'Lê Văn Bình', phone: '0912345678', gender: 'male', level: 'tb' } } };
+      const res = await request(appWith()).post('/api/v1/competition/me/tournaments/abc/entries').set('x-test-user', CUSTOMER).send(body);
+      expect(res.status).toBe(200);
+      expect(seen).toMatchObject({ method: 'POST', url: '/v1/me/tournaments/abc/entries' });
+      expect(JSON.parse(seen.body)).toEqual(body);
+      expect(seen.headers['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+      expect(tokenSeen()).toMatchObject({ player: 'bd:customer:77' });
+      expect(tokenSeen().scope.split(' ')).toContain('entry:self');
+      seen = null;
+      expect((await request(appWith()).post('/api/v1/competition/me/tournaments/abc/entries').send(body)).status).toBe(401);
+      expect((await request(appWith()).delete('/api/v1/competition/me/tournaments/abc/entries')).status).toBe(401);
+      expect((await request(appWith()).get('/api/v1/competition/me/partners?search=an')).status).toBe(401);
       expect(seen).toBeNull();
     });
 

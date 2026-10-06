@@ -59,6 +59,7 @@ Scope viết tắt:
 | `s` | `session:*` |
 | `rk` | `ranking:read` |
 | `pub` | `public:read` — xem giải / buổi giao lưu trên trang công khai (mục 2.10) |
+| `es` | `entry:self` — khách tự đăng ký / rút giải, tìm đồng đội (mục 2.11); chỉ cấp cho `customer` |
 | `mm` | `matchmaking:compute` |
 | `pw` | `player:write` |
 | `ms` | `match:score` — token "chỉ bấm điểm" của người chơi (kèm claim `player`): chỉ trận mình đang đánh |
@@ -237,6 +238,22 @@ Không có trong dữ liệu công khai: `courtRefs`, `createdByRef`, `drawSeed`
 luồng SSE công khai còn bị giới hạn **8 luồng / IP và 300 luồng cả hệ thống** (429 `TOO_MANY_STREAMS`) — mỗi luồng giữ một kết nối
 tới service và một ít RAM của gói free. Luồng của nhân viên (`/tournaments/{id}/stream`) không bị giới hạn này.
 
+### 2.11 Khách tự đăng ký giải (plan 27, p1)
+
+Scope `es` = `entry:self` — gateway chỉ cấp cho `customer` (nhân viên đăng ký hộ bằng `t:operate`, mục 2.6). Người đăng ký **luôn là chính
+mình** (claim `player` của token; hồ sơ tự tạo lần đầu từ `player_name`). Dùng lại đúng lệnh đăng ký / rút của nhân viên — cùng kiểm điều
+kiện, cùng khoá giải, cùng hết chỗ → danh sách chờ (06, mục 4.2 và 15).
+
+| Method + đường dẫn | Scope | Việc |
+|---|---|---|
+| `POST /v1/me/tournaments/{id}/entries` | `es` | Tự đăng ký. Giải đánh đơn / ghép cặp ngẫu nhiên: không gửi gì. **Đôi cặp cố định**: `{ "partner": { "playerId" } }` (người đã có hồ sơ) **hoặc** `{ "partner": { "guest": { name, phone, gender, level } } }` (người chưa có tài khoản) — nhận **cả hai người trong một lần**. `201` + chi tiết giải công khai kèm `me`. Giải nháp / huỷ → 404; không còn mở đăng ký → 409 `INVALID_STATE`; trùng → 409 `ALREADY_REGISTERED`; 422 `NEEDS_ASSESSMENT`, `NOT_ELIGIBLE`, `PARTNER_REQUIRED`, `PARTNER_NOT_ALLOWED`, `PARTNER_INVALID`, `INVALID_GUEST`, `GUEST_LIMIT` |
+| `DELETE /v1/me/tournaments/{id}/entries` | `es` | Rút (cả cặp rút). Chỉ khi giải còn `open`: sau bốc thăm → 409 `WITHDRAW_LOCKED` (liên hệ nhân viên); chưa đăng ký → 404 `NOT_REGISTERED`. Nhường chỗ cho người đầu danh sách chờ |
+| `GET /v1/me/partners?search=&limit=` | `es` | Tìm đồng đội: tối thiểu 2 ký tự, tối đa 20 kết quả, chỉ người đang hoạt động mà **thành viên** được thấy (`public` / `members`) — không có chính mình, hồ sơ `hidden`, hồ sơ khách. Mỗi dòng `{ id, name, nickname, gender, rated }` (`rated` = đã có điểm; chưa có thì đăng ký bị `NEEDS_ASSESSMENT`) |
+
+`GET /v1/public/tournaments/{id}` (mục 2.10) có thêm **`me`** khi người xem là khách đăng nhập: `{ entry, canWithdraw }` — đăng ký của chính mình
+(gồm cả khi mình chỉ là người được thêm làm đồng đội), `null` nếu chưa đăng ký; không có khoá `me` với người chưa đăng nhập và nhân viên.
+`canWithdraw` chỉ đúng khi giải còn `open`.
+
 ## 3. Sự kiện
 
 ### 3.1 Vỏ sự kiện (theo CloudEvents 1.0, dạng JSON)
@@ -378,7 +395,7 @@ vai trò được gọi + scope cấp. Không có dòng thì không chuyển ti�
 | Vai trò app chính | Scope được cấp | `org` | `player` |
 |---|---|---|---|
 | Chưa đăng nhập (trang BXH và trang giải công khai) | `ranking:read public:read` | — | — (chỉ thấy hồ sơ `public`; tên theo mục 2.10) |
-| `customer` | `rating:self ranking:read match:score public:read` (`match:score`: chỉ bấm điểm trận mình đang đánh — service kiểm người chơi có trong trận) | — | `bd:customer:<customer.id>` |
+| `customer` | `rating:self ranking:read match:score public:read entry:self` (`match:score`: chỉ bấm điểm trận mình đang đánh — service kiểm người chơi có trong trận) | — | `bd:customer:<customer.id>` |
 | `employee` | `rating:read rating:assess player:write ranking:read matchmaking:compute tournament:read tournament:operate session:read session:operate public:read` | chi nhánh của nhân viên | — |
 | `branch_manager` | như `employee` + `rating:assess:any rating:adjust tournament:manage` | chi nhánh của mình | — |
 | `admin` | như `branch_manager` | chi nhánh đang chọn (`X-Branch-Id`); chưa chọn → `*` | — |

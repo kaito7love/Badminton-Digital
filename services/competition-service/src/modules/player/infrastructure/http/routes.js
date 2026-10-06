@@ -37,6 +37,22 @@ const createPlayerRouter = ({ players, idempotency }) => {
     })
   );
 
+  // Ô "tìm đồng đội" khi đăng ký giải đôi (plan 27): chỉ trả người mà thành viên được thấy, kèm cờ đã có điểm chưa.
+  router.get(
+    '/me/partners',
+    requireScope('entry:self'),
+    asyncHandler(async (req, res) => {
+      const self = await players.ensureSelf(req.auth, actor(req));
+      const found = await players.searchSelectable({ tenant: req.auth.tenant, search: req.query.search, excludeIds: [self.id], limit: Number(req.query.limit) || 10 });
+      const views = await players.enrich(req.auth.tenant, found, { auth: req.auth, publicOnly: true });
+      const items = found.map((p, i) => {
+        const r = views[i].ratings || {};
+        return { id: p.id, name: p.displayName, nickname: p.nickname ?? null, gender: p.gender ?? null, rated: Boolean(r.singles || r.doubles) };
+      });
+      return ok(res, { items });
+    })
+  );
+
   router.put(
     '/players/by-ref/:externalRef',
     requireScope('player:write'),

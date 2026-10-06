@@ -7,6 +7,7 @@ const { createTournamentService } = require('./application/tournamentService');
 const { createFinalizeService } = require('./application/finalizeService');
 const { createTournamentQueries } = require('./application/tournamentQueries');
 const { createTournamentPublic } = require('./application/publicQueries');
+const { createSelfRegistration } = require('./application/selfRegistration');
 const { createTournamentMergeHandler } = require('./application/playerMerge');
 const { createTournamentRouter } = require('./infrastructure/http/routes');
 const { createTournamentPublicRouter } = require('./infrastructure/http/publicRoutes');
@@ -43,13 +44,14 @@ const createTournamentModule = ({ models, sequelize, platform, players, rating, 
     courtRefs: (t) => t.courtRefs || null
   });
 
-  const staffRouter = createTournamentRouter({ service, finalizer, queries, ctx, players, matches: match.service, idempotency: platform.idempotency, stream });
-  // Trang công khai của giải (plan 27): xem không cần quyền nhân viên, qua bộ gọt riêng.
+  // Trang công khai của giải (plan 27): xem không cần quyền nhân viên, qua bộ gọt riêng; khách tự đăng ký / rút.
   const pub = createTournamentPublic({ models, players, queries });
+  const selfRegistration = createSelfRegistration({ models, players, rating, service, ctx, pub });
+  const staffRouter = createTournamentRouter({ service, finalizer, queries, ctx, players, matches: match.service, idempotency: platform.idempotency, stream, selfRegistration });
   const router = express.Router();
   router.use(staffRouter);
   router.use(createTournamentPublicRouter({ pub, stream }));
-  return { service, finalizer, queries, pub, router };
+  return { service, finalizer, queries, pub, selfRegistration, router };
 };
 
 module.exports = {

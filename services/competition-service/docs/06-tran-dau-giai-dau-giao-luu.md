@@ -206,7 +206,7 @@ mọi trạng thái trừ finalized ──huỷ──▶ cancelled
 - **Người đăng ký:**
   - nhân viên chọn người chơi từ danh sách (tìm theo tên / SĐT phía app chính);
   - cặp đăng ký sẵn thì chọn 2 người;
-  - (sau này) khách tự đăng ký online.
+  - khách tự đăng ký online trên trang công khai (plan 27, mục 15).
 - **Kiểm tra ngay khi chọn** (`eligibility.js`):
   - người chưa có điểm ở nội dung của giải → nút **"Chấm trình ngay"** (form ở 03), chấm xong đăng ký tiếp;
   - giới tính theo `gender_rule`;
@@ -626,3 +626,26 @@ Những chỗ tài liệu chưa nói rõ; đã quyết khi code, test thật xá
   `revision`), chỉ nhân viên, chỉ trận giải. Chủ dự án chốt: không làm thay người.
 - **Seed demo**: thêm 14 người chơi riêng (`demo:player:24…37`) cho 3 giải "hôm nay" để không ai vừa ở buổi giao lưu
   đang diễn ra vừa ở giải. Phần mới chạy sau mọi phần cũ nên dữ liệu cũ giữ nguyên; seed hai lần vẫn ra giống hệt.
+
+## 15. Đăng ký online của khách (plan 27, slice p1)
+
+Khách đăng ký giải **trên trang công khai** bằng tài khoản của mình, tự động (không cần nhân viên duyệt). Mọi luật ở mục 4.2 vẫn áp dụng
+vì dùng chung lệnh `register`; phần dưới là những gì **khác** so với nhân viên đăng ký hộ.
+
+- **Cửa vào:** `POST /v1/me/tournaments/{id}/entries` (scope `entry:self`). Người đăng ký là chính khách; `registeredByRef` = tài khoản khách.
+  Nhân viên vẫn đăng ký hộ / gỡ / đổi đồng đội như cũ, cùng một danh sách, cùng một hàng chờ.
+- **Đôi cặp cố định — nhận cả hai người cùng lúc:** khách thêm **một** đồng đội ngay lúc đăng ký (không có bước đồng đội "xác nhận").
+  Đồng đội đã có hồ sơ thì thấy đơn đăng ký trong "Giải của tôi" và **tự rút được** (rút một người = cả cặp rút).
+  - Đồng đội chọn từ ô tìm (`GET /v1/me/partners`) chỉ gồm người mà **thành viên được thấy**; `hidden` coi như không tồn tại (404), không dò được.
+- **Đồng đội chưa có tài khoản:** khách nhập **tên, SĐT (10 số, chấp nhận +84 / dấu cách), giới tính, mức trình** (cùng 6 nhãn "chấm nhanh").
+  - Service tạo **hồ sơ khách**: `source = online_guest`, `visibility = hidden` (không lên BXH, không ai tìm thấy), `contact_phone` chỉ nhân viên xem,
+    `created_by_ref` = người tạo. Điểm tạm = nhãn "chấm nhanh" (3.25 cho "TB"…) — **chưa xác nhận**: danh sách đăng ký của nhân viên hiện cờ
+    **Chấm nhanh + Chưa xác thực**, nhân viên xác nhận / chỉnh khi gặp ở sân bằng đúng luồng hiện có. Có tài khoản sau này thì **gộp hồ sơ** (05, mục 4).
+  - **Một SĐT = một hồ sơ khách:** cùng SĐT (viết kiểu nào cũng ra cùng khoá `0xxxxxxxxx`) ở lần đăng ký sau dùng lại hồ sơ cũ — tên và điểm đã ghi giữ nguyên.
+  - **Không tạo hồ sơ rác:** điều kiện (người đăng ký có điểm chưa, giới tính, trình, cặp nam nữ) được kiểm trên dữ liệu "ảo" TRƯỚC khi tạo gì.
+  - **Chống lạm dụng:** chỉ khách đăng nhập; mỗi người tạo tối đa **5 hồ sơ khách mới / 24 giờ** (`GUEST_LIMIT`; dùng lại hồ sơ cũ không tính);
+    tên chỉ chữ / khoảng trắng / `. ' ’ -`; SĐT sai → `INVALID_GUEST`.
+- **Rút:** chỉ khi giải còn `open` (trước bốc thăm). Sau đó đã có lịch, W.O. → `WITHDRAW_LOCKED`, khách liên hệ nhân viên.
+- **Riêng tư:** SĐT và `source` chỉ có ở view nhân viên (`PlayerView`); không xuất hiện ở bất kỳ API công khai nào (test kiểm). Người ngoài thấy
+  đồng đội khách là "Thành viên A3F2"; người trong cặp thấy tên đầy đủ (02, mục 2.10).
+- **Hằng số:** `MAX_NEW_GUESTS_PER_DAY = 5`, `GUEST_SOURCE = 'online_guest'` (`player/domain/guest.js`).

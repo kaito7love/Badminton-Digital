@@ -4,7 +4,8 @@
 
 // `public:read`: xem giải / buổi giao lưu trên trang công khai (plan 27) — cấp cho cả người chưa đăng nhập.
 const ANONYMOUS_SCOPES = ['ranking:read', 'public:read'];
-const CUSTOMER_SCOPES = ['rating:self', 'ranking:read', 'match:score', 'public:read'];
+// `entry:self` (plan 27, p1): khách tự đăng ký / rút giải và tìm đồng đội — chỉ khách, không cấp cho nhân viên (nhân viên đăng ký hộ bằng tournament:operate).
+const CUSTOMER_SCOPES = ['rating:self', 'ranking:read', 'match:score', 'public:read', 'entry:self'];
 const EMPLOYEE_SCOPES = [
   'rating:read', 'rating:assess', 'player:write', 'ranking:read', 'matchmaking:compute',
   'tournament:read', 'tournament:operate', 'session:read', 'session:operate', 'public:read'

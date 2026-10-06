@@ -135,7 +135,7 @@ quản trị nhiều bậc giá theo sự kiện, trang portfolio giới thiệu
 
 ## 7. Theo dõi
 
-- [x] p0 · [ ] p1 · [ ] p2 · [ ] p3 · [ ] p4 · [ ] p5
+- [x] p0 · [x] p1 · [ ] p2 · [ ] p3 · [ ] p4 · [ ] p5
 - [ ] Báo cáo → xin duyệt merge `main` (không tự push main)
 
 ## 8. Giả định cần chủ dự án xác nhận (khi duyệt)
@@ -177,3 +177,26 @@ quản trị nhiều bậc giá theo sự kiện, trang portfolio giới thiệu
 
 **Ghi chú cho p5:** hồ sơ mặc định là `members` nên người chưa đăng nhập thấy phần lớn người chơi bị che — seed demo của portfolio nên đặt
 người trong các giải / buổi công khai ở `public`.
+
+### 9.p1 — tự đăng ký + rút giải, đồng đội chưa có tài khoản (07/10/2026)
+
+**Đã làm**
+- `POST /v1/me/tournaments/{id}/entries` · `DELETE …/entries` · `GET /v1/me/partners` (scope mới `entry:self`, gateway chỉ cấp cho `customer`). Dùng lại đúng
+  `register` / `withdraw` của nhân viên (thêm cờ `self`): cùng kiểm điều kiện, cùng khoá giải, cùng hết chỗ → danh sách chờ, nên khách và nhân viên chung một
+  danh sách, một hàng chờ. Người đăng ký luôn là chính mình (claim `player`).
+- **Đôi cặp cố định — nhận cả hai người cùng lúc:** `partner.playerId` (người đã có hồ sơ; chỉ chọn được người mà thành viên thấy, `hidden` = 404) hoặc
+  `partner.guest` { tên, SĐT, giới tính, mức trình }. Đồng đội được thêm thấy đơn trong "Giải của tôi" và tự rút được (rút một người = cả cặp).
+- **Hồ sơ khách (đồng đội chưa có tài khoản):** migration `20261007100001-player-guest-contact` (cột `contact_phone`, `source`, `created_by_ref`);
+  `player/domain/guest.js` (chuẩn hoá SĐT `0xxxxxxxxx`, kiểm tên); `playerService.createGuest` — **một SĐT = một hồ sơ**, `visibility = hidden`, điểm tạm theo nhãn
+  bằng đúng `quickAssess` (nhân viên thấy cờ **Chấm nhanh + Chưa xác thực**, xác nhận qua luồng hiện có); tối đa **5 hồ sơ khách mới / người / 24 giờ**.
+  Điều kiện được kiểm trên dữ liệu "ảo" TRƯỚC khi tạo gì → đăng ký hỏng không để lại hồ sơ rác.
+- `GET /v1/public/tournaments/{id}` thêm `me` ({ entry, canWithdraw }) cho khách đăng nhập. SĐT / nguồn chỉ ở view nhân viên (`PlayerView`), không lộ ở API công khai.
+- Cổng nối: `entry:self` cho khách. Tài liệu: `docs/02` mục 2.11, `docs/06` mục 15, `docs/05` bảng trường hồ sơ.
+- Sửa kèm: dựng dữ liệu test tuần tự + kiểm từng lệnh chấm điểm (một lần chạy toàn bộ khi máy bận có 1 đăng ký đồng thời trả 422 vì khách dựng song song thiếu điểm).
+
+**Kiểm**
+| Kiểm | Kết quả |
+|---|---|
+| Jest service | 27 file / 399 test đạt (mới: `guestRules` 37 test đơn vị, `selfRegistration` **36** test tích hợp: quyền, giải đơn, hết chỗ → chờ → rút nhường chỗ, đăng ký đồng thời, giải nháp / huỷ / bốc thăm, Idempotency-Key, đôi cặp cố định, đồng đội có sẵn, đồng đội khách, SĐT không lộ, giới hạn 5 hồ sơ / ngày, tìm đồng đội theo quyền riêng tư) |
+| Jest backend | 538/538 |
+| Chạy thật qua cổng nối với JWT thật (khách `customer@badminton.com`, admin) | 20/20: đăng ký thiếu đồng đội → 422, chưa đăng nhập → 401, đăng ký + đồng đội khách → 201 nhận 2 người, nhân viên thấy cờ + SĐT chuẩn hoá + điểm tạm 3.25, người ngoài không thấy tên / SĐT đồng đội, đăng ký lại → 409, tìm đồng đội, rút → cả cặp rút |

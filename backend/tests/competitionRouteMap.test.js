@@ -17,7 +17,10 @@ describe('danh sách cho phép của cổng competition', () => {
     ['GET', '/sessions/0198-abc/board'],
     ['GET', '/public/tournaments'],
     ['GET', '/public/tournaments/0198-abc/entries'],
-    ['GET', '/public/sessions/0198-abc/board']
+    ['GET', '/public/sessions/0198-abc/board'],
+    ['POST', '/me/tournaments/0198-abc/entries'],
+    ['DELETE', '/me/tournaments/0198-abc/entries'],
+    ['GET', '/me/partners']
   ])('%s %s → chuyển tiếp', (method, path) => {
     expect(matchRoute(method, path)).not.toBeNull();
   });
