@@ -1,18 +1,50 @@
-const { Booking, Court, Customer, User, sequelize } = require("../models");
+const { Booking, Branch, Court, Customer, User, sequelize } = require("../models");
 const { Op } = require("sequelize");
 const { getPagination, getPagingData } = require("../utils/pagination");
-const { toMinutes } = require("../utils/dateTime");
+const { toMinutes, zonedTimeToUtc, DEFAULT_TIMEZONE } = require("../utils/dateTime");
 const AuditService = require("./AuditService");
 const CustomerService = require("./CustomerService");
 
+// Thông điệp khách đọc trực tiếp trên trang chủ (toast của widget đặt sân) nên
+// phải là tiếng Việt — ALREADY_BOOKED trước đây là câu tiếng Anh duy nhất trong
+// nhóm này và nó đi thẳng ra mặt khách.
 const UNAVAILABLE = {
   COURT_NOT_FOUND: "Không tìm thấy sân",
   COURT_INACTIVE: "Sân đã ngưng khai thác, không nhận đặt lịch",
   COURT_MAINTENANCE: "Sân đang bảo trì, không nhận đặt lịch mới cho tới khi hoàn tất",
-  ALREADY_BOOKED: "Selected court and time slot is already booked",
+  SLOT_PASSED: "Khung giờ này đã qua, vui lòng chọn khung giờ khác",
+  ALREADY_BOOKED: "Khung giờ này đã có người đặt, vui lòng chọn khung giờ khác",
 };
 
 class BookingService {
+  /** Thông điệp từ chối, lộ ra để test khoá lại: khách chỉ đọc tiếng Việt. */
+  static get UNAVAILABLE() {
+    return UNAVAILABLE;
+  }
+
+  /**
+   * Khung giờ đã trôi qua hẳn chưa — hàm thuần, không đụng DB nên test được
+   * trực tiếp.
+   *
+   * `booking_date` + `end_time` là GIỜ TREO TƯỜNG ở chi nhánh, không phải mốc
+   * UTC, nên phải quy về mốc tuyệt đối theo đúng `branches.timezone` rồi mới so
+   * với hiện tại. So thẳng với đồng hồ của máy chạy server là sai hai lần: tiến
+   * trình server đọc giờ UTC (xem `config.js`) nên từ 00:00 tới 07:00 giờ Việt
+   * Nam nó vẫn còn ở ngày hôm trước và sẽ chặn oan cả ngày hôm nay; còn chi
+   * nhánh ở múi giờ khác thì lệch hẳn nhiều tiếng về cả hai phía.
+   *
+   * Chỉ tính mốc KẾT THÚC, không tính mốc bắt đầu: khung giờ đã bắt đầu nhưng
+   * chưa xong thì vẫn còn chơi được — khách tới quầy lúc 20:05 vẫn vào khung
+   * 20:00–22:00, và tiền sân tính theo giờ chơi thực tế chứ không theo giờ ghi
+   * trên lịch. Chỉ khung giờ đã đóng hẳn là thứ không còn ai đặt được nữa.
+   */
+  static hasSlotPassed({ bookingDate, endTime, timezone, now = new Date() }) {
+    const [year, month, day] = String(bookingDate).slice(0, 10).split("-").map(Number);
+    const [hour, minute] = String(endTime).split(":").map(Number);
+    const endsAt = zonedTimeToUtc(year, month, day, hour, minute, 0, timezone || DEFAULT_TIMEZONE);
+    return endsAt.getTime() <= now.getTime();
+  }
+
   /**
    * Nguồn duy nhất trả lời "sân này có đặt được khoảng giờ đó không".
    *
@@ -41,13 +73,25 @@ class BookingService {
       conflictBookingId,
     });
 
+    // Kèm `branch` chỉ để lấy `timezone`: "khung giờ này đã qua chưa" phải trả
+    // lời theo đồng hồ của chi nhánh, không phải của máy chạy server.
     const court = await Court.findOne({
       where: { id: courtId, ...(branchId ? { branchId } : {}) },
+      include: [{ model: Branch, as: "branch", attributes: ["id", "timezone"] }],
       transaction,
     });
     if (!court) return deny("COURT_NOT_FOUND");
     if (court.status === "inactive") return deny("COURT_INACTIVE");
     if (court.status === "maintenance") return deny("COURT_MAINTENANCE");
+
+    // Lịch cho thời điểm đã qua là rác không ai chơi được, nhưng vẫn chiếm chỗ
+    // thật (truy vấn trùng lịch ngay dưới đếm cả `pending`/`confirmed`) và vẫn
+    // chui vào màn Quản lý Đặt Sân để nhân viên dọn tay. Chặn ở đây — nơi duy
+    // nhất trả lời câu "đặt được không" — nên trang chủ và lúc bấm đặt thật
+    // không thể nói khác nhau.
+    if (BookingService.hasSlotPassed({ bookingDate, endTime, timezone: court.branch?.timezone })) {
+      return deny("SLOT_PASSED");
+    }
 
     const whereCondition = {
       courtId,
@@ -257,11 +301,7 @@ class BookingService {
         transaction,
       });
       if (!availability.available) {
-        const error = new Error(
-          availability.reason === "ALREADY_BOOKED"
-            ? "Updated time slot conflicts with an existing booking"
-            : availability.message,
-        );
+        const error = new Error(availability.message);
         error.statusCode = availability.reason === "ALREADY_BOOKED" ? 409 : 400;
         error.conflictBookingId = availability.conflictBookingId;
         throw error;

@@ -76,3 +76,30 @@ export const formatPlainDate = (value) => {
  */
 export const todayInZone = (timezone) =>
   new Date().toLocaleDateString('en-CA', withZone({}, timezone));
+
+/**
+ * Giờ hiện tại dạng HH:mm theo giờ chi nhánh — so được trực tiếp với cột TIME.
+ *
+ * `hourCycle: 'h23'` là bắt buộc, không phải trang trí: có hệ đếm giờ trả nửa
+ * đêm là "24:00" thay vì "00:00", và chuỗi đó so sánh lớn hơn mọi mốc giờ nên
+ * 00h05 sáng sẽ coi cả ngày là đã qua. Backend chốt cùng một thứ ở
+ * `dateTime.js#formatterFor`.
+ */
+export const nowTimeInZone = (timezone) =>
+  new Date().toLocaleTimeString('en-GB', withZone({ hourCycle: 'h23', hour: '2-digit', minute: '2-digit' }, timezone));
+
+/**
+ * Mốc giờ treo tường của CHI NHÁNH (ngày + giờ) đã trôi qua chưa.
+ *
+ * So bằng CHUỖI, không dựng `Date`: `new Date('2026-10-06T06:00')` được hiểu
+ * theo múi giờ của MÁY KHÁCH, nên khách đang ở nước ngoài sẽ thấy giờ quán
+ * mở/đóng lệch vài tiếng. Cả hai chuỗi đều đã đệm 0 ('YYYY-MM-DD', 'HH:mm')
+ * nên so theo thứ tự từ điển đúng bằng so theo thời gian.
+ */
+export const wallClockPassed = (date, time, timezone) => {
+  if (!date || !time) return false;
+  const day = String(date).slice(0, 10);
+  const today = todayInZone(timezone);
+  if (day !== today) return day < today;
+  return String(time).slice(0, 5) <= nowTimeInZone(timezone);
+};

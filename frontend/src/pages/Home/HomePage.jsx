@@ -6,7 +6,7 @@ import CourtFloorPlan from "../../components/CourtFloorPlan";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import { roleOf, isStaff, homePathForRole } from "../../utils/roles";
-import { todayInZone } from '../../utils/datetime';
+import { todayInZone, wallClockPassed } from '../../utils/datetime';
 
 // Lựa chọn của khách được giữ lại khi họ phải rẽ qua trang đăng nhập, để quay
 // về là đặt tiếp chứ không phải chọn lại từ đầu.
@@ -14,6 +14,10 @@ const PENDING_BOOKING_KEY = "pending_booking";
 // Chi nhánh khách đã chọn ở trang chủ — riêng biệt với "admin_selected_branch_id"
 // (BranchContext.jsx) vì đó là bộ chuyển chi nhánh của nhân viên, khác đối tượng.
 const CUSTOMER_BRANCH_KEY = "customer_selected_branch_id";
+
+// Các mốc giờ widget chào bán. Trước đây viết thẳng trong JSX nên không có chỗ
+// nào lọc được chúng theo giờ hiện tại.
+const TIME_SLOTS = ["06:00", "08:00", "10:00", "14:00", "16:00", "17:00", "19:00", "21:00"];
 
 const addHours = (hhmm, hours) => {
   const [h, m] = hhmm.split(":").map(Number);
@@ -62,6 +66,20 @@ export default function HomePage() {
   const closeButtonRef = useRef(null);
   const lastFocusedElementRef = useRef(null);
   const currentBranch = branches.find((b) => String(b.id) === String(selectedBranchId));
+  const branchTimezone = currentBranch?.timezone;
+
+  // Mốc giờ của HÔM NAY đã trôi qua thì không chào bán nữa. Trước đây danh sách
+  // 8 mốc giờ là cố định nên 21h tối khách vẫn chọn được "06:00 hôm nay", qua
+  // được cả bước kiểm khung giờ, rồi mới lãnh lỗi ở bước bấm xác nhận.
+  //
+  // Lọc theo GIỜ BẮT ĐẦU, chặt hơn luật của server (`BookingService.hasSlotPassed`
+  // chỉ chặn khung giờ đã ĐÓNG hẳn) — có chủ đích, đừng nới ra cho "khớp":
+  //   · chặt hơn thì an toàn, trang chủ không bao giờ chào thứ server từ chối;
+  //   · mời khách đặt khung 16:00 lúc đã 17:40 là mời họ trả tiền cho 20 phút;
+  //   · còn luật rộng hơn ở server là để quầy mở sân cho khách vừa bước vào
+  //     giữa khung giờ — việc của nhân viên, không phải của widget này.
+  const openSlots = TIME_SLOTS.filter((t) => !wallClockPassed(booking.date, t, branchTimezone));
+  const openSlotsKey = openSlots.join(",");
 
   // Giá một khung đặt: cộng theo từng giờ, giờ nào rơi vào cao điểm thì tính giá
   // cao điểm — cùng quy tắc với priceCalculator ở backend.
@@ -149,6 +167,16 @@ export default function HomePage() {
     };
   }, [selectedBranchId]);
 
+  // Mốc giờ đang chọn vừa rơi vào quá khứ (khách đổi ngày về hôm nay, đổi số giờ
+  // chơi, hay để trang mở qua luôn giờ đó): nhảy sang mốc gần nhất còn mở. Thiếu
+  // bước này thì <select> hiện một giờ mà state giữ một giờ khác, và cái gửi lên
+  // server là giờ đã qua.
+  useEffect(() => {
+    if (openSlots.length === 0 || openSlots.includes(booking.time)) return;
+    setBooking((cur) => ({ ...cur, time: openSlots[0] }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSlotsKey, booking.time]);
+
   // Quay lại sau khi đăng nhập: dựng lại đúng lựa chọn dở dang.
   useEffect(() => {
     if (!user || courts.length === 0) return;
@@ -157,12 +185,21 @@ export default function HomePage() {
     sessionStorage.removeItem(PENDING_BOOKING_KEY);
     try {
       const pending = JSON.parse(saved);
+      // Lựa chọn cất đi có thể đã hết hạn: chọn sân 23h50 rồi đăng nhập xong
+      // sau nửa đêm là dựng lại một khung giờ của hôm qua — và đường này đi
+      // thẳng tới `handleBookingSubmit`, không qua ô ngày nên không có ràng
+      // buộc `min` nào chặn. Hết hạn thì bỏ, mời khách chọn lại.
+      if (wallClockPassed(pending.selection?.bookingDate, pending.selection?.endTime, branchTimezone)) {
+        showToast("Khung giờ bạn chọn trước đó đã qua. Mời bạn chọn lại khung giờ khác.");
+        return;
+      }
       setBooking(pending.form);
       setSelectedCourt(pending.selection);
       setIsModalOpen(true);
     } catch {
       // Dữ liệu hỏng thì bỏ qua, khách chọn lại từ đầu
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, courts.length]);
 
   const closeBookingModal = () => {
@@ -599,7 +636,7 @@ export default function HomePage() {
                       id="booking-date"
                       type="date"
                       name="date"
-                      min={todayInZone()}
+                      min={todayInZone(branchTimezone)}
                       value={booking.date}
                       onChange={handleBookingChange}
                       className="booking-input"
@@ -618,7 +655,10 @@ export default function HomePage() {
                         onChange={handleBookingChange}
                         className="booking-input"
                       >
-                        {["06:00", "08:00", "10:00", "14:00", "16:00", "17:00", "19:00", "21:00"].map((t) => {
+                        {openSlots.length === 0 && (
+                          <option value="">Hôm nay đã hết giờ — chọn ngày khác</option>
+                        )}
+                        {openSlots.map((t) => {
                           const hour = Number(t.split(":")[0]);
                           const peak = hour >= peakHours.peakStartHour && hour < peakHours.peakEndHour;
                           return (
@@ -677,10 +717,14 @@ export default function HomePage() {
 
                   <button
                     type="submit"
-                    disabled={checking || courts.length === 0}
+                    disabled={checking || courts.length === 0 || openSlots.length === 0}
                     className="w-full btn-nike-bolt justify-center py-4 text-sm mt-4 disabled:opacity-60"
                   >
-                    {checking ? "ĐANG KIỂM TRA..." : "TÌM KHUNG GIỜ TRỐNG ⚡"}
+                    {checking
+                      ? "ĐANG KIỂM TRA..."
+                      : openSlots.length === 0
+                        ? "CHỌN NGÀY KHÁC ĐỂ ĐẶT"
+                        : "TÌM KHUNG GIỜ TRỐNG ⚡"}
                   </button>
                 </form>
               </div>

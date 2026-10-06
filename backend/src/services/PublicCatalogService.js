@@ -235,6 +235,11 @@ class PublicCatalogService {
       id: branch.id,
       name: branch.name,
       address: branch.address,
+      // Trang chủ cần múi giờ để biết khung giờ nào của HÔM NAY đã qua — tính
+      // theo đồng hồ chi nhánh, không theo đồng hồ máy khách (khách đi công
+      // tác nước ngoài mở trang vẫn phải thấy đúng lịch quán). Công khai được:
+      // múi giờ của một chi nhánh không bí mật hơn địa chỉ của nó.
+      timezone: branch.timezone,
       transferEnabled
     }));
   }
