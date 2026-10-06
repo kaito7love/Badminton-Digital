@@ -180,7 +180,8 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
           ratingSnapshot: ratings.get(pid).rating,
           pairingRatingSnapshot: ratings.get(pid).pairingRating,
           registeredAt: now,
-          registeredByRef: auth.sub
+          registeredByRef: auth.sub,
+          registeredVia: self ? 'self' : 'staff'
         };
         const old = existing.find((e) => e.playerId === pid);
         out.push(old ? await old.update(values, { transaction }) : await TournamentEntry.create(values, { transaction }));
@@ -621,7 +622,7 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
       const values = {
         tenantId: auth.tenant, tournamentId: t.id, playerId: partnerPlayerId, partnerPlayerId: entry.playerId, status: entry.status, waitlistReason: entry.waitlistReason,
         ratingSnapshot: ratings.get(partnerPlayerId).rating, pairingRatingSnapshot: ratings.get(partnerPlayerId).pairingRating,
-        registeredAt: entry.registeredAt, registeredByRef: auth.sub, checkedInAt: null, checkedInByRef: null
+        registeredAt: entry.registeredAt, registeredByRef: auth.sub, registeredVia: 'staff', checkedInAt: null, checkedInByRef: null
       };
       if (existing) await existing.update(values, { transaction });
       else await TournamentEntry.create(values, { transaction });

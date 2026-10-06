@@ -668,3 +668,11 @@ Buổi giao lưu trước đây chỉ có **điểm danh tại quầy**. Giờ k
 - **Nhân viên:** `GET /v1/sessions/{id}/signups` (ai, giới tính, trạng thái, đã có mặt chưa, điểm, cờ); gỡ một đăng ký; chi tiết buổi có `progress.signups`.
 - **Gộp hồ sơ:** đăng ký online chuyển sang hồ sơ đích; hai hồ sơ cùng đăng ký một buổi thì giữ bản "đi xa" hơn (đã đến > giữ chỗ > đang chờ > đã huỷ).
 - **Riêng tư:** như danh sách đăng ký giải (02, mục 2.10): chưa đăng nhập chỉ thấy hồ sơ `public`; người đã đăng ký / có mặt thấy tên đầy đủ của nhau.
+
+## 17. Màn hình nhân viên cho đăng ký online (plan 27, slice p4)
+
+- **Đăng ký giải:** cột `tournament_entries.registered_via` (`staff` mặc định · `self`) ghi cách vào danh sách — migration `20261007100003-entry-registered-via`. Tab "Đăng ký" của giải
+  hiện đếm "**N đăng ký online**", huy hiệu **đăng ký online** trên từng dòng và, với đồng đội khách, dòng liên hệ "đồng đội khách · SĐT …" (xác nhận trình khi nhận số) cùng cờ **chấm nhanh** có sẵn.
+- **Đăng ký buổi giao lưu:** trang buổi có thẻ "**Đăng ký online (3 giữ chỗ · 1 chờ · tối đa 12)**": mỗi dòng tên, điểm (hoặc "chưa có điểm"), huy hiệu trạng thái, nút **Điểm danh**
+  (dùng đúng luồng điểm danh hiện có — người chưa có điểm thì hỏi chấm nhanh) và **Gỡ** (người chờ được lên). Form tạo / sửa buổi có ô **Sức chứa đăng ký online** (2–200, trống = không giới hạn).
+- **Khách tự quản lý:** "Giải của tôi" liệt kê cả giải và buổi giao lưu đã đăng ký (kể cả đang chờ thứ mấy), có link sang trang công khai để rút / huỷ.

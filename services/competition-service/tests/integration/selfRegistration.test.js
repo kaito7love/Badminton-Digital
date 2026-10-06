@@ -413,6 +413,10 @@ describe('đồng đội chưa có tài khoản → hồ sơ khách + điểm t�
     expect(guestRow.flags).toEqual(expect.arrayContaining(['quick', 'unverified']));
     expect(ownerRow.flags).not.toContain('quick');
     expect(guestRow.status).toBe('registered');
+    // Nhân viên biết đăng ký do khách tự bấm (cả hai người của cặp), và thấy SĐT / nguồn của đồng đội khách.
+    expect([guestRow.via, ownerRow.via]).toEqual(['self', 'self']);
+    expect(guestRow).toMatchObject({ source: 'online_guest', contactPhone: '0912345678' });
+    expect(ownerRow).toMatchObject({ source: null, contactPhone: null });
   });
 
   test('SĐT KHÔNG lộ qua bất kỳ API công khai nào; người ngoài thấy đồng đội khách bị che, người đăng ký thấy tên đầy đủ', async () => {
@@ -541,6 +545,8 @@ describe('nhân viên vẫn đăng ký hộ như cũ (không bị đổi hành v
     expect(res.body.data.me.entry).toMatchObject({ status: 'waitlisted', waitlistPosition: 1 });
     const staffRow = (await staffEntries(t.id)).find((e) => e.playerId === a.id);
     expect(staffRow.status).toBe('registered');
+    expect(staffRow.via).toBe('staff'); // nhân viên nhập → không có chip "Đăng ký online"
+    expect((await staffEntries(t.id)).filter((e) => e.via === 'self').map((e) => e.playerId).sort()).toEqual([c.id, d.id].sort());
     // Nhân viên không thể dùng route của khách; khách không dùng được route của nhân viên.
     expect((await op.post(`/v1/me/tournaments/${t.id}/entries`).send({})).status).toBe(403);
     expect((await c.api.post(`/v1/tournaments/${t.id}/entries`).send({ playerId: a.id })).status).toBe(403);

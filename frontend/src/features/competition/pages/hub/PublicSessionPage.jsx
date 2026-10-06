@@ -5,11 +5,15 @@ import PublicShell from '../../components/PublicShell';
 import { Card, ConnectionDot, Notice, Spinner } from '../../components/ui';
 import { Fact, Pill } from '../../components/public/atoms';
 import { SessionSignupPanel } from '../../components/public/Panels';
+import { ConfirmDialog } from '../../components/Dialog';
 import { SessionBoardView, SignupList } from '../../components/public/Lists';
-import { loadPublicSession } from '../../api/publicApi';
+import { loadPublicSession, publicSessionsApi } from '../../api/publicApi';
+import { useAction } from '../../hooks/useAction';
 import { useLiveResource } from '../../hooks/useLiveResource';
+import { useCompetition } from '../../context/CompetitionContext';
 import { orgName } from '../../lib/format';
 import { hubPaths, liveMapReducer, SESSION_PHASE, sessionFacts, sessionPhase, sessionWhen, withLiveBoard } from '../../lib/publicHub';
+import { signupToast } from '../../lib/registerFlow';
 
 // Trang một buổi giao lưu công khai (plan 27): bảng sân trực tiếp + ai đã đăng ký + khung tham gia. Tự cập nhật qua luồng SSE công khai của buổi.
 
@@ -28,6 +32,23 @@ export default function PublicSessionPage() {
     pollMs: 15000
   });
   const board = useMemo(() => withLiveBoard(data ? data.board : null, liveMap), [data, liveMap]);
+  const { toast } = useCompetition();
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [run, { busy, error: actionError, clearError }] = useAction({ onReload: reload });
+
+  const signUp = async () => {
+    const res = await run(() => publicSessionsApi.signUp(id));
+    if (!res) return;
+    toast(signupToast(res.me));
+    reload({ silent: true });
+  };
+  const cancel = async () => {
+    const res = await run(() => publicSessionsApi.cancel(id));
+    if (!res) return;
+    setConfirmCancel(false);
+    toast('Đã huỷ đăng ký');
+    reload({ silent: true });
+  };
 
   if (loading && !data) return <PublicShell><Spinner label="Đang tải buổi giao lưu…" /></PublicShell>;
   if (error && !data) {
@@ -85,10 +106,23 @@ export default function PublicSessionPage() {
           </div>
         </div>
 
-        <aside className="min-w-0">
-          <SessionSignupPanel s={s} user={user} />
+        <aside className="min-w-0 space-y-3">
+          {actionError && !confirmCancel && <Notice error={actionError} onClose={clearError} />}
+          <SessionSignupPanel s={s} user={user} busy={busy} onSignUp={signUp} onCancel={() => { clearError(); setConfirmCancel(true); }} />
         </aside>
       </div>
+      {confirmCancel && (
+        <ConfirmDialog
+          title="Huỷ đăng ký buổi này?"
+          text={s.me && s.me.status === 'waitlisted' ? 'Bạn sẽ rời danh sách chờ.' : 'Chỗ của bạn được nhả ra; người đầu danh sách chờ (nếu có) sẽ được lên.'}
+          confirmLabel="Huỷ đăng ký"
+          danger
+          busy={busy}
+          error={actionError}
+          onConfirm={cancel}
+          onClose={() => { clearError(); setConfirmCancel(false); }}
+        />
+      )}
     </PublicShell>
   );
 }

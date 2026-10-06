@@ -93,6 +93,10 @@ describe('giải của tôi / đối đầu', () => {
     expect(myTournamentState({ tournament: { status: 'open' } }).tone).toBe('open');
     expect(myTournamentState({ tournament: { status: 'finalized' }, placement: { label: 'Vô địch' } }).label).toBe('Đã kết thúc · Vô địch');
     expect(myTournamentState({ tournament: { status: 'cancelled' } }).tone).toBe('bad');
+    // đăng ký online hết chỗ → vào danh sách chờ (plan 27): hiện rõ, không nhầm với "đang mở đăng ký" / "đang thi đấu"
+    expect(myTournamentState({ tournament: { status: 'open' }, entryStatus: 'waitlisted' })).toEqual({ label: 'Trong danh sách chờ', tone: 'wait' });
+    expect(myTournamentState({ tournament: { status: 'in_progress' }, entryStatus: 'waitlisted' }).tone).toBe('wait');
+    expect(myTournamentState({ tournament: { status: 'open' }, entryStatus: 'registered' }).tone).toBe('open');
   });
   test('trận đang đánh của tôi', () => {
     expect(myLiveMatch([{ id: 'a', status: 'scheduled' }, { id: 'b', status: 'in_play' }]).id).toBe('b');

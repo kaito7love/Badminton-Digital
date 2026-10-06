@@ -212,3 +212,15 @@ dùng `CustomerLayout` hay `SidebarLayout` — không có menu bán hàng hay nh
 - **Tính năng tắt:** `FeatureGate hub` — không dựng trang, `PublicShell` báo "chưa được bật" (không có lời gọi API thi đấu nào).
 - **Giới hạn công khai ở cổng:** 900 request / phút / IP cho `/public/*` và 40 luồng SSE / IP (cả một sân xem chung Wi-Fi) — xem 02 mục 2.10.
 - **Code:** `pages/hub/{HubPage,PublicTournamentPage,PublicSessionPage}.jsx`, `components/public/{atoms,Cards,Lists,Panels}.jsx`, `lib/publicHub.js` (logic thuần có test), `api/publicApi.js`.
+
+### 7.1 Đăng ký online và màn hình nhân viên (plan 27, slice p4)
+
+- **Hộp thoại "Đăng ký giải"** (`components/public/RegisterDialog.jsx`, logic thuần `lib/registerFlow.js` có test):
+  1. mở ra là kiểm hồ sơ của khách (`GET /me`) — **chưa có điểm trình** cho nội dung của giải thì không hiện form, chỉ báo và dẫn sang "Tự chấm trình" (service sẽ từ chối `NEEDS_ASSESSMENT`);
+  2. giải đơn: xác nhận một bấm, kèm lệ phí 200.000đ; giải đôi cặp cố định: chọn đồng đội — tab **Đã có trong hệ thống** (ô tìm ≥ 2 chữ, gọi `/me/partners` sau 300 ms, người chưa có điểm
+     chọn được nhưng chưa đăng ký được) hoặc tab **Chưa có tài khoản** (họ tên, SĐT, giới tính, mức trình — kiểm sớm cùng luật với service, lỗi từng ô; lỗi 422 `INVALID_GUEST` của service gắn lại đúng ô);
+  3. lệ phí "2 × 200.000đ = 400.000đ" (chỉ hiển thị); đăng ký xong báo "Đã đăng ký cả cặp" hoặc "Đã vào danh sách chờ (thứ N)".
+- **Rút / huỷ:** hỏi xác nhận (giải đôi nói rõ cả cặp cùng rút); giải đã bốc thăm thì khung đăng ký báo liên hệ nhân viên (`WITHDRAW_LOCKED`).
+- **Buổi giao lưu:** nút "Tham gia buổi này" / "Vào danh sách chờ" / "Huỷ đăng ký"; người chờ được lên thì trang tự cập nhật qua luồng công khai.
+- **Giải của tôi** (`/my-tournaments`): thêm trạng thái "Trong danh sách chờ", link "Xem trang giải / rút đăng ký", mục "Buổi giao lưu đã đăng ký".
+- **Nhân viên:** `TabRegistration` (`OnlineTags`), `SessionDetailPage` (thẻ đăng ký online, `SignupRow`), `SessionFormDialog` (sức chứa) — xem 06 mục 17.

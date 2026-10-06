@@ -6,6 +6,9 @@ import { Meter, PlayerName, PlayersLine } from './atoms';
 import { SessionCard, TournamentCard } from './Cards';
 import { EntriesList, PlacementsCard, ScheduleList, SessionBoardView, SignupList, StandingsTables } from './Lists';
 import { RegistrationPanel, SessionSignupPanel } from './Panels';
+import RegisterDialog, { GuestForm } from './RegisterDialog';
+import { OnlineTags } from '../../pages/tournaments/TabRegistration';
+import { SignupRow } from '../../pages/sessions/SessionDetailPage';
 
 // Thành phần của khu công khai /thi-dau (plan 27) vẽ ra HTML tĩnh với dữ liệu hình dạng API công khai — kiểm nội dung, che tên, trạng thái, không tên lạ.
 const NOW = new Date(2026, 9, 7, 10, 0, 0);
@@ -234,5 +237,56 @@ describe('khung đăng ký (RegistrationPanel / SessionSignupPanel)', () => {
     const closed = html(<SessionSignupPanel s={session({ status: 'closed' })} user={customer} onSignUp={() => {}} />);
     expect(closed).toContain('đã kết thúc');
     expect(closed).not.toContain('Tham gia buổi này');
+  });
+});
+
+describe('đăng ký online (plan 27, p4)', () => {
+  test('RegisterDialog mở ra thì kiểm tra hồ sơ trước, chưa hiện form', () => {
+    const out = html(<RegisterDialog t={tournament()} onClose={() => {}} onDone={() => {}} />);
+    expect(out).toContain('Đăng ký: Giải mùa thu');
+    expect(out).toContain('Đang kiểm tra hồ sơ của bạn');
+    expect(out).not.toContain('guest-form');
+  });
+  test('GuestForm: đủ ô, báo lỗi theo ô, nói rõ SĐT chỉ nhân viên thấy', () => {
+    const empty = { name: '', phone: '', gender: '', level: '' };
+    const out = html(<GuestForm value={empty} onChange={() => {}} errors={{ phone: 'Số điện thoại di động gồm 10 số', level: 'Chọn mức trình gần đúng' }} />);
+    expect(out).toContain('Họ tên đồng đội');
+    expect(out).toContain('chỉ nhân viên thấy');
+    expect(out).toContain('Số điện thoại di động gồm 10 số');
+    expect(out).toContain('Chọn mức trình gần đúng');
+    expect(out).toContain('Mới chơi (1.5)');
+    expect(out).toContain('nhân viên sẽ xác nhận lại');
+    expect(html(<GuestForm value={empty} onChange={() => {}} errors={{}} />)).not.toContain('role="alert"');
+  });
+  test('nhân viên thấy dấu "đăng ký online" và liên hệ đồng đội khách; người nhân viên nhập thì không', () => {
+    const self = { id: 'e1', via: 'self', source: null, contactPhone: null, name: 'An' };
+    const guest = { id: 'e2', via: 'self', source: 'online_guest', contactPhone: '0912345678', name: 'Bích' };
+    const staff = { id: 'e3', via: 'staff', source: null, contactPhone: null, name: 'Cường' };
+    const pair = html(<OnlineTags unit={[self, guest]} />);
+    expect(pair).toContain('đăng ký online');
+    expect(pair).toContain('đồng đội khách');
+    expect(pair).toContain('Bích · SĐT 0912 345 678');
+    expect(html(<OnlineTags unit={[staff]} />)).toBe('');
+  });
+  test('SignupRow: giữ chỗ → điểm danh + gỡ; chờ → thứ mấy; đã đến → không nút; buổi đóng → không nút', () => {
+    const base = { id: 'g1', playerId: 'p1', name: 'An', rating: 3.25, flags: [], present: false };
+    const reg = html(<SignupRow r={{ ...base, status: 'registered' }} open operate />);
+    expect(reg).toContain('Đã giữ chỗ');
+    expect(reg).toContain('Điểm danh');
+    expect(reg).toContain('Gỡ');
+    expect(reg).toContain('3.25');
+    const wait = html(<SignupRow r={{ ...base, status: 'waitlisted', waitlistPosition: 2 }} open operate />);
+    expect(wait).toContain('Đang chờ · thứ 2');
+    expect(wait).not.toContain('Điểm danh');
+    expect(wait).toContain('Gỡ');
+    const came = html(<SignupRow r={{ ...base, status: 'attended', present: true }} open operate />);
+    expect(came).toContain('Đã đến');
+    expect(came).not.toContain('Gỡ');
+    const closed = html(<SignupRow r={{ ...base, status: 'registered' }} open={false} operate />);
+    expect(closed).not.toContain('Điểm danh');
+    const unrated = html(<SignupRow r={{ ...base, status: 'registered', rating: null, flags: ['quick'] }} open operate />);
+    expect(unrated).toContain('chưa có điểm');
+    expect(unrated).toContain('chưa xác nhận trình');
+    expect(html(<SignupRow r={{ ...base, status: 'registered' }} open operate={false} />)).not.toContain('Điểm danh');
   });
 });

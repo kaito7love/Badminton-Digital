@@ -98,6 +98,7 @@ export const myTournamentState = (item) => {
   const s = item.tournament.status;
   if (s === 'finalized') return item.placement ? { label: `Đã kết thúc · ${item.placement.label || item.placement}`, tone: 'done' } : { label: 'Đã kết thúc', tone: 'done' };
   if (s === 'cancelled') return { label: 'Đã huỷ', tone: 'bad' };
+  if (item.entryStatus === 'waitlisted') return { label: 'Trong danh sách chờ', tone: 'wait' };
   if (['drawn', 'in_progress'].includes(s)) return { label: 'Đang thi đấu', tone: 'live' };
   return { label: 'Đang mở đăng ký', tone: 'open' };
 };

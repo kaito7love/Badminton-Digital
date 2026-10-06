@@ -135,7 +135,7 @@ quản trị nhiều bậc giá theo sự kiện, trang portfolio giới thiệu
 
 ## 7. Theo dõi
 
-- [x] p0 · [x] p1 · [x] p2 · [x] p3 · [ ] p4 · [ ] p5
+- [x] p0 · [x] p1 · [x] p2 · [x] p3 · [x] p4 · [ ] p5
 - [ ] Báo cáo → xin duyệt merge `main` (không tự push main)
 
 ## 8. Giả định cần chủ dự án xác nhận (khi duyệt)
@@ -240,3 +240,30 @@ thêm test cổng. Ảnh: `p3-*.png` trong scratchpad (không nằm trong repo).
 | Jest backend | cổng nối: thêm test giới hạn tần suất riêng cho `/public/*` |
 | `npm run build` | xanh |
 | Chrome thật (stack thử, dữ liệu mẫu: giải đôi hết chỗ + 2 người chờ, giải loại trực tiếp đang đấu có trận đang bấm điểm, buổi giao lưu đang diễn ra) | **38/38**: 1440 px tối + 390 px sáng; trang chủ, lọc chi nhánh, trang giải, lịch, sơ đồ, bảng sân, **tỉ số đổi trực tiếp khi nhân viên bấm (không tải lại)**, đăng nhập rồi quay lại đúng giải, không tràn ngang, giải không có thật báo rõ, không lỗi console |
+
+### 9.p4 — đăng ký online + màn hình nhân viên (07/10/2026)
+
+**Đã làm**
+- **Hộp thoại "Đăng ký giải"** (`components/public/RegisterDialog.jsx`, logic thuần `lib/registerFlow.js`): mở ra là kiểm hồ sơ khách — chưa có điểm trình thì **không hiện form**, chỉ báo và dẫn sang
+  "Tự chấm trình"; giải đơn xác nhận một bấm; giải đôi cặp cố định chọn đồng đội ở tab **Đã có trong hệ thống** (ô tìm ≥ 2 chữ, `/me/partners`) hoặc **Chưa có tài khoản** (họ tên, SĐT, giới tính,
+  mức trình — kiểm sớm cùng luật service, lỗi từng ô, 422 `INVALID_GUEST` gắn lại đúng ô). Lệ phí "2 × 200.000đ = 400.000đ" chỉ hiển thị.
+- **Rút / huỷ:** hỏi xác nhận (giải đôi nói rõ cả cặp rút); buổi giao lưu: "Tham gia buổi này" / "Vào danh sách chờ" / "Huỷ đăng ký". Trang tự cập nhật khi người chờ được lên.
+- **Giải của tôi:** thêm trạng thái "Trong danh sách chờ", link "Xem trang giải / rút đăng ký", mục "Buổi giao lưu đã đăng ký" (từ `/me/sessions`).
+- **Nhân viên:** tab Đăng ký của giải có đếm + huy hiệu "đăng ký online" và dòng "đồng đội khách · SĐT …" (cùng cờ chấm nhanh); trang buổi có thẻ "Đăng ký online" (Điểm danh nhanh, Gỡ) và form buổi có ô
+  **Sức chứa đăng ký online** (2–200, trống = không giới hạn).
+- **Service:** cột `tournament_entries.registered_via` (`staff` | `self`) — migration `20261007100003-entry-registered-via`; danh sách đăng ký của nhân viên trả thêm `via`, `source`, `contactPhone` (bắt buộc trong schema `Entry`).
+  Đổi đồng đội tạo dòng `staff` (nhân viên là người làm).
+
+**Phát hiện khi bấm thử và đã xử lý**
+- Họ tên đồng đội có chữ số (vd "P4") bị chặn cả ở form lẫn ở service — đúng luật (chỉ chữ, khoảng trắng, `. ' ’ -`), không phải lỗi; lỗi hiện đúng ô.
+- Buổi đủ chỗ sau khi một người huỷ mà người chờ được lên ngay → người vừa huỷ thấy "Vào danh sách chờ" (không phải "Tham gia") — đúng thiết kế.
+- Backend giới hạn 10 lần đăng nhập / 15 phút / IP làm các lượt chạy thử lặp lại bị 429 ở form đăng nhập — chỉ ảnh hưởng chạy thử (dùng phiên đã lưu), không phải lỗi sản phẩm.
+
+**Kiểm**
+| Kiểm | Kết quả |
+|---|---|
+| Jest service | **423/423** (28 file; lần chạy chung với Chrome + Vite một test `liveScoring` trễ chờ SSE 5 giây do máy quá tải — chạy lại riêng xanh 13/13) (thêm khẳng định `via` / `source` / `contactPhone` vào `selfRegistration.test.js`; khoá `Entry` mới được kiểm theo OpenAPI) |
+| Vitest | **302/302** (+22: `registerFlow.test.js` 17 — SĐT / họ tên / form đồng đội / body gửi / lệ phí / lỗi / câu thông báo; `public-ui.test.jsx` +4 — hộp thoại, form đồng đội, huy hiệu nhân viên, dòng đăng ký buổi; `sessionModel` +1 — sức chứa) |
+| `check-boundaries`, `npm run build` | xanh |
+| Chrome thật (stack thử: backend :5000, service :5102, Vite :5173; 3 tài khoản khách — 1 đã có điểm, 1 chưa có điểm, 1 để lấp chỗ) | **57/57**: chưa có điểm → hộp thoại dẫn sang tự chấm trình, không có form; giải đôi: tìm đồng đội → chọn → đăng ký cả cặp (nhân viên thấy 2 dòng `via: self`), rút cả cặp, đồng đội chưa có tài khoản (4 lỗi theo ô khi để trống → nhập đủ → đăng ký; SĐT chuẩn hoá, `online_guest`), nhân viên thấy huy hiệu + SĐT + cờ chấm nhanh; giải đơn một bấm; Giải của tôi + link; buổi: tham gia → đủ chỗ → khách khác vào danh sách chờ (thứ 1) → khách đầu huỷ → người chờ lên (trang cập nhật); nhân viên: điểm danh nhanh, gỡ, sức chứa 1 báo lỗi / 6 lưu; điện thoại 390 px sáng không tràn ngang, hộp thoại nằm gọn; không lỗi console |
+

@@ -419,3 +419,9 @@ vai trò được gọi + scope cấp. Không có dòng thì không chuyển ti�
   cho đường này để trình duyệt không phải nối lại mỗi phút.
 - Gateway tự sinh `Idempotency-Key` nếu frontend không gửi, nhưng frontend **nên** tự gửi để bấm hai lần vẫn chỉ
   một lần.
+
+### Ghi chú p4 — danh sách đăng ký cho nhân viên biết "ai đăng ký online"
+
+`GET /v1/tournaments/{id}/entries` (nhân viên) mỗi dòng có thêm: `via` (`staff` nhân viên nhập · `self` khách tự đăng ký trên trang công khai — **cả hai người của một cặp** đều `self`),
+`source` (`online_guest` = hồ sơ khách tạo khi đăng ký online; còn lại `null`) và `contactPhone` (SĐT đồng đội khách, dạng `0xxxxxxxxx`; **chỉ nhân viên thấy**, không có ở bất kỳ API công khai nào).
+Đổi đồng đội (`PUT …/partner`) tạo dòng mới `via = staff` — nhân viên là người thực hiện. Ba trường này bắt buộc trong schema `Entry` (test kiểm đủ khoá).

@@ -3637,7 +3637,7 @@ components:
     Entry:
       type: object
       additionalProperties: false
-      required: [id, playerId, name, gender, partnerPlayerId, status, waitlistReason, rating, pairingRating, flags, registeredAt, checkedInAt]
+      required: [id, playerId, name, gender, partnerPlayerId, status, waitlistReason, rating, pairingRating, flags, via, source, contactPhone, registeredAt, checkedInAt]
       properties:
         id: { type: string, format: uuid }
         playerId: { type: string, format: uuid }
@@ -3649,6 +3649,9 @@ components:
         rating: { type: number, nullable: true }
         pairingRating: { type: number, nullable: true }
         flags: { type: array, items: { type: string } }
+        via: { type: string, enum: [staff, self], description: 'self = khách tự đăng ký online (plan 27); staff = nhân viên nhập' }
+        source: { type: string, nullable: true, enum: [online_guest, null], description: 'online_guest = hồ sơ khách do người đăng ký online tạo hộ đồng đội' }
+        contactPhone: { type: string, nullable: true, description: 'SĐT của hồ sơ khách (chỉ nhân viên thấy)' }
         registeredAt: { type: string, format: date-time }
         checkedInAt: { type: string, format: date-time, nullable: true, description: 'Điểm danh ngày thi đấu' }
 

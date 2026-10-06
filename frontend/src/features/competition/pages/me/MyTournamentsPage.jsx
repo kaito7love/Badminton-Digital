@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { meApi } from '../../api/tournaments';
+import { publicSessionsApi } from '../../api/publicApi';
 import { useLiveResource } from '../../hooks/useLiveResource';
 import { groupByTournament, myLiveMatch, myTournamentState } from '../../lib/customer';
 import { courtName, gamesText, orgName, teamText } from '../../lib/format';
 import { matchTitle } from '../../lib/tournamentModel';
+import { hubPaths, sessionWhen } from '../../lib/publicHub';
 import { Badge } from '../../../../components/UIComponents';
 import { Card, EmptyState, Notice, Spinner } from '../../components/ui';
 import CustomerShell from '../../components/CustomerShell';
@@ -12,7 +14,7 @@ import CustomerShell from '../../components/CustomerShell';
 // Giải của tôi (07 mục 1.1): giải đang đánh / đã đánh, lịch trận của mình (lượt, sân), kết quả, thứ hạng. Trận đang đánh có nút "Bấm điểm" (tự bấm điểm trận của mình;
 // trận tính điểm thì nhân viên xác nhận).
 
-const TONE = { live: 'amber', open: 'sky', done: 'emerald', bad: 'rose' };
+const TONE = { live: 'amber', wait: 'amber', open: 'sky', done: 'emerald', bad: 'rose' };
 
 function TournamentCard({ item, matches, done = [] }) {
   const t = item.tournament;
@@ -29,6 +31,7 @@ function TournamentCard({ item, matches, done = [] }) {
         </div>
         <Badge variant={TONE[state.tone] || 'slate'}>{state.label}</Badge>
       </div>
+      <p className="mt-1 text-xs"><Link to={hubPaths.tournament(t.id)} className="font-bold text-emerald-400 hover:underline" data-testid="my-public-link">{t.status === 'open' ? 'Xem trang giải / rút đăng ký →' : 'Xem trang giải →'}</Link></p>
 
       {live && (
         <div className="mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3" data-testid="my-live-match">
@@ -68,13 +71,31 @@ function TournamentCard({ item, matches, done = [] }) {
   );
 }
 
+function SessionCard({ item }) {
+  const s = item.session;
+  const wait = item.signup.status === 'waitlisted';
+  return (
+    <Card>
+      <div className="flex flex-wrap items-start justify-between gap-3" data-session={s.id}>
+        <div className="min-w-0">
+          <h2 className="text-base font-black text-white">{s.name}</h2>
+          <p className="mt-0.5 text-xs text-slate-400">{orgName(s.organizerRef)} · {sessionWhen(s.startsAt)}</p>
+        </div>
+        <Badge variant={wait ? 'amber' : 'emerald'}>{wait ? `Chờ chỗ${item.signup.waitlistPosition ? ` · thứ ${item.signup.waitlistPosition}` : ''}` : 'Đã giữ chỗ'}</Badge>
+      </div>
+      <p className="mt-2 text-xs"><Link to={hubPaths.session(s.id)} className="font-bold text-emerald-400 hover:underline">Xem buổi giao lưu / huỷ đăng ký →</Link></p>
+    </Card>
+  );
+}
+
 const loadAll = async () => {
-  const [tournaments, upcoming, history] = await Promise.all([
+  const [tournaments, upcoming, history, sessions] = await Promise.all([
     meApi.tournaments(),
     meApi.matches({ scope: 'upcoming', limit: 100 }).catch(() => ({ items: [] })),
-    meApi.matches({ scope: 'history', limit: 100 }).catch(() => ({ items: [] }))
+    meApi.matches({ scope: 'history', limit: 100 }).catch(() => ({ items: [] })),
+    publicSessionsApi.mine().catch(() => ({ items: [] }))
   ]);
-  return { items: tournaments.items, upcoming: groupByTournament(upcoming.items), history: groupByTournament(history.items) };
+  return { items: tournaments.items, sessions: sessions.items || [], upcoming: groupByTournament(upcoming.items), history: groupByTournament(history.items) };
 };
 
 export default function MyTournamentsPage() {
@@ -90,14 +111,20 @@ export default function MyTournamentsPage() {
   const past = items.filter((i) => ['finalized', 'cancelled'].includes(i.tournament.status));
 
   return (
-    <CustomerShell title="Giải của tôi" subtitle="Giải bạn đã đăng ký: lịch trận, sân, kết quả.">
+    <CustomerShell title="Giải của tôi" subtitle="Giải và buổi giao lưu bạn đã đăng ký: lịch trận, sân, kết quả.">
       {loading && !data && <Spinner label="Đang tải…" />}
       {error && !data && <Notice error={error} onRetry={() => reload()} />}
-      {data && items.length === 0 && <EmptyState title="Bạn chưa đăng ký giải nào">Đăng ký giải ở quầy — nhân viên sẽ thêm bạn vào danh sách.</EmptyState>}
+      {data && items.length === 0 && data.sessions.length === 0 && (
+        <EmptyState title="Bạn chưa đăng ký giải nào">
+          Xem các giải và buổi giao lưu đang mở rồi đăng ký ngay tại <Link to={hubPaths.home} className="font-bold text-emerald-400 hover:underline">trang Giải đấu</Link> — hoặc nhờ nhân viên thêm bạn ở quầy.
+        </EmptyState>
+      )}
       <div className="space-y-4">
         {current.map((i) => <TournamentCard key={i.tournament.id} item={i} matches={data.upcoming.get(i.tournament.id) || []} done={data.history.get(i.tournament.id) || []} />)}
         {past.length > 0 && <h2 className="pt-2 text-xs font-bold uppercase tracking-wider text-slate-400">Đã kết thúc</h2>}
         {past.map((i) => <TournamentCard key={i.tournament.id} item={i} matches={[]} done={data.history.get(i.tournament.id) || []} />)}
+        {data && data.sessions.length > 0 && <h2 className="pt-2 text-xs font-bold uppercase tracking-wider text-slate-400">Buổi giao lưu đã đăng ký</h2>}
+        {data && data.sessions.map((i) => <SessionCard key={i.session.id} item={i} />)}
       </div>
     </CustomerShell>
   );

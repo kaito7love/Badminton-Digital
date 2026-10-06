@@ -834,7 +834,7 @@ rồi mới nhả số của hồ sơ đã xoá).
 - **Đã làm (06/10/2026):** chủ dự án chọn phương án A — `timeout-minutes` 30 → 60 + sửa tài liệu "~30 giây"; Jest 503/503, Vitest 238/238, YAML chỉ khác một dòng. B / C (nhanh hơn) không làm. Chủ dự án duyệt "merge vào main đi" cùng ngày → main fast-forward `4c36f19` → `81c0c34`; chưa push. Chạy thật sau khi push. Chi tiết:
   `26-ke-hoach-reset-demo-cham.md`.
 
-### 25. `feat/competition-public-hub` — trang công khai "Thi đấu": khách xem giải / buổi giao lưu + đăng ký online (plan 27, **đang làm: p0–p3 xong 07/10/2026**)
+### 25. `feat/competition-public-hub` — trang công khai "Thi đấu": khách xem giải / buổi giao lưu + đăng ký online (plan 27, **đang làm: p0–p4 xong 07/10/2026**)
 
 - **Yêu cầu (07/10/2026):** trang riêng cho portfolio, nằm trong cùng web app (`/thi-dau`), xem không cần đăng nhập, đăng ký cần tài khoản khách, tự động; giải đôi cặp cố định nhận cả hai người cùng lúc (đồng đội có thể chưa có tài khoản); đăng ký giải + buổi giao lưu + SSE; lệ phí chỉ hiển thị 200k/người.
 - **Phát hiện khi đọc code:** hiện khách / người chưa đăng nhập không xem được giải hay buổi nào và đăng ký chỉ nhân viên làm được; buổi giao lưu chưa có đăng ký trước. Nên cần API công khai + tự đăng ký + `session_signups` ở service và luật cổng nối, không chỉ giao diện.

@@ -5,11 +5,16 @@ import PublicShell from '../../components/PublicShell';
 import { Card, ConnectionDot, EmptyState, Notice, Spinner } from '../../components/ui';
 import { Fact, Pill } from '../../components/public/atoms';
 import { RegistrationPanel } from '../../components/public/Panels';
+import RegisterDialog from '../../components/public/RegisterDialog';
+import { ConfirmDialog } from '../../components/Dialog';
 import { BracketCard, EntriesList, PlacementsCard, ScheduleList, StandingsTables } from '../../components/public/Lists';
-import { loadPublicTournament } from '../../api/publicApi';
+import { loadPublicTournament, publicTournamentsApi } from '../../api/publicApi';
+import { useAction } from '../../hooks/useAction';
 import { useLiveResource } from '../../hooks/useLiveResource';
+import { useCompetition } from '../../context/CompetitionContext';
 import { orgName } from '../../lib/format';
 import { hubPaths, liveMapReducer, registrationState, tournamentFacts, tournamentTabs, tournamentWhen, withLiveList } from '../../lib/publicHub';
+import { registerToast, withdrawText } from '../../lib/registerFlow';
 
 // Trang một giải công khai (plan 27): thông tin, khung đăng ký, và các tab theo giai đoạn (đăng ký · lịch & kết quả · bảng / sơ đồ · kết quả chung cuộc).
 // Tự cập nhật qua luồng SSE công khai của giải (không cần đăng nhập); mất luồng thì poll dự phòng.
@@ -28,6 +33,10 @@ export default function PublicTournamentPage() {
     pollMs: 15000
   });
   const matches = useMemo(() => withLiveList(data ? data.matches : [], liveMap), [data, liveMap]);
+  const { toast } = useCompetition();
+  const [dialog, setDialog] = useState(null); // 'register' | 'withdraw' | null
+  const [run, { busy, error: actionError, clearError }] = useAction({ onReload: reload });
+  const closeDialog = () => { clearError(); setDialog(null); };
 
   const t = data ? data.t : null;
   const tabs = useMemo(() => (t ? tournamentTabs(t) : []), [t]);
@@ -49,6 +58,20 @@ export default function PublicTournamentPage() {
   }
   const state = registrationState(t);
   const roundRobin = t.format === 'round_robin';
+  const needsPartner = Boolean(t.registration.needsPartner);
+
+  const onRegistered = (detail) => {
+    setDialog(null);
+    toast(registerToast(detail.me, needsPartner));
+    reload({ silent: true });
+  };
+  const withdraw = async () => {
+    const res = await run(() => publicTournamentsApi.withdraw(id));
+    if (!res) return;
+    setDialog(null);
+    toast('Đã rút khỏi giải');
+    reload({ silent: true });
+  };
 
   return (
     <PublicShell>
@@ -98,9 +121,13 @@ export default function PublicTournamentPage() {
         </div>
 
         <aside className="min-w-0">
-          <RegistrationPanel t={t} user={user} />
+          <RegistrationPanel t={t} user={user} busy={busy} onRegister={() => setDialog('register')} onWithdraw={() => setDialog('withdraw')} />
         </aside>
       </div>
+      {dialog === 'register' && <RegisterDialog t={t} onClose={closeDialog} onDone={onRegistered} />}
+      {dialog === 'withdraw' && (
+        <ConfirmDialog title="Rút khỏi giải?" text={withdrawText(t.me, needsPartner)} confirmLabel="Rút khỏi giải" danger busy={busy} error={actionError} onConfirm={withdraw} onClose={closeDialog} />
+      )}
     </PublicShell>
   );
 }

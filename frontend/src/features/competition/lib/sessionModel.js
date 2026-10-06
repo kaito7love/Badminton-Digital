@@ -12,8 +12,26 @@ export const sessionInfo = (s) => [
   MODE[s.mode] || s.mode,
   s.scoring ? `${s.scoring.bestOf} game × ${s.scoring.points}` : '',
   s.rated ? 'tính điểm trình khi đóng buổi' : 'không tính điểm trình',
+  s.maxPlayers ? `tối đa ${s.maxPlayers} người` : '',
   (s.courtRefs || []).map(courtName).join(', ')
 ].filter(Boolean).join(' · ');
+
+/** Ô "Sức chứa" của form buổi → số nguyên 2–200, hoặc null (để trống = không giới hạn); sai → { error }. */
+export const parseMaxPlayers = (raw) => {
+  const text = String(raw ?? '').trim();
+  if (text === '') return { value: null };
+  if (!/^\d+$/.test(text) || Number(text) < 2 || Number(text) > 200) return { error: 'Sức chứa là số nguyên từ 2 đến 200 (để trống = không giới hạn).' };
+  return { value: Number(text) };
+};
+
+/** Tóm tắt đăng ký online của buổi cho tiêu đề thẻ: "3 giữ chỗ · 2 chờ · tối đa 12". */
+export const signupSummary = (signups, maxPlayers) => {
+  const list = signups || [];
+  const registered = list.filter((r) => r.status === 'registered').length;
+  const waitlisted = list.filter((r) => r.status === 'waitlisted').length;
+  const attended = list.filter((r) => r.status === 'attended').length;
+  return [`${registered} giữ chỗ`, waitlisted ? `${waitlisted} chờ` : '', attended ? `${attended} đã đến` : '', maxPlayers ? `tối đa ${maxPlayers}` : ''].filter(Boolean).join(' · ');
+};
 
 /** Phân nhóm danh sách điểm danh: đang trên sân / đang chờ (có mặt chưa ra sân) / đã rời. */
 export const rosterGroups = (roster) => {
