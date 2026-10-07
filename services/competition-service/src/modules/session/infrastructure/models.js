@@ -56,7 +56,11 @@ const defineSessionModels = (sequelize) => {
       playerId: { type: DataTypes.CHAR(36), allowNull: false },
       status: { type: DataTypes.ENUM('registered', 'waitlisted', 'attended', 'cancelled'), allowNull: false },
       signedUpByRef: { type: DataTypes.STRING(128), allowNull: false },
-      signedUpAt: { type: DataTypes.DATE, allowNull: false }
+      // DATE(3) = DATETIME(3), giữ mili-giây. Đây là khoá xếp hàng chờ và thứ tự sắp
+      // theo `(signedUpAt, id)`; để tới giây thì hai lượt đăng ký cùng giây rơi vào
+      // tiebreak `id`, đẩy người đăng ký lại (dùng lại hàng cũ, id nhỏ) lên trước.
+      // Xem migration 20261008100001.
+      signedUpAt: { type: DataTypes.DATE(3), allowNull: false }
     },
     { tableName: 'session_signups', underscored: true }
   );

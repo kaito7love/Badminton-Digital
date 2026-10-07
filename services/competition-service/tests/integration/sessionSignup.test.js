@@ -172,6 +172,18 @@ describe('đăng ký, hết chỗ → danh sách chờ, huỷ nhường chỗ', 
     expect(back.body.data.me).toMatchObject({ status: 'waitlisted', waitlistPosition: 2 });
   });
 
+  // Chốt thẳng vào schema, vì test ngay trên chỉ bắt được lỗi khi hai lượt đăng ký
+  // tình cờ rơi vào cùng một mốc thời gian — nó xanh ở máy chậm và đỏ trên CI nhanh.
+  //
+  // Thứ tự chờ sắp theo `(signed_up_at, id)`, mà `uq_signup_session_player` buộc người
+  // đăng ký lại phải dùng lại hàng cũ nên `id` của họ nhỏ hơn người đang chờ. Nếu cột
+  // chỉ tới giây, hai lượt cùng giây sẽ rơi vào tiebreak `id` và đẩy người đăng ký lại
+  // lên đầu hàng chờ — trái quy tắc "đăng ký lại thì xếp cuối".
+  test('signed_up_at giữ mili-giây — khoá xếp hàng chờ không được chỉ tới giây', async () => {
+    const [rows] = await ctx.sequelize.query("SHOW COLUMNS FROM session_signups LIKE 'signed_up_at'");
+    expect(rows[0].Type).toBe('datetime(3)');
+  });
+
   test('buổi đã huỷ / không tồn tại → 404; buổi đã đóng → 409 SESSION_CLOSED (đăng ký và huỷ)', async () => {
     const closed = await makeSession();
     const cancelled = await makeSession();
