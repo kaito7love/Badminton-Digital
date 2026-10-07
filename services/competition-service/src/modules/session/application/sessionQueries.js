@@ -7,7 +7,7 @@ const iso = (d) => (d ? new Date(d).toISOString() : null);
 const RECENT = 6;
 
 const createSessionQueries = ({ models, players, matches, ctx, service }) => {
-  const { PlaySession } = models;
+  const { PlaySession, PlaySessionPlayer, SessionSignup } = models;
 
   const progress = async (s) => {
     const snap = await service.snapshot(s.tenantId, s);
@@ -15,8 +15,15 @@ const createSessionQueries = ({ models, players, matches, ctx, service }) => {
     return {
       players: { present: snap.roster.filter((r) => r.status === 'present').length, left: snap.roster.filter((r) => r.status === 'left').length },
       matches: { total: snap.list.filter((m) => m.status !== 'cancelled').length, inPlay: count('in_play'), completed: count('completed'), ended: count('ended') },
-      freeCourts: s.status === 'open' ? snap.freeCourts.length : 0
+      freeCourts: s.status === 'open' ? snap.freeCourts.length : 0,
+      signups: await signupCounts(s.id)
     };
+  };
+
+  // Đăng ký online (plan 27): số người đã giữ chỗ / đang chờ.
+  const signupCounts = async (sessionId) => {
+    const rows = await SessionSignup.findAll({ attributes: ['status'], where: { sessionId, status: ['registered', 'waitlisted'] }, raw: true });
+    return { registered: rows.filter((r) => r.status === 'registered').length, waitlisted: rows.filter((r) => r.status === 'waitlisted').length };
   };
 
   const list = async ({ auth, status, organizerRef, from, to, page, limit }) => {
@@ -127,7 +134,35 @@ const createSessionQueries = ({ models, players, matches, ctx, service }) => {
     };
   };
 
-  return { progress, list, roster, sessionMatches, board, proposalView };
+  // Danh sách đăng ký online cho nhân viên: ai, trạng thái, đã đến chưa, có điểm chưa — để điểm danh nhanh tại quầy.
+  const signups = async ({ auth, id }) => {
+    const s = await loadForRead(auth, id);
+    const rows = await SessionSignup.findAll({ where: { sessionId: s.id, status: { [Op.ne]: 'cancelled' } }, order: [['signedUpAt', 'ASC'], ['id', 'ASC']] });
+    const people = await players.findByIds(auth.tenant, rows.map((r) => r.playerId));
+    const views = new Map((await players.enrich(auth.tenant, people, { auth })).map((v) => [v.id, v]));
+    const present = new Set((await PlaySessionPlayer.findAll({ attributes: ['playerId'], where: { sessionId: s.id, status: 'present' }, raw: true })).map((r) => r.playerId));
+    const disc = s.format === 'singles' ? 'singles' : 'doubles';
+    let waiting = 0;
+    return rows.map((r) => {
+      const v = views.get(r.playerId);
+      const rating = v && v.ratings ? v.ratings[disc] : null;
+      if (r.status === 'waitlisted') waiting += 1;
+      return {
+        id: r.id,
+        playerId: r.playerId,
+        name: v ? v.displayName : null,
+        gender: v ? v.gender ?? null : null,
+        status: r.status,
+        waitlistPosition: r.status === 'waitlisted' ? waiting : null,
+        signedUpAt: iso(r.signedUpAt),
+        present: present.has(r.playerId),
+        rating: rating ? rating.rating : null,
+        flags: v ? v.flags || [] : []
+      };
+    });
+  };
+
+  return { progress, list, roster, sessionMatches, board, proposalView, signups };
 };
 
 module.exports = { createSessionQueries };

@@ -48,6 +48,7 @@ const createSessionContext = ({ models }) => {
     mode: s.mode,
     scoring: s.scoring,
     rated: s.rated,
+    maxPlayers: s.maxPlayers ?? null,
     seed: s.seed,
     rounds: s.rounds,
     status: s.status,

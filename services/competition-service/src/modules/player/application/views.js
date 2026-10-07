@@ -9,6 +9,8 @@ const fullView = (player, now = new Date()) => ({
   displayName: player.displayName ?? null,
   nickname: player.nickname ?? null,
   publicName: publicName(player),
+  contactPhone: player.contactPhone ?? null,
+  source: player.source ?? null,
   gender: player.gender ?? null,
   birthYear: player.birthYear ?? null,
   ageGroup: ageGroup(player.birthYear, now),

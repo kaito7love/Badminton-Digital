@@ -13,7 +13,10 @@ const WATCHDOG_INTERVAL_MS = 10000;
 export const STREAM_EVENTS = ['snapshot', 'score', 'board'];
 
 /** URL luồng — hàm thuần để test. */
-export const buildStreamUrl = ({ kind, id, token, branchId }) => {
+export const buildStreamUrl = ({ kind, id, token, branchId, publicView = false }) => {
+  // Luồng công khai (plan 27): không cần đăng nhập, không kèm token — sự kiện chỉ là tỉ số và báo "có gì đổi" (không có tên người chơi);
+  // dữ liệu thật vẫn tải bằng các lời gọi có token của người xem.
+  if (publicView) return `${API_BASE}/competition/public/${kind}/${encodeURIComponent(id)}/stream`;
   const params = new URLSearchParams({ token });
   if (branchId) params.set('branchId', String(branchId));
   return `${API_BASE}/competition/${kind}/${encodeURIComponent(id)}/stream?${params.toString()}`;
@@ -28,7 +31,7 @@ export const buildStreamUrl = ({ kind, id, token, branchId }) => {
  * }} options
  * @returns {() => void} hàm đóng luồng — gọi lúc unmount
  */
-export const connectCompetitionStream = ({ kind, id, branchId, onEvent, onReconnect, onStatusChange }) => {
+export const connectCompetitionStream = ({ kind, id, branchId, publicView = false, onEvent, onReconnect, onStatusChange }) => {
   let source = null;
   let reconnectTimer = null;
   let closed = false;
@@ -54,7 +57,7 @@ export const connectCompetitionStream = ({ kind, id, branchId, onEvent, onReconn
     if (closed || suspended) return;
     let token;
     try {
-      token = await freshToken();
+      token = publicView ? null : await freshToken();
     } catch (err) {
       if (err?.authExpired) { closed = true; return; } // hết phiên thật: apiClient đã đưa về trang đăng nhập
       setStatus('reconnecting');
@@ -63,7 +66,7 @@ export const connectCompetitionStream = ({ kind, id, branchId, onEvent, onReconn
     }
     if (closed) return;
 
-    source = new EventSource(buildStreamUrl({ kind, id, token, branchId }));
+    source = new EventSource(buildStreamUrl({ kind, id, token, branchId, publicView }));
     lastSeen = Date.now();
     source.onopen = () => {
       lastSeen = Date.now();

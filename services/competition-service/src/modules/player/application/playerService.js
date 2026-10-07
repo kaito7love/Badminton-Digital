@@ -2,6 +2,7 @@ const { Op, UniqueConstraintError } = require('sequelize');
 const { withTransaction } = require('../../../platform/db/transaction');
 const { notFound, unprocessable, conflict } = require('../../../platform/http/errors');
 const { validateProfilePatch } = require('../domain/profile');
+const { MAX_NEW_GUESTS_PER_DAY, GUEST_SOURCE } = require('../domain/guest');
 const { fullView } = require('./views');
 
 // Use case của hồ sơ người chơi. Module khác gắn thêm hành vi qua các "hook" đăng
@@ -106,6 +107,49 @@ const createPlayerService = ({ models, sequelize, audit }) => {
       });
       return { player, created: true };
     });
+
+  // --- Đồng đội khách đăng ký online (plan 27) ---
+  const findGuestByPhone = (tenant, contactPhone, { transaction } = {}) =>
+    Player.findOne({ where: { tenantId: tenant, contactPhone, source: GUEST_SOURCE, status: 'active' }, transaction });
+
+  // Tạo hồ sơ khách từ thông tin ĐÃ chuẩn hoá (domain/guest.validateGuest). Cùng SĐT → dùng lại hồ sơ cũ (một SĐT = một người, tên
+  // đã ghi giữ nguyên). Mỗi người tạo tối đa MAX_NEW_GUESTS_PER_DAY hồ sơ mới / 24 giờ. Hồ sơ khách luôn `hidden`: không lên BXH, không
+  // ai tìm thấy được qua ô tìm đồng đội — chỉ nhân viên thấy (kèm SĐT) cho tới khi gộp vào tài khoản thật.
+  const createGuest = async ({ tenant, displayName, contactPhone, gender, createdByRef, organizerRef, requestId, transaction: outer }) =>
+    withTransaction(sequelize, outer, async (transaction) => {
+      const existing = await findGuestByPhone(tenant, contactPhone, { transaction });
+      if (existing) return { player: existing, created: false };
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recent = await Player.count({ where: { tenantId: tenant, source: GUEST_SOURCE, createdByRef, createdAt: { [Op.gte]: since } }, transaction });
+      if (recent >= MAX_NEW_GUESTS_PER_DAY) {
+        throw unprocessable('GUEST_LIMIT', `Bạn đã thêm ${recent} đồng đội mới trong 24 giờ qua — hãy liên hệ nhân viên để thêm tiếp`);
+      }
+      const player = await Player.create(
+        { tenantId: tenant, displayName, gender, contactPhone, source: GUEST_SOURCE, createdByRef, visibility: 'hidden', homeOrganizerRef: organizerRef || null },
+        { transaction }
+      );
+      await audit.record(transaction, {
+        tenant, actorRef: createdByRef, action: 'player.guest_created', targetType: 'player', targetId: player.id,
+        after: { displayName, source: GUEST_SOURCE }, requestId
+      });
+      return { player, created: true };
+    });
+
+  // Ô "tìm đồng đội" của khách: chỉ người đang hoạt động mà THÀNH VIÊN được thấy (public / members) — không có hồ sơ hidden và hồ sơ
+  // khách (luôn hidden). Tối thiểu 2 ký tự để không dò hết danh sách.
+  const searchSelectable = async ({ tenant, search, excludeIds = [], limit = 10 }) => {
+    const term = String(search || '').trim();
+    if (term.length < 2) return [];
+    const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const where = {
+      tenantId: tenant,
+      status: 'active',
+      visibility: { [Op.in]: ['public', 'members'] },
+      [Op.or]: [{ displayName: { [Op.like]: like } }, { nickname: { [Op.like]: like } }]
+    };
+    if (excludeIds.length) where.id = { [Op.notIn]: excludeIds };
+    return Player.findAll({ where, order: [['displayName', 'ASC'], ['id', 'ASC']], limit: Math.min(Math.max(limit, 1), 20) });
+  };
 
   // Hồ sơ của chính người gọi (claim `player`). Lần đầu thì tự tạo (JIT) từ `player_name`.
   const ensureSelf = async (auth, { requestId } = {}) => {
@@ -244,6 +288,9 @@ const createPlayerService = ({ models, sequelize, audit }) => {
     upsertStats,
     getStats,
     upsertByRef,
+    findGuestByPhone,
+    createGuest,
+    searchSelectable,
     ensureSelf,
     updateProfile,
     enrich,

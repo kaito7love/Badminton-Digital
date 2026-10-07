@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { DomainError } = require('../../../shared/domainError');
 
 // Luật hồ sơ người chơi (docs/05 mục 1).
@@ -38,6 +39,24 @@ const canViewProfile = (player, viewer, isSelf) => {
   if (player.visibility === 'public') return true;
   if (player.visibility === 'members') return viewer === 'member';
   return false;
+};
+
+// Nhãn che người chơi không được lộ tên trên màn công khai: "Thành viên A3F2". Mã 4 ký tự suy từ id → ổn định giữa các
+// lần gọi (một sơ đồ 16 người bị che vẫn phân biệt được từng người) mà không lộ id.
+const maskedLabel = (playerId) => `Thành viên ${crypto.createHash('sha1').update(String(playerId)).digest('hex').slice(0, 4).toUpperCase()}`;
+
+// Một người chơi hiện thế nào trên trang công khai của giải / buổi giao lưu (docs/05 mục 1.1, plan 27):
+//  - nhân viên, chính chủ, người cùng tham gia giải / buổi đó (`mine`): tên đầy đủ — "đối thủ / đồng đội luôn thấy tên nhau";
+//  - chưa đăng nhập: chỉ hồ sơ `public`, hiện tên thi đấu hoặc "An N."; còn lại bị che;
+//  - đã đăng nhập: tên đầy đủ, trừ hồ sơ `hidden` (bị che).
+// `id` là null khi bị che — không lộ mã người chơi (và không mở được hồ sơ).
+const publicRef = (player, { viewer, mine = false }) => {
+  if (!player) return { id: null, name: 'Người chơi', masked: true };
+  const shown = (name) => ({ id: player.id, name, masked: false });
+  if (mine || viewer === 'staff') return shown(player.displayName);
+  if (player.status === 'anonymized') return { id: null, name: maskedLabel(player.id), masked: true };
+  if (viewer === 'public') return player.visibility === 'public' ? shown(publicName(player)) : { id: null, name: maskedLabel(player.id), masked: true };
+  return player.visibility === 'hidden' ? { id: null, name: maskedLabel(player.id), masked: true } : shown(player.displayName);
 };
 
 const NICKNAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,28}[\p{L}\p{N}.]$/u;
@@ -91,4 +110,4 @@ const validateProfilePatch = (patch, now = new Date()) => {
   return out;
 };
 
-module.exports = { AGE_GROUPS, ageGroup, publicName, viewerKind, canViewProfile, validateProfilePatch };
+module.exports = { AGE_GROUPS, ageGroup, publicName, viewerKind, canViewProfile, maskedLabel, publicRef, validateProfilePatch };

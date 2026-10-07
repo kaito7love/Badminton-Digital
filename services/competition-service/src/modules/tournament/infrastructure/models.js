@@ -60,7 +60,9 @@ const defineTournamentModels = (sequelize) => {
       ratingSnapshot: { type: DataTypes.DECIMAL(5, 3), allowNull: true },
       pairingRatingSnapshot: { type: DataTypes.DECIMAL(5, 3), allowNull: true },
       registeredAt: { type: DataTypes.DATE, allowNull: false },
-      registeredByRef: { type: DataTypes.STRING(128), allowNull: false }
+      registeredByRef: { type: DataTypes.STRING(128), allowNull: false },
+      // 'self' = khách tự đăng ký online (plan 27) — nhân viên thấy chip "Đăng ký online"; 'staff' = nhân viên nhập (mặc định, mọi đăng ký cũ).
+      registeredVia: { type: DataTypes.ENUM('staff', 'self'), allowNull: false, defaultValue: 'staff' }
     },
     { tableName: 'tournament_entries', underscored: true }
   );

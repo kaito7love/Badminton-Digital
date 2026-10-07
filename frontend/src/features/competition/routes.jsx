@@ -23,6 +23,9 @@ const MyProfilePage = lazy(() => import('./pages/me/MyProfilePage'));
 const MyTournamentsPage = lazy(() => import('./pages/me/MyTournamentsPage'));
 const RankingsPage = lazy(() => import('./pages/public/RankingsPage'));
 const PublicProfilePage = lazy(() => import('./pages/public/PublicProfilePage'));
+const HubPage = lazy(() => import('./pages/hub/HubPage'));
+const PublicTournamentPage = lazy(() => import('./pages/hub/PublicTournamentPage'));
+const PublicSessionPage = lazy(() => import('./pages/hub/PublicSessionPage'));
 const LiveScorePage = lazy(() => import('./pages/live/LiveScorePage'));
 const QuickScorePage = lazy(() => import('./pages/live/QuickScorePage'));
 const TournamentBoardPage = lazy(() => import('./pages/board/TournamentBoardPage'));
@@ -59,9 +62,15 @@ export const competitionCustomerRoutes = (
   </>
 );
 
-/** Công khai: bảng xếp hạng (chưa đăng nhập xem được, người "Thành viên" bị che tên) và hồ sơ người khác (service quyết định theo quyền riêng tư). */
+/**
+ * Công khai: bảng xếp hạng (chưa đăng nhập xem được, người "Thành viên" bị che tên), hồ sơ người khác (service quyết định theo quyền riêng tư) và khu
+ * "Thi đấu" /thi-dau (plan 27): xem giải / buổi giao lưu không cần đăng nhập, đăng ký cần tài khoản khách. Khu này có khung riêng (PublicShell).
+ */
 export const competitionPublicRoutes = (
   <>
+    <Route path="/thi-dau" element={<FeatureGate hub><HubPage /></FeatureGate>} />
+    <Route path="/thi-dau/giai/:id" element={<FeatureGate hub><PublicTournamentPage /></FeatureGate>} />
+    <Route path="/thi-dau/giao-luu/:id" element={<FeatureGate hub><PublicSessionPage /></FeatureGate>} />
     <Route path="/rankings" element={<FeatureGate customer><RankingsPage /></FeatureGate>} />
     <Route path="/players/:id" element={<FeatureGate customer><PublicProfilePage /></FeatureGate>} />
   </>
