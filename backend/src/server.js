@@ -9,7 +9,7 @@ const errorHandler = require('./middleware/errorHandler');
 const requestContextMiddleware = require('./middleware/requestContextMiddleware');
 const OnlineOrderService = require('./services/OnlineOrderService');
 const SalesOrderService = require('./services/SalesOrderService');
-const { resolveCorsOrigin, resolveTrustProxy } = require('./utils/serverConfig');
+const { resolveCorsOrigin, resolveTrustProxy, resolveBuildVersion } = require('./utils/serverConfig');
 const { createFrontendHandlers } = require('./utils/frontendStatic');
 const { getCompetitionConfig } = require('./integrations/competition/config');
 const { createGatewayRouter } = require('./integrations/competition/gateway');
@@ -46,10 +46,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestContextMiddleware);
 
 // Health Check Endpoints
-app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
+// `version` = 7 ký tự đầu của commit đang chạy, để sau khi deploy biết chắc bản
+// mới đã lên hay Render còn phục vụ bản cũ — đọc một lần lúc khởi động vì nó
+// không đổi trong vòng đời tiến trình (xem utils/serverConfig.js).
+const buildVersion = resolveBuildVersion();
+app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date(), version: buildVersion }));
 // `ip` là IP của chính người gọi như server nhìn thấy — dùng để kiểm
 // TRUST_PROXY_HOPS trên môi trường thật (phải ra IP của bạn, không phải của proxy).
-app.get('/api/v1/health', (req, res) => res.json({ status: 'ok', time: new Date(), ip: req.ip }));
+app.get('/api/v1/health', (req, res) => res.json({ status: 'ok', time: new Date(), version: buildVersion, ip: req.ip }));
 
 // Sơ đồ mặt bằng sân theo chi nhánh: file JSON tĩnh, cập nhật bằng cách sửa
 // file trực tiếp (không qua DB) — chỉ chứa toạ độ hình học, không dữ liệu
