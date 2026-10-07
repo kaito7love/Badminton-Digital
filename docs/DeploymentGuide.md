@@ -185,8 +185,10 @@ Compose chỉ bind `127.0.0.1`. Đặt reverse proxy có TLS trên host (Caddy, 
 ---
 
 ## 9. Giám sát
-- `GET /health`: liveness (process còn sống) — Render và compose dùng làm health check.
-- `GET /api/v1/health`: kèm `ip` để kiểm `TRUST_PROXY_HOPS`.
+- `GET /health`: liveness (process còn sống) — Render và compose dùng làm health check. Kèm `version` = 7 ký tự đầu của commit đang chạy.
+- `GET /api/v1/health`: kèm `ip` để kiểm `TRUST_PROXY_HOPS`, và `version` như trên.
+- **Kiểm deploy đã lên chưa:** so `version` với `git rev-parse --short HEAD`. Cần thế vì Render giữ instance cũ phục vụ cho tới khi instance mới qua health check — site vẫn sống **không** chứng minh bản mới đã lên. Trước khi có trường này, một lần deploy chỉ đổi kiểu cột là không có cách nào xác minh từ bên ngoài.
+  Render tự đặt sẵn `RENDER_GIT_COMMIT`; nơi khác (compose, CI) truyền `GIT_COMMIT`. Không có hoặc giá trị không phải SHA → `dev`.
 - Chưa có readiness chạm DB, log có rotation, cảnh báo — nhóm sửa 6.
 
 ---
