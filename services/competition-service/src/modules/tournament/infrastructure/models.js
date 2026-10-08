@@ -59,7 +59,11 @@ const defineTournamentModels = (sequelize) => {
       checkedInByRef: { type: DataTypes.STRING(128), allowNull: true },
       ratingSnapshot: { type: DataTypes.DECIMAL(5, 3), allowNull: true },
       pairingRatingSnapshot: { type: DataTypes.DECIMAL(5, 3), allowNull: true },
-      registeredAt: { type: DataTypes.DATE, allowNull: false },
+      // DATE(3) = DATETIME(3), giữ mili-giây. Đây là khoá xếp hàng chờ, sắp theo
+      // `(registeredAt, id)`; để tới giây thì hai lượt đăng ký cùng giây rơi vào tiebreak
+      // `id`, đẩy người đăng ký lại (dùng lại hàng cũ do uq_entry_player, id nhỏ) lên trước.
+      // Xem migration 20261009100001.
+      registeredAt: { type: DataTypes.DATE(3), allowNull: false },
       registeredByRef: { type: DataTypes.STRING(128), allowNull: false },
       // 'self' = khách tự đăng ký online (plan 27) — nhân viên thấy chip "Đăng ký online"; 'staff' = nhân viên nhập (mặc định, mọi đăng ký cũ).
       registeredVia: { type: DataTypes.ENUM('staff', 'self'), allowNull: false, defaultValue: 'staff' }
