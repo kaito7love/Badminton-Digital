@@ -20,7 +20,7 @@ export default function SelfAssessPage() {
 
   return (
     <CustomerShell title="Tự chấm trình" subtitle="Chọn mô tả giống bạn nhất ở phần lớn các buổi chơi — không chọn theo lúc chơi hay nhất.">
-      <Link to="/my-rating" className="mb-4 inline-block text-xs font-bold text-emerald-400 hover:underline">← Trình độ của tôi</Link>
+      <Link to="/my-rating" className="mb-4 inline-block text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline">← Trình độ của tôi</Link>
       {loading && !data && <Spinner label="Đang tải form…" />}
       {error && !data && <Notice error={error} onRetry={() => reload()} />}
       {data && (() => {
@@ -30,7 +30,7 @@ export default function SelfAssessPage() {
           return (
             <div className="space-y-3" data-testid="assess-locked">
               <Notice kind="warn">{state.reason}</Notice>
-              <Link to="/my-rating" className="text-sm font-bold text-emerald-400 hover:underline">Về trình độ của tôi</Link>
+              <Link to="/my-rating" className="text-sm font-bold text-emerald-700 dark:text-emerald-400 hover:underline">Về trình độ của tôi</Link>
             </div>
           );
         }

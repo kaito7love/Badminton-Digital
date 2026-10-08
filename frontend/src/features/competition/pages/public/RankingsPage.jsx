@@ -10,7 +10,7 @@ import { AGE_GROUPS, defaultCategory, LEVEL_FILTERS, movementText, POINT_CATEGOR
 import { fmtNumber, fmtDate, orgName } from '../../lib/format';
 import { Button, Card, EmptyState, Notice, Spinner } from '../../components/ui';
 import { inputClass } from '../../components/form';
-import CustomerShell from '../../components/CustomerShell';
+import PublicShell from '../../components/PublicShell';
 
 // Bảng xếp hạng (07 mục 1.1) — công khai, chưa đăng nhập cũng xem được (người ở chế độ "Thành viên" bị che tên). Hai tab: Trình độ / Thành tích; lọc theo
 // hạng mục, chi nhánh, nhóm tuổi, trình. Dòng của mình được đánh dấu; chưa đủ điều kiện thì hiện "vị trí dự kiến" thay vì hạng.
@@ -20,27 +20,27 @@ const LIMIT = 20;
 function Row({ row, points }) {
   const [open, setOpen] = useState(false);
   const masked = row.player.masked || !row.player.id;
-  const name = masked ? <span className="italic text-slate-500">Thành viên</span> : <Link to={`/players/${row.player.id}`} className="font-bold text-white hover:underline">{row.player.nickname || row.player.name}</Link>;
+  const name = masked ? <span className="italic text-slate-500">Thành viên</span> : <Link to={`/players/${row.player.id}`} className="font-bold text-slate-900 dark:text-white hover:underline">{row.player.nickname || row.player.name}</Link>;
   return (
     <>
-      <tr className={`border-t border-slate-800 ${row.isMe ? 'bg-emerald-500/10' : ''}`} data-rank={row.rank} data-me={row.isMe ? 'true' : undefined}>
-        <td className="py-2 pr-3 text-lg font-black tabular-nums text-emerald-400">{row.rank}</td>
-        <td className="py-2 pr-3 text-xs text-slate-400">{movementText(row.movement)}</td>
-        <td className="py-2 pr-3">{name}{row.isMe && <Badge variant="emerald"> bạn</Badge>}<small className="block text-xs text-slate-400 sm:hidden">{points ? `${row.countedResults} kết quả` : `${row.ratedMatches} trận${row.verified ? ' · đã xác nhận' : ''}`}</small></td>
+      <tr className={`border-t border-slate-200 dark:border-slate-800 ${row.isMe ? 'bg-emerald-500/10' : ''}`} data-rank={row.rank} data-me={row.isMe ? 'true' : undefined}>
+        <td className="py-2 pr-3 text-lg font-black tabular-nums text-emerald-600 dark:text-emerald-400">{row.rank}</td>
+        <td className="py-2 pr-3 text-xs text-slate-500 dark:text-slate-400">{movementText(row.movement)}</td>
+        <td className="py-2 pr-3">{name}{row.isMe && <Badge variant="emerald"> bạn</Badge>}<small className="block text-xs text-slate-500 dark:text-slate-400 sm:hidden">{points ? `${row.countedResults} kết quả` : `${row.ratedMatches} trận${row.verified ? ' · đã xác nhận' : ''}`}</small></td>
         {points ? (
           <>
-            <td className="py-2 pr-3 font-black tabular-nums">{row.points} <small className="font-normal text-slate-500">điểm</small>{row.results && row.results.length > 0 && <button type="button" className="block text-xs font-bold text-emerald-400 hover:underline" onClick={() => setOpen(!open)}>{open ? 'Ẩn chi tiết' : 'Chi tiết'}</button>}</td>
-            <td className="hidden py-2 text-xs text-slate-400 sm:table-cell">{row.countedResults} kết quả</td>
+            <td className="py-2 pr-3 font-black tabular-nums">{row.points} <small className="font-normal text-slate-500">điểm</small>{row.results && row.results.length > 0 && <button type="button" className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline" onClick={() => setOpen(!open)}>{open ? 'Ẩn chi tiết' : 'Chi tiết'}</button>}</td>
+            <td className="hidden py-2 text-xs text-slate-500 dark:text-slate-400 sm:table-cell">{row.countedResults} kết quả</td>
           </>
         ) : (
           <>
-            <td className="py-2 pr-3 font-black tabular-nums">{fmtNumber(row.rating)} <small className="font-normal text-emerald-400">{row.level}</small></td>
-            <td className="hidden py-2 text-xs text-slate-400 sm:table-cell">{row.ratedMatches} trận{row.verified ? ' · đã xác nhận' : ''}</td>
+            <td className="py-2 pr-3 font-black tabular-nums">{fmtNumber(row.rating)} <small className="font-normal text-emerald-600 dark:text-emerald-400">{row.level}</small></td>
+            <td className="hidden py-2 text-xs text-slate-500 dark:text-slate-400 sm:table-cell">{row.ratedMatches} trận{row.verified ? ' · đã xác nhận' : ''}</td>
           </>
         )}
       </tr>
       {open && (
-        <tr className="bg-slate-900/60"><td colSpan={5} className="px-3 py-2 text-xs text-slate-300">
+        <tr className="bg-slate-100 dark:bg-slate-900/60"><td colSpan={5} className="px-3 py-2 text-xs text-slate-700 dark:text-slate-300">
           {row.results.map((r) => <div key={r.tournamentId}>{r.placement} · {r.tournament} · <b>{r.points}</b> điểm · {fmtDate(r.awardedAt)}</div>)}
         </td></tr>
       )}
@@ -96,14 +96,14 @@ export default function RankingsPage() {
   const setCat = (next) => { const p = new URLSearchParams(search); p.set('cat', next); setSearch(p, { replace: true }); setPage(1); };
   const items = state.data ? state.data.items : [];
   const pages = state.data ? state.data.totalPages || 1 : 1;
-  const chipClass = (on) => `rounded-full border px-3 py-1 text-xs font-bold transition ${on ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300' : 'border-slate-700 text-slate-300 hover:bg-slate-800'}`;
+  const chipClass = (on) => `rounded-full border px-3 py-1 text-xs font-bold transition ${on ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`;
   const myRow = useMemo(() => items.find((r) => r.isMe), [items]);
 
   return (
-    <CustomerShell title="Bảng xếp hạng" subtitle="Trình độ và thành tích thi đấu của cả chuỗi sân.">
+    <PublicShell title="Bảng xếp hạng" subtitle="Trình độ và thành tích thi đấu của cả chuỗi sân.">
       <div className="mb-4 flex flex-wrap gap-2" role="tablist">
         {[['rating', 'Trình độ'], ['points', 'Thành tích']].map(([key, label]) => (
-          <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTabParam(key)} className={`rounded-xl px-5 py-2 text-sm font-black uppercase tracking-wider transition ${tab === key ? 'bg-emerald-500 text-slate-950' : 'border border-slate-700 text-slate-300 hover:bg-slate-800'}`}>{label}</button>
+          <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTabParam(key)} className={`rounded-xl px-5 py-2 text-sm font-black uppercase tracking-wider transition ${tab === key ? 'bg-emerald-500 text-slate-950' : 'border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>{label}</button>
         ))}
       </div>
       <div className="mb-3 flex flex-wrap gap-2">
@@ -130,8 +130,8 @@ export default function RankingsPage() {
       {state.data && !items.length && <EmptyState title="Chưa có ai trên bảng này">Bảng cập nhật khi có người đủ điều kiện (≥ 5 trận tính điểm hoặc đã xác nhận trình).</EmptyState>}
       {items.length > 0 && (
         <Card className={state.loading ? 'opacity-60' : ''}>
-          <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
-            <b className="text-sm text-white">{state.data.label}</b>
+          <div className="mb-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <b className="text-sm text-slate-900 dark:text-white">{state.data.label}</b>
             <span>{state.data.total} người{organizerRef ? ` · ${orgName(organizerRef)}` : ''}</span>
           </div>
           <div className="overflow-x-auto">
@@ -141,7 +141,7 @@ export default function RankingsPage() {
           </div>
           {user && !myRow && isCustomer && <p className="mt-2 text-xs text-slate-500">Dòng của bạn không ở trang này.</p>}
           {pages > 1 && (
-            <div className="mt-3 flex items-center justify-end gap-2 text-xs text-slate-400">
+            <div className="mt-3 flex items-center justify-end gap-2 text-xs text-slate-500 dark:text-slate-400">
               <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>← Trước</Button>
               Trang {page}/{pages}
               <Button variant="secondary" disabled={page >= pages} onClick={() => setPage(page + 1)}>Sau →</Button>
@@ -149,7 +149,7 @@ export default function RankingsPage() {
           )}
         </Card>
       )}
-      {!user && <p className="mt-4 text-sm text-slate-400"><Link to="/login" className="font-bold text-emerald-400 hover:underline">Đăng nhập</Link> để xem tên đầy đủ, đối đầu và vị trí của bạn.</p>}
-    </CustomerShell>
+      {!user && <p className="mt-4 text-sm text-slate-500 dark:text-slate-400"><Link to="/login" className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline">Đăng nhập</Link> để xem tên đầy đủ, đối đầu và vị trí của bạn.</p>}
+    </PublicShell>
   );
 }

@@ -44,8 +44,8 @@ function Body({ me, history }) {
   if (!hasRating) {
     return (
       <Card>
-        <h2 className="text-xl font-black text-white">Bạn chưa có điểm trình</h2>
-        <p className="mt-2 max-w-2xl text-sm text-slate-300">Trả lời 12 câu về kỹ thuật, thể lực và kinh nghiệm (khoảng 3 phút) để có điểm Đơn và Đôi. Điểm tự chấm là tạm tính — khi bạn tham gia giải hoặc buổi giao lưu có tính điểm, điểm sẽ được hiệu chỉnh theo kết quả thật.</p>
+        <h2 className="text-xl font-black text-slate-900 dark:text-white">Bạn chưa có điểm trình</h2>
+        <p className="mt-2 max-w-2xl text-sm text-slate-700 dark:text-slate-300">Trả lời 12 câu về kỹ thuật, thể lực và kinh nghiệm (khoảng 3 phút) để có điểm Đơn và Đôi. Điểm tự chấm là tạm tính — khi bạn tham gia giải hoặc buổi giao lưu có tính điểm, điểm sẽ được hiệu chỉnh theo kết quả thật.</p>
         <Link to="/my-rating/assess" className={`${linkBtn} mt-4 bg-emerald-500 text-slate-950 hover:bg-emerald-400`}>Chấm trình ngay</Link>
       </Card>
     );
@@ -63,7 +63,7 @@ function Body({ me, history }) {
               <li key={cat}><b>{cat}</b>: {r.eligible ? `hạng ${r.rank}/${r.total}` : `chưa đủ điều kiện lên bảng — vị trí dự kiến ${r.projectedRank || '—'}/${r.total}`}</li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-slate-400">Lên bảng khi có ≥ 5 trận tính điểm (hoặc được nhân viên xác nhận trình) và có trận trong 12 tháng gần đây.</p>
+          <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Lên bảng khi có ≥ 5 trận tính điểm (hoặc được nhân viên xác nhận trình) và có trận trong 12 tháng gần đây.</p>
         </Card>
       )}
 
@@ -74,10 +74,10 @@ function Body({ me, history }) {
       <div className="flex flex-wrap items-center gap-3">
         {assess.can
           ? <Link to="/my-rating/assess" className={`${linkBtn} bg-emerald-500 text-slate-950 hover:bg-emerald-400`}>Chấm lại</Link>
-          : <span className="max-w-xl text-sm text-slate-400" data-testid="assess-locked">{assess.reason}</span>}
-        <Link to="/my-rating/profile" className={`${linkBtn} border border-white/20 text-white hover:bg-white/10`}>Hồ sơ thi đấu của tôi</Link>
-        <Link to="/rankings" className={`${linkBtn} border border-white/20 text-white hover:bg-white/10`}>Bảng xếp hạng</Link>
-        <Link to="/my-tournaments" className={`${linkBtn} border border-white/20 text-white hover:bg-white/10`}>Giải của tôi</Link>
+          : <span className="max-w-xl text-sm text-slate-600 dark:text-slate-400" data-testid="assess-locked">{assess.reason}</span>}
+        <Link to="/my-rating/profile" className={`${linkBtn} border border-slate-300 dark:border-white/20 text-slate-900 dark:text-white hover:bg-white/10`}>Hồ sơ thi đấu của tôi</Link>
+        <Link to="/rankings" className={`${linkBtn} border border-slate-300 dark:border-white/20 text-slate-900 dark:text-white hover:bg-white/10`}>Bảng xếp hạng</Link>
+        <Link to="/my-tournaments" className={`${linkBtn} border border-slate-300 dark:border-white/20 text-slate-900 dark:text-white hover:bg-white/10`}>Giải của tôi</Link>
       </div>
 
       <Card title="Sổ điểm — vì sao điểm đổi">

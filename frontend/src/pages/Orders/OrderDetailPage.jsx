@@ -44,11 +44,11 @@ function PaymentQrCard({ order }) {
   return (
     <section className="nike-card-static border-amber-500/30 p-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">
+        <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
           📲 Quét mã để thanh toán
         </h2>
         {order.paymentDeadlineAt && (
-          <span className={`font-mono text-sm font-black ${runningOut ? 'text-rose-400' : 'text-amber-300'}`}>
+          <span className={`font-mono text-sm font-black ${runningOut ? 'text-rose-600 dark:text-rose-400' : 'text-amber-700 dark:text-amber-300'}`}>
             Còn {formatCountdown(remainingMs)}
           </span>
         )}
@@ -58,16 +58,16 @@ function PaymentQrCard({ order }) {
         <img
           src={order.qrCodeUrl}
           alt="Mã QR chuyển khoản"
-          className="h-44 w-44 shrink-0 rounded-xl border border-white/10 bg-white p-2"
+          className="h-44 w-44 shrink-0 rounded-xl border border-slate-200 dark:border-white/10 bg-white p-2"
         />
-        <div className="text-sm text-slate-300">
+        <div className="text-sm text-slate-700 dark:text-slate-300">
           <p>
             Mở app ngân hàng, quét mã và xác nhận đúng số tiền{' '}
-            <span className="font-bold text-white">{formatVnd(order.invoice?.totalAmount)}</span>.
+            <span className="font-bold text-slate-900 dark:text-white">{formatVnd(order.invoice?.totalAmount)}</span>.
           </p>
-          <p className="mt-3 rounded-xl border border-white/10 bg-slate-950/60 p-3 text-xs leading-relaxed text-slate-400">
+          <p className="mt-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-slate-950/60 p-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
             Trang này tự làm mới khi tiền về, không cần bấm gì thêm. Quá {' '}
-            <span className="font-bold text-amber-300">30 phút</span> chưa chuyển khoản, đơn tự huỷ và hàng trả
+            <span className="font-bold text-amber-700 dark:text-amber-300">30 phút</span> chưa chuyển khoản, đơn tự huỷ và hàng trả
             về kệ — bạn đặt lại là được.
           </p>
         </div>
@@ -143,7 +143,7 @@ export default function OrderDetailPage() {
   if (loading) {
     return (
       <CustomerLayout>
-        <p className="py-24 text-center text-slate-400">⏳ Đang tải đơn hàng...</p>
+        <p className="py-24 text-center text-slate-600 dark:text-slate-400">⏳ Đang tải đơn hàng...</p>
       </CustomerLayout>
     );
   }
@@ -152,7 +152,7 @@ export default function OrderDetailPage() {
     return (
       <CustomerLayout>
         <div className="nike-card-static p-12 text-center">
-          <p className="font-kinetic text-xl font-black uppercase text-white">{error || 'Không tìm thấy đơn hàng'}</p>
+          <p className="font-kinetic text-xl font-black uppercase text-slate-900 dark:text-white">{error || 'Không tìm thấy đơn hàng'}</p>
           <Link to="/orders" className="btn-nike-bolt mt-6 text-xs">
             Về đơn mua
           </Link>
@@ -186,8 +186,8 @@ export default function OrderDetailPage() {
       {justPlaced && (
         <div className="nike-card-static mb-6 border-emerald-500/40 p-6 text-center">
           <p className="text-5xl">🎉</p>
-          <p className="mt-3 font-kinetic text-xl font-black uppercase text-white">Đặt hàng thành công</p>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-3 font-kinetic text-xl font-black uppercase text-slate-900 dark:text-white">Đặt hàng thành công</p>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
             Hàng đã được giữ tại quầy {order.branch?.name}. Mời bạn tới lấy trong giờ mở cửa.
           </p>
         </div>
@@ -198,7 +198,7 @@ export default function OrderDetailPage() {
           <section className="nike-card-static p-7">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <p className="font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
                   Trạng thái
                 </p>
                 <span
@@ -207,20 +207,20 @@ export default function OrderDetailPage() {
                   {meta.label}
                 </span>
               </div>
-              <p className="text-xs text-slate-500">Đặt lúc {formatDateTime(order.createdAt, order.branch?.timezone)}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-500">Đặt lúc {formatDateTime(order.createdAt, order.branch?.timezone)}</p>
             </div>
-            <p className="mt-3 text-sm text-slate-400">{statusHint}</p>
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">{statusHint}</p>
 
             {order.invoice && (
-              <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/60 p-4 text-sm">
-                <div className="flex justify-between text-slate-400">
+              <div className="mt-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-slate-950/60 p-4 text-sm">
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>Số hoá đơn</span>
-                  <span className="font-mono font-bold text-white">{order.invoice.invoiceNo}</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">{order.invoice.invoiceNo}</span>
                 </div>
                 {order.invoice.payment && (
-                  <div className="mt-2 flex justify-between text-slate-400">
+                  <div className="mt-2 flex justify-between text-slate-600 dark:text-slate-400">
                     <span>Giao dịch</span>
-                    <span className="font-bold text-white">
+                    <span className="font-bold text-slate-900 dark:text-white">
                       {order.invoice.payment.method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'} •{' '}
                       {order.invoice.payment.status === 'paid'
                         ? `đã nhận lúc ${formatDateTime(order.invoice.payment.paidAt, order.branch?.timezone)}`
@@ -236,7 +236,7 @@ export default function OrderDetailPage() {
                 type="button"
                 onClick={handleCancel}
                 disabled={cancelling}
-                className="mt-5 text-xs font-bold text-rose-400 transition hover:underline disabled:opacity-50"
+                className="mt-5 text-xs font-bold text-rose-600 dark:text-rose-400 transition hover:underline disabled:opacity-50"
               >
                 {cancelling ? 'Đang huỷ...' : '❌ Huỷ đơn hàng này'}
               </button>
@@ -246,7 +246,7 @@ export default function OrderDetailPage() {
           <PaymentQrCard order={order} />
 
           <section className="nike-card-static p-7">
-            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">📦 Sản phẩm</h2>
+            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">📦 Sản phẩm</h2>
             <div className="mt-4 space-y-3">
               {(order.lines || []).map((line) => {
                 const name = line.variant?.product?.name || `Sản phẩm #${line.variantId}`;
@@ -254,17 +254,17 @@ export default function OrderDetailPage() {
                 return (
                   <div key={line.id} className="flex items-center gap-4">
                     <span
-                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br text-3xl ${look.tint}`}
+                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 dark:border-white/10 bg-gradient-to-br text-3xl ${look.tint}`}
                     >
                       {look.icon}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-white">{name}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="truncate text-sm font-bold text-slate-900 dark:text-white">{name}</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-500">
                         {variantLabel(line.variant)} • {formatVnd(line.unitPrice)} × {line.quantity}
                       </p>
                     </div>
-                    <span className="shrink-0 font-kinetic text-base font-black text-emerald-400">
+                    <span className="shrink-0 font-kinetic text-base font-black text-emerald-700 dark:text-emerald-400">
                       {formatVnd(line.lineTotal)}
                     </span>
                   </div>
@@ -276,58 +276,58 @@ export default function OrderDetailPage() {
 
         <aside className="space-y-6 lg:sticky lg:top-24">
           <section className="nike-card-static p-7">
-            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">📍 Nhận hàng</h2>
-            <p className="mt-3 font-kinetic text-base font-black uppercase text-emerald-300">
+            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">📍 Nhận hàng</h2>
+            <p className="mt-3 font-kinetic text-base font-black uppercase text-emerald-700 dark:text-emerald-300">
               {order.branch?.name || 'Chi nhánh'}
             </p>
-            {order.branch?.address && <p className="mt-1 text-sm text-slate-400">{order.branch.address}</p>}
+            {order.branch?.address && <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{order.branch.address}</p>}
 
-            <div className="mt-4 space-y-2 border-t border-white/10 pt-4 text-sm">
+            <div className="mt-4 space-y-2 border-t border-slate-200 dark:border-white/10 pt-4 text-sm">
               <div className="flex justify-between gap-3">
-                <span className="text-slate-400">Người nhận</span>
-                <span className="font-bold text-white">{order.contactName || '—'}</span>
+                <span className="text-slate-600 dark:text-slate-400">Người nhận</span>
+                <span className="font-bold text-slate-900 dark:text-white">{order.contactName || '—'}</span>
               </div>
               <div className="flex justify-between gap-3">
-                <span className="text-slate-400">Điện thoại</span>
-                <span className="font-bold text-white">{order.contactPhone || '—'}</span>
+                <span className="text-slate-600 dark:text-slate-400">Điện thoại</span>
+                <span className="font-bold text-slate-900 dark:text-white">{order.contactPhone || '—'}</span>
               </div>
             </div>
 
             {order.customerNote && (
-              <p className="mt-4 rounded-xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-relaxed text-slate-400">
-                <span className="font-bold text-slate-300">Ghi chú: </span>
+              <p className="mt-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-slate-950/60 p-4 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                <span className="font-bold text-slate-700 dark:text-slate-300">Ghi chú: </span>
                 {order.customerNote}
               </p>
             )}
           </section>
 
           <section className="nike-card-static p-7">
-            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">🧾 Thanh toán</h2>
+            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">🧾 Thanh toán</h2>
             <div className="mt-4 space-y-2 text-sm">
-              <div className="flex justify-between text-slate-400">
+              <div className="flex justify-between text-slate-600 dark:text-slate-400">
                 <span>Phương thức</span>
-                <span className="font-bold text-white">
+                <span className="font-bold text-slate-900 dark:text-white">
                   {order.paymentMethod === 'transfer' ? '🏦 Chuyển khoản' : '💵 Tiền mặt tại quầy'}
                 </span>
               </div>
-              <div className="flex justify-between text-slate-400">
+              <div className="flex justify-between text-slate-600 dark:text-slate-400">
                 <span>Tiền hàng ({orderQuantity(order)} sản phẩm)</span>
                 <span>{formatVnd(total)}</span>
               </div>
               {Number(order.voucherDiscountAmount) > 0 && (
-                <div className="flex justify-between text-emerald-400">
+                <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
                   <span>Mã {order.voucherCode}</span>
                   <span>-{formatVnd(order.voucherDiscountAmount)}</span>
                 </div>
               )}
-              <div className="flex items-center justify-between border-t border-white/10 pt-3">
-                <span className="font-kinetic text-sm font-black uppercase text-white">Tổng cộng</span>
-                <span className="font-kinetic text-2xl font-black text-emerald-400">
+              <div className="flex items-center justify-between border-t border-slate-200 dark:border-white/10 pt-3">
+                <span className="font-kinetic text-sm font-black uppercase text-slate-900 dark:text-white">Tổng cộng</span>
+                <span className="font-kinetic text-2xl font-black text-emerald-700 dark:text-emerald-400">
                   {formatVnd(order.invoice?.totalAmount ?? total)}
                 </span>
               </div>
             </div>
-            <p className="mt-4 text-xs leading-relaxed text-slate-500">
+            <p className="mt-4 text-xs leading-relaxed text-slate-600 dark:text-slate-500">
               {order.status === 'paid'
                 ? 'Đơn đã thanh toán.'
                 : order.paymentMethod === 'transfer'

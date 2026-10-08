@@ -17,18 +17,18 @@ export default function ProductCard({ product }) {
           <StockBadge inStock={product.inStock} />
         </div>
         {product.category && (
-          <span className="absolute right-4 top-4 rounded-full border border-white/10 bg-slate-950/80 px-3 py-1 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-300">
+          <span className="absolute right-4 top-4 rounded-full border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-slate-950/80 px-3 py-1 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">
             {product.category.name}
           </span>
         )}
       </div>
 
       <div className="flex flex-1 flex-col p-6">
-        <h3 className="font-kinetic text-lg font-black uppercase leading-tight tracking-tight text-white">
+        <h3 className="font-kinetic text-lg font-black uppercase leading-tight tracking-tight text-slate-900 dark:text-white">
           {product.name}
         </h3>
 
-        <p className="mt-3 font-kinetic text-xl font-black text-emerald-400">{priceLabel(product)}</p>
+        <p className="mt-3 font-kinetic text-xl font-black text-emerald-700 dark:text-emerald-400">{priceLabel(product)}</p>
 
         {(sizes.length > 0 || colors.length > 0) && (
           <div className="mt-4 flex flex-wrap gap-2">

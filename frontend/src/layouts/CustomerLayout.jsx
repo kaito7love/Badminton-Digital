@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { roleOf, isStaff, homePathForRole } from '../utils/roles';
 import { useCompetition } from '../features/competition/context/CompetitionContext';
+import { useTheme } from '../contexts/ThemeContext';
+import BrandMark from '../components/BrandMark';
 
 /**
  * Vỏ chung cho mặt tiền dành cho khách: cửa hàng, lịch đặt, tài khoản.
@@ -11,6 +13,10 @@ import { useCompetition } from '../features/competition/context/CompetitionConte
  * Cố tình KHÔNG dùng SidebarLayout — khách không có việc gì với "Quản Lý Sân"
  * hay "Nhân Viên", bày ra chỉ tổ dẫn họ bấm vào rồi lãnh 403. Ngược lại nhân
  * viên lỡ ghé qua đây vẫn có một đường về bàn làm việc của mình.
+ *
+ * Giao diện sáng / tối: theo ThemeContext như bàn làm việc. Chế độ sáng gắn lớp `.kinetic-light` lên gốc để
+ * styles/kinetic.css đổi bảng màu của skin chỉ trong khung này (trang chủ cũng dùng kinetic.css nhưng không
+ * gắn lớp đó nên giữ nguyên bản tối). Mọi trang trong khung phải có cặp màu sáng/tối (`text-slate-900 dark:text-white`...).
  */
 
 const NAV_ITEMS = [
@@ -29,17 +35,16 @@ const NAV_ITEMS = [
 const Logo = () => (
   <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5 group-hover:scale-110 transition-transform">
     <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-      <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 100 100" fill="none">
-        <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="8" fill="transparent" />
-        <path d="M50 18 L68 45 L50 38 L32 45 Z" fill="#CCFF00" />
-        <path d="M50 38 L50 82" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-      </svg>
+      <BrandMark className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
     </div>
   </div>
 );
 
 export default function CustomerLayout({ eyebrow, title, subtitle, action, children }) {
   const location = useLocation();
+  const themeCtx = useTheme();
+  // Không có ThemeProvider (test, nhúng riêng) → như mặc định của app là tối.
+  const light = Boolean(themeCtx) && themeCtx.theme === 'light';
   const { user, logout } = useAuth();
   const { totalQuantity } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -62,12 +67,12 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
   const badgeFor = (path) => (path === '/cart' && totalQuantity > 0 ? totalQuantity : null);
 
   return (
-    <div className="kinetic-surface nike-grid-bg flex flex-col">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/90 backdrop-blur-2xl">
+    <div className={`kinetic-surface nike-grid-bg flex flex-col${light ? ' kinetic-light' : ''}`}>
+      <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-white/10 bg-white/90 dark:bg-slate-950/90 backdrop-blur-2xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-5 sm:px-6">
           <Link to="/" className="group flex items-center gap-3">
             <Logo />
-            <div className="whitespace-nowrap font-kinetic text-base font-black uppercase tracking-tighter text-white sm:text-xl">
+            <div className="whitespace-nowrap font-kinetic text-base font-black uppercase tracking-tighter text-slate-900 dark:text-white sm:text-xl">
               BADMINTON <span className="text-gradient-nike">DIGITAL</span>
             </div>
           </Link>
@@ -77,7 +82,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
               <Link
                 key={item.path}
                 to={item.path}
-                className={`transition-colors ${isActive(item.path) ? 'text-emerald-400' : 'text-slate-300 hover:text-emerald-400'}`}
+                className={`transition-colors ${isActive(item.path) ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400'}`}
               >
                 {item.label}
                 {badgeFor(item.path) && (
@@ -90,15 +95,26 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
           </nav>
 
           <div className="flex items-center gap-3">
+            {themeCtx && (
+              <button
+                type="button"
+                onClick={themeCtx.toggleTheme}
+                className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-300 text-sm transition hover:bg-slate-100 dark:border-white/15 dark:hover:bg-white/10 sm:flex"
+                aria-label={light ? 'Chuyển sang giao diện tối' : 'Chuyển sang giao diện sáng'}
+                title={light ? 'Giao diện tối' : 'Giao diện sáng'}
+              >
+                {light ? '🌙' : '☀️'}
+              </button>
+            )}
             {user ? (
               <>
-                <span className="hidden text-sm text-slate-400 sm:block">
-                  Xin chào, <span className="font-bold text-slate-200">{user.fullName}</span>
+                <span className="hidden text-sm text-slate-600 dark:text-slate-400 sm:block">
+                  <span className="hidden 2xl:inline">Xin chào, </span><span className="font-bold text-slate-800 dark:text-slate-200">{user.fullName}</span>
                 </span>
                 {isStaff(user) && (
                   <Link
                     to={homePathForRole(user)}
-                    className="hidden rounded-xl border border-white/15 px-4 py-2 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-300 transition hover:border-emerald-500/40 hover:text-emerald-400 sm:inline-block"
+                    className="hidden rounded-xl border border-slate-300 dark:border-white/15 px-4 py-2 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 transition hover:border-emerald-500/40 hover:text-emerald-700 dark:hover:text-emerald-400 sm:inline-block"
                   >
                     Bàn làm việc
                   </Link>
@@ -106,7 +122,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
                 <button
                   type="button"
                   onClick={logout}
-                  className="whitespace-nowrap rounded-xl bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 transition hover:bg-slate-700 sm:px-4"
+                  className="whitespace-nowrap rounded-xl bg-slate-200 dark:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 transition hover:bg-slate-300 dark:hover:bg-slate-700 sm:px-4"
                 >
                   Đăng xuất
                 </button>
@@ -115,7 +131,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
               <>
                 <Link
                   to="/login"
-                  className="font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-300 transition-colors hover:text-white sm:text-xs"
+                  className="font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 transition-colors hover:text-slate-900 dark:hover:text-white sm:text-xs"
                 >
                   Đăng nhập
                 </Link>
@@ -131,7 +147,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
 
             <button
               type="button"
-              className={`rounded-lg border border-white/20 px-3 py-2 text-xs font-bold text-white ${BP.navHide}`}
+              className={`rounded-lg border border-slate-300 dark:border-white/20 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white ${BP.navHide}`}
               onClick={() => setMobileMenuOpen((open) => !open)}
               aria-expanded={mobileMenuOpen}
               aria-controls="customer-mobile-nav"
@@ -146,19 +162,29 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
           <nav
             id="customer-mobile-nav"
             aria-label="Điều hướng"
-            className={`grid grid-cols-2 gap-3 border-t border-white/10 bg-slate-950/95 px-5 py-4 font-kinetic text-xs font-bold uppercase tracking-widest ${BP.navHide}`}
+            className={`grid grid-cols-2 gap-3 border-t border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-950/95 px-5 py-4 font-kinetic text-xs font-bold uppercase tracking-widest ${BP.navHide}`}
           >
             {visibleNav.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`transition-colors ${isActive(item.path) ? 'text-emerald-400' : 'text-slate-300 hover:text-emerald-400'}`}
+                className={`transition-colors ${isActive(item.path) ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400'}`}
               >
                 {item.icon} {item.label}
                 {badgeFor(item.path) ? ` (${badgeFor(item.path)})` : ''}
               </Link>
             ))}
+            {/* Dưới sm header không còn chỗ cho nút đổi giao diện (đã sát), nên nó nằm ở đây. */}
+            {themeCtx && (
+              <button
+                type="button"
+                onClick={themeCtx.toggleTheme}
+                className="col-span-2 text-left uppercase tracking-widest text-slate-600 transition-colors hover:text-emerald-600 dark:text-slate-300 dark:hover:text-emerald-400 sm:hidden"
+              >
+                {light ? '🌙 Giao diện tối' : '☀️ Giao diện sáng'}
+              </button>
+            )}
           </nav>
         )}
       </header>
@@ -169,11 +195,11 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
             <div>
               {eyebrow && <div className="live-ticker mb-4">{eyebrow}</div>}
               {title && (
-                <h1 className="font-kinetic text-4xl font-black uppercase tracking-tighter text-white sm:text-5xl">
+                <h1 className="font-kinetic text-4xl font-black uppercase tracking-tighter text-slate-900 dark:text-white sm:text-5xl">
                   {title}
                 </h1>
               )}
-              {subtitle && <p className="mt-3 max-w-2xl text-slate-400">{subtitle}</p>}
+              {subtitle && <p className="mt-3 max-w-2xl text-slate-600 dark:text-slate-400">{subtitle}</p>}
             </div>
             {action}
           </div>
@@ -185,14 +211,14 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
       {/* Thanh điều hướng đáy trên mobile — cùng lối với bàn làm việc nhân viên */}
       <nav
         aria-label="Điều hướng nhanh"
-        className={`fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 backdrop-blur-xl ${BP.navHide}`}
+        className={`fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl ${BP.navHide}`}
       >
         <div className="mx-auto flex max-w-md items-center justify-around px-3 py-2.5">
           {bottomNav.map((item) => (
             <Link key={item.path} to={item.path} className="flex flex-col items-center gap-1 text-center">
               <span
                 className={`relative inline-flex h-9 w-9 items-center justify-center rounded-xl text-base ${
-                  isActive(item.path, item.group) ? 'bg-emerald-500' : 'bg-slate-900'
+                  isActive(item.path, item.group) ? 'bg-emerald-500' : 'bg-slate-100 dark:bg-slate-900'
                 }`}
               >
                 {item.icon}
@@ -203,7 +229,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
                 )}
               </span>
               <span
-                className={`text-[10px] font-bold ${isActive(item.path, item.group) ? 'text-emerald-400' : 'text-slate-500'}`}
+                className={`text-[10px] font-bold ${isActive(item.path, item.group) ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-500'}`}
               >
                 {item.label}
               </span>
@@ -212,12 +238,12 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
         </div>
       </nav>
 
-      <footer className="relative z-10 border-t border-white/10 bg-slate-950 py-10">
+      <footer className="relative z-10 border-t border-slate-200 dark:border-white/10 bg-white dark:bg-slate-950 py-10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 text-center sm:px-6 md:flex-row md:text-left">
-          <div className="font-kinetic text-lg font-black uppercase text-white">
+          <div className="font-kinetic text-lg font-black uppercase text-slate-900 dark:text-white">
             BADMINTON <span className="text-gradient-nike">DIGITAL</span>
           </div>
-          <p className="font-kinetic text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          <p className="font-kinetic text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-500">
             © 2026 BADMINTON DIGITAL // NIKE KINETIC EDITION
           </p>
         </div>

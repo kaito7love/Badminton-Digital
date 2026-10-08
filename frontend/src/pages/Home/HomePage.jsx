@@ -7,6 +7,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import { roleOf, isStaff, homePathForRole } from "../../utils/roles";
 import { todayInZone } from '../../utils/datetime';
+import BrandMark from '../../components/BrandMark';
 
 // Lựa chọn của khách được giữ lại khi họ phải rẽ qua trang đăng nhập, để quay
 // về là đặt tiếp chứ không phải chọn lại từ đầu.
@@ -325,27 +326,7 @@ export default function HomePage() {
           >
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5 group-hover:scale-110 transition-transform">
               <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-emerald-400"
-                  viewBox="0 0 100 100"
-                  fill="none"
-                >
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="transparent"
-                  />
-                  <path d="M50 18 L68 45 L50 38 L32 45 Z" fill="#CCFF00" />
-                  <path
-                    d="M50 38 L50 82"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                  />
-                </svg>
+                <BrandMark className="w-6 h-6 text-emerald-400" />
               </div>
             </div>
             <div className="font-kinetic font-black text-lg sm:text-2xl tracking-tighter text-white uppercase whitespace-nowrap">

@@ -65,13 +65,13 @@ function ProfileForm({ me, onSaved }) {
       </div>
 
       <fieldset>
-        <legend className="mb-1 text-xs font-semibold text-slate-300">Quyền riêng tư</legend>
+        <legend className="mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">Quyền riêng tư</legend>
         <div className="grid gap-2 sm:grid-cols-3">
           {VISIBILITY.map(([value, label, hint]) => (
             <button key={value} type="button" data-visibility={value} aria-pressed={form.visibility === value} onClick={() => set({ visibility: value })}
-              className={`rounded-2xl border p-3 text-left text-sm transition ${form.visibility === value ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 hover:border-emerald-500/50'}`}>
-              <b className="block text-white">{label}</b>
-              <small className="text-slate-400">{hint}</small>
+              className={`rounded-2xl border p-3 text-left text-sm transition ${form.visibility === value ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-300 dark:border-slate-700 hover:border-emerald-500/50'}`}>
+              <b className="block text-slate-900 dark:text-white">{label}</b>
+              <small className="text-slate-600 dark:text-slate-400">{hint}</small>
             </button>
           ))}
         </div>
@@ -105,7 +105,7 @@ export default function MyProfilePage() {
 
   return (
     <CustomerShell title="Hồ sơ thi đấu của tôi" subtitle="Thông tin hiển thị với người chơi khác và dùng để ghép cặp.">
-      <Link to="/my-rating" className="mb-4 inline-block text-xs font-bold text-emerald-400 hover:underline">← Trình độ của tôi</Link>
+      <Link to="/my-rating" className="mb-4 inline-block text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline">← Trình độ của tôi</Link>
       {loading && !data && <Spinner label="Đang tải hồ sơ…" />}
       {error && !data && <Notice error={error} onRetry={() => reload()} />}
       {data && (
@@ -118,10 +118,10 @@ export default function MyProfilePage() {
             <Card title="Thống kê & thành tích">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[480px] text-left text-sm" data-testid="my-stats">
-                  <thead><tr className="text-xs text-slate-400"><th className="py-1 pr-3">Nội dung</th><th className="py-1 pr-3">Trận</th><th className="py-1 pr-3">T–B</th><th className="py-1 pr-3">Thắng</th><th className="py-1">Giải</th></tr></thead>
+                  <thead><tr className="text-xs text-slate-600 dark:text-slate-400"><th className="py-1 pr-3">Nội dung</th><th className="py-1 pr-3">Trận</th><th className="py-1 pr-3">T–B</th><th className="py-1 pr-3">Thắng</th><th className="py-1">Giải</th></tr></thead>
                   <tbody>
                     {data.stats.map((s) => (
-                      <tr key={`${s.discipline}-${s.context}`} className="border-t border-slate-800">
+                      <tr key={`${s.discipline}-${s.context}`} className="border-t border-slate-200 dark:border-slate-800">
                         <td className="py-1.5 pr-3 font-semibold">{DISCIPLINE_LABEL[s.discipline]} · {CONTEXT[s.context] || s.context}</td>
                         <td className="pr-3 tabular-nums">{s.matches}</td>
                         <td className="pr-3 tabular-nums">{s.wins}–{s.losses}</td>
@@ -144,9 +144,9 @@ export default function MyProfilePage() {
                   return (
                     <li key={m.id} className="flex flex-wrap items-baseline gap-x-2">
                       <Badge variant={won ? 'emerald' : 'rose'}>{won ? 'Thắng' : 'Thua'}</Badge>
-                      <span>{teamText(side === 'A' ? m.teamA : m.teamB)} <span className="text-slate-500">vs</span> {teamText(side === 'A' ? m.teamB : m.teamA)}</span>
+                      <span>{teamText(side === 'A' ? m.teamA : m.teamB)} <span className="text-slate-600 dark:text-slate-500">vs</span> {teamText(side === 'A' ? m.teamB : m.teamA)}</span>
                       <b className="tabular-nums">{gamesText(m.games.map((g) => (side === 'A' ? g : [g[1], g[0]])))}</b>
-                      <small className="text-slate-500">{CONTEXT[m.contextType] || ''} · {fmtDate(m.completedAt)}</small>
+                      <small className="text-slate-600 dark:text-slate-500">{CONTEXT[m.contextType] || ''} · {fmtDate(m.completedAt)}</small>
                     </li>
                   );
                 })}
@@ -159,7 +159,7 @@ export default function MyProfilePage() {
               <ul className="grid gap-1 text-sm sm:grid-cols-2">{data.partners.map((p) => <li key={p.playerId}><b>{p.name}</b> · {p.matches} trận · thắng {Math.round(p.winRate * 100)}%</li>)}</ul>
             </Card>
           )}
-          {data.me.homeOrganizerRef && <p className="text-xs text-slate-500">Chi nhánh thường chơi: {orgName(data.me.homeOrganizerRef)}</p>}
+          {data.me.homeOrganizerRef && <p className="text-xs text-slate-600 dark:text-slate-500">Chi nhánh thường chơi: {orgName(data.me.homeOrganizerRef)}</p>}
         </div>
       )}
     </CustomerShell>

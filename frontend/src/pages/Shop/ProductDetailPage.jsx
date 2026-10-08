@@ -153,7 +153,7 @@ export default function ProductDetailPage() {
   if (loading) {
     return (
       <CustomerLayout>
-        <p className="py-24 text-center text-slate-400">⏳ Đang tải sản phẩm...</p>
+        <p className="py-24 text-center text-slate-600 dark:text-slate-400">⏳ Đang tải sản phẩm...</p>
       </CustomerLayout>
     );
   }
@@ -162,7 +162,7 @@ export default function ProductDetailPage() {
     return (
       <CustomerLayout>
         <div className="nike-card-static p-12 text-center">
-          <p className="font-kinetic text-xl font-black uppercase text-white">{error || 'Không tìm thấy sản phẩm'}</p>
+          <p className="font-kinetic text-xl font-black uppercase text-slate-900 dark:text-white">{error || 'Không tìm thấy sản phẩm'}</p>
           <Link to="/shop" className="btn-nike-bolt mt-6 text-xs">
             Về cửa hàng
           </Link>
@@ -175,12 +175,12 @@ export default function ProductDetailPage() {
 
   return (
     <CustomerLayout>
-      <nav aria-label="Đường dẫn" className="mb-6 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-500">
-        <Link to="/shop" className="hover:text-emerald-400">
+      <nav aria-label="Đường dẫn" className="mb-6 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-500">
+        <Link to="/shop" className="hover:text-emerald-700 dark:hover:text-emerald-400">
           Cửa hàng
         </Link>
         {product.category && <span> / {product.category.name}</span>}
-        <span className="text-slate-300"> / {product.name}</span>
+        <span className="text-slate-700 dark:text-slate-300"> / {product.name}</span>
       </nav>
 
       <div className="grid gap-8 lg:grid-cols-2">
@@ -192,16 +192,16 @@ export default function ProductDetailPage() {
 
         <div className="nike-card-static p-7">
           {product.category && (
-            <p className="font-kinetic text-[10px] font-black uppercase tracking-widest text-emerald-400">
+            <p className="font-kinetic text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
               {product.category.name}
             </p>
           )}
-          <h1 className="mt-2 font-kinetic text-3xl font-black uppercase leading-tight tracking-tight text-white">
+          <h1 className="mt-2 font-kinetic text-3xl font-black uppercase leading-tight tracking-tight text-slate-900 dark:text-white">
             {product.name}
           </h1>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <span className="font-kinetic text-3xl font-black text-emerald-400">
+            <span className="font-kinetic text-3xl font-black text-emerald-700 dark:text-emerald-400">
               {selectedVariant ? formatVnd(selectedVariant.price) : priceLabel(product)}
             </span>
             <StockBadge inStock={selectedVariant ? selectedVariant.inStock : product.inStock} />
@@ -209,7 +209,7 @@ export default function ProductDetailPage() {
 
           {colors.length > 0 && (
             <div className="mt-6">
-              <p className="mb-2 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">Màu</p>
+              <p className="mb-2 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">Màu</p>
               <div className="flex flex-wrap gap-2">
                 {colors.map((option) => (
                   <button
@@ -228,7 +228,7 @@ export default function ProductDetailPage() {
 
           {sizes.length > 0 && (
             <div className="mt-5">
-              <p className="mb-2 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">Size</p>
+              <p className="mb-2 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">Size</p>
               <div className="flex flex-wrap gap-2">
                 {sizes.map((option) => {
                   const state = stateOfSize(option);
@@ -252,13 +252,13 @@ export default function ProductDetailPage() {
           )}
 
           <div className="mt-6">
-            <p className="mb-2 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <p className="mb-2 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
               Số lượng
             </p>
             <div className="flex flex-wrap items-center gap-4">
               <QuantityStepper value={quantity} onChange={setQuantity} />
               {selectedVariant && (
-                <span className="font-mono text-xs text-slate-500">
+                <span className="font-mono text-xs text-slate-600 dark:text-slate-500">
                   SKU {selectedVariant.sku}
                   {inCartQuantity > 0 && ` • đã có ${inCartQuantity} trong giỏ`}
                 </span>
@@ -288,17 +288,17 @@ export default function ProductDetailPage() {
           </div>
 
           {!selectedVariant ? (
-            <p className="mt-4 text-sm font-bold text-amber-300">
+            <p className="mt-4 text-sm font-bold text-amber-700 dark:text-amber-300">
               Mẫu {variantLabel({ color, size })} chưa có ở chi nhánh này — chọn màu hoặc size khác.
             </p>
           ) : !selectedVariant.inStock ? (
-            <p className="mt-4 text-sm font-bold text-amber-300">
+            <p className="mt-4 text-sm font-bold text-amber-700 dark:text-amber-300">
               Mẫu {variantLabel(selectedVariant)} đang hết hàng tại {data.branch.name} — chọn mẫu khác hoặc đổi chi
               nhánh ở trang cửa hàng.
             </p>
           ) : null}
 
-          <p className="mt-5 rounded-xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-relaxed text-slate-400">
+          <p className="mt-5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-slate-950/60 p-4 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
             Đặt trước trên web, hàng được giữ tại quầy {data.branch.name}. Bạn thanh toán khi tới lấy — tiền mặt
             hoặc chuyển khoản tại quầy. Giá và tình trạng còn hàng lấy trực tiếp từ kho của chi nhánh.
           </p>
@@ -306,25 +306,25 @@ export default function ProductDetailPage() {
       </div>
 
       <section className="mt-8">
-        <h2 className="mb-4 font-kinetic text-xl font-black uppercase tracking-tight text-white">
+        <h2 className="mb-4 font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
           Tất cả mẫu đang bán
         </h2>
         <div className="nike-card-static overflow-x-auto p-2">
           <table className="w-full min-w-[520px]">
             <thead>
-              <tr className="border-b border-white/10 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <tr className="border-b border-slate-200 dark:border-white/10 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
                 <th className="px-4 py-4 text-left">Mẫu</th>
                 <th className="px-4 py-4 text-left">SKU</th>
                 <th className="px-4 py-4 text-right">Giá</th>
                 <th className="px-4 py-4 text-right">Tình trạng</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
               {variants.map((variant) => (
                 <tr key={variant.id} className={selectedVariant?.id === variant.id ? 'bg-emerald-500/5' : ''}>
-                  <td className="px-4 py-4 text-sm font-bold text-white">{variantLabel(variant)}</td>
-                  <td className="px-4 py-4 font-mono text-xs text-slate-500">{variant.sku}</td>
-                  <td className="px-4 py-4 text-right text-sm text-slate-300">{formatVnd(variant.price)}</td>
+                  <td className="px-4 py-4 text-sm font-bold text-slate-900 dark:text-white">{variantLabel(variant)}</td>
+                  <td className="px-4 py-4 font-mono text-xs text-slate-600 dark:text-slate-500">{variant.sku}</td>
+                  <td className="px-4 py-4 text-right text-sm text-slate-700 dark:text-slate-300">{formatVnd(variant.price)}</td>
                   <td className="px-4 py-4 text-right">
                     <StockBadge inStock={variant.inStock} labels={['Còn', 'Hết']} />
                   </td>
@@ -337,7 +337,7 @@ export default function ProductDetailPage() {
 
       {data.related?.length > 0 && (
         <section className="mt-10">
-          <h2 className="mb-5 font-kinetic text-xl font-black uppercase tracking-tight text-white">
+          <h2 className="mb-5 font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
             Sản phẩm liên quan
           </h2>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

@@ -16,9 +16,9 @@ import { formatDateTime, formatDate } from '../../utils/datetime';
  */
 
 const TIERS = [
-  { key: 'normal', label: 'Thành viên', icon: '🏸', from: 0, cls: 'border-slate-600 bg-slate-800/60 text-slate-300' },
-  { key: 'gold', label: 'Hạng Vàng', icon: '🥇', from: 5000000, cls: 'border-amber-400/40 bg-amber-400/15 text-amber-300' },
-  { key: 'vip', label: 'Hạng VIP', icon: '💎', from: 15000000, cls: 'border-emerald-400/40 bg-emerald-400/15 text-emerald-300' }
+  { key: 'normal', label: 'Thành viên', icon: '🏸', from: 0, cls: 'border-slate-300 dark:border-slate-600 bg-slate-200/70 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300' },
+  { key: 'gold', label: 'Hạng Vàng', icon: '🥇', from: 5000000, cls: 'border-amber-400/40 bg-amber-400/15 text-amber-700 dark:text-amber-300' },
+  { key: 'vip', label: 'Hạng VIP', icon: '💎', from: 15000000, cls: 'border-emerald-400/40 bg-emerald-400/15 text-emerald-700 dark:text-emerald-300' }
 ];
 
 const tierOf = (key) => TIERS.find((t) => t.key === key) || TIERS[0];
@@ -38,9 +38,9 @@ const initialsOf = (name) =>
 
 function InfoRow({ label, value }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-white/5 py-3 last:border-0">
-      <span className="font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
-      <span className="truncate text-sm font-bold text-white">{value || '—'}</span>
+    <div className="flex items-center justify-between gap-4 border-b border-slate-100 dark:border-white/5 py-3 last:border-0">
+      <span className="font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">{label}</span>
+      <span className="truncate text-sm font-bold text-slate-900 dark:text-white">{value || '—'}</span>
     </div>
   );
 }
@@ -48,9 +48,9 @@ function InfoRow({ label, value }) {
 function StatTile({ label, value, hint }) {
   return (
     <div className="nike-card-static p-6">
-      <p className="font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-      <p className="mt-2 font-kinetic text-3xl font-black text-emerald-400">{value}</p>
-      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+      <p className="font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">{label}</p>
+      <p className="mt-2 font-kinetic text-3xl font-black text-emerald-700 dark:text-emerald-400">{value}</p>
+      {hint && <p className="mt-1 text-xs text-slate-600 dark:text-slate-500">{hint}</p>}
     </div>
   );
 }
@@ -85,12 +85,12 @@ function ChangePasswordCard() {
 
   return (
     <section className="nike-card-static p-7">
-      <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">Đổi mật khẩu</h2>
-      <p className="mt-2 text-sm text-slate-400">Tối thiểu 6 ký tự. Đổi xong bạn vẫn giữ nguyên phiên đăng nhập này.</p>
+      <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">Đổi mật khẩu</h2>
+      <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Tối thiểu 6 ký tự. Đổi xong bạn vẫn giữ nguyên phiên đăng nhập này.</p>
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-4">
         <div>
-          <label htmlFor="old-password" className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <label htmlFor="old-password" className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
             Mật khẩu hiện tại
           </label>
           <input
@@ -105,7 +105,7 @@ function ChangePasswordCard() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="new-password" className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <label htmlFor="new-password" className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
               Mật khẩu mới
             </label>
             <input
@@ -120,7 +120,7 @@ function ChangePasswordCard() {
             />
           </div>
           <div>
-            <label htmlFor="confirm-password" className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <label htmlFor="confirm-password" className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
               Nhập lại mật khẩu mới
             </label>
             <input
@@ -137,7 +137,7 @@ function ChangePasswordCard() {
         </div>
 
         {status && (
-          <p className={`text-sm font-bold ${status.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>
+          <p className={`text-sm font-bold ${status.type === 'success' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
             {status.message}
           </p>
         )}
@@ -225,7 +225,7 @@ export default function AccountPage() {
               {initialsOf(customer?.fullName || user?.fullName)}
             </div>
             <div className="min-w-0">
-              <h2 className="truncate font-kinetic text-2xl font-black uppercase tracking-tight text-white">
+              <h2 className="truncate font-kinetic text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
                 {customer?.fullName || user?.fullName}
               </h2>
               <span
@@ -243,7 +243,7 @@ export default function AccountPage() {
             <InfoRow label="Mã khách hàng" value={customerId ? `#${customerId}` : '—'} />
           </div>
 
-          <p className="mt-5 rounded-xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-relaxed text-slate-400">
+          <p className="mt-5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-slate-950/60 p-4 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
             Cần sửa tên, số điện thoại hay email? Nhờ nhân viên tại quầy cập nhật — số điện thoại cũng là danh tính
             đăng nhập của bạn.
           </p>
@@ -266,19 +266,19 @@ export default function AccountPage() {
       </div>
 
       <section className="mt-6">
-        <h2 className="mb-5 font-kinetic text-2xl font-black uppercase tracking-tight text-white">
+        <h2 className="mb-5 font-kinetic text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
           Lịch sử chơi & hoá đơn
         </h2>
 
         {loading ? (
-          <p className="nike-card-static p-10 text-center text-slate-400">⏳ Đang tải lịch sử...</p>
+          <p className="nike-card-static p-10 text-center text-slate-600 dark:text-slate-400">⏳ Đang tải lịch sử...</p>
         ) : error ? (
-          <p className="nike-card-static p-10 text-center font-bold text-rose-400">{error}</p>
+          <p className="nike-card-static p-10 text-center font-bold text-rose-600 dark:text-rose-400">{error}</p>
         ) : sessions.length === 0 ? (
           <div className="nike-card-static p-10 text-center">
-            <p className="font-kinetic text-lg font-black uppercase text-white">Chưa có buổi chơi nào</p>
-            <p className="mt-3 text-slate-400">Đặt sân đầu tiên và buổi chơi sẽ được ghi lại ở đây.</p>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="font-kinetic text-lg font-black uppercase text-slate-900 dark:text-white">Chưa có buổi chơi nào</p>
+            <p className="mt-3 text-slate-600 dark:text-slate-400">Đặt sân đầu tiên và buổi chơi sẽ được ghi lại ở đây.</p>
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-500">
               Từng chơi tại quầy trước khi có tài khoản? Nhờ nhân viên gộp lịch sử vào tài khoản của bạn.
             </p>
             <Link to="/#booking-widget" className="btn-nike-bolt mt-6 text-xs">
@@ -289,7 +289,7 @@ export default function AccountPage() {
           <div className="nike-card-static overflow-x-auto p-2">
             <table className="w-full min-w-[640px]">
               <thead>
-                <tr className="border-b border-white/10 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <tr className="border-b border-slate-200 dark:border-white/10 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
                   <th className="px-4 py-4 text-left">Bắt đầu</th>
                   <th className="px-4 py-4 text-left">Sân</th>
                   <th className="px-4 py-4 text-right">Tiền sân</th>
@@ -297,14 +297,14 @@ export default function AccountPage() {
                   <th className="px-4 py-4 text-right">Tổng hoá đơn</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {sessions.map((session) => (
                   <tr key={session.id} className="text-sm">
-                    <td className="px-4 py-4 font-mono text-xs text-slate-300">{formatDateTime(session.startTime, session.branch?.timezone)}</td>
-                    <td className="px-4 py-4 font-bold text-white">🏸 {session.court?.name || `Sân #${session.courtId}`}</td>
-                    <td className="px-4 py-4 text-right text-slate-300">{formatVnd(session.invoice?.courtFee ?? session.courtFee)}</td>
-                    <td className="px-4 py-4 text-right text-slate-300">{formatVnd(session.invoice?.extrasFee)}</td>
-                    <td className="px-4 py-4 text-right font-kinetic font-black text-emerald-400">
+                    <td className="px-4 py-4 font-mono text-xs text-slate-700 dark:text-slate-300">{formatDateTime(session.startTime, session.branch?.timezone)}</td>
+                    <td className="px-4 py-4 font-bold text-slate-900 dark:text-white">🏸 {session.court?.name || `Sân #${session.courtId}`}</td>
+                    <td className="px-4 py-4 text-right text-slate-700 dark:text-slate-300">{formatVnd(session.invoice?.courtFee ?? session.courtFee)}</td>
+                    <td className="px-4 py-4 text-right text-slate-700 dark:text-slate-300">{formatVnd(session.invoice?.extrasFee)}</td>
+                    <td className="px-4 py-4 text-right font-kinetic font-black text-emerald-700 dark:text-emerald-400">
                       {session.invoice ? formatVnd(session.invoice.totalAmount) : 'Chưa chốt'}
                     </td>
                   </tr>

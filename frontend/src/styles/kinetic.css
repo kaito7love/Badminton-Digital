@@ -291,6 +291,139 @@ summary:focus-visible {
   box-shadow: 0 0 24px rgba(0, 255, 102, 0.35);
 }
 
+/* ==========================================================================
+   CHẾ ĐỘ SÁNG của skin Kinetic
+
+   Toàn bộ nằm dưới `.kinetic-light` — lớp do CustomerLayout gắn lên gốc khi
+   giao diện đang sáng. File này cũng được trang chủ dùng nhưng trang chủ không
+   gắn lớp đó, nên mọi quy tắc dưới đây không chạm tới nó.
+
+   Nguyên tắc đổi màu: chữ xanh nõn (#00ff66 / #ccff00) vô hình trên nền sáng nên
+   thành emerald-700 / lime-600; nền kính tối thành trắng đục; bóng đổ đen thành
+   bóng xám nhạt. Nút chính (.btn-nike-bolt) và chip đang chọn giữ nguyên dải
+   xanh → chanh với chữ tối vì tương phản của chúng đã đúng ở cả hai nền.
+   ========================================================================== */
+
+.kinetic-light {
+  --nike-dark: #f3f6f4;
+  --nike-card-bg: rgba(255, 255, 255, 0.94);
+  --nike-card-border: rgba(5, 150, 105, 0.28);
+  --nike-text-main: #0f172a;
+  --nike-text-dim: #475569;
+  /* Viền focus: xanh chanh #ccff00 không nhìn thấy trên nền sáng */
+  --nike-volt: #059669;
+  color-scheme: light;
+}
+
+/* Ánh sáng nền: vệt xanh nhạt thay cho vệt phát sáng trên nền đen */
+.kinetic-light.kinetic-surface::before {
+  background:
+    radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.16) 0%, transparent 42%),
+    radial-gradient(circle at 90% 80%, rgba(163, 230, 53, 0.18) 0%, transparent 46%);
+}
+
+.kinetic-light.nike-grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+}
+
+/* Chữ gradient: đầu trắng của bản tối biến mất trên nền sáng → đi từ xanh rừng sang chanh đậm */
+.kinetic-light .text-gradient-nike {
+  background-image: linear-gradient(135deg, #064e3b 0%, #059669 55%, #65a30d 100%);
+}
+
+.kinetic-light .text-gradient-volt {
+  background-image: linear-gradient(135deg, #65a30d 0%, #059669 100%);
+}
+
+/* Thẻ kính */
+.kinetic-light .nike-card,
+.kinetic-light .nike-card-static {
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+}
+
+.kinetic-light .nike-card:hover {
+  border-color: rgba(5, 150, 105, 0.5);
+  box-shadow:
+    0 22px 52px rgba(15, 23, 42, 0.14),
+    0 0 28px rgba(16, 185, 129, 0.18);
+}
+
+.kinetic-light .nike-card::after {
+  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.08), transparent);
+}
+
+/* Nút */
+.kinetic-light .btn-nike-bolt {
+  box-shadow: 0 10px 26px rgba(16, 185, 129, 0.32);
+}
+
+.kinetic-light .btn-nike-bolt:hover {
+  box-shadow: 0 14px 34px rgba(16, 185, 129, 0.48);
+}
+
+.kinetic-light .btn-nike-dark {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.18);
+  color: #0f172a;
+}
+
+.kinetic-light .btn-nike-dark:hover {
+  background: #f1f5f9;
+  border-color: rgba(5, 150, 105, 0.5);
+  color: #047857;
+}
+
+/* Nhãn "đang diễn ra" */
+.kinetic-light .live-ticker {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(5, 150, 105, 0.38);
+  color: #047857;
+}
+
+.kinetic-light .live-ticker-dot {
+  background-color: #059669;
+  box-shadow: 0 0 10px rgba(5, 150, 105, 0.7);
+}
+
+/* Ô nhập, chip */
+.kinetic-light .booking-input {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.2);
+  color: #0f172a;
+}
+
+.kinetic-light .booking-input::placeholder {
+  color: rgba(71, 85, 105, 0.8);
+}
+
+.kinetic-light .feature-chip {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.14);
+  color: #334155;
+}
+
+.kinetic-light .kinetic-chip {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.14);
+  color: #475569;
+}
+
+.kinetic-light .kinetic-chip:hover {
+  border-color: rgba(5, 150, 105, 0.5);
+  color: #047857;
+}
+
+/* Phải đặt lại cả nền: `.kinetic-light .kinetic-chip` ở trên cùng độ ưu tiên với `.kinetic-chip.active` mà nằm sau nên sẽ
+   đè mất dải xanh → chanh của chip đang chọn nếu chỉ đổi mỗi màu chữ. */
+.kinetic-light .kinetic-chip.active {
+  background: linear-gradient(135deg, #00ff66 0%, #ccff00 100%);
+  border-color: transparent;
+  color: #030508;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

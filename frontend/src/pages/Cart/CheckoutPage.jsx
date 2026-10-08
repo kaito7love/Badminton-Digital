@@ -141,7 +141,7 @@ export default function CheckoutPage() {
     return (
       <CustomerLayout eyebrow="Đặt hàng" title="XÁC NHẬN ĐƠN">
         <div className="nike-card-static p-12 text-center">
-          <p className="font-kinetic text-xl font-black uppercase text-white">Không có sản phẩm nào để đặt</p>
+          <p className="font-kinetic text-xl font-black uppercase text-slate-900 dark:text-white">Không có sản phẩm nào để đặt</p>
           <Link to="/shop" className="btn-nike-bolt mt-6 text-xs">
             Về cửa hàng 🛍️
           </Link>
@@ -163,30 +163,30 @@ export default function CheckoutPage() {
       <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-start">
         <div className="space-y-6">
           <section className="nike-card-static p-7">
-            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">
+            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
               📍 Nhận hàng tại quầy
             </h2>
             {branch ? (
               <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
-                <p className="font-kinetic text-base font-black uppercase text-emerald-300">{branch.name}</p>
-                {branch.address && <p className="mt-1 text-sm text-slate-400">{branch.address}</p>}
+                <p className="font-kinetic text-base font-black uppercase text-emerald-700 dark:text-emerald-300">{branch.name}</p>
+                {branch.address && <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{branch.address}</p>}
               </div>
             ) : (
-              <p className="mt-4 text-sm text-slate-400">Đang tải thông tin chi nhánh...</p>
+              <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">Đang tải thông tin chi nhánh...</p>
             )}
-            <p className="mt-3 text-xs leading-relaxed text-slate-500">
+            <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-500">
               Hàng được giữ ngay khi bạn đặt. Vui lòng tới lấy trong giờ mở cửa — nếu đổi ý, huỷ đơn trong mục
               “Đơn mua” để hàng quay lại kệ cho người khác.
             </p>
           </section>
 
           <section className="nike-card-static p-7">
-            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">👤 Người nhận</h2>
+            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">👤 Người nhận</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
                 <label
                   htmlFor="contact-name"
-                  className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400"
+                  className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400"
                 >
                   Họ tên *
                 </label>
@@ -202,7 +202,7 @@ export default function CheckoutPage() {
               <div>
                 <label
                   htmlFor="contact-phone"
-                  className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400"
+                  className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400"
                 >
                   Số điện thoại *
                 </label>
@@ -216,7 +216,7 @@ export default function CheckoutPage() {
                 />
               </div>
             </div>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-500">
               Nhân viên đối chiếu tên và số điện thoại này khi giao hàng — nhờ người khác lấy hộ thì điền thông tin
               của họ.
             </p>
@@ -224,7 +224,7 @@ export default function CheckoutPage() {
             <div className="mt-4">
               <label
                 htmlFor="customer-note"
-                className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400"
+                className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400"
               >
                 Ghi chú cho quầy
               </label>
@@ -241,7 +241,7 @@ export default function CheckoutPage() {
           </section>
 
           <section className="nike-card-static p-7">
-            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">
+            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
               💳 Phương thức thanh toán
             </h2>
             <div className="mt-4 space-y-3">
@@ -249,7 +249,7 @@ export default function CheckoutPage() {
                 className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
                   form.paymentMethod === 'cash'
                     ? 'border-emerald-500/40 bg-emerald-500/5'
-                    : 'border-white/10 bg-slate-950/40 hover:border-white/20'
+                    : 'border-slate-200 dark:border-white/10 bg-slate-100/70 dark:bg-slate-950/40 hover:border-slate-300 dark:hover:border-white/20'
                 }`}
               >
                 <input
@@ -261,8 +261,8 @@ export default function CheckoutPage() {
                   className="mt-1 h-4 w-4 accent-emerald-400"
                 />
                 <div>
-                  <p className="text-sm font-bold text-white">💵 Tiền mặt tại quầy</p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">💵 Tiền mặt tại quầy</p>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
                     Hàng được giữ, bạn trả tiền khi tới lấy — nhân viên xuất hoá đơn ngay lúc đó.
                   </p>
                 </div>
@@ -273,7 +273,7 @@ export default function CheckoutPage() {
                   className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
                     form.paymentMethod === 'transfer'
                       ? 'border-emerald-500/40 bg-emerald-500/5'
-                      : 'border-white/10 bg-slate-950/40 hover:border-white/20'
+                      : 'border-slate-200 dark:border-white/10 bg-slate-100/70 dark:bg-slate-950/40 hover:border-slate-300 dark:hover:border-white/20'
                   }`}
                 >
                   <input
@@ -285,17 +285,17 @@ export default function CheckoutPage() {
                     className="mt-1 h-4 w-4 accent-emerald-400"
                   />
                   <div>
-                    <p className="text-sm font-bold text-white">🏦 Chuyển khoản trước</p>
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">🏦 Chuyển khoản trước</p>
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
                       Đặt xong hiện mã QR để quét trả ngay — không cần chờ nhân viên. Quét trong{' '}
-                      <span className="font-bold text-amber-300">30 phút</span>, quá giờ đơn tự huỷ và hàng trả
+                      <span className="font-bold text-amber-700 dark:text-amber-300">30 phút</span>, quá giờ đơn tự huỷ và hàng trả
                       về kệ.
                     </p>
                   </div>
                 </label>
               ) : (
                 branch && (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-600 dark:text-slate-500">
                     Cửa hàng chưa nhận chuyển khoản trước — bạn thanh toán tiền mặt khi tới lấy hàng.
                   </p>
                 )
@@ -304,19 +304,19 @@ export default function CheckoutPage() {
           </section>
 
           <section className="nike-card-static p-7">
-            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">🎟️ Mã giảm giá</h2>
+            <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">🎟️ Mã giảm giá</h2>
             {voucher ? (
               <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4">
                 <div className="min-w-0">
-                  <p className="font-kinetic text-sm font-black uppercase text-emerald-300">{voucher.code}</p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="font-kinetic text-sm font-black uppercase text-emerald-700 dark:text-emerald-300">{voucher.code}</p>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
                     {voucher.description || `Giảm ${formatVnd(voucher.discountAmount)}`}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={handleRemoveVoucher}
-                  className="shrink-0 text-xs font-bold text-slate-400 transition hover:text-rose-400"
+                  className="shrink-0 text-xs font-bold text-slate-600 dark:text-slate-400 transition hover:text-rose-600 dark:hover:text-rose-400"
                 >
                   Gỡ mã ✕
                 </button>
@@ -339,12 +339,12 @@ export default function CheckoutPage() {
                 </button>
               </div>
             )}
-            {voucherError && <p className="mt-3 text-xs font-bold text-rose-400">{voucherError}</p>}
+            {voucherError && <p className="mt-3 text-xs font-bold text-rose-600 dark:text-rose-400">{voucherError}</p>}
           </section>
         </div>
 
         <aside className="nike-card-static p-7 lg:sticky lg:top-24">
-          <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-white">🧾 Đơn của bạn</h2>
+          <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">🧾 Đơn của bạn</h2>
 
           <div className="mt-4 space-y-3">
             {orderedItems.map((item) => {
@@ -352,17 +352,17 @@ export default function CheckoutPage() {
               return (
                 <div key={item.variantId} className="flex items-center gap-3">
                   <span
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br text-2xl ${look.tint}`}
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-gradient-to-br text-2xl ${look.tint}`}
                   >
                     {look.icon}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-white">{item.name}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="truncate text-sm font-bold text-slate-900 dark:text-white">{item.name}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-500">
                       {variantLabel(item)} × {item.quantity}
                     </p>
                   </div>
-                  <span className="shrink-0 text-sm font-bold text-slate-200">
+                  <span className="shrink-0 text-sm font-bold text-slate-800 dark:text-slate-200">
                     {formatVnd(item.price * item.quantity)}
                   </span>
                 </div>
@@ -370,24 +370,24 @@ export default function CheckoutPage() {
             })}
           </div>
 
-          <div className="mt-5 space-y-2 border-t border-white/10 pt-4 text-sm">
-            <div className="flex justify-between text-slate-400">
+          <div className="mt-5 space-y-2 border-t border-slate-200 dark:border-white/10 pt-4 text-sm">
+            <div className="flex justify-between text-slate-600 dark:text-slate-400">
               <span>Tạm tính ({totalQuantity} sản phẩm)</span>
               <span>{formatVnd(total)}</span>
             </div>
             {discountAmount > 0 && (
-              <div className="flex justify-between text-emerald-400">
+              <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
                 <span>Mã {voucher.code}</span>
                 <span>-{formatVnd(discountAmount)}</span>
               </div>
             )}
-            <div className="flex items-center justify-between border-t border-white/10 pt-3">
-              <span className="font-kinetic text-sm font-black uppercase text-white">Tổng cộng</span>
-              <span className="font-kinetic text-2xl font-black text-emerald-400">{formatVnd(grandTotal)}</span>
+            <div className="flex items-center justify-between border-t border-slate-200 dark:border-white/10 pt-3">
+              <span className="font-kinetic text-sm font-black uppercase text-slate-900 dark:text-white">Tổng cộng</span>
+              <span className="font-kinetic text-2xl font-black text-emerald-700 dark:text-emerald-400">{formatVnd(grandTotal)}</span>
             </div>
           </div>
 
-          {error && <p className="mt-4 text-sm font-bold text-rose-400">{error}</p>}
+          {error && <p className="mt-4 text-sm font-bold text-rose-600 dark:text-rose-400">{error}</p>}
 
           <button
             type="submit"
@@ -398,7 +398,7 @@ export default function CheckoutPage() {
           </button>
           <Link
             to="/cart"
-            className="mt-3 block text-center text-xs font-bold text-slate-400 transition hover:text-emerald-400"
+            className="mt-3 block text-center text-xs font-bold text-slate-600 dark:text-slate-400 transition hover:text-emerald-700 dark:hover:text-emerald-400"
           >
             ← Quay lại giỏ hàng
           </Link>
