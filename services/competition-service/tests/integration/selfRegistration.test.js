@@ -168,6 +168,17 @@ describe('giải đơn: đăng ký, hết chỗ → danh sách chờ, rút như�
     expect(res.body.data.me.entry).toMatchObject({ status: 'waitlisted', waitlistPosition: 2 });
   });
 
+  // Chốt thẳng vào schema, vì test ngay trên chỉ bắt được lỗi khi hai lượt đăng ký tình cờ
+  // rơi cùng một mốc thời gian — xanh ở máy chậm, đỏ trên CI nhanh.
+  //
+  // Thứ tự chờ sắp theo `(registered_at, id)`, mà `uq_entry_player` buộc người đăng ký lại
+  // dùng lại hàng cũ (id nhỏ hơn người đang chờ). Nếu cột chỉ tới giây thì hai lượt cùng giây
+  // rơi vào tiebreak `id` và đẩy người đăng ký lại lên đầu hàng chờ.
+  test('registered_at giữ mili-giây — khoá xếp hàng chờ không được chỉ tới giây', async () => {
+    const [rows] = await ctx.sequelize.query("SHOW COLUMNS FROM tournament_entries LIKE 'registered_at'");
+    expect(rows[0].Type).toBe('datetime(3)');
+  });
+
   test('truyền partner vào giải đơn → 422 PARTNER_NOT_ALLOWED', async () => {
     const who = await customer();
     const res = await register(who, t.id, { partner: { playerId: people.b.id } });
