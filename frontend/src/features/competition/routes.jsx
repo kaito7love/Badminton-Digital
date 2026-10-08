@@ -71,7 +71,7 @@ export const competitionPublicRoutes = (
     <Route path="/thi-dau" element={<FeatureGate hub><HubPage /></FeatureGate>} />
     <Route path="/thi-dau/giai/:id" element={<FeatureGate hub><PublicTournamentPage /></FeatureGate>} />
     <Route path="/thi-dau/giao-luu/:id" element={<FeatureGate hub><PublicSessionPage /></FeatureGate>} />
-    <Route path="/rankings" element={<FeatureGate customer><RankingsPage /></FeatureGate>} />
+    <Route path="/rankings" element={<FeatureGate hub><RankingsPage /></FeatureGate>} />
     <Route path="/players/:id" element={<FeatureGate customer><PublicProfilePage /></FeatureGate>} />
   </>
 );

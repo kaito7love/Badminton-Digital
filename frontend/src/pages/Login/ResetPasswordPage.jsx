@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { authService } from '../../services/apiServices';
+import BrandMark from '../../components/BrandMark';
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -43,11 +44,7 @@ export default function ResetPasswordPage() {
           <Link to="/" className="inline-flex items-center gap-3 group">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5 group-hover:scale-105 transition-transform">
               <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                <svg className="w-6 h-6 text-emerald-400" viewBox="0 0 100 100" fill="none">
-                  <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="8" fill="transparent" />
-                  <path d="M50 18 L68 45 L50 38 L32 45 Z" fill="#CCFF00" />
-                  <path d="M50 38 L50 82" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-                </svg>
+                <BrandMark className="w-6 h-6 text-emerald-400" />
               </div>
             </div>
           </Link>

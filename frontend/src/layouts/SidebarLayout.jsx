@@ -8,6 +8,7 @@ import { MoonIcon, SunIcon, ChartBarIcon, HomeIcon, TicketIcon, ClipboardListIco
 import { roleOf } from '../utils/roles';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { scheduleAdminPrefetch } from '../routes/adminPrefetch';
+import BrandMark from '../components/BrandMark';
 
 // Fallback cho lúc chờ tải chunk của 1 trang admin — chỉ thay vùng nội dung
 // (đặt trong Suspense bọc riêng <Outlet/>), sidebar/header ở ngoài boundary
@@ -235,11 +236,7 @@ export default function SidebarLayout() {
             <Link to="/" className="flex items-center gap-3 group" title={collapsed ? 'Badminton Digital Admin' : undefined}>
               <div className="w-10 h-10 shrink-0 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5 group-hover:scale-105 transition-transform">
                 <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                  <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 100 100" fill="none">
-                    <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="8" fill="transparent"/>
-                    <path d="M50 18 L68 45 L50 38 L32 45 Z" fill="#CCFF00"/>
-                    <path d="M50 38 L50 82" stroke="currentColor" strokeWidth="8" strokeLinecap="round"/>
-                  </svg>
+                  <BrandMark className="w-5 h-5 text-emerald-400" />
                 </div>
               </div>
               {!collapsed && (

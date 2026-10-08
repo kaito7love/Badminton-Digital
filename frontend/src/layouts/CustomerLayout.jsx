@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { roleOf, isStaff, homePathForRole } from '../utils/roles';
 import { useCompetition } from '../features/competition/context/CompetitionContext';
+import BrandMark from '../components/BrandMark';
 
 /**
  * Vỏ chung cho mặt tiền dành cho khách: cửa hàng, lịch đặt, tài khoản.
@@ -29,11 +30,7 @@ const NAV_ITEMS = [
 const Logo = () => (
   <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5 group-hover:scale-110 transition-transform">
     <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-      <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 100 100" fill="none">
-        <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="8" fill="transparent" />
-        <path d="M50 18 L68 45 L50 38 L32 45 Z" fill="#CCFF00" />
-        <path d="M50 38 L50 82" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-      </svg>
+      <BrandMark className="w-5 h-5 text-emerald-400" />
     </div>
   </div>
 );

@@ -6,6 +6,7 @@ import { homePathForRole, isStaff, roleOf } from '../../../utils/roles';
 import { useCompetition } from '../context/CompetitionContext';
 import { hubPaths } from '../lib/publicHub';
 import { EmptyState, Spinner } from './ui';
+import BrandMark from '../../../components/BrandMark';
 
 // Khung riêng của khu công khai "Thi đấu" (/thi-dau — plan 27): xem giải / buổi giao lưu của sân, đăng ký online. Cố tình KHÔNG dùng
 // CustomerLayout hay SidebarLayout — không có menu bán hàng hay nhân viên, chỉ những gì khách của giải cần. Theo giao diện sáng / tối của app.
@@ -13,11 +14,7 @@ import { EmptyState, Spinner } from './ui';
 const LOGO = (
   <div className="h-10 w-10 shrink-0 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5">
     <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-slate-950">
-      <svg className="h-5 w-5 text-emerald-400" viewBox="0 0 100 100" fill="none" aria-hidden="true">
-        <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="8" fill="transparent" />
-        <path d="M50 18 L68 45 L50 38 L32 45 Z" fill="#CCFF00" />
-        <path d="M50 38 L50 82" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-      </svg>
+      <BrandMark className="h-5 w-5 text-emerald-400" />
     </div>
   </div>
 );
@@ -29,12 +26,20 @@ const navClass = ({ isActive }) =>
       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
   }`;
 
+// "Trang chủ" là trang chủ của CẢ site (/), không phải trang chủ của khu Thi đấu — nên ở đây nó không bao giờ sáng. Trang tổng quan
+// của khu này tên là "Thi đấu" (/thi-dau). Trước đây mục đầu tiên vừa tên "Trang chủ" vừa trỏ về /thi-dau: người dùng đang ở Thi đấu
+// thấy "Trang chủ" sáng, còn bấm vào thì không ra trang chủ thật.
 function NavItems({ isCustomer, onNavigate }) {
+  const { pathname } = useLocation();
+  // Hai mục dưới là mốc (#giai / #giao-luu) trên trang tổng quan nên NavLink không tự so được; chỉ sáng khi đang ở trang chi tiết tương ứng.
+  const inTournament = pathname.startsWith(`${hubPaths.home}/giai/`);
+  const inSession = pathname.startsWith(`${hubPaths.home}/giao-luu/`);
   return (
     <>
-      <NavLink to={hubPaths.home} end className={navClass} onClick={onNavigate}>Trang chủ</NavLink>
-      <Link to={`${hubPaths.home}#giai`} className={navClass({ isActive: false })} onClick={onNavigate}>Giải đấu</Link>
-      <Link to={`${hubPaths.home}#giao-luu`} className={navClass({ isActive: false })} onClick={onNavigate}>Giao lưu</Link>
+      <Link to="/" className={navClass({ isActive: false })} onClick={onNavigate}>Trang chủ</Link>
+      <NavLink to={hubPaths.home} end className={navClass} onClick={onNavigate}>Thi đấu</NavLink>
+      <Link to={`${hubPaths.home}#giai`} className={navClass({ isActive: inTournament })} onClick={onNavigate}>Giải đấu</Link>
+      <Link to={`${hubPaths.home}#giao-luu`} className={navClass({ isActive: inSession })} onClick={onNavigate}>Giao lưu</Link>
       <NavLink to="/rankings" className={navClass} onClick={onNavigate}>Xếp hạng</NavLink>
       {isCustomer && <NavLink to="/my-tournaments" className={navClass} onClick={onNavigate}>Giải của tôi</NavLink>}
     </>

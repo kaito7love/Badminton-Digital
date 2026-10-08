@@ -20,16 +20,16 @@ const Grid = ({ children }) => <div className="grid gap-4 sm:grid-cols-2 lg:grid
 
 function Hero({ openCount, sessionCount }) {
   return (
-    <section className="overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-600 via-emerald-500 to-lime-400 p-6 text-slate-950 shadow-lg sm:p-10">
-      <p className="text-xs font-black uppercase tracking-[0.2em] opacity-70">Giải đấu &amp; giao lưu cầu lông</p>
+    <section className="overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-700 via-emerald-600 to-lime-500 p-6 text-white shadow-lg sm:p-10">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-white/90">Giải đấu &amp; giao lưu cầu lông</p>
       <h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight tracking-tight sm:text-5xl">Đăng ký thi đấu, theo dõi tỉ số — ngay trên điện thoại.</h1>
-      <p className="mt-3 max-w-xl text-sm font-semibold opacity-80 sm:text-base">
+      <p className="mt-3 max-w-xl text-sm font-semibold text-white sm:text-base">
         Xem giải đang mở, đăng ký cả cặp trong một lần, báo trước buổi giao lưu và theo dõi bảng, sơ đồ, tỉ số trực tiếp. Lệ phí dự kiến {feeText()}, thanh toán tại quầy.
       </p>
       <div className="mt-5 flex flex-wrap gap-3 text-sm font-black">
         <a href="#giai" className="rounded-xl bg-slate-950 px-5 py-2.5 text-white hover:bg-slate-800">{openCount > 0 ? `${openCount} giải đang mở` : 'Xem các giải'}</a>
         <a href="#giao-luu" className="rounded-xl bg-white/80 px-5 py-2.5 text-slate-950 hover:bg-white">{sessionCount > 0 ? `${sessionCount} buổi giao lưu` : 'Buổi giao lưu'}</a>
-        <Link to="/rankings" className="rounded-xl border border-slate-950/30 px-5 py-2.5 hover:bg-white/30">Bảng xếp hạng</Link>
+        <Link to="/rankings" className="rounded-xl border border-white/70 px-5 py-2.5 text-white hover:bg-white/15">Bảng xếp hạng</Link>
       </div>
     </section>
   );
