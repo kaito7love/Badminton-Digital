@@ -29,7 +29,8 @@ const navClass = ({ isActive }) =>
 // "Trang chủ" là trang chủ của CẢ site (/), không phải trang chủ của khu Thi đấu — nên ở đây nó không bao giờ sáng. Trang tổng quan
 // của khu này tên là "Thi đấu" (/thi-dau). Trước đây mục đầu tiên vừa tên "Trang chủ" vừa trỏ về /thi-dau: người dùng đang ở Thi đấu
 // thấy "Trang chủ" sáng, còn bấm vào thì không ra trang chủ thật.
-function NavItems({ isCustomer, onNavigate }) {
+// Export riêng để test được thứ tự / trạng thái sáng của từng mục mà không phải dựng AuthContext.
+export function NavItems({ isCustomer, onNavigate }) {
   const { pathname } = useLocation();
   // Hai mục dưới là mốc (#giai / #giao-luu) trên trang tổng quan nên NavLink không tự so được; chỉ sáng khi đang ở trang chi tiết tương ứng.
   const inTournament = pathname.startsWith(`${hubPaths.home}/giai/`);

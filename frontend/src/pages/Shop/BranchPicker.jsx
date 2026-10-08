@@ -51,7 +51,7 @@ export default function BranchPicker({ selectedBranchId, onSelect }) {
 
   return (
     <div>
-      <p className="mb-2 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">
+      <p className="mb-2 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
         Mua tại chi nhánh
       </p>
       <div className="flex flex-wrap gap-2">
@@ -66,7 +66,7 @@ export default function BranchPicker({ selectedBranchId, onSelect }) {
           </button>
         ))}
       </div>
-      {selected?.address && <p className="mt-2 text-xs text-slate-500">📍 {selected.address}</p>}
+      {selected?.address && <p className="mt-2 text-xs text-slate-600 dark:text-slate-500">📍 {selected.address}</p>}
     </div>
   );
 }

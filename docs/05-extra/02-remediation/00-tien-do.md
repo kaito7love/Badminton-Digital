@@ -840,6 +840,13 @@ rồi mới nhả số của hồ sơ đã xoá).
 - **Phát hiện khi đọc code:** hiện khách / người chưa đăng nhập không xem được giải hay buổi nào và đăng ký chỉ nhân viên làm được; buổi giao lưu chưa có đăng ký trước. Nên cần API công khai + tự đăng ký + `session_signups` ở service và luật cổng nối, không chỉ giao diện.
 - **Chia 6 slice** p0–p5; chi tiết, giả định cần xác nhận: `27-ke-hoach-trang-cong-khai-thi-dau.md`.
 
+### 26. `fix/hub-polish-and-customer-light-mode` — chỉnh nhỏ khu Thi đấu + giao diện sáng cho khung khách (**xong 09/10/2026, chờ duyệt gộp vào main**)
+
+- **Yêu cầu (09/10/2026, kèm ảnh chụp bản live):** chữ banner Thi đấu màu trắng (đen khó đọc); header khu Thi đấu đang tô sáng "Trang chủ" và bấm không về trang chủ thật; Bảng xếp hạng và Giỏ hàng chỉ có chế độ tối; logo đổi mũi tên thành cây vợt (nút "lên đầu trang" ở trang chủ giữ mũi tên cũ).
+- **Đã làm:** `BrandMark` dùng chung cho 8 chỗ logo; "Trang chủ" → `/` và không bao giờ sáng, "Giải đấu"/"Giao lưu" sáng theo đường dẫn; `/rankings` và `/players/:id` chuyển sang `PublicShell` (cổng `hub`, xem được khi chưa đăng nhập); cả họ `CustomerLayout` (cửa hàng, sản phẩm, giỏ, thanh toán, đơn mua, chi tiết đơn, lịch đặt, tài khoản và 4 trang "Tôi" của Thi đấu) thành cặp sáng/tối, bảng màu Kinetic đổi chỉ dưới `.kinetic-light`; nút đổi giao diện ở header khung khách (có trong menu ☰ trên điện thoại); bỏ `forceDark` của `CustomerShell`.
+- **Kiểm chứng:** Vitest 311/311 (thêm `PublicShell.test.jsx` — chứng minh đỏ trên code nav cũ — và `BrandMark.test.jsx`), `vite build` sạch; chụp bằng Chrome ở 1440 và 390 px, hai giao diện: **chế độ tối không đổi một điểm ảnh nào dưới header** trên 12 trang cũ và 4 trang "Tôi" (so với ảnh chụp chính code trước đó chạy ở cổng khác), trang chủ không bị ảnh hưởng bởi giao diện (0,00%); bấm thật nút đổi giao diện, trạng thái giữ qua tải lại.
+- **Chưa kiểm bằng mắt:** bảng lịch sử chơi trong Tài khoản (tài khoản seed chưa có buổi chơi nào); bản live trên Render (chưa deploy).
+
 ## Chưa làm — xem plan riêng từng phần
 
 | Việc | File plan | Ưu tiên gốc |

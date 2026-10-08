@@ -7,13 +7,13 @@ export default function QuantityStepper({ value, onChange, min = 1, max = 99, si
   const inputSize = size === 'sm' ? 'h-8 w-12 text-sm' : 'h-11 w-16 text-base';
 
   return (
-    <div className="inline-flex items-center overflow-hidden rounded-xl border border-white/10 bg-slate-950/70">
+    <div className="inline-flex items-center overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-950/70">
       <button
         type="button"
         onClick={() => onChange(clamp(value - 1))}
         disabled={value <= min}
         aria-label="Giảm số lượng"
-        className={`${buttonSize} font-bold text-slate-300 transition hover:bg-white/5 disabled:opacity-30`}
+        className={`${buttonSize} font-bold text-slate-700 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30`}
       >
         −
       </button>
@@ -24,14 +24,14 @@ export default function QuantityStepper({ value, onChange, min = 1, max = 99, si
         value={value}
         onChange={(event) => onChange(clamp(event.target.value))}
         aria-label="Số lượng"
-        className={`${inputSize} border-x border-white/10 bg-transparent text-center font-bold text-white focus:outline-none`}
+        className={`${inputSize} border-x border-slate-200 dark:border-white/10 bg-transparent text-center font-bold text-slate-900 dark:text-white focus:outline-none`}
       />
       <button
         type="button"
         onClick={() => onChange(clamp(value + 1))}
         disabled={value >= max}
         aria-label="Tăng số lượng"
-        className={`${buttonSize} font-bold text-slate-300 transition hover:bg-white/5 disabled:opacity-30`}
+        className={`${buttonSize} font-bold text-slate-700 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30`}
       >
         +
       </button>

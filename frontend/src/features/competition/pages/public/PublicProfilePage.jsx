@@ -9,7 +9,7 @@ import { headToHeadText } from '../../lib/customer';
 import { DISCIPLINE_LABEL } from '../../lib/rating';
 import { fmtDate, gamesText, orgName, teamText } from '../../lib/format';
 import { Card, EmptyState, Notice, Spinner } from '../../components/ui';
-import CustomerShell from '../../components/CustomerShell';
+import PublicShell from '../../components/PublicShell';
 import RatingCards from '../../components/RatingCards';
 
 // Hồ sơ người khác (07 mục 1.1): rút gọn theo quyền riêng tư của người đó (service quyết định ai thấy gì — người "Ẩn" không mở được); khách đã đăng nhập có
@@ -38,8 +38,8 @@ export default function PublicProfilePage() {
   const { data, loading, error, reload } = useLiveResource({ load });
 
   return (
-    <CustomerShell title={data ? (data.player.nickname || data.player.name) : 'Hồ sơ người chơi'} subtitle="Hồ sơ thi đấu công khai.">
-      <Link to="/rankings" className="mb-4 inline-block text-xs font-bold text-emerald-400 hover:underline">← Bảng xếp hạng</Link>
+    <PublicShell title={data ? (data.player.nickname || data.player.name) : 'Hồ sơ người chơi'} subtitle="Hồ sơ thi đấu công khai.">
+      <Link to="/rankings" className="mb-4 inline-block text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline">← Bảng xếp hạng</Link>
       {loading && !data && <Spinner label="Đang tải hồ sơ…" />}
       {error && !data && (error.status === 404
         ? <EmptyState title="Không mở được hồ sơ này">Người chơi này đã ẩn hồ sơ hoặc không tồn tại.</EmptyState>
@@ -47,7 +47,7 @@ export default function PublicProfilePage() {
       {data && (
         <div className="space-y-5">
           <Card>
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-slate-700 dark:text-slate-300">
               {[data.player.gender === 'male' ? 'Nam' : data.player.gender === 'female' ? 'Nữ' : '', data.player.ageGroup ? `nhóm tuổi ${data.player.ageGroup}` : '', HAND[data.player.dominantHand] || '', PLAY[data.player.preferredPlay] || '', data.player.doublesPosition ? `đánh đôi ${POSITION[data.player.doublesPosition]}` : '', data.player.homeOrganizerRef ? orgName(data.player.homeOrganizerRef) : ''].filter(Boolean).join(' · ')}
             </p>
           </Card>
@@ -62,7 +62,7 @@ export default function PublicProfilePage() {
           )}
           {data.h2h && (
             <Card title="Đối đầu với tôi">
-              <p className="text-sm font-bold text-white" data-testid="h2h">{headToHeadText(data.h2h)}</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-white" data-testid="h2h">{headToHeadText(data.h2h)}</p>
               {(data.h2h.items || []).length > 0 && (
                 <ul className="mt-2 space-y-1 text-sm">{data.h2h.items.map((m) => <li key={m.matchId || m.id}>{fmtDate(m.completedAt)} · {m.label || ''} · <b className="tabular-nums">{gamesText(m.games || [])}</b> · {m.won ? 'bạn thắng' : 'bạn thua'}</li>)}</ul>
               )}
@@ -81,13 +81,13 @@ export default function PublicProfilePage() {
                 {data.matches.map((m) => {
                   const side = (m.teamA.players || []).some((p) => p.id === id) ? 'A' : 'B';
                   const won = m.winnerSide === side;
-                  return <li key={m.id}><Badge variant={won ? 'emerald' : 'rose'}>{won ? 'Thắng' : 'Thua'}</Badge> {teamText(side === 'A' ? m.teamA : m.teamB)} <span className="text-slate-500">vs</span> {teamText(side === 'A' ? m.teamB : m.teamA)} · <b className="tabular-nums">{gamesText(m.games.map((g) => (side === 'A' ? g : [g[1], g[0]])))}</b></li>;
+                  return <li key={m.id}><Badge variant={won ? 'emerald' : 'rose'}>{won ? 'Thắng' : 'Thua'}</Badge> {teamText(side === 'A' ? m.teamA : m.teamB)} <span className="text-slate-600 dark:text-slate-500">vs</span> {teamText(side === 'A' ? m.teamB : m.teamA)} · <b className="tabular-nums">{gamesText(m.games.map((g) => (side === 'A' ? g : [g[1], g[0]])))}</b></li>;
                 })}
               </ul>
             </Card>
           )}
         </div>
       )}
-    </CustomerShell>
+    </PublicShell>
   );
 }
