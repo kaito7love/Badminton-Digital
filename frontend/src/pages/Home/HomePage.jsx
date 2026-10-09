@@ -27,7 +27,6 @@ export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const [scrolled, setScrolled] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [courts, setCourts] = useState([]);
   const [layout, setLayout] = useState(null);
@@ -64,14 +63,6 @@ export default function HomePage() {
     }
     return total;
   };
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 40);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   useEffect(() => {
     if (!isModalOpen) return undefined;
@@ -1182,40 +1173,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* SCROLL TO TOP */}
-      {scrolled && (
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-20 right-5 z-40 group border-0 bg-transparent cursor-pointer lg:bottom-8 lg:right-8"
-          aria-label="Scroll to top"
-        >
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5 group-hover:scale-110 transition-transform shadow-2xl shadow-emerald-500/20">
-            <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-emerald-400"
-                viewBox="0 0 100 100"
-                fill="none"
-              >
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="45"
-                  stroke="currentColor"
-                  strokeWidth="8"
-                  fill="transparent"
-                />
-                <path d="M50 18 L68 45 L50 38 L32 45 Z" fill="#CCFF00" />
-                <path
-                  d="M50 38 L50 82"
-                  stroke="currentColor"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-          </div>
-        </button>
-      )}
     </div>
   );
 }

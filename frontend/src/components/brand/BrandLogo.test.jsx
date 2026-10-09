@@ -34,4 +34,15 @@ describe('BrandLogo — một kiểu cho cả ba header', () => {
   test('ô logo có cây vợt', () => {
     expect(render(<BrandTile />)).toMatch(/<svg/);
   });
+
+  test('bản sáng: nền ô trắng, vợt xanh rừng, cán xanh chanh đậm; bản tối giữ nền tối', () => {
+    const auto = render(<BrandTile />);
+    expect(auto).toMatch(/bg-white dark:bg-slate-950/);
+    expect(auto).toMatch(/text-emerald-700 dark:text-emerald-400/);
+    expect(auto).toMatch(/stroke-lime-600 dark:stroke-\[#CCFF00\]/);
+    const dark = render(<BrandTile tone="dark" />);
+    expect(dark).toMatch(/bg-slate-950/);
+    expect(dark).not.toMatch(/bg-white|dark:/);
+    expect(dark).toMatch(/stroke="#CCFF00"/);
+  });
 });

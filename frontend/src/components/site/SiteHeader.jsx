@@ -5,6 +5,7 @@ import { useCart } from '../../contexts/CartContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCompetition } from '../../features/competition/context/CompetitionContext';
 import SiteHeaderView from './SiteHeaderView';
+import ScrollToTop from './ScrollToTop';
 import { buildSiteNav } from './siteNav';
 
 /**
@@ -38,6 +39,7 @@ export default function SiteHeader({ tone = 'auto', overlay = false }) {
   };
 
   return (
+    <>
     <SiteHeaderView
       nav={nav}
       location={location}
@@ -51,5 +53,7 @@ export default function SiteHeader({ tone = 'auto', overlay = false }) {
       scrolled={scrolled}
       onLogoClick={onLogoClick}
     />
+    <ScrollToTop tone={tone} />
+    </>
   );
 }

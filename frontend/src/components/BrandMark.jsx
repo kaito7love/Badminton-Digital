@@ -12,7 +12,7 @@ import React from 'react';
  * trong khung 100×100 để dùng cùng cỡ với logo cũ (h-5 w-5 trong ô 40px, h-6 w-6
  * trong ô 48px).
  */
-export default function BrandMark({ className = 'h-5 w-5 text-emerald-400', ...rest }) {
+export default function BrandMark({ className = 'h-5 w-5 text-emerald-400', accent = '#CCFF00', accentClass, ...rest }) {
   return (
     <svg className={className} viewBox="0 0 100 100" fill="none" aria-hidden="true" focusable="false" {...rest}>
       {/* Dựng cây vợt thẳng đứng rồi xoay -45° quanh tâm; phóng nhẹ để chiếm đủ khung. */}
@@ -33,7 +33,7 @@ export default function BrandMark({ className = 'h-5 w-5 text-emerald-400', ...r
         {/* Cán */}
         <path d="M50 67 V82" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
         {/* Phần bọc cán — điểm nhấn xanh chanh giữ từ logo cũ */}
-        <path d="M50 80 V93" stroke="#CCFF00" strokeWidth="10" strokeLinecap="round" />
+        <path d="M50 80 V93" stroke={accent} className={accentClass} strokeWidth="10" strokeLinecap="round" />
       </g>
     </svg>
   );

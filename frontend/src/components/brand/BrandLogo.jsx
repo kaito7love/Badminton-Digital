@@ -14,12 +14,15 @@ import BrandMark from '../BrandMark';
 const TILE =
   'h-11 w-11 shrink-0 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5 transition-transform group-hover:scale-110';
 
+// Bản sáng: nền ô trắng, vợt xanh rừng, cán xanh chanh đậm (chanh sáng #CCFF00 mất trên nền trắng). Bản tối giữ nền tối, vợt xanh sáng.
 export function BrandTile({ tone = 'auto', className = '' }) {
-  const glyph = tone === 'dark' ? 'h-6 w-6 text-emerald-400' : 'h-6 w-6 text-emerald-700 dark:text-emerald-400';
+  const dark = tone === 'dark';
+  const glyph = dark ? 'h-6 w-6 text-emerald-400' : 'h-6 w-6 text-emerald-700 dark:text-emerald-400';
+  const inner = dark ? 'bg-slate-950' : 'bg-white dark:bg-slate-950';
   return (
     <div className={`${TILE} ${className}`.trim()} data-brand-tile>
-      <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-slate-950">
-        <BrandMark className={glyph} />
+      <div className={`flex h-full w-full items-center justify-center rounded-[14px] ${inner}`}>
+        <BrandMark className={glyph} accentClass={dark ? undefined : 'stroke-lime-600 dark:stroke-[#CCFF00]'} />
       </div>
     </div>
   );
