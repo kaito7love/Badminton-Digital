@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { buildProfilePatch, chartRows, defaultCategory, groupByTournament, headToHeadText, movementText, myLiveMatch, myTournamentState, nicknameError, profileForm, selfAssessState } from './customer';
+import { buildProfilePatch, chartRows, defaultCategory, groupByTournament, headToHeadText, movementText, myLiveMatch, myTournamentState, nicknameError, profileForm, ratingSummary, selfAssessState } from './customer';
 
 describe('bảng mặc định / xu hướng', () => {
   test('theo giới tính', () => {
@@ -112,5 +112,28 @@ describe('giải của tôi / đối đầu', () => {
   test('câu đối đầu', () => {
     expect(headToHeadText({ matches: 4, wins: 3, losses: 1 })).toBe('Bạn thắng 3 – thua 1 trong 4 trận');
     expect(headToHeadText({ matches: 0 })).toMatch(/Chưa có trận/);
+  });
+});
+
+describe('ratingSummary — thẻ Trình độ ở trang Tài khoản', () => {
+  test('chưa có điểm đơn lẫn đôi (hoặc chưa có hồ sơ): mời đi chấm trình', () => {
+    expect(ratingSummary(null)).toEqual({ rated: false, rows: [] });
+    expect(ratingSummary({ ratings: { singles: null, doubles: null } })).toEqual({ rated: false, rows: [] });
+    expect(ratingSummary({})).toEqual({ rated: false, rows: [] });
+  });
+
+  test('có cả hai: Đơn rồi Đôi, điểm hai chữ số thập phân, kèm mức và số trận', () => {
+    const s = ratingSummary({ ratings: { singles: { rating: 3.114, level: 'TB', ratedMatches: 3, provisional: true }, doubles: { rating: 3.46, level: 'TB', ratedMatches: 2, provisional: false } } });
+    expect(s.rated).toBe(true);
+    expect(s.rows).toEqual([
+      { key: 'singles', label: 'Đơn', rating: '3.11', level: 'TB', matches: 3, provisional: true },
+      { key: 'doubles', label: 'Đôi', rating: '3.46', level: 'TB', matches: 2, provisional: false }
+    ]);
+  });
+
+  test('chỉ có một nội dung thì chỉ hiện nội dung đó', () => {
+    const s = ratingSummary({ ratings: { singles: null, doubles: { rating: 2.5, level: 'TB-', ratedMatches: 0 } } });
+    expect(s.rows.map((r) => r.label)).toEqual(['Đôi']);
+    expect(s.rows[0]).toMatchObject({ rating: '2.50', matches: 0, provisional: false });
   });
 });

@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import "./HomePage.css";
 import { publicService, bookingService } from "../../services/apiServices";
 import CourtFloorPlan from "../../components/CourtFloorPlan";
 import { useAuth } from "../../contexts/AuthContext";
-import { useCart } from "../../contexts/CartContext";
-import { roleOf, isStaff, homePathForRole } from "../../utils/roles";
+import { roleOf } from "../../utils/roles";
 import { todayInZone } from '../../utils/datetime';
-import BrandMark from '../../components/BrandMark';
+import SiteHeader from '../../components/site/SiteHeader';
 
 // Lựa chọn của khách được giữ lại khi họ phải rẽ qua trang đăng nhập, để quay
 // về là đặt tiếp chứ không phải chọn lại từ đầu.
@@ -24,22 +23,10 @@ const addHours = (hhmm, hours) => {
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
-// Một danh sách dùng cho cả thanh desktop lẫn menu mobile. Trước đây hai chỗ
-// khai báo riêng nên đã lệch nhau (mobile có FAQ, desktop thì không).
-const SECTION_LINKS = [
-  { id: "courts", label: "Courts", icon: "🏟️" },
-  { id: "availability", label: "Schedule", icon: "🗓️" },
-  { id: "facilities", label: "Features", icon: "⭐" },
-  { id: "pricing", label: "Pricing", icon: "💰" },
-  { id: "services", label: "Gear", icon: "🎽" },
-  { id: "faq", label: "FAQ", icon: "❓", mobileOnly: true },
-];
-
 export default function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
-  const { totalQuantity: cartQuantity } = useCart();
-  const [scrolled, setScrolled] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [courts, setCourts] = useState([]);
   const [layout, setLayout] = useState(null);
@@ -53,7 +40,6 @@ export default function HomePage() {
   const [checking, setChecking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [booking, setBooking] = useState({
     date: todayInZone(),
     time: "17:00",
@@ -77,14 +63,6 @@ export default function HomePage() {
     }
     return total;
   };
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 40);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   useEffect(() => {
     if (!isModalOpen) return undefined;
@@ -297,163 +275,48 @@ export default function HomePage() {
     setTimeout(() => setToastMessage(""), 4000);
   };
 
-  // Smooth scroll with fixed header offset
+  // Cuộn mượt tới một mốc, chừa đúng chiều cao header đang cố định (đo thật, trước đây gõ cứng 24 px).
   const scrollToSection = (id) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const headerHeight = 24; // h-24 = 96px
-    const top = el.getBoundingClientRect().top + window.scrollY - headerHeight;
+    const header = document.querySelector("[data-site-header]");
+    const offset = (header ? header.getBoundingClientRect().height : 0) + 8;
+    const top = el.getBoundingClientRect().top + window.scrollY - offset;
     window.scrollTo({ top, behavior: "smooth" });
-    setMobileMenuOpen(false);
   };
+
+  // Đi từ trang khác tới /#mốc (menu của header chung): cuộn tới mốc sau khi trang đã dựng; bấm lại cùng mốc cũng cuộn lại.
+  // Các khối phía trên mốc còn tải dữ liệu (sân, sơ đồ) nên chiều cao đổi sau đó: cuộn lại khi dữ liệu về, cho tới khi người
+  // dùng tự cuộn (bánh xe, chạm, phím) hoặc quá 4 giây.
+  const pendingAnchor = useRef(null);
+  useEffect(() => {
+    if (!location.hash) { pendingAnchor.current = null; return undefined; }
+    const id = decodeURIComponent(location.hash.slice(1));
+    pendingAnchor.current = id;
+    const timer = setTimeout(() => scrollToSection(id), 80);
+    const stop = () => { pendingAnchor.current = null; };
+    const expire = setTimeout(stop, 4000);
+    window.addEventListener("wheel", stop, { passive: true, once: true });
+    window.addEventListener("touchstart", stop, { passive: true, once: true });
+    window.addEventListener("keydown", stop, { once: true });
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(expire);
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+      window.removeEventListener("keydown", stop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key, location.hash]);
+  useEffect(() => {
+    if (pendingAnchor.current) scrollToSection(pendingAnchor.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courts, layout, branches, peakHours]);
 
   return (
     <div className="kinetic-surface nike-grid-bg">
-      {/* KINETIC HEADER / NAVBAR */}
-      <header
-        className={`fixed top-0 left-0 right-0 h-24 z-50 transition-all duration-300 ${scrolled ? "h-20 bg-slate-950/90 backdrop-blur-2xl border-b border-white/10 shadow-2xl" : ""}`}
-      >
-        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
-          <Link
-            to="/"
-            className="flex items-center gap-3 group"
-            onClick={(e) => {
-              if (window.location.pathname === "/") {
-                e.preventDefault();
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }
-            }}
-          >
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5 group-hover:scale-110 transition-transform">
-              <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                <BrandMark className="w-6 h-6 text-emerald-400" />
-              </div>
-            </div>
-            <div className="font-kinetic font-black text-lg sm:text-2xl tracking-tighter text-white uppercase whitespace-nowrap">
-              BADMINTON <span className="text-gradient-nike">DIGITAL</span>
-            </div>
-          </Link>
-
-          <nav className="hidden lg:flex items-center gap-6 font-kinetic font-bold text-xs uppercase tracking-widest text-slate-300">
-            {SECTION_LINKS.filter((link) => !link.mobileOnly).map((link) => (
-              <button
-                key={link.id}
-                type="button"
-                onClick={() => scrollToSection(link.id)}
-                className="flex items-center gap-2 hover:text-emerald-400 transition-colors bg-transparent border-0 cursor-pointer"
-              >
-                <span aria-hidden="true" className="text-sm">{link.icon}</span>
-                {link.label}
-              </button>
-            ))}
-            <Link to="/shop" className="flex items-center gap-2 hover:text-emerald-400 transition-colors">
-              <span aria-hidden="true" className="text-sm">🛍️</span>
-              Shop
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-3 sm:gap-4">
-            {/* Giỏ hàng phải có mặt ở đây: khách bỏ hàng vào giỏ rồi quay về
-                trang chủ mà không thấy giỏ đâu thì coi như mất luôn đơn. */}
-            <Link
-              to="/cart"
-              aria-label={cartQuantity > 0 ? `Giỏ hàng, ${cartQuantity} sản phẩm` : "Giỏ hàng"}
-              className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/5 text-lg transition hover:border-emerald-400/50 hover:bg-white/10"
-            >
-              🛒
-              {cartQuantity > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-emerald-400 px-1 font-kinetic text-[10px] font-black text-slate-950">
-                  {cartQuantity}
-                </span>
-              )}
-            </Link>
-
-            {/* Cùng khuôn với nút giỏ hàng. Nhãn phải nói đúng nơi nút dẫn
-                tới: khách đã đăng nhập bấm "Sign In" lần nữa là quay lại chỗ
-                họ vừa rời đi. */}
-            <Link
-              to={user ? (isStaff(user) ? homePathForRole(user) : "/account") : "/login"}
-              aria-label={user ? (isStaff(user) ? "Bàn làm việc" : "Tài khoản") : "Đăng nhập"}
-              className="hidden h-11 items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-3 font-kinetic text-xs font-extrabold uppercase tracking-wider text-slate-300 transition hover:border-emerald-400/50 hover:bg-white/10 hover:text-white sm:flex lg:px-4"
-            >
-              <span aria-hidden="true" className="text-lg">
-                {user ? (isStaff(user) ? "🗂️" : "👤") : "🔑"}
-              </span>
-              <span className="hidden lg:inline">
-                {user ? (isStaff(user) ? "Bàn làm việc" : "Tài khoản") : "Đăng nhập"}
-              </span>
-            </Link>
-            {/* Trên điện thoại nhường chỗ cho logo/giỏ/menu — hero ngay bên
-                dưới đã có nút "RESERVE COURT NOW" to đùng. Bọc span để ẩn được:
-                .btn-nike-bolt nạp sau Tailwind nên tự đặt display. */}
-            <span className="hidden sm:inline-block">
-              <button
-                type="button"
-                onClick={() => scrollToSection("booking-widget")}
-                className="btn-nike-bolt text-xs py-3.5 px-7 border-0 cursor-pointer"
-              >
-                Instant Book ⚡
-              </button>
-            </span>
-
-            {/* Hamburger đứng cuối cùng, cùng khuôn với nút giỏ — đúng thứ tự
-                quen thuộc: nội dung trái, hành động phải, menu ngoài cùng. */}
-            <button
-              type="button"
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/5 text-lg text-white transition hover:border-emerald-400/50 hover:bg-white/10 lg:hidden"
-              onClick={() => setMobileMenuOpen((open) => !open)}
-              aria-expanded={mobileMenuOpen}
-              aria-controls="mobile-navigation"
-              aria-label="Mở menu điều hướng"
-            >
-              ☰
-            </button>
-          </div>
-        </div>
-        {mobileMenuOpen && (
-          <nav
-            id="mobile-navigation"
-            className="lg:hidden bg-slate-950/95 border-t border-white/10 px-6 py-4 grid grid-cols-2 gap-3 font-kinetic font-bold text-xs uppercase tracking-widest text-slate-300"
-            aria-label="Mobile navigation"
-          >
-            {SECTION_LINKS.map((link) => (
-              <button
-                key={link.id}
-                type="button"
-                onClick={() => scrollToSection(link.id)}
-                className="flex items-center gap-2 text-left bg-transparent border-0 cursor-pointer hover:text-emerald-400 transition-colors"
-              >
-                <span aria-hidden="true">{link.icon}</span>
-                {link.label}
-              </button>
-            ))}
-            <Link
-              to="/shop"
-              className="flex items-center gap-2 text-left hover:text-emerald-400 transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <span aria-hidden="true">🛍️</span>
-              Shop
-            </Link>
-            <Link
-              to="/cart"
-              className="flex items-center gap-2 text-left hover:text-emerald-400 transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <span aria-hidden="true">🛒</span>
-              Giỏ hàng{cartQuantity > 0 ? ` (${cartQuantity})` : ""}
-            </Link>
-            <Link
-              to={user ? (isStaff(user) ? homePathForRole(user) : "/account") : "/login"}
-              className="flex items-center gap-2 text-left hover:text-emerald-400 transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <span aria-hidden="true">{user ? (isStaff(user) ? "🗂️" : "👤") : "🔑"}</span>
-              {user ? (isStaff(user) ? "Bàn làm việc" : "Tài khoản") : "Đăng nhập"}
-            </Link>
-          </nav>
-        )}
-      </header>
+      {/* Header chung (kế hoạch 28): trong suốt đè lên ảnh, thành kính mờ khi cuộn; Trang chủ luôn tối nên tone="dark". */}
+      <SiteHeader tone="dark" overlay />
 
       {/* HERO SECTION (~100vh) */}
       <section className="relative min-h-screen pt-36 pb-24 flex items-center justify-center overflow-hidden">
@@ -1177,7 +1040,7 @@ export default function HomePage() {
       </section>
 
       {/* FOOTER */}
-      <footer className="border-t border-white/10 bg-slate-950 py-16 relative z-10">
+      <footer className="border-t border-white/10 bg-slate-950 pb-28 pt-16 lg:py-16 relative z-10">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-4 font-kinetic font-black text-2xl text-white uppercase">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center">
@@ -1310,40 +1173,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* SCROLL TO TOP */}
-      {scrolled && (
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-8 right-8 z-40 group border-0 bg-transparent cursor-pointer"
-          aria-label="Scroll to top"
-        >
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5 group-hover:scale-110 transition-transform shadow-2xl shadow-emerald-500/20">
-            <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-emerald-400"
-                viewBox="0 0 100 100"
-                fill="none"
-              >
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="45"
-                  stroke="currentColor"
-                  strokeWidth="8"
-                  fill="transparent"
-                />
-                <path d="M50 18 L68 45 L50 38 L32 45 Z" fill="#CCFF00" />
-                <path
-                  d="M50 38 L50 82"
-                  stroke="currentColor"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-          </div>
-        </button>
-      )}
     </div>
   );
 }

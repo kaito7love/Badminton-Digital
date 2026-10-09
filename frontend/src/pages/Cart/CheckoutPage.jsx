@@ -343,7 +343,7 @@ export default function CheckoutPage() {
           </section>
         </div>
 
-        <aside className="nike-card-static p-7 lg:sticky lg:top-24">
+        <aside className="nike-card-static p-7 lg:sticky lg:top-28">
           <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">🧾 Đơn của bạn</h2>
 
           <div className="mt-4 space-y-3">

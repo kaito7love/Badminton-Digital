@@ -52,7 +52,7 @@ export function RegistrationPanel({ t, user, onRegister, onWithdraw, busy = fals
   const customer = role === 'customer';
   const mine = myTournamentText(t.me);
   return (
-    <Card className="lg:sticky lg:top-24" title="Đăng ký tham gia">
+    <Card className="lg:sticky lg:top-28" title="Đăng ký tham gia">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2"><Pill tone={state.tone}>{state.label}</Pill><FeeChip /></div>
         <div className="space-y-1.5">
@@ -98,7 +98,7 @@ export function SessionSignupPanel({ s, user, onSignUp, onCancel, busy = false }
   const customer = role === 'customer';
   const mine = mySessionText(s.me);
   return (
-    <Card className="lg:sticky lg:top-24" title="Tham gia buổi giao lưu">
+    <Card className="lg:sticky lg:top-28" title="Tham gia buổi giao lưu">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2"><Pill tone={open ? 'emerald' : 'slate'}>{open ? 'Đang nhận đăng ký' : 'Đã kết thúc'}</Pill><FeeChip /></div>
         <div className="space-y-1.5">
