@@ -30,11 +30,11 @@ Chín chỗ lệch: 3 kiểu chữ thương hiệu; ô logo 44 / 40; ba chiều 
 
 | | **a · Thống nhất thương hiệu** | **b · Menu phẳng** | **c · Menu phẳng + bảng** |
 |---|---|---|---|
-| Ý tưởng | Chỉ sửa thứ gây ra lỗi đã báo: logo, tên thương hiệu, chiều cao, khung. Mỗi khu giữ menu riêng | Một header chung cho ba khu: **Trang chủ ▾ · Cửa hàng ▾ · Thi đấu ▾**, giỏ, tài khoản. Rê chuột vào từng mục thì sổ xuống: Trang chủ (6 mốc), Cửa hàng (**Vợt, Giày, Phụ kiện**), Thi đấu (Tổng quan, Giải đấu, Giao lưu, Xếp hạng, + Lịch sử thi đấu cho khách hàng) | Như b, thêm nút **Menu** mở một bảng liệt kê mọi liên kết theo khu |
+| Ý tưởng | Chỉ sửa thứ gây ra lỗi đã báo: logo, tên thương hiệu, chiều cao, khung. Mỗi khu giữ menu riêng | Một header chung cho ba khu: **Trang chủ ▾ · Đặt sân · Cửa hàng ▾ · Thi đấu ▾**, giỏ, tài khoản; Đăng nhập là nút nổi bật, Đăng ký là nút viền. Rê chuột vào từng mục thì sổ xuống: Trang chủ (6 mốc), Cửa hàng (**Vợt, Giày, Phụ kiện**), Thi đấu (Tổng quan, Giải đấu, Giao lưu, Xếp hạng, + Lịch sử thi đấu cho khách hàng) | Như b, thêm nút **Menu** mở một bảng liệt kê mọi liên kết theo khu |
 | Đổi | ô logo, chữ, chiều cao, khung và lề của cả ba header (dùng chung một thành phần logo) | toàn bộ ba header thành một thành phần | như b |
 | Giữ nguyên | mọi mục menu và nút của từng khu, ☰, thanh tab dưới (chỉ ở khu khách) | — | — |
 | Dời | không | Đơn mua, Lịch đặt sang menu tài khoản, kèm mục **Lịch sử thi đấu** (dẫn tới trang Giải của tôi: các giải và buổi giao lưu đã đăng ký) | như b |
-| Bỏ khỏi header (**cần bạn đồng ý**) | không | không bỏ mục nào (Đơn mua chỉ còn ở menu tài khoản; giỏ chỉ còn là biểu tượng) | **không bỏ gì** |
+| Bỏ khỏi header (**cần bạn đồng ý**) | không | nút Instant Book ⚡ của Trang chủ (thay bằng mục Đặt sân); Đơn mua chỉ còn ở menu tài khoản; giỏ chỉ còn là biểu tượng | **không bỏ gì** |
 | Ưu | ít file nhất, ít rủi ro nhất, đo được ngay | header thật sự giống nhau; gọn nhất | giống nhau và không mất lối vào nào |
 | Nhược | menu vẫn khác nhau; Trang chủ vẫn không có đường tới Thi đấu; tràn ngang ở 768 của Thi đấu vẫn còn | ba menu sổ xuống cần thử kỹ trên cảm ứng và bàn phím; Cửa hàng không còn mục Giỏ hàng / Đơn mua trong menu con | tới mục con mất hai lần bấm; bảng Menu là thành phần mới phải thử kỹ trên cảm ứng |
 | Thanh tab dưới (điện thoại) | giữ nguyên, chỉ ở khu khách | **làm lại, hiện ở mọi trang** (cả Trang chủ và Thi đấu), 5 ô: **Trang chủ, Cửa hàng, Đặt sân, Thi đấu, Profile**. Đặt sân dẫn tới ô đặt nhanh ở Trang chủ (chưa có trang riêng, ngoài phạm vi); Profile dẫn tới Tài khoản (khách hàng), Bàn làm việc (nhân viên), Đăng nhập (khách). Giỏ hàng chỉ còn là biểu tượng ở thanh trên, Đơn mua chỉ còn ở menu tài khoản | như b |
@@ -47,26 +47,26 @@ Chín chỗ lệch: 3 kiểu chữ thương hiệu; ô logo 44 / 40; ba chiều 
 
 | Mục cũ | Chỗ mới |
 |---|---|
-| Courts · Schedule · Features · Pricing · Gear · FAQ (Trang chủ) | **Trang chủ ▾** (b) / bảng Menu › Trang chủ (c); nhãn theo câu 6 |
+| Courts · Schedule · Features · Pricing · Gear · FAQ (Trang chủ) | **Trang chủ ▾** (b) / bảng Menu › Trang chủ (c); nhãn theo câu 5 |
 | Shop · Cửa hàng | mục **Cửa hàng ▾** › Vợt, Giày, Phụ kiện (liên kết kiểu `/shop?category=…`; trang Cửa hàng hôm nay lọc theo danh mục bằng trạng thái trong trang, chưa đọc địa chỉ, nên phần lọc theo liên kết làm sau, như bạn nói: bây giờ chỉ làm UX/UI) |
 | Giỏ hàng (biểu tượng ở Trang chủ, mục menu ở Cửa hàng, không có ở Thi đấu) | biểu tượng giỏ ở **cả ba trang** (không còn trong menu con Cửa hàng) |
 | Giải đấu (`/thi-dau`) · Thi đấu | mục **Thi đấu** |
 | Giải đấu · Giao lưu (mốc), Xếp hạng | b: **Thi đấu ▾** sổ xuống khi rê chuột (bấm ▾ trên cảm ứng). c: bảng Menu |
 | Đơn mua, Lịch đặt, Tài khoản | menu tài khoản (b, c) và cột "Của tôi" của bảng Menu (c) |
-| Trình độ, Giải của tôi | gộp thành **Lịch sử thi đấu** (khách hàng) ở **Thi đấu ▾** (b) / bảng Menu (c) và menu tài khoản. **Trang Trình độ (`/my-rating`) mất lối vào từ header**: hiện chỉ header dẫn tới nó từ ngoài khu thi đấu — cần bạn quyết (câu 7) |
+| Trình độ, Giải của tôi | gộp thành **Lịch sử thi đấu** (khách hàng) ở **Thi đấu ▾** (b) / bảng Menu (c) và menu tài khoản. **Trang Trình độ (`/my-rating`) mất lối vào từ header**: hiện chỉ header dẫn tới nó từ ngoài khu thi đấu — cần bạn quyết (câu 6) |
 | Bàn làm việc · Đăng xuất · tên | menu tài khoản |
 | Đăng nhập · Đăng ký | bên phải, giữ hai nút |
-| Instant Book ⚡ | bên phải (câu 4) |
+| Instant Book ⚡ (Trang chủ) | **bỏ**, thay bằng mục **Đặt sân** (liên kết thường, không có menu con) tới ô đặt nhanh ở Trang chủ. Hành vi đặt sân không đổi |
 | Đổi giao diện | bên phải, ẩn ở Trang chủ như hôm nay (Trang chủ chưa có bản sáng) |
 | Nhãn "THI ĐẤU" lớn | bỏ hoặc nhãn nhỏ (câu 3) |
 
-**Kiểm bằng tìm kiếm trong mã:** Đơn mua (`/orders`), Trình độ (`/my-rating`) và Giải của tôi (`/my-tournaments`) hiện chỉ có đường vào từ header (từ ngoài khu của chúng); Lịch đặt (`/my-bookings`) còn nút ở trang Tài khoản. Nếu bỏ chúng khỏi header mà không có chỗ khác thì khách mất lối vào; vì vậy b và c gộp Trình độ, Giải của tôi thành Lịch sử thi đấu (trang Trình độ mất lối vào, xem câu 7) và chuyển Đơn mua, Lịch đặt vào menu tài khoản.
+**Kiểm bằng tìm kiếm trong mã:** Đơn mua (`/orders`), Trình độ (`/my-rating`) và Giải của tôi (`/my-tournaments`) hiện chỉ có đường vào từ header (từ ngoài khu của chúng); Lịch đặt (`/my-bookings`) còn nút ở trang Tài khoản. Nếu bỏ chúng khỏi header mà không có chỗ khác thì khách mất lối vào; vì vậy b và c gộp Trình độ, Giải của tôi thành Lịch sử thi đấu (trang Trình độ mất lối vào, xem câu 6) và chuyển Đơn mua, Lịch đặt vào menu tài khoản.
 
 ## 4. Phần chung của cả ba hướng
 
 - **Logo:** một thành phần dùng cho ba header, cùng ô logo và cùng chữ BADMINTON DIGITAL ở cả ba (cỡ theo câu 2), giữ nguyên kiểu hiện có (viền gradient lục–chanh, nền tối, vợt, "DIGITAL" gradient). Logo ở cả ba trỏ về `/` (đang ở `/` thì cuộn lên đầu như hôm nay); riêng Thi đấu hôm nay trỏ về `/thi-dau`, nên đây là một thay đổi nhỏ cần bạn biết (câu 3).
 - **Chiều cao, khung, lề:** thanh 80 px (điện thoại 64) hoặc 96 / 80 theo câu 2, khung 1280 px, lề 24 px (20 dưới 640 px).
-- Thanh tab dưới của khu khách, thân trang, nút Instant Book trong hero và ô đặt sân của Trang chủ **không đổi**.
+- Thanh tab dưới của khu khách, thân trang, nút "Đặt sân ngay" trong hero và ô đặt sân của Trang chủ **không đổi**.
 - Chỗ khác dựng logo bằng tay (4 trang đăng nhập / quên / đặt lại mật khẩu / đăng ký, ô logo của `SidebarLayout`) **giữ nguyên**.
 
 ## 5. Quyết định cần bạn trả lời
@@ -76,11 +76,10 @@ Chưa có mặc định nào được làm. Đổi từng câu trong bản mẫu
 1. **Hướng:** a, b hoặc c (mục 3). *Gợi ý: a.*
 2. **Cỡ logo chuẩn:** (a) ô 40, chữ 20, thanh 80 px, điện thoại 64 (như Cửa hàng; Trang chủ nhỏ đi một chút); (b) ô 44, chữ 24, thanh 96 px, điện thoại 80 (như Trang chủ; thanh chật hơn). *Gợi ý: (a).*
 3. **Chữ "THI ĐẤU" cạnh logo ở khu Thi đấu:** (a) bỏ, logo trỏ về `/`; (b) giữ thành nhãn nhỏ "Thi đấu" cạnh logo, logo trỏ về `/`. *Gợi ý: (a).*
-4. **Nút Instant Book ⚡ (chỉ hướng b, c):** (a) ở bên phải cả ba trang; (b) chỉ ở Trang chủ như hôm nay. *Gợi ý: (a), vì đây là hành động chính của sân.*
-5. **Khung header Thi đấu (chỉ hướng a):** (a) rộng 1280 như hai trang kia, logo cùng chỗ ở cả ba, lệch 56 px so với nội dung Thi đấu (plan không đổi thân trang); (b) giữ khung hôm nay, logo khớp nội dung Thi đấu nhưng lệch 56 px so với hai trang kia. *Gợi ý: (a).*
-6. **Nhãn mốc Trang chủ (hướng b, c):** (a) tiếng Việt: Sân · Lịch trống · Tiện ích · Bảng giá · Dụng cụ · Hỏi đáp; (b) giữ tiếng Anh. *Gợi ý: (a).*
+4. **Khung header Thi đấu (chỉ hướng a):** (a) rộng 1280 như hai trang kia, logo cùng chỗ ở cả ba, lệch 56 px so với nội dung Thi đấu (plan không đổi thân trang); (b) giữ khung hôm nay, logo khớp nội dung Thi đấu nhưng lệch 56 px so với hai trang kia. *Gợi ý: (a).*
+5. **Nhãn mốc Trang chủ (hướng b, c):** (a) tiếng Việt: Sân · Lịch trống · Tiện ích · Bảng giá · Dụng cụ · Hỏi đáp; (b) giữ tiếng Anh. *Gợi ý: (a).*
 
-7. **Trang Trình độ (`/my-rating`), hướng b, c:** sau khi gộp thành Lịch sử thi đấu, không còn mục nào dẫn tới trang này. (a) đặt một liên kết "Trình độ" trong menu tài khoản; (b) để trang đó vào được từ trang Giải của tôi / Tài khoản (sửa nội dung trang, ngoài phạm vi header); (c) bỏ lối vào. *Gợi ý: (a).*
+6. **Trang Trình độ (`/my-rating`), hướng b, c:** sau khi gộp thành Lịch sử thi đấu, không còn mục nào dẫn tới trang này. (a) đặt một liên kết "Trình độ" trong menu tài khoản; (b) để trang đó vào được từ trang Giải của tôi / Tài khoản (sửa nội dung trang, ngoài phạm vi header); (c) bỏ lối vào. *Gợi ý: (a).*
 
 ## 6. Ngoài phạm vi (không đụng, trừ khi bạn nói)
 
@@ -107,7 +106,7 @@ Vitest chạy sau mỗi bước.
 | Rủi ro | Giảm |
 |---|---|
 | Đổi chiều cao header làm lệch cuộn tới mốc và khối `sticky` (`lg:top-24` ở `Panels.jsx`, `CheckoutPage.jsx`, `OrderDetailPage.jsx`; `scroll-mt-32` ở `atoms.jsx`) | header sau khi đổi cao 80 đến 96 px, thấp hơn hoặc bằng 96 px của `top-24`; bấm thật để xác nhận trước khi coi là xong |
-| Trang chủ: nút Instant Book và cuộn tới ô đặt sân (hướng b, c) | ghi lại luồng đặt sân trước / sau; hiệu ứng cuộn tới mốc khi đi từ trang khác |
+| Trang chủ: mục Đặt sân và cuộn tới ô đặt sân (hướng b, c) | ghi lại luồng đặt sân trước / sau; hiệu ứng cuộn tới mốc khi đi từ trang khác |
 | Thanh chật ở 1024 đến 1280 px (hướng b, c) | bản mẫu đã đo; quyết theo số đo khi làm |
 | Bản demo Render deploy ngay khi push `main` | không gộp, không đẩy khi bạn chưa nói "merge vào main đi" |
 
