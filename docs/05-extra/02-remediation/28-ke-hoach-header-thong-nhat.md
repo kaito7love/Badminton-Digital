@@ -33,7 +33,7 @@ Chín chỗ lệch: 3 kiểu chữ thương hiệu; ô logo 44 / 40; ba chiều 
 | Ý tưởng | Chỉ sửa thứ gây ra lỗi đã báo: logo, tên thương hiệu, chiều cao, khung. Mỗi khu giữ menu riêng | Một header chung cho ba khu: Trang chủ · Cửa hàng · **Thi đấu ▾**, giỏ, tài khoản. Rê chuột vào Thi đấu thì sổ xuống Tổng quan, Giải đấu, Giao lưu, Xếp hạng (+ Trình độ, Giải của tôi cho khách hàng) | Như b, thêm nút **Menu** mở một bảng liệt kê mọi liên kết theo khu |
 | Đổi | ô logo, chữ, chiều cao, khung và lề của cả ba header (dùng chung một thành phần logo) | toàn bộ ba header thành một thành phần | như b |
 | Giữ nguyên | mọi mục menu và nút của từng khu, ☰, thanh tab dưới | thanh tab dưới của khu khách | thanh tab dưới của khu khách |
-| Dời | không | Đơn mua, Lịch đặt sang menu tài khoản | như b, và Trình độ, Giải của tôi cũng có ở menu tài khoản |
+| Dời | không | Đơn mua, Lịch đặt sang menu tài khoản, kèm mục **Thi đấu của tôi** (dẫn tới trang Giải của tôi: các giải và buổi giao lưu đã đăng ký) | như b, và Trình độ, Giải của tôi cũng có ở menu tài khoản |
 | Bỏ khỏi header (**cần bạn đồng ý**) | không | 6 mốc cuộn của Trang chủ (Thi đấu giữ đủ mục con trong menu sổ xuống) | **không bỏ gì** |
 | Ưu | ít file nhất, ít rủi ro nhất, đo được ngay | header thật sự giống nhau; gọn nhất | giống nhau và không mất lối vào nào |
 | Nhược | menu vẫn khác nhau; Trang chủ vẫn không có đường tới Thi đấu; tràn ngang ở 768 của Thi đấu vẫn còn | Trang chủ và Cửa hàng không có menu con (mất 6 mốc Trang chủ); menu sổ xuống cần thử kỹ trên cảm ứng và bàn phím | tới mục con mất hai lần bấm; bảng Menu là thành phần mới phải thử kỹ trên cảm ứng |
@@ -51,7 +51,7 @@ Chín chỗ lệch: 3 kiểu chữ thương hiệu; ô logo 44 / 40; ba chiều 
 | Giỏ hàng (biểu tượng ở Trang chủ, mục menu ở Cửa hàng, không có ở Thi đấu) | biểu tượng giỏ ở **cả ba trang** |
 | Giải đấu (`/thi-dau`) · Thi đấu | mục **Thi đấu** |
 | Giải đấu · Giao lưu (mốc), Xếp hạng | b: **Thi đấu ▾** sổ xuống khi rê chuột (bấm ▾ trên cảm ứng). c: bảng Menu |
-| Đơn mua, Lịch đặt, Tài khoản | menu tài khoản (b, c) và bảng Menu (c) |
+| Đơn mua, Lịch đặt, Tài khoản | menu tài khoản (b, c) và bảng Menu (c); b thêm mục "Thi đấu của tôi" ở menu tài khoản |
 | Trình độ, Giải của tôi | b: **Thi đấu ▾** (khách hàng). c: bảng Menu và menu tài khoản |
 | Bàn làm việc · Đăng xuất · tên | menu tài khoản |
 | Đăng nhập · Đăng ký | bên phải, giữ hai nút |
