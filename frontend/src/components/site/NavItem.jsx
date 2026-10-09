@@ -19,6 +19,7 @@ const Chevron = ({ open }) => (
 export default function NavItem({ item, active, location, tone, dropdown }) {
   const t = TONES[tone];
   const caretRef = useRef(null);
+  const pointerKind = useRef(null); // 'mouse' | 'touch' | 'pen' | 'key': chuột đã mở menu khi rê vào, bấm ▾ không được đóng nó đi
   const hasMenu = item.children && item.children.length > 0;
   const isOpen = hasMenu && dropdown.openKey === item.key;
   const activeChild = hasMenu ? resolveActiveChild(item, location) : null;
@@ -53,7 +54,13 @@ export default function NavItem({ item, active, location, tone, dropdown }) {
         aria-label={`Mở menu ${item.label}`}
         aria-expanded={isOpen}
         aria-controls={menuId}
-        onClick={() => dropdown.toggle(item.key)}
+        onPointerDown={(e) => { pointerKind.current = e.pointerType; }}
+        onKeyDown={() => { pointerKind.current = 'key'; }}
+        onClick={() => {
+          if (pointerKind.current === 'mouse') dropdown.open(item.key);
+          else dropdown.toggle(item.key);
+          pointerKind.current = null;
+        }}
         className={`ml-1 inline-flex h-7 w-6 items-center justify-center rounded-md ${t.caret}`}
       >
         <Chevron open={isOpen} />
