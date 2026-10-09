@@ -1,7 +1,7 @@
 # Kế hoạch 28: header thống nhất (Trang chủ, Cửa hàng, Thi đấu)
 
 - **Ngày:** 10/10/2026.
-- **Trạng thái:** **chủ dự án đã chọn hướng (1b 2a 3a 4a 5a); còn 1 câu mở (câu 6, mục 5). Chưa sửa mã nào, chờ lệnh "code đi".** Nhánh `feat/header-thong-nhat`, tách từ `main` @ `1c7ef66`; trên nhánh chỉ có file này.
+- **Trạng thái:** **đã làm xong 6 bước trên nhánh (kết quả ở mục 12); chờ chủ dự án duyệt gộp vào `main`** (chưa gộp, chưa đẩy). Chủ dự án chọn 1b 2a 3a 4a 5a và bỏ qua câu 6 (trang Trình độ để xử lý sau). Nhánh `feat/header-thong-nhat`, tách từ `main` @ `1c7ef66`.
 - **Làm lại từ đầu** theo yêu cầu của chủ dự án (10/10/2026): không kế thừa hướng thiết kế, mã hay tài liệu của các lần trước.
 - **Bản mẫu bấm thử:** <https://claude.ai/artifact/5GioM2ctNX4XCSNA7TvE8C>. Chọn "b · Menu phẳng" để xem đúng hướng đã chọn; "Hiện tại" là app đang chạy. Bản mẫu còn hướng a, c để đối chiếu, không dùng.
 - **Phạm vi:** chỉ header (kể cả thanh tab dưới trên điện thoại, vì nó là phần điều hướng của header). Mục 6 liệt kê những gì không đụng. Đang tập trung UX/UI: **không tạo endpoint hay xử lý dữ liệu** cho các trang mà menu dẫn tới.
@@ -135,3 +135,22 @@ Mỗi bước một commit trên nhánh này; đo trước, sửa, đo lại b�
 - Không sửa `CLAUDE.md`, `00-tien-do.md` hay tài liệu nào khác ngoài file này, nếu bạn chưa nói.
 - Không dừng hay chạy lại server, không chạy migration trên DB của bạn, không xóa nhánh hay Artifact khi bạn chưa nói.
 - Việc gì không có trong plan này thì hỏi trước khi làm.
+
+## 12. Kết quả (10/10/2026)
+
+Mỗi bước đo trước, sửa, đo lại bằng Chrome thật (chuột, bàn phím, ảnh chụp toàn trang), không chỉ đọc mã. Vitest 311 → 349; `vite build` sạch.
+
+| Bước | Commit | Kết quả |
+|---|---|---|
+| 1 | `a985226` | `BrandLogo` + `siteNav.js`: 27 test (mục theo vai trò, mốc, danh mục, thanh tab, khu đang đứng, thi đấu tắt) |
+| 2 | `4ef6da1` | Header chung (thanh, menu thả xuống, ☰, thanh tab): 14 test dựng bằng react-dom/server |
+| 3 | `f3cd109` | `CustomerLayout` 253 → 60 dòng. 7 trang khu khách × sáng / tối × 1440 / 390 (28 ảnh): ở 1440 giống hệt từng điểm ảnh bên dưới header (một ảnh sáng lệch 16 điểm); ở 390 giống hệt sau khi bù 16 px, trừ dải thanh tab mới và vài trăm điểm nền lưới ở bản sáng. 46 phép kiểm tương tác. Sửa một lỗi thật tìm ra khi bấm: chuột bấm ▾ khi menu đã mở do rê chuột thì đóng nó đi |
+| 4 | `74f72b3` | `PublicShell` 135 → 48 dòng; khung nội dung giữ nguyên. 4 trang × sáng / tối × 1440 / 390 (16 ảnh): giống hệt bên dưới header sau khi bù độ lệch đã đo, trừ dải thanh tab mới và chân trang bám đáy ở trang ngắn. Hết tràn ngang ở 768 px. 45 đến 46 phép kiểm |
+| 5 | `9361a53` | Trang chủ: tắt hiệu ứng động, 1440 giống hệt **0 điểm ảnh** bên dưới header, 390 chỉ khác dải thanh tab; **luồng đặt sân thật** (khách đã / chưa đăng nhập, gồm cất lựa chọn, sang đăng nhập, quay lại) trước và sau **giống hệt**; 33 phép kiểm riêng. Sửa một lỗi thật: đi từ trang khác tới `/#mốc` bị lệch vì khối phía trên tải dữ liệu xong mới nở ra, nay cuộn lại khi dữ liệu về |
+| 6 | (đo) | Ô logo và chữ BADMINTON DIGITAL ở `/`, `/shop`, `/thi-dau`, `/rankings` × 1920 / 1440 / 1280 / 1024 / 768 / 390 / 360: **28/28 phép đo khớp tuyệt đối, sai lệch lớn nhất 0 px**; cùng chiều cao thanh (81 px từ 1024, 65 px dưới đó) |
+
+Đã kiểm thêm: không trang nào tràn ngang ở 1920, 1440, 1280, 1100, 1024, 1000, 768, 390, 360 px; đúng bố cục máy tính từ 1024 và điện thoại dưới đó; menu ☰ cuộn tới được mục cuối ở màn hình cao 640 px (không bị thanh tab che); nút lên đầu trang và chữ cuối chân trang nằm trên thanh tab; bản sáng và bản tối của Cửa hàng và Thi đấu; Trang chủ luôn tối kể cả khi giao diện đã lưu là sáng; vai trò khách, khách hàng và quản trị (menu tên và ô Profile đi đúng chỗ).
+
+**Chưa kiểm:** bản chạy thật trên Render (chưa gộp, chưa đẩy); điện thoại thật (chỉ mô phỏng 390 / 360 px trong Chrome).
+
+**Ngoài plan, đã nhắc:** trang Trình độ (`/my-rating`) không còn lối vào từ header (câu 6, bỏ qua theo yêu cầu); tiêu đề trang đích của "Lịch sử thi đấu" vẫn là "Giải của tôi"; liên kết `?category=` của Cửa hàng mới dẫn tới trang, chưa lọc theo địa chỉ; nhãn ô tab cuối đang là "Profile".
