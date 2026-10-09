@@ -4,6 +4,7 @@ import CustomerLayout from '../../layouts/CustomerLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService, customerService } from '../../services/apiServices';
 import { formatDateTime, formatDate } from '../../utils/datetime';
+import MyRatingCard from '../../features/competition/components/MyRatingCard';
 
 /**
  * Hồ sơ khách hàng — nơi khách tự xem được những gì hệ thống đang lưu về mình:
@@ -262,6 +263,9 @@ export default function AccountPage() {
           <StatTile label="Buổi đã chơi" value={sessions.length} hint={`${paidSessions.length} buổi đã có hoá đơn`} />
           <StatTile label="Lịch đã đặt" value={bookings.length} hint={`${upcomingCount} lịch sắp tới`} />
           <StatTile label="Lần chơi gần nhất" value={formatDate(latestSession?.startTime, latestSession?.branch?.timezone)} hint={latestSession?.court?.name || '—'} />
+          <div className="sm:col-span-2">
+            <MyRatingCard />
+          </div>
         </div>
       </div>
 
