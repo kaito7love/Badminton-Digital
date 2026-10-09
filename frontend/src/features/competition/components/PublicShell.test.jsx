@@ -1,52 +1,59 @@
 import React from 'react';
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { StaticRouter } from 'react-router-dom/server';
-import { NavItems } from './PublicShell';
 
-// Thanh điều hướng của khu Thi đấu. Lỗi cũ: mục đầu tên "Trang chủ" nhưng trỏ về /thi-dau, nên người đang ở Thi đấu thấy
-// "Trang chủ" sáng còn bấm vào lại không ra trang chủ thật.
-const ACTIVE = 'bg-emerald-500/15';
-const nav = (location, isCustomer = false) =>
-  renderToStaticMarkup(<StaticRouter location={location}><NavItems isCustomer={isCustomer} /></StaticRouter>);
+// Khung khu Thi đấu. Hai lỗi cũ cần giữ chặn (nay do header chung đảm nhiệm, test chi tiết ở components/site):
+//  - mục "Trang chủ" vừa sáng ở /thi-dau vừa không dẫn về trang chủ thật;
+//  - tên thương hiệu bị chữ "THI ĐẤU" thay chỗ.
+// Ở đây kiểm khung dùng đúng header chung và vẫn xử lý trạng thái đang tải / tính năng tắt như trước.
+const state = vi.hoisted(() => ({ value: { enabled: true, loading: false } }));
+vi.mock('../context/CompetitionContext', () => ({ useCompetition: () => state.value }));
+vi.mock('../../../components/site/SiteHeader', () => ({ default: () => <header data-site-header-stub /> }));
 
-// Lấy thẻ <a> theo nhãn hiển thị: { href, active }
-const link = (html, label) => {
-  const m = new RegExp(`<a ([^>]*)>${label}</a>`).exec(html);
-  if (!m) return null;
-  return { href: /href="([^"]*)"/.exec(m[1])[1], active: m[1].includes(ACTIVE) };
-};
+import PublicShell from './PublicShell';
 
-describe('NavItems — khu Thi đấu', () => {
-  test('"Trang chủ" trỏ về trang chủ của cả site và KHÔNG sáng, kể cả khi đang ở /thi-dau', () => {
-    for (const where of ['/thi-dau', '/thi-dau/giai/abc', '/thi-dau/giao-luu/xyz', '/rankings']) {
-      expect(link(nav(where), 'Trang chủ')).toEqual({ href: '/', active: false });
-    }
+const render = (props = {}) =>
+  renderToStaticMarkup(
+    <StaticRouter location="/thi-dau">
+      <PublicShell {...props}><p>NOI-DUNG-GIAI</p></PublicShell>
+    </StaticRouter>
+  );
+
+beforeEach(() => { state.value = { enabled: true, loading: false }; });
+
+describe('PublicShell — khung khu Thi đấu', () => {
+  test('dùng header chung thay vì header riêng (không còn chữ THI ĐẤU thay tên thương hiệu)', () => {
+    const html = render();
+    expect(html).toMatch(/data-site-header-stub/);
+    expect(html).not.toMatch(/THI ĐẤU|Thi đấu — trang chủ/);
   });
 
-  test('ở trang tổng quan /thi-dau thì mục "Thi đấu" sáng, không mục nào khác', () => {
-    const html = nav('/thi-dau');
-    expect(link(html, 'Thi đấu')).toEqual({ href: '/thi-dau', active: true });
-    for (const other of ['Trang chủ', 'Giải đấu', 'Giao lưu', 'Xếp hạng']) expect(link(html, other).active).toBe(false);
+  test('bật tính năng: hiện nội dung; có tiêu đề và mô tả nếu truyền vào', () => {
+    const html = render({ title: 'Bảng xếp hạng', subtitle: 'Theo trình độ' });
+    expect(html).toMatch(/NOI-DUNG-GIAI/);
+    expect(html).toMatch(/<h1[^>]*>Bảng xếp hạng<\/h1>/);
+    expect(html).toMatch(/Theo trình độ/);
   });
 
-  test('trang chi tiết giải sáng "Giải đấu", chi tiết buổi sáng "Giao lưu"; "Thi đấu" nhường lại', () => {
-    const giai = nav('/thi-dau/giai/abc');
-    expect(link(giai, 'Giải đấu').active).toBe(true);
-    expect(link(giai, 'Giao lưu').active).toBe(false);
-    expect(link(giai, 'Thi đấu').active).toBe(false);
-
-    const gl = nav('/thi-dau/giao-luu/xyz');
-    expect(link(gl, 'Giao lưu').active).toBe(true);
-    expect(link(gl, 'Giải đấu').active).toBe(false);
+  test('tính năng tắt: báo chưa bật, không hiện nội dung', () => {
+    state.value = { enabled: false, loading: false };
+    const html = render();
+    expect(html).toMatch(/Tính năng thi đấu chưa được bật/);
+    expect(html).not.toMatch(/NOI-DUNG-GIAI/);
   });
 
-  test('/rankings sáng "Xếp hạng"', () => {
-    expect(link(nav('/rankings'), 'Xếp hạng')).toEqual({ href: '/rankings', active: true });
+  test('đang kiểm tra: hiện thông báo đang tải, chưa hiện nội dung', () => {
+    state.value = { enabled: true, loading: true };
+    const html = render();
+    expect(html).toMatch(/Đang kiểm tra tính năng thi đấu/);
+    expect(html).not.toMatch(/NOI-DUNG-GIAI/);
   });
 
-  test('"Giải của tôi" chỉ hiện với khách hàng', () => {
-    expect(nav('/thi-dau', false)).not.toContain('Giải của tôi');
-    expect(link(nav('/my-tournaments', true), 'Giải của tôi')).toEqual({ href: '/my-tournaments', active: true });
+  test('chân trang có đường về trang chủ của cả site và chừa chỗ cho thanh tab dưới trên điện thoại', () => {
+    const html = render();
+    expect(html).toMatch(/<a [^>]*href="\/"[^>]*>Trang chủ Badminton Digital<\/a>/);
+    expect(html).toMatch(/<footer[^>]*pb-24/);
+    expect(html).toMatch(/<main[^>]*pb-28/);
   });
 });
