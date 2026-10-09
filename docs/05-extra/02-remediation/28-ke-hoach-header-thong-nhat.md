@@ -37,7 +37,7 @@ Chín chỗ lệch: 3 kiểu chữ thương hiệu; ô logo 44 / 40; ba chiều 
 | Bỏ khỏi header (**cần bạn đồng ý**) | không | không bỏ mục nào (Đơn mua chỉ còn ở menu tài khoản; giỏ chỉ còn là biểu tượng) | **không bỏ gì** |
 | Ưu | ít file nhất, ít rủi ro nhất, đo được ngay | header thật sự giống nhau; gọn nhất | giống nhau và không mất lối vào nào |
 | Nhược | menu vẫn khác nhau; Trang chủ vẫn không có đường tới Thi đấu; tràn ngang ở 768 của Thi đấu vẫn còn | ba menu sổ xuống cần thử kỹ trên cảm ứng và bàn phím; Cửa hàng không còn mục Giỏ hàng / Đơn mua trong menu con | tới mục con mất hai lần bấm; bảng Menu là thành phần mới phải thử kỹ trên cảm ứng |
-| Thanh tab dưới (điện thoại) | giữ nguyên, chỉ ở khu khách | **hiện ở mọi trang** (cả Trang chủ và Thi đấu), cùng 5 ô: Trang chủ, Cửa hàng, Giỏ hàng, Đơn mua (khách), Thi đấu | như b |
+| Thanh tab dưới (điện thoại) | giữ nguyên, chỉ ở khu khách | **làm lại, hiện ở mọi trang** (cả Trang chủ và Thi đấu), 5 ô: **Trang chủ, Cửa hàng, Đặt sân, Thi đấu, Profile**. Đặt sân dẫn tới ô đặt nhanh ở Trang chủ (chưa có trang riêng, ngoài phạm vi); Profile dẫn tới Tài khoản (khách hàng), Bàn làm việc (nhân viên), Đăng nhập (khách). Giỏ hàng chỉ còn là biểu tượng ở thanh trên, Đơn mua chỉ còn ở menu tài khoản | như b |
 | Chạm tới | thành phần logo mới + khối header của `HomePage`, `CustomerLayout`, `PublicShell` | các file của a + thành phần header chung, cấu hình menu (có test), ngưỡng hiện thanh tab, hiệu ứng cuộn tới mốc ở Trang chủ nếu giữ nút Instant Book ở mọi trang | như b + bảng Menu |
 | Ngưỡng gập ☰ (đo trong bản mẫu, khách) | không đổi (1024 / 1280 / không có) | ~1030 px (khách), ~1040 px (khách hàng); đo lại sau khi thêm hai menu con | ~1100 px (~1130 khi đã đăng nhập) |
 
