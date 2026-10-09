@@ -274,7 +274,7 @@ export default function OrderDetailPage() {
           </section>
         </div>
 
-        <aside className="space-y-6 lg:sticky lg:top-24">
+        <aside className="space-y-6 lg:sticky lg:top-28">
           <section className="nike-card-static p-7">
             <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">📍 Nhận hàng</h2>
             <p className="mt-3 font-kinetic text-base font-black uppercase text-emerald-700 dark:text-emerald-300">

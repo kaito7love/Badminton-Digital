@@ -12,10 +12,10 @@ import BrandMark from '../BrandMark';
  */
 
 const TILE =
-  'h-10 w-10 shrink-0 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5 transition-transform group-hover:scale-110';
+  'h-11 w-11 shrink-0 rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 p-0.5 transition-transform group-hover:scale-110';
 
 export function BrandTile({ tone = 'auto', className = '' }) {
-  const glyph = tone === 'dark' ? 'h-5 w-5 text-emerald-400' : 'h-5 w-5 text-emerald-700 dark:text-emerald-400';
+  const glyph = tone === 'dark' ? 'h-6 w-6 text-emerald-400' : 'h-6 w-6 text-emerald-700 dark:text-emerald-400';
   return (
     <div className={`${TILE} ${className}`.trim()} data-brand-tile>
       <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-slate-950">
@@ -35,7 +35,7 @@ export function BrandWordmark({ tone = 'auto', className = '' }) {
   const gradient = tone === 'dark' ? GRADIENT_DARK : GRADIENT_AUTO;
   return (
     <span
-      className={`whitespace-nowrap font-kinetic text-base font-black uppercase tracking-tighter sm:text-xl ${color} ${className}`.trim()}
+      className={`whitespace-nowrap font-kinetic text-lg font-black uppercase tracking-tighter sm:text-2xl ${color} ${className}`.trim()}
       data-brand-wordmark
     >
       BADMINTON <span className={gradient}>DIGITAL</span>

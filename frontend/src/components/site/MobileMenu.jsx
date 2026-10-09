@@ -12,7 +12,7 @@ const Chevron = ({ open }) => (
 /**
  * Menu ☰ dưới 1024 px. Nền đặc (nền trong suốt làm chữ của trang lọt qua). Mục có con là hàng bấm được cả hàng để mở / gập,
  * mũi tên nằm ngay cạnh chữ và không có nền riêng; chỉ mục của khu đang đứng mở sẵn. Cao tối đa bằng khoảng trống thật
- * (màn hình trừ thanh trên 4rem và thanh tab dưới 4rem), cuộn bên trong, nên mục cuối (Đăng xuất) luôn cuộn tới được.
+ * (màn hình trừ thanh trên 5rem và thanh tab dưới 4rem), cuộn bên trong, nên mục cuối (Đăng xuất) luôn cuộn tới được.
  */
 export default function MobileMenu({ nav, activeKey, location, tone, account, cartCount, theme, onToggleTheme, showThemeToggle, loginState, onLogout, onNavigate }) {
   const t = TONES[tone];
@@ -23,7 +23,7 @@ export default function MobileMenu({ nav, activeKey, location, tone, account, ca
     <div
       id="site-mobile-menu"
       className={`absolute inset-x-0 top-full z-50 overflow-y-auto overscroll-contain px-4 pb-4 pt-2 shadow-2xl lg:hidden ${t.sheet} ${t.sheetLine} border-b`}
-      style={{ maxHeight: 'calc(100dvh - 8rem)' }}
+      style={{ maxHeight: 'calc(100dvh - 9rem)' }}
     >
       {nav.items.map((item) => {
         const hasChildren = item.children.length > 0;

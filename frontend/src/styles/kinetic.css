@@ -31,7 +31,9 @@
   color: var(--nike-text-main);
   min-height: 100vh;
   position: relative;
+  /* clip, không phải hidden: hidden biến khung này thành vùng cuộn nên header `sticky` bên trong không còn bám theo cửa sổ khi cuộn */
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Background Dynamic Cyber Noise & Mesh Grid */

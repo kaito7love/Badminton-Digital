@@ -10,8 +10,8 @@ import { TONES } from './siteTone';
 
 /**
  * Phần vẽ của header chung (kế hoạch 28, hướng b) — thuần theo props, không đọc context, nên dựng thử bằng react-dom/server.
- *  - Máy tính (từ 1024 px): một thanh 80 px — logo · Trang chủ ▾ · Đặt sân · Cửa hàng ▾ · Thi đấu ▾ · (đổi giao diện) · giỏ · tài khoản.
- *  - Điện thoại: thanh 64 px (logo · giỏ · ☰) + menu ☰ + thanh tab dưới 5 ô.
+ *  - Máy tính (từ 1024 px): một thanh 96 px — logo · Trang chủ ▾ · Đặt sân · Cửa hàng ▾ · Thi đấu ▾ · (đổi giao diện) · giỏ · tài khoản.
+ *  - Điện thoại: thanh 80 px (logo · giỏ · ☰) + menu ☰ + thanh tab dưới 5 ô.
  *  - `overlay` (Trang chủ): cố định, trong suốt ở đầu trang, thành kính mờ khi `scrolled`.
  * Chiều cao trang phía dưới do khung trang tự chừa chỗ: sticky chiếm chỗ thật; overlay thì hero tự đẩy xuống.
  */
@@ -47,7 +47,7 @@ export default function SiteHeaderView({
         data-site-header
         className={`${position} z-40 transition-colors duration-300 ${solid ? t.bar : t.barClear}`}
       >
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-5 sm:px-6 lg:h-20">
+        <div className="mx-auto flex h-20 max-w-7xl items-center gap-4 px-5 sm:px-6 lg:h-24">
           <BrandLogo tone={tone} onClick={onLogoClick} />
 
           <nav aria-label="Điều hướng chính" className="ml-2 hidden items-center gap-5 self-stretch lg:flex xl:ml-4 xl:gap-7">

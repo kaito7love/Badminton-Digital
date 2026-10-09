@@ -15,11 +15,11 @@ describe('BrandLogo — một kiểu cho cả ba header', () => {
     expect(html).not.toMatch(/THI ĐẤU|Thi đấu/);
   });
 
-  test('ô logo 40 px, chữ 16 px (20 px từ sm) — cùng cỡ ở mọi nơi dùng', () => {
+  test('ô logo 44 px, chữ 18 px (24 px từ sm) — cùng cỡ ở mọi nơi dùng', () => {
     const html = render(<BrandLogo />);
-    expect(html).toMatch(/h-10 w-10/);
-    expect(html).toMatch(/text-base/);
-    expect(html).toMatch(/sm:text-xl/);
+    expect(html).toMatch(/h-11 w-11/);
+    expect(html).toMatch(/text-lg/);
+    expect(html).toMatch(/sm:text-2xl/);
   });
 
   test('bản tự động có cặp màu sáng / tối; bản dark chỉ có màu tối', () => {
