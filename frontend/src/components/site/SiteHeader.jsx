@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigationType } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -15,6 +15,7 @@ import { buildSiteNav } from './siteNav';
  */
 export default function SiteHeader({ tone = 'auto', overlay = false }) {
   const location = useLocation();
+  const navType = useNavigationType();
   const { user, logout } = useAuth();
   const { totalQuantity } = useCart();
   const themeCtx = useTheme();
@@ -29,6 +30,16 @@ export default function SiteHeader({ tone = 'auto', overlay = false }) {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, [overlay]);
+
+  // Sang trang khác (bấm menu, tab, liên kết) thì cuộn về đầu trang. Trước đây vị trí cuộn bị giữ nguyên nếu trang đích đã nạp sẵn
+  // (vd từ cuối trang Thi đấu bấm Cửa hàng vẫn nằm ở cuối), còn trang đang nạp thì tự co lại nên nhảy về đầu: lúc có lúc không.
+  // Header này nằm trong mọi trang khách và dựng lại theo từng trang nên chạy đúng một lần mỗi lần đổi trang. Không đụng vào:
+  // nút Back / Forward của trình duyệt (POP), liên kết có #mốc (trang đích tự cuộn tới mốc), và đổi ?bộ-lọc trong cùng một trang.
+  useEffect(() => {
+    if (navType === 'POP' || location.hash) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   // Đang ở trang chủ: bấm logo cuộn lên đầu thay vì không có gì xảy ra.
   const onLogoClick = (e) => {

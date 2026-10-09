@@ -164,3 +164,7 @@ Mỗi bước đo trước, sửa, đo lại bằng Chrome thật (chuột, bàn
 ## 14. Thẻ Trình độ ở trang Tài khoản (10/10/2026, theo yêu cầu)
 
 Trang `/account` có thêm thẻ "Trình độ của tôi" (dưới các ô thống kê): khách **chưa chấm** thấy lời mời và nút "Tự chấm trình" → `/my-rating/assess`; khách **đã chấm** chỉ thấy điểm Đơn và Đôi (kèm mức, số trận, "tạm tính") và liên kết "Xem chi tiết →" `/my-rating`. Thi đấu tắt hoặc dịch vụ lỗi thì không hiện thẻ. Việc này cũng trả lời **câu 6**: trang Trình độ có lối vào từ trang Tài khoản. Đã kiểm trên app thật: đã chấm / chưa chấm (giả lập phản hồi) / thi đấu tắt / dịch vụ trả 503, sáng và tối, 1440 và 390 px; Vitest 355.
+
+## 15. Đổi trang thì cuộn về đầu trang (10/10/2026, theo yêu cầu)
+
+Trước đây app không có đoạn nào cuộn về đầu khi đổi trang: trang đích đã nạp sẵn thì giữ nguyên vị trí cuộn (vd từ cuối trang Thi đấu bấm Cửa hàng vẫn nằm ở cuối, đo: 1471 → 1282), còn trang đang nạp thì tự co lại nên nhảy về đầu (lúc có lúc không). Nay `SiteHeader` (có trong mọi trang khách, dựng lại theo từng trang) cuộn về đầu một lần mỗi lần đổi đường dẫn. Không đụng: nút Back / Forward của trình duyệt, liên kết có `#mốc`, đổi `?lọc` trong cùng trang (đo: lọc Giày ở y=700 vẫn y=700). Khu nhân viên không đổi. Đã kiểm: Trang chủ, Cửa hàng, Thi đấu, Đặt sân, Tài khoản đều về 0 sau khi chuyển; các mốc từ trang khác sang Trang chủ vẫn cuộn đúng.
