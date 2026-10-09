@@ -119,6 +119,7 @@ Mỗi bước một commit trên nhánh này; đo trước, sửa, đo lại b�
 | Đổi chiều cao header làm lệch cuộn tới mốc và khối `sticky` (`lg:top-24` ở `Panels.jsx`, `CheckoutPage.jsx`, `OrderDetailPage.jsx`; `scroll-mt-32` ở `atoms.jsx`) | header mới cao 80 px, thấp hơn 96 px của `top-24`; bấm thật để xác nhận trước khi coi là xong |
 | Trang chủ: mục Đặt sân, cuộn tới ô đặt sân từ trang khác | ghi lại luồng đặt sân trước / sau |
 | Thanh tab dưới che chữ ở chân trang | chừa chỗ dưới chân trang ở cả ba khung; chụp ảnh cuối trang |
+| Menu ☰ dài hơn khoảng trống (màn hình thấp) nên mục cuối (Đăng xuất) không cuộn tới được | menu giới hạn chiều cao = chiều cao màn hình trừ thanh trên và thanh tab dưới, tự cuộn bên trong; kiểm ở màn hình thấp (700 px) bằng cách cuộn tới Đăng xuất |
 | Ba menu thả xuống khó dùng trên cảm ứng và bàn phím | nút ▾ riêng, thử cả ba cách ở bước 2 |
 | Thanh chật ở 1024 đến 1100 px | bản mẫu đo: vừa từ ~1030 px; thấp hơn thì gập ☰ |
 | Bản demo Render deploy ngay khi push `main` | không gộp, không đẩy khi bạn chưa nói "merge vào main đi" |
