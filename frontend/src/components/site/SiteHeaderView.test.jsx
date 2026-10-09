@@ -29,10 +29,10 @@ describe('SiteHeaderView — thanh trên', () => {
     expect(t).not.toMatch(/Instant/i);
   });
 
-  test('chỉ Trang chủ, Cửa hàng, Thi đấu có nút ▾; Đặt sân là liên kết thường tới ô đặt nhanh', () => {
+  test('chỉ Trang chủ, Cửa hàng, Thi đấu có nút ▾; Đặt sân là liên kết thường tới trang Đặt sân', () => {
     const html = render('/');
     expect((html.match(/aria-label="Mở menu (Trang chủ|Cửa hàng|Thi đấu)"/g) || []).length).toBe(3);
-    expect(html).toMatch(/<a [^>]*href="\/#booking-widget"[^>]*>Đặt sân<\/a>/);
+    expect(html).toMatch(/<a [^>]*href="\/dat-san"[^>]*>Đặt sân<\/a>/);
   });
 
   test('khách: Đăng nhập là nút nổi bật (dải xanh), Đăng ký là nút viền', () => {
@@ -48,8 +48,8 @@ describe('SiteHeaderView — thanh trên', () => {
     expect(html).not.toMatch(/aria-current="page"[^>]*>Trang chủ</);
   });
 
-  test('"/" kèm #booking-widget sáng Đặt sân, không sáng Trang chủ', () => {
-    const html = render('/#booking-widget');
+  test('trang /dat-san sáng Đặt sân, không sáng Trang chủ', () => {
+    const html = render('/dat-san');
     expect(html).toMatch(/aria-current="page"[^>]*>Đặt sân</);
     expect(html).not.toMatch(/aria-current="page"[^>]*>Trang chủ</);
   });

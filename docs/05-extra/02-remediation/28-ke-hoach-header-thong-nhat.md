@@ -29,7 +29,7 @@ Trang chủ, Cửa hàng và Thi đấu đang có 3 header khác nhau nên logo 
 | Câu | Chọn |
 |---|---|
 | 1 · Hướng | **b · Menu phẳng**: một header chung cho ba khu (a và c không làm) |
-| 2 · Cỡ logo | **(a)** ô 40, chữ 20, thanh 80 px (điện thoại 64) |
+| 2 · Cỡ logo | **(b)** ô 44, chữ 24, thanh 96 px (điện thoại: chữ 18, thanh 80). Lúc đầu chọn (a) ô 40 / chữ 20 / thanh 80; đổi sang (b) theo yêu cầu ngày 10/10/2026 |
 | 3 · Chữ "THI ĐẤU" cạnh logo | **(a)** bỏ; logo ở Thi đấu trỏ về `/` như hai trang kia |
 | 4 · Khung header Thi đấu | (a); chỉ áp cho hướng a nên **không còn tác dụng** với hướng b (header chung rộng 1280) |
 | 5 · Nhãn mốc Trang chủ | **(a)** tiếng Việt: Sân · Lịch trống · Tiện ích · Bảng giá · Dụng cụ · Hỏi đáp |
@@ -51,7 +51,7 @@ Các yêu cầu bổ sung trong lúc xem bản mẫu (đều đã có trong bả
 | Mục | Con |
 |---|---|
 | Trang chủ ▾ | Sân · Lịch trống · Tiện ích · Bảng giá · Dụng cụ · Hỏi đáp (cuộn tới mốc trong Trang chủ; từ trang khác thì chuyển về Trang chủ rồi cuộn) |
-| Đặt sân | không có; tới ô đặt nhanh ở Trang chủ |
+| Đặt sân | không có; tới trang **/dat-san** (khung cơ bản, xem mục 13) |
 | Cửa hàng ▾ | Vợt · Giày · Phụ kiện (liên kết kiểu `/shop?category=…`) |
 | Thi đấu ▾ | Tổng quan · Giải đấu · Giao lưu · Xếp hạng; khách hàng thêm **Lịch sử thi đấu** (dẫn tới trang Giải của tôi) |
 | Nút tên ▾ (khách hàng) | Tài khoản · Đơn mua · Lịch đặt · Lịch sử thi đấu · Đăng xuất |
@@ -61,7 +61,7 @@ Thi đấu ▾ chỉ hiện khi dịch vụ thi đấu bật (như hôm nay).
 
 **Điện thoại (dưới 1024 px, hoặc khi thanh một tầng không đủ chỗ; đo trong bản mẫu: ~1030 px):**
 - Thanh trên 64 px: logo · giỏ · ☰. ☰ mở menu có nền đặc: Trang chủ ▾, Đặt sân, Cửa hàng ▾, Thi đấu ▾, rồi đổi giao diện và các mục tài khoản. Chỉ mục con của **khu đang đứng** mở sẵn; bấm cả hàng để mở / gập.
-- Thanh tab dưới **làm lại, luôn hiện ở mọi trang** (cả Trang chủ và Thi đấu), 5 ô: **Trang chủ, Cửa hàng, Đặt sân, Thi đấu, Profile**. Đặt sân tới ô đặt nhanh ở Trang chủ; Profile tới Tài khoản (khách hàng), Bàn làm việc (nhân viên), Đăng nhập (khách). Giỏ hàng chỉ còn là biểu tượng ở thanh trên; Đơn mua chỉ còn ở menu tài khoản.
+- Thanh tab dưới **làm lại, luôn hiện ở mọi trang** (cả Trang chủ và Thi đấu), 5 ô: **Trang chủ, Cửa hàng, Đặt sân, Thi đấu, Profile**. Đặt sân tới trang `/dat-san`; Profile tới Tài khoản (khách hàng), Bàn làm việc (nhân viên), Đăng nhập (khách). Giỏ hàng chỉ còn là biểu tượng ở thanh trên; Đơn mua chỉ còn ở menu tài khoản.
 
 ### 4.1 Đối chiếu: mục cũ nằm ở đâu
 
@@ -90,7 +90,7 @@ Hai việc nhỏ bạn có thể muốn nói luôn: trang đích của "Lịch s
 
 ## 6. Ngoài phạm vi (không đụng, trừ khi bạn nói)
 
-Trang Đặt sân riêng và tách ô đặt nhanh khỏi Trang chủ; bản sáng cho Trang chủ; độ rộng, lề và nội dung thân trang, kể cả khung nội dung Thi đấu; đường dẫn, trang đích sau đăng nhập hay đăng ký; logo ở các trang đăng nhập và khu nhân viên; backend, DB, endpoint và dữ liệu cho danh mục Cửa hàng hay Lịch sử thi đấu (trang Cửa hàng hôm nay lọc danh mục bằng trạng thái trong trang, chưa đọc địa chỉ, nên liên kết `?category=` chỉ dẫn tới trang, phần lọc làm sau); `CLAUDE.md` và các tài liệu khác ngoài file này.
+Trang Đặt sân đầy đủ (chỉ có khung cơ bản `/dat-san`, chủ dự án tự làm sau) và tách ô đặt nhanh khỏi Trang chủ; bản sáng cho Trang chủ; độ rộng, lề và nội dung thân trang, kể cả khung nội dung Thi đấu; đường dẫn, trang đích sau đăng nhập hay đăng ký; logo ở các trang đăng nhập và khu nhân viên; backend, DB, endpoint và dữ liệu cho danh mục Cửa hàng hay Lịch sử thi đấu (trang Cửa hàng hôm nay lọc danh mục bằng trạng thái trong trang, chưa đọc địa chỉ, nên liên kết `?category=` chỉ dẫn tới trang, phần lọc làm sau); `CLAUDE.md` và các tài liệu khác ngoài file này.
 
 ## 7. Chạm tới những gì (khi làm)
 
@@ -154,3 +154,9 @@ Mỗi bước đo trước, sửa, đo lại bằng Chrome thật (chuột, bàn
 **Chưa kiểm:** bản chạy thật trên Render (chưa gộp, chưa đẩy); điện thoại thật (chỉ mô phỏng 390 / 360 px trong Chrome).
 
 **Ngoài plan, đã nhắc:** trang Trình độ (`/my-rating`) không còn lối vào từ header (câu 6, bỏ qua theo yêu cầu); tiêu đề trang đích của "Lịch sử thi đấu" vẫn là "Giải của tôi"; liên kết `?category=` của Cửa hàng mới dẫn tới trang, chưa lọc theo địa chỉ; nhãn ô tab cuối đang là "Profile".
+
+## 13. Chỉnh thêm sau khi xem bản chạy (10/10/2026)
+
+- **Header Cửa hàng không dính khi cuộn:** `.kinetic-surface` có `overflow-x: hidden` nên thành vùng cuộn riêng, `position: sticky` của header bám vào nó thay vì cửa sổ (đo: cuộn 900 px thì header ở −900 px). Đổi thành `overflow-x: clip` (`styles/kinetic.css`); mọi trang khu khách, kể cả Cửa hàng, giữ header ở đầu cửa sổ (kiểm trên `/shop`).
+- **Cỡ logo 44 / 24, thanh 96** (câu 2 chuyển sang (b)): ô 44, chữ 24 (18 dưới 640 px), thanh 96 px (80 ở điện thoại), menu ☰ cao tối đa trừ 9rem. Bốn khối `sticky` gõ cứng `lg:top-24` (`Panels.jsx` ×2, `CheckoutPage.jsx`, `OrderDetailPage.jsx`) đổi thành `lg:top-28` để không chui dưới header 97 px. Đo lại: 28/28 phép đo logo khớp 0 px (header cao 97 px từ 1024 px, 81 px dưới đó); vừa khung ở 1024 đến 1920 px, không tràn ở 360 đến 1000 px.
+- **Trang Đặt sân `/dat-san` (mới, cơ bản):** công khai, dùng khung khách; chỉ có tiêu đề, một câu giải thích và hai nút: "Đặt nhanh ở Trang chủ" (tới ô đặt nhanh) và, với khách hàng, "Lịch đặt của tôi". Mục Đặt sân ở header và ô tab Đặt sân trỏ tới trang này; trang Lịch đặt (`/my-bookings`) cũng sáng mục Đặt sân. Chủ dự án sẽ tự làm trang này sau.

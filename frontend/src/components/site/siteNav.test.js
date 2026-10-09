@@ -12,10 +12,10 @@ describe('buildSiteNav — các mục chính', () => {
     expect(items.map((i) => i.label)).toEqual(['Trang chủ', 'Đặt sân', 'Cửa hàng', 'Thi đấu']);
   });
 
-  test('Đặt sân là liên kết thường: không có mục con, trỏ tới ô đặt nhanh ở Trang chủ', () => {
+  test('Đặt sân là liên kết thường: không có mục con, trỏ tới trang Đặt sân', () => {
     const book = buildSiteNav({ user: customer }).items.find((i) => i.key === NAV_KEYS.book);
     expect(book.children).toEqual([]);
-    expect(book.to).toBe('/#booking-widget');
+    expect(book.to).toBe('/dat-san');
   });
 
   test('Trang chủ có 6 mốc tiếng Việt, id khớp các <section> của HomePage', () => {
@@ -88,8 +88,9 @@ describe('resolveActive — mục chính đang đứng', () => {
     for (const p of ['/thi-dau', '/thi-dau/giai/abc', '/rankings', '/players/9']) expect(resolveActive(loc(p))).toBe('comp');
   });
 
-  test('"/" kèm #booking-widget là Đặt sân; trang Lịch đặt cũng là Đặt sân', () => {
-    expect(resolveActive(loc('/', '#booking-widget'))).toBe('book');
+  test('trang Đặt sân và trang Lịch đặt là Đặt sân; "/" kèm mốc vẫn là Trang chủ', () => {
+    expect(resolveActive(loc('/dat-san'))).toBe('book');
+    expect(resolveActive(loc('/', '#booking-widget'))).toBe('home');
     expect(resolveActive(loc('/', '#pricing'))).toBe('home');
     expect(resolveActive(loc('/my-bookings'))).toBe('book');
   });

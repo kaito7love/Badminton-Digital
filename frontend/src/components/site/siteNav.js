@@ -13,7 +13,6 @@ import { roleOf, isStaff, homePathForRole } from '../../utils/roles';
 export const NAV_KEYS = { home: 'home', book: 'book', shop: 'shop', comp: 'comp', profile: 'profile' };
 
 // id khớp với <section id> / <div id> trong HomePage.
-export const BOOKING_ANCHOR = 'booking-widget';
 const HOME_SECTIONS = [
   ['courts', 'Sân'],
   ['availability', 'Lịch trống'],
@@ -37,9 +36,8 @@ const PROFILE_BASES = ['/account', '/login', '/register', '/forgot-password', '/
 /** Mục chính đang đứng theo địa chỉ hiện tại (null nếu không thuộc mục nào). */
 export function resolveActive(location) {
   const pathname = (location && location.pathname) || '/';
-  const hash = (location && location.hash) || '';
-  if (pathname === '/') return hash === `#${BOOKING_ANCHOR}` ? NAV_KEYS.book : NAV_KEYS.home;
-  if (inBase(pathname, ['/my-bookings'])) return NAV_KEYS.book;
+  if (pathname === '/') return NAV_KEYS.home;
+  if (inBase(pathname, ['/dat-san', '/my-bookings'])) return NAV_KEYS.book;
   if (inBase(pathname, ['/shop', '/cart', '/checkout', '/orders'])) return NAV_KEYS.shop;
   if (inBase(pathname, COMP_BASES)) return NAV_KEYS.comp;
   if (inBase(pathname, PROFILE_BASES)) return NAV_KEYS.profile;
@@ -140,7 +138,7 @@ export function buildSiteNav({ user = null, competitionOn = true } = {}) {
 
   const items = [
     { key: NAV_KEYS.home, label: 'Trang chủ', to: '/', children: HOME_SECTIONS.map(homeChild) },
-    { key: NAV_KEYS.book, label: 'Đặt sân', to: `/#${BOOKING_ANCHOR}`, children: [] },
+    { key: NAV_KEYS.book, label: 'Đặt sân', to: '/dat-san', children: [] },
     { key: NAV_KEYS.shop, label: 'Cửa hàng', to: '/shop', children: SHOP_CATEGORIES.map(shopChild) }
   ];
   if (competitionOn) {
@@ -151,7 +149,7 @@ export function buildSiteNav({ user = null, competitionOn = true } = {}) {
   const tabs = [
     { key: NAV_KEYS.home, label: 'Trang chủ', icon: '🏠', to: '/' },
     { key: NAV_KEYS.shop, label: 'Cửa hàng', icon: '🛍️', to: '/shop' },
-    { key: NAV_KEYS.book, label: 'Đặt sân', icon: '🎟️', to: `/#${BOOKING_ANCHOR}` }
+    { key: NAV_KEYS.book, label: 'Đặt sân', icon: '🎟️', to: '/dat-san' }
   ];
   if (competitionOn) tabs.push({ key: NAV_KEYS.comp, label: 'Thi đấu', icon: '🏆', to: '/thi-dau' });
   tabs.push({
