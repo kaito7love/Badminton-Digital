@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-10-05 (bản demo công khai đã lên Render; mục 22 — sửa số proxy của Render trong `render.yaml` + dòng admin không mật khẩu trên trang đăng nhập demo — đã merge vào `main` và push). Trước đó 2026-10-03 (mục 19 — bấm điểm trực tiếp, tỉ số lên màn hình TV — và mục 20 — giải đấu tổ chức + vận hành được ngày thi đấu — đã merge vào `main` sau khi chủ dự án bấm thử: main fast-forward tới `030513f`, gồm cả hai nhánh). Trước đó 2026-09-28 (mục 18 — competition-service bước 1–3 kèm phần sửa sau khi bấm thử — đã merge vào `main`). Trước đó 2026-09-25 (mục 16 — nhóm sửa 4, hạ tầng deploy + bản demo công khai — và mục 17 — nhóm sửa 5, thao tác tại quầy — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-4-5`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-10-10 (mục 27 — header chung cho Trang chủ, Cửa hàng, Thi đấu, đã lên `main` và bản live); trước đó 2026-10-05 (bản demo công khai đã lên Render; mục 22 — sửa số proxy của Render trong `render.yaml` + dòng admin không mật khẩu trên trang đăng nhập demo — đã merge vào `main` và push). Trước đó 2026-10-03 (mục 19 — bấm điểm trực tiếp, tỉ số lên màn hình TV — và mục 20 — giải đấu tổ chức + vận hành được ngày thi đấu — đã merge vào `main` sau khi chủ dự án bấm thử: main fast-forward tới `030513f`, gồm cả hai nhánh). Trước đó 2026-09-28 (mục 18 — competition-service bước 1–3 kèm phần sửa sau khi bấm thử — đã merge vào `main`). Trước đó 2026-09-25 (mục 16 — nhóm sửa 4, hạ tầng deploy + bản demo công khai — và mục 17 — nhóm sửa 5, thao tác tại quầy — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-4-5`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -834,18 +834,26 @@ rồi mới nhả số của hồ sơ đã xoá).
 - **Đã làm (06/10/2026):** chủ dự án chọn phương án A — `timeout-minutes` 30 → 60 + sửa tài liệu "~30 giây"; Jest 503/503, Vitest 238/238, YAML chỉ khác một dòng. B / C (nhanh hơn) không làm. Chủ dự án duyệt "merge vào main đi" cùng ngày → main fast-forward `4c36f19` → `81c0c34`; chưa push. Chạy thật sau khi push. Chi tiết:
   `26-ke-hoach-reset-demo-cham.md`.
 
-### 25. `feat/competition-public-hub` — trang công khai "Thi đấu": khách xem giải / buổi giao lưu + đăng ký online (plan 27, **xong p0–p5 07/10/2026, chờ duyệt gộp vào main**)
+### 25. `feat/competition-public-hub` — trang công khai "Thi đấu": khách xem giải / buổi giao lưu + đăng ký online (plan 27, **xong p0–p5 07/10/2026, đã merge vào `main` 08/10/2026 (`cd51b2c`)**)
 
 - **Yêu cầu (07/10/2026):** trang riêng cho portfolio, nằm trong cùng web app (`/thi-dau`), xem không cần đăng nhập, đăng ký cần tài khoản khách, tự động; giải đôi cặp cố định nhận cả hai người cùng lúc (đồng đội có thể chưa có tài khoản); đăng ký giải + buổi giao lưu + SSE; lệ phí chỉ hiển thị 200k/người.
 - **Phát hiện khi đọc code:** hiện khách / người chưa đăng nhập không xem được giải hay buổi nào và đăng ký chỉ nhân viên làm được; buổi giao lưu chưa có đăng ký trước. Nên cần API công khai + tự đăng ký + `session_signups` ở service và luật cổng nối, không chỉ giao diện.
 - **Chia 6 slice** p0–p5; chi tiết, giả định cần xác nhận: `27-ke-hoach-trang-cong-khai-thi-dau.md`.
 
-### 26. `fix/hub-polish-and-customer-light-mode` — chỉnh nhỏ khu Thi đấu + giao diện sáng cho khung khách (**xong 09/10/2026, chờ duyệt gộp vào main**)
+### 26. `fix/hub-polish-and-customer-light-mode` — chỉnh nhỏ khu Thi đấu + giao diện sáng cho khung khách (**xong 09/10/2026, đã merge vào `main` cùng ngày (`1c7ef66`) và lên bản live**)
 
 - **Yêu cầu (09/10/2026, kèm ảnh chụp bản live):** chữ banner Thi đấu màu trắng (đen khó đọc); header khu Thi đấu đang tô sáng "Trang chủ" và bấm không về trang chủ thật; Bảng xếp hạng và Giỏ hàng chỉ có chế độ tối; logo đổi mũi tên thành cây vợt (nút "lên đầu trang" ở trang chủ giữ mũi tên cũ).
 - **Đã làm:** `BrandMark` dùng chung cho 8 chỗ logo; "Trang chủ" → `/` và không bao giờ sáng, "Giải đấu"/"Giao lưu" sáng theo đường dẫn; `/rankings` và `/players/:id` chuyển sang `PublicShell` (cổng `hub`, xem được khi chưa đăng nhập); cả họ `CustomerLayout` (cửa hàng, sản phẩm, giỏ, thanh toán, đơn mua, chi tiết đơn, lịch đặt, tài khoản và 4 trang "Tôi" của Thi đấu) thành cặp sáng/tối, bảng màu Kinetic đổi chỉ dưới `.kinetic-light`; nút đổi giao diện ở header khung khách (có trong menu ☰ trên điện thoại); bỏ `forceDark` của `CustomerShell`.
 - **Kiểm chứng:** Vitest 311/311 (thêm `PublicShell.test.jsx` — chứng minh đỏ trên code nav cũ — và `BrandMark.test.jsx`), `vite build` sạch; chụp bằng Chrome ở 1440 và 390 px, hai giao diện: **chế độ tối không đổi một điểm ảnh nào dưới header** trên 12 trang cũ và 4 trang "Tôi" (so với ảnh chụp chính code trước đó chạy ở cổng khác), trang chủ không bị ảnh hưởng bởi giao diện (0,00%); bấm thật nút đổi giao diện, trạng thái giữ qua tải lại.
-- **Chưa kiểm bằng mắt:** bảng lịch sử chơi trong Tài khoản (tài khoản seed chưa có buổi chơi nào); bản live trên Render (chưa deploy).
+- **Chưa kiểm bằng mắt:** bảng lịch sử chơi trong Tài khoản (tài khoản seed chưa có buổi chơi nào).
+
+### 27. `feat/header-thong-nhat` — header chung cho Trang chủ, Cửa hàng và Thi đấu (plan 28, **xong 10/10/2026, đã merge vào `main` (`d689c75`) và lên bản live**)
+
+- **Yêu cầu (09/10/2026):** ba trang có ba header khác nhau nên logo và tên thương hiệu không đồng nhất. Làm lại từ đầu sau khi chủ dự án bỏ hướng cũ; chỉ làm header; xem bản mẫu bấm thử và chốt từng câu trước khi code. Chọn hướng b: một thanh chung, Trang chủ ▾ · Đặt sân · Cửa hàng ▾ · Thi đấu ▾.
+- **Đã làm:** `components/site/` (`SiteHeader`, `siteNav.js` giữ toàn bộ dữ liệu menu, menu thả xuống khi rê chuột, ☰, thanh tab dưới 5 ô luôn hiện) và `components/brand/BrandLogo.jsx` (ô logo 44, chữ 24, thanh 96; bản sáng nền ô trắng). `HomePage` (kiểu đè lên ảnh, luôn tối), `CustomerLayout`, `PublicShell` đều dùng nó; bỏ nút Instant Book ở header, thêm Cửa hàng theo danh mục Vợt / Giày / Phụ kiện, Lịch sử thi đấu thay Trình độ + Giải của tôi.
+- **Thêm theo yêu cầu trong lúc xem bản chạy:** trang `/dat-san` cơ bản (chủ dự án tự làm tiếp); thẻ "Trình độ của tôi" ở `/account` (chưa chấm → trang tự chấm, đã chấm → điểm Đơn / Đôi + liên kết `/my-rating`); nút lên đầu trang dùng chung; đổi trang khách thì cuộn về đầu; sửa lỗi header Cửa hàng không dính khi cuộn (`.kinetic-surface` đổi `overflow-x: hidden` thành `clip`).
+- **Kiểm chứng:** Vitest 311 → 355; `vite build` sạch; Chrome thật: ô logo + chữ ở `/`, `/shop`, `/thi-dau`, `/rankings` × 7 bề rộng **28/28 khớp 0 px**; thân trang giống hệt từng điểm ảnh bên dưới header (1440 px, cả sáng / tối); luồng đặt sân thật trước / sau giống hệt; 46–47 phép kiểm tương tác mỗi trang (rê chuột, ▾, Esc, Enter, Tab, ☰, tab dưới), chạy lại trên địa chỉ live. Chi tiết từng bước và các chỉnh sau: `28-ke-hoach-header-thong-nhat.md` mục 12–15.
+- **Chưa làm / chủ dự án đã biết:** trang `/my-rating` chỉ còn lối vào từ thẻ ở Tài khoản; tiêu đề trang đích của "Lịch sử thi đấu" vẫn là "Giải của tôi"; liên kết `?category=` của Cửa hàng chưa lọc theo địa chỉ; nhãn ô tab cuối là "Profile"; vài trang cũ (Tài khoản, Lịch đặt, Cửa hàng) còn trỏ `/#booking-widget` thay vì `/dat-san`; chưa thử trên điện thoại thật (chỉ mô phỏng 390 / 360 px trong Chrome).
 
 ## Chưa làm — xem plan riêng từng phần
 
