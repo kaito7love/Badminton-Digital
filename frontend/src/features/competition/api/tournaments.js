@@ -121,6 +121,10 @@ export const sessionsApi = {
   /** Sửa buổi (tên, sân, luật điểm, cách xếp…). `version` = `session.version` (If-Match). */
   update: (id, body, version) => api.patch(`/sessions/${id}`, body, { etag: version }).then(data),
   players: (id) => api.get(`/sessions/${id}/players`).then(data),
+  /** Khách đăng ký online (plan 27): đã giữ chỗ / đang chờ / đã đến — để điểm danh nhanh. */
+  signups: (id) => api.get(`/sessions/${id}/signups`).then(data),
+  /** Gỡ một đăng ký online (người chờ được lên); trả danh sách mới. */
+  removeSignup: (id, signupId) => api.del(`/sessions/${id}/signups/${signupId}`).then(data),
   /** Điểm danh. Chưa có điểm → 422 NEEDS_ASSESSMENT (gửi lại kèm `quickLevel`); đang ở buổi khác → 409 PRESENT_ELSEWHERE. */
   checkIn: (id, playerId, quickLevel) => api.post(`/sessions/${id}/players`, quickLevel ? { playerId, quickLevel } : { playerId }).then(data),
   leave: (id, playerId) => api.del(`/sessions/${id}/players/${playerId}`).then(data),

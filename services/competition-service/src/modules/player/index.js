@@ -4,6 +4,7 @@ const { createPlayerService } = require('./application/playerService');
 const { createPlayerRouter } = require('./infrastructure/http/routes');
 const { registerInboundHandlers } = require('./application/inboundEvents');
 const profile = require('./domain/profile');
+const guest = require('./domain/guest');
 
 const createPlayerModule = ({ models, sequelize, platform }) => {
   const service = createPlayerService({ models, sequelize, audit: platform.audit });
@@ -12,4 +13,4 @@ const createPlayerModule = ({ models, sequelize, platform }) => {
   return { service, router };
 };
 
-module.exports = { definePlayerModels, createPlayerModule, domain: { profile } };
+module.exports = { definePlayerModels, createPlayerModule, domain: { profile, guest } };

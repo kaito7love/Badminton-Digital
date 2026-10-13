@@ -72,13 +72,13 @@ export default function OrdersPage() {
       </div>
 
       {loading ? (
-        <p className="py-16 text-center text-slate-400">⏳ Đang tải đơn hàng...</p>
+        <p className="py-16 text-center text-slate-600 dark:text-slate-400">⏳ Đang tải đơn hàng...</p>
       ) : error ? (
-        <p className="py-16 text-center font-bold text-rose-400">{error}</p>
+        <p className="py-16 text-center font-bold text-rose-600 dark:text-rose-400">{error}</p>
       ) : visibleOrders.length === 0 ? (
         <div className="nike-card-static p-12 text-center">
           <p className="text-6xl">📦</p>
-          <p className="mt-4 font-kinetic text-xl font-black uppercase text-white">
+          <p className="mt-4 font-kinetic text-xl font-black uppercase text-slate-900 dark:text-white">
             {tab === 'all' ? 'Bạn chưa đặt đơn nào' : 'Không có đơn nào ở mục này'}
           </p>
           <Link to="/shop" className="btn-nike-bolt mt-6 text-xs">
@@ -95,18 +95,18 @@ export default function OrdersPage() {
                 to={`/orders/${order.id}`}
                 className="nike-card block p-6 no-underline"
               >
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
                   <div>
-                    <p className="font-kinetic text-base font-black uppercase tracking-tight text-white">
+                    <p className="font-kinetic text-base font-black uppercase tracking-tight text-slate-900 dark:text-white">
                       Đơn #{order.id}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-500">
                       {formatDateTime(order.createdAt, order.branch?.timezone)} • 🏬 {order.branch?.name || 'Chi nhánh'}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {order.qrCodeUrl && (
-                      <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-3 py-1 font-kinetic text-[10px] font-black uppercase tracking-widest text-amber-300">
+                      <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-3 py-1 font-kinetic text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
                         📲 Chờ chuyển khoản
                       </span>
                     )}
@@ -125,23 +125,23 @@ export default function OrdersPage() {
                     return (
                       <div key={line.id} className="flex items-center gap-3">
                         <span
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br text-xl ${look.tint}`}
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-gradient-to-br text-xl ${look.tint}`}
                         >
                           {look.icon}
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-sm text-slate-300">{name}</span>
-                        <span className="shrink-0 text-xs text-slate-500">× {line.quantity}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm text-slate-700 dark:text-slate-300">{name}</span>
+                        <span className="shrink-0 text-xs text-slate-600 dark:text-slate-500">× {line.quantity}</span>
                       </div>
                     );
                   })}
                   {(order.lines || []).length > 3 && (
-                    <p className="text-xs text-slate-500">và {order.lines.length - 3} sản phẩm khác…</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-500">và {order.lines.length - 3} sản phẩm khác…</p>
                   )}
                 </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
-                  <span className="text-xs text-slate-500">{orderQuantity(order)} sản phẩm</span>
-                  <span className="font-kinetic text-xl font-black text-emerald-400">
+                <div className="mt-4 flex items-center justify-between border-t border-slate-200 dark:border-white/10 pt-4">
+                  <span className="text-xs text-slate-600 dark:text-slate-500">{orderQuantity(order)} sản phẩm</span>
+                  <span className="font-kinetic text-xl font-black text-emerald-700 dark:text-emerald-400">
                     {formatVnd(orderTotal(order))}
                   </span>
                 </div>

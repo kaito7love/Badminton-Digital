@@ -111,7 +111,7 @@ export default function ShopPage() {
           <div>
             <label
               htmlFor="shop-search"
-              className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400"
+              className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400"
             >
               Tìm sản phẩm
             </label>
@@ -127,7 +127,7 @@ export default function ShopPage() {
           <div>
             <label
               htmlFor="shop-sort"
-              className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400"
+              className="mb-2 block font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400"
             >
               Sắp xếp
             </label>
@@ -176,19 +176,19 @@ export default function ShopPage() {
       </div>
 
       {loading ? (
-        <p className="py-16 text-center text-slate-400">⏳ Đang tải kệ hàng...</p>
+        <p className="py-16 text-center text-slate-600 dark:text-slate-400">⏳ Đang tải kệ hàng...</p>
       ) : error ? (
-        <p className="py-16 text-center font-bold text-rose-400">{error}</p>
+        <p className="py-16 text-center font-bold text-rose-600 dark:text-rose-400">{error}</p>
       ) : visibleProducts.length === 0 ? (
         <div className="nike-card-static p-12 text-center">
-          <p className="font-kinetic text-xl font-black uppercase text-white">Không có sản phẩm nào khớp</p>
-          <p className="mt-3 text-slate-400">
+          <p className="font-kinetic text-xl font-black uppercase text-slate-900 dark:text-white">Không có sản phẩm nào khớp</p>
+          <p className="mt-3 text-slate-600 dark:text-slate-400">
             Thử bỏ bớt bộ lọc, hoặc hỏi quầy {branchName} — có mẫu chưa kịp lên kệ.
           </p>
         </div>
       ) : (
         <>
-          <p className="mb-5 font-kinetic text-xs font-bold uppercase tracking-widest text-slate-500">
+          <p className="mb-5 font-kinetic text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-500">
             {visibleProducts.length} sản phẩm
           </p>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

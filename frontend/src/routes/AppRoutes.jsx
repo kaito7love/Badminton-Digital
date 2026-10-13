@@ -29,6 +29,7 @@ const ActivityLogPage = lazy(() => import('../pages/ActivityLog/ActivityLogPage'
 const MyBookingsPage = lazy(() => import('../pages/MyBookings/MyBookingsPage'));
 const AccountPage = lazy(() => import('../pages/Account/AccountPage'));
 const ShopPage = lazy(() => import('../pages/Shop/ShopPage'));
+const BookingPage = lazy(() => import('../pages/Booking/BookingPage'));
 const ProductDetailPage = lazy(() => import('../pages/Shop/ProductDetailPage'));
 const CartPage = lazy(() => import('../pages/Cart/CartPage'));
 const CheckoutPage = lazy(() => import('../pages/Cart/CheckoutPage'));
@@ -52,6 +53,8 @@ export default function AppRoutes() {
               Giỏ hàng cũng công khai: chặn đăng nhập ở bước đặt đơn là đủ, bắt đăng nhập
               từ lúc bỏ hàng vào giỏ chỉ tổ đuổi khách đi. */}
           <Route path="/shop" element={<ShopPage />} />
+          {/* Đặt sân: trang công khai, mới có khung cơ bản (kế hoạch 28). */}
+          <Route path="/dat-san" element={<BookingPage />} />
           <Route path="/shop/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
 

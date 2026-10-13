@@ -8,10 +8,10 @@ import { bookingService } from '../../services/apiServices';
 // dẫn họ bấm vào rồi lãnh 403.
 
 const STATUS_META = {
-  PENDING: { label: 'Chờ xác nhận', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
-  CONFIRMED: { label: 'Đã xác nhận', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
-  COMPLETED: { label: 'Đã chơi xong', cls: 'bg-sky-500/15 text-sky-300 border-sky-500/30' },
-  CANCELLED: { label: 'Đã huỷ', cls: 'bg-rose-500/15 text-rose-300 border-rose-500/30' }
+  PENDING: { label: 'Chờ xác nhận', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30' },
+  CONFIRMED: { label: 'Đã xác nhận', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30' },
+  COMPLETED: { label: 'Đã chơi xong', cls: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30' },
+  CANCELLED: { label: 'Đã huỷ', cls: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30' }
 };
 
 const formatDate = (value) => {
@@ -74,7 +74,7 @@ export default function MyBookingsPage() {
       }
       subtitle={
         <>
-          Lịch mới đặt ở trạng thái <span className="font-semibold text-amber-300">chờ xác nhận</span> — nhân viên sẽ
+          Lịch mới đặt ở trạng thái <span className="font-semibold text-amber-700 dark:text-amber-300">chờ xác nhận</span> — nhân viên sẽ
           duyệt trước giờ chơi.
         </>
       }
@@ -85,13 +85,13 @@ export default function MyBookingsPage() {
       }
     >
       {loading ? (
-        <p className="py-16 text-center text-slate-400">⏳ Đang tải lịch đặt...</p>
+        <p className="py-16 text-center text-slate-600 dark:text-slate-400">⏳ Đang tải lịch đặt...</p>
       ) : error ? (
-        <p className="py-16 text-center font-bold text-rose-400">{error}</p>
+        <p className="py-16 text-center font-bold text-rose-600 dark:text-rose-400">{error}</p>
       ) : bookings.length === 0 ? (
         <div className="nike-card-static p-12 text-center">
-          <p className="font-kinetic text-xl font-black uppercase text-white">Bạn chưa đặt sân lần nào</p>
-          <p className="mt-3 text-slate-400">Chọn khung giờ ở trang chủ, hệ thống sẽ giữ chỗ ngay khi còn trống.</p>
+          <p className="font-kinetic text-xl font-black uppercase text-slate-900 dark:text-white">Bạn chưa đặt sân lần nào</p>
+          <p className="mt-3 text-slate-600 dark:text-slate-400">Chọn khung giờ ở trang chủ, hệ thống sẽ giữ chỗ ngay khi còn trống.</p>
           <Link to="/#booking-widget" className="btn-nike-bolt mt-6 text-xs">
             Đặt sân đầu tiên ⚡
           </Link>
@@ -100,17 +100,17 @@ export default function MyBookingsPage() {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {bookings.map((b) => {
             const status = String(b.status || '').toUpperCase();
-            const meta = STATUS_META[status] || { label: status, cls: 'bg-slate-700/30 text-slate-300 border-slate-600' };
+            const meta = STATUS_META[status] || { label: status, cls: 'bg-slate-200/60 dark:bg-slate-700/30 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600' };
             const canCancel = ['PENDING', 'CONFIRMED'].includes(status) && isUpcoming(b);
 
             return (
               <div key={b.id} className="nike-card flex flex-col justify-between gap-4 p-6">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-mono text-xs font-bold text-slate-400">
+                    <p className="font-mono text-xs font-bold text-slate-600 dark:text-slate-400">
                       📅 {formatDate(b.bookingDate)} • ⏱ {trimSeconds(b.startTime)}–{trimSeconds(b.endTime)}
                     </p>
-                    <h3 className="mt-2 font-kinetic text-lg font-black uppercase tracking-tight text-emerald-400">
+                    <h3 className="mt-2 font-kinetic text-lg font-black uppercase tracking-tight text-emerald-700 dark:text-emerald-400">
                       🏸 {b.court?.name || `Sân #${b.courtId}`}
                     </h3>
                   </div>
@@ -122,11 +122,11 @@ export default function MyBookingsPage() {
                 </div>
 
                 {canCancel && (
-                  <div className="border-t border-white/10 pt-3 text-right">
+                  <div className="border-t border-slate-200 dark:border-white/10 pt-3 text-right">
                     <button
                       onClick={() => handleCancel(b.id)}
                       disabled={busyId === b.id}
-                      className="text-xs font-bold text-rose-400 hover:underline disabled:opacity-50"
+                      className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50"
                     >
                       {busyId === b.id ? 'Đang huỷ...' : '❌ Huỷ lịch này'}
                     </button>

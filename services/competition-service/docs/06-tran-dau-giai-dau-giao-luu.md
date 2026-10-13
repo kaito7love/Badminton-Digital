@@ -206,7 +206,7 @@ mọi trạng thái trừ finalized ──huỷ──▶ cancelled
 - **Người đăng ký:**
   - nhân viên chọn người chơi từ danh sách (tìm theo tên / SĐT phía app chính);
   - cặp đăng ký sẵn thì chọn 2 người;
-  - (sau này) khách tự đăng ký online.
+  - khách tự đăng ký online trên trang công khai (plan 27, mục 15).
 - **Kiểm tra ngay khi chọn** (`eligibility.js`):
   - người chưa có điểm ở nội dung của giải → nút **"Chấm trình ngay"** (form ở 03), chấm xong đăng ký tiếp;
   - giới tính theo `gender_rule`;
@@ -626,3 +626,53 @@ Những chỗ tài liệu chưa nói rõ; đã quyết khi code, test thật xá
   `revision`), chỉ nhân viên, chỉ trận giải. Chủ dự án chốt: không làm thay người.
 - **Seed demo**: thêm 14 người chơi riêng (`demo:player:24…37`) cho 3 giải "hôm nay" để không ai vừa ở buổi giao lưu
   đang diễn ra vừa ở giải. Phần mới chạy sau mọi phần cũ nên dữ liệu cũ giữ nguyên; seed hai lần vẫn ra giống hệt.
+
+## 15. Đăng ký online của khách (plan 27, slice p1)
+
+Khách đăng ký giải **trên trang công khai** bằng tài khoản của mình, tự động (không cần nhân viên duyệt). Mọi luật ở mục 4.2 vẫn áp dụng
+vì dùng chung lệnh `register`; phần dưới là những gì **khác** so với nhân viên đăng ký hộ.
+
+- **Cửa vào:** `POST /v1/me/tournaments/{id}/entries` (scope `entry:self`). Người đăng ký là chính khách; `registeredByRef` = tài khoản khách.
+  Nhân viên vẫn đăng ký hộ / gỡ / đổi đồng đội như cũ, cùng một danh sách, cùng một hàng chờ.
+- **Đôi cặp cố định — nhận cả hai người cùng lúc:** khách thêm **một** đồng đội ngay lúc đăng ký (không có bước đồng đội "xác nhận").
+  Đồng đội đã có hồ sơ thì thấy đơn đăng ký trong "Giải của tôi" và **tự rút được** (rút một người = cả cặp rút).
+  - Đồng đội chọn từ ô tìm (`GET /v1/me/partners`) chỉ gồm người mà **thành viên được thấy**; `hidden` coi như không tồn tại (404), không dò được.
+- **Đồng đội chưa có tài khoản:** khách nhập **tên, SĐT (10 số, chấp nhận +84 / dấu cách), giới tính, mức trình** (cùng 6 nhãn "chấm nhanh").
+  - Service tạo **hồ sơ khách**: `source = online_guest`, `visibility = hidden` (không lên BXH, không ai tìm thấy), `contact_phone` chỉ nhân viên xem,
+    `created_by_ref` = người tạo. Điểm tạm = nhãn "chấm nhanh" (3.25 cho "TB"…) — **chưa xác nhận**: danh sách đăng ký của nhân viên hiện cờ
+    **Chấm nhanh + Chưa xác thực**, nhân viên xác nhận / chỉnh khi gặp ở sân bằng đúng luồng hiện có. Có tài khoản sau này thì **gộp hồ sơ** (05, mục 4).
+  - **Một SĐT = một hồ sơ khách:** cùng SĐT (viết kiểu nào cũng ra cùng khoá `0xxxxxxxxx`) ở lần đăng ký sau dùng lại hồ sơ cũ — tên và điểm đã ghi giữ nguyên.
+  - **Không tạo hồ sơ rác:** điều kiện (người đăng ký có điểm chưa, giới tính, trình, cặp nam nữ) được kiểm trên dữ liệu "ảo" TRƯỚC khi tạo gì.
+  - **Chống lạm dụng:** chỉ khách đăng nhập; mỗi người tạo tối đa **5 hồ sơ khách mới / 24 giờ** (`GUEST_LIMIT`; dùng lại hồ sơ cũ không tính);
+    tên chỉ chữ / khoảng trắng / `. ' ’ -`; SĐT sai → `INVALID_GUEST`.
+- **Rút:** chỉ khi giải còn `open` (trước bốc thăm). Sau đó đã có lịch, W.O. → `WITHDRAW_LOCKED`, khách liên hệ nhân viên.
+- **Riêng tư:** SĐT và `source` chỉ có ở view nhân viên (`PlayerView`); không xuất hiện ở bất kỳ API công khai nào (test kiểm). Người ngoài thấy
+  đồng đội khách là "Thành viên A3F2"; người trong cặp thấy tên đầy đủ (02, mục 2.10).
+- **Hằng số:** `MAX_NEW_GUESTS_PER_DAY = 5`, `GUEST_SOURCE = 'online_guest'` (`player/domain/guest.js`).
+
+## 16. Đăng ký buổi giao lưu online (plan 27, slice p2)
+
+Buổi giao lưu trước đây chỉ có **điểm danh tại quầy**. Giờ khách có thể **báo trước "tôi sẽ đến"** trên trang công khai; nhân viên vẫn điểm danh thật như cũ —
+đăng ký online **không thay** điểm danh, chỉ cho nhân viên biết trước ai sắp đến và cho khách biết còn chỗ không.
+
+- **Hai bảng khác nhau:** `session_signups` = đăng ký online (`registered` giữ chỗ · `waitlisted` đang chờ · `attended` đã đến · `cancelled`); `play_session_players` =
+  điểm danh thật (`present` / `left`). Một người có thể có cả hai (đăng ký trước rồi đến), hoặc chỉ điểm danh (khách vãng lai), hoặc chỉ đăng ký (không đến).
+- **Sức chứa `maxPlayers`** (nhân viên đặt khi tạo / sửa buổi, 2–200; `null` = không giới hạn). **Chỗ đang bị chiếm = đã đăng ký giữ chỗ ∪ đang có mặt** — người
+  vãng lai được điểm danh cũng chiếm chỗ (nhân viên quyết, không bị chặn bởi sức chứa); người đăng ký sau đó sẽ vào danh sách chờ.
+- **Danh sách chờ** theo `signed_up_at` (đăng ký lại sau khi huỷ thì xếp cuối). **Có chỗ trống thì người chờ đầu tiên được lên giữ chỗ** khi: người giữ chỗ huỷ / bị nhân viên gỡ,
+  người đang có mặt **rời buổi**, hoặc nhân viên **tăng / bỏ sức chứa**.
+- **Điểm danh ↔ đăng ký:** nhân viên điểm danh một người đã đăng ký (kể cả đang chờ — nhân viên quyết) → đăng ký thành `attended`, không huỷ được nữa; người đó thấy "Đã đến".
+  Đăng ký khi đang có mặt → 409 `ALREADY_PRESENT`.
+- **Không đòi điểm trình khi đăng ký** (khác giải): người chưa có điểm vẫn báo trước được; lúc điểm danh nhân viên thấy `rating = null` và điểm danh kèm `quickLevel` như cũ.
+- **Chỉ buổi đang mở** đăng ký / huỷ được; buổi đã đóng → 409 `SESSION_CLOSED`, đã huỷ → 404. Mọi thay đổi phát `board` (reason `signup`) để màn hình nhân viên / công khai tải lại.
+- **Nhân viên:** `GET /v1/sessions/{id}/signups` (ai, giới tính, trạng thái, đã có mặt chưa, điểm, cờ); gỡ một đăng ký; chi tiết buổi có `progress.signups`.
+- **Gộp hồ sơ:** đăng ký online chuyển sang hồ sơ đích; hai hồ sơ cùng đăng ký một buổi thì giữ bản "đi xa" hơn (đã đến > giữ chỗ > đang chờ > đã huỷ).
+- **Riêng tư:** như danh sách đăng ký giải (02, mục 2.10): chưa đăng nhập chỉ thấy hồ sơ `public`; người đã đăng ký / có mặt thấy tên đầy đủ của nhau.
+
+## 17. Màn hình nhân viên cho đăng ký online (plan 27, slice p4)
+
+- **Đăng ký giải:** cột `tournament_entries.registered_via` (`staff` mặc định · `self`) ghi cách vào danh sách — migration `20261007100003-entry-registered-via`. Tab "Đăng ký" của giải
+  hiện đếm "**N cặp đăng ký online**" (giải đôi cặp cố định; giải khác đếm "N người"), huy hiệu **đăng ký online** trên từng dòng và, với đồng đội khách, dòng liên hệ "đồng đội khách · SĐT …" (xác nhận trình khi nhận số) cùng cờ **chấm nhanh** có sẵn.
+- **Đăng ký buổi giao lưu:** trang buổi có thẻ "**Đăng ký online (3 giữ chỗ · 1 chờ · tối đa 12)**": mỗi dòng tên, điểm (hoặc "chưa có điểm"), huy hiệu trạng thái, nút **Điểm danh**
+  (dùng đúng luồng điểm danh hiện có — người chưa có điểm thì hỏi chấm nhanh) và **Gỡ** (người chờ được lên). Form tạo / sửa buổi có ô **Sức chứa đăng ký online** (2–200, trống = không giới hạn).
+- **Khách tự quản lý:** "Giải của tôi" liệt kê cả giải và buổi giao lưu đã đăng ký (kể cả đang chờ thứ mấy), có link sang trang công khai để rút / huỷ.

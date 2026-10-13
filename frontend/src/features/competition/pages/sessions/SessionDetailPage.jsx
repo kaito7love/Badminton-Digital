@@ -12,7 +12,7 @@ import { permissionsFor } from '../../lib/permissions';
 import { mergeLive, pickNewest } from '../../lib/live';
 import { RESULT_TOAST } from '../../lib/score';
 import { courtName, teamText } from '../../lib/format';
-import { checkInPlan, perCourt, rosterGroups, rosterNote, roundLabel, sessionInfo } from '../../lib/sessionModel';
+import { checkInPlan, perCourt, rosterGroups, rosterNote, roundLabel, sessionInfo, signupSummary } from '../../lib/sessionModel';
 import { Button, Card, ConnectionDot, EmptyState, Notice, Spinner, StatusBadge, TeamNames, UpdateBanner } from '../../components/ui';
 import { ConfirmDialog } from '../../components/Dialog';
 import MoreMenu from '../../components/MoreMenu';
@@ -27,9 +27,38 @@ import { CloseDialog, FillDialog, QuickLevelDialog, SessionFormDialog } from './
 // hàng chờ, "Xếp sân trống", đổi luật điểm, đóng buổi. Tự cập nhật qua SSE nhưng KHÔNG tải lại khi đang mở hộp thoại / ô nhập (dải "Có cập nhật mới").
 
 const loadAll = async (id) => {
-  const [session, roster, board, matches] = await Promise.all([sessionsApi.get(id), sessionsApi.players(id), sessionsApi.board(id), sessionsApi.matches(id)]);
-  return { session, roster: roster.items, board, matches: matches.items };
+  const [session, roster, board, matches, signups] = await Promise.all([
+    sessionsApi.get(id), sessionsApi.players(id), sessionsApi.board(id), sessionsApi.matches(id),
+    sessionsApi.signups(id).catch(() => ({ items: [] })) // phần phụ: lỗi thì vẫn dùng được trang
+  ]);
+  return { session, roster: roster.items, board, matches: matches.items, signups: signups.items || [] };
 };
+
+const SIGNUP_BADGE = {
+  registered: ['sky', 'Đã giữ chỗ'],
+  waitlisted: ['amber', 'Đang chờ'],
+  attended: ['emerald', 'Đã đến']
+};
+
+// Một dòng đăng ký online (plan 27): khách báo trước, nhân viên điểm danh nhanh khi họ tới quầy; gỡ được (người chờ lên).
+export function SignupRow({ r, open, operate, onCheckIn, onRemove, busy }) {
+  const [tone, label] = SIGNUP_BADGE[r.status] || ['slate', r.status];
+  const flagged = (r.flags || []).includes('quick') || (r.flags || []).includes('self_unverified');
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl px-3 py-1.5 text-sm" data-signup={r.id}>
+      <span className="min-w-0 flex-1 font-semibold text-slate-900 dark:text-white">{r.name || 'Người chơi'}</span>
+      <small className="tabular-nums text-slate-500">{r.rating != null ? Number(r.rating).toFixed(2) : 'chưa có điểm'}</small>
+      {flagged && <Badge variant="amber">chưa xác nhận trình</Badge>}
+      <Badge variant={tone}>{label}{r.status === 'waitlisted' && r.waitlistPosition ? ` · thứ ${r.waitlistPosition}` : ''}</Badge>
+      {operate && open && r.status === 'registered' && !r.present && (
+        <button type="button" disabled={busy} onClick={() => onCheckIn(r)} className="rounded-lg bg-emerald-500 px-2.5 py-0.5 text-xs font-black text-slate-950 hover:bg-emerald-400 disabled:opacity-50">Điểm danh</button>
+      )}
+      {operate && open && r.status !== 'attended' && (
+        <button type="button" disabled={busy} onClick={() => onRemove(r)} className="text-xs font-bold text-rose-600 hover:underline disabled:opacity-50">Gỡ</button>
+      )}
+    </li>
+  );
+}
 
 function CourtCard({ court, match, live, skew, open, operate, onLive, onScore, scoreOpen, setScoreOpen, onEnd, onCancel, busy, scoreError }) {
   if (!match) {
@@ -176,6 +205,14 @@ export default function SessionDetailPage() {
     if (res !== undefined) { setDialog(null); setPick(null); setPickKey((k) => k + 1); setTouched(false); }
   };
 
+  const removeSignup = (r) => setConfirm({
+    title: `Gỡ đăng ký online — ${r.name || 'người chơi'}`,
+    text: 'Gỡ khỏi danh sách đăng ký; người đầu danh sách chờ (nếu có) được lên. Người này vẫn điểm danh được tại quầy.',
+    confirmLabel: 'Gỡ đăng ký',
+    danger: true,
+    action: async () => { await sessionsApi.removeSignup(id, r.id); return `Đã gỡ ${r.name || 'người chơi'}`; }
+  });
+
   const leave = (r) => setConfirm({
     title: `Rời buổi — ${r.name}`,
     text: 'Người này không còn trong hàng chờ. Quay lại điểm danh được; số trận đã đánh được giữ.',
@@ -295,6 +332,18 @@ export default function SessionDetailPage() {
             ))}
           </div>
         </Card>
+
+        {(data.signups.length > 0 || session.maxPlayers) && (
+          <Card title={`Đăng ký online (${signupSummary(data.signups, session.maxPlayers)})`} className="mt-4">
+            {data.signups.length === 0 && <EmptyState>Chưa có khách nào đăng ký online.</EmptyState>}
+            <ul className="space-y-0.5" data-testid="signups">
+              {data.signups.map((r) => (
+                <SignupRow key={r.id} r={r} open={open} operate={operate} busy={acting} onRemove={removeSignup} onCheckIn={(row) => checkIn({ id: row.playerId, label: row.name || 'người chơi' })} />
+              ))}
+            </ul>
+            {open && operate && data.signups.length > 0 && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Khách tới quầy: bấm "Điểm danh" ngay trên dòng — không cần gõ tên ở ô điểm danh bên dưới.</p>}
+          </Card>
+        )}
 
         <Card title={open ? `Điểm danh · hàng chờ (${groups.present.length} người có mặt)` : `Người chơi (${data.roster.length})`} className="mt-4">
           {open && operate && (

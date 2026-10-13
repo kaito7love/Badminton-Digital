@@ -10,7 +10,7 @@ const { parsePagination } = require('../../../../platform/http/pagination');
 const READ = ['session:read', 'session:operate'];
 const OPERATE = ['session:operate'];
 
-const createSessionRouter = ({ service, queries, ctx, idempotency, stream }) => {
+const createSessionRouter = ({ service, queries, ctx, idempotency, stream, signups, pub }) => {
   const router = express.Router();
   const base = (req) => ({ auth: req.auth, id: req.params.id, requestId: req.requestId });
   const detail = async (s) => ctx.view(s, { progress: await queries.progress(s) });
@@ -96,6 +96,40 @@ const createSessionRouter = ({ service, queries, ctx, idempotency, stream }) => 
       return ok(res, { round, seed, manualEdits, matches: all.filter((m) => created.has(m.id)) }, { status: 201, message: `Đã xếp lượt ${round}` });
     })
   );
+
+  // Đăng ký online (plan 27): nhân viên xem ai đã báo trước, gỡ đăng ký; điểm danh vẫn là POST …/players như cũ.
+  router.get('/sessions/:id/signups', requireScope(...READ), asyncHandler(async (req, res) => ok(res, { items: await queries.signups(base(req)) })));
+
+  router.delete(
+    '/sessions/:id/signups/:signupId',
+    requireScope(...OPERATE),
+    asyncHandler(async (req, res) => {
+      await signups.cancelByStaff({ ...base(req), signupId: req.params.signupId });
+      return ok(res, { items: await queries.signups(base(req)) }, { message: 'Đã gỡ đăng ký' });
+    })
+  );
+
+  // Khách tự đăng ký / huỷ buổi giao lưu trên trang công khai (scope entry:self, như đăng ký giải).
+  router.post(
+    '/me/sessions/:id/signup',
+    requireScope('entry:self'),
+    idempotency.middleware,
+    asyncHandler(async (req, res) => {
+      await signups.signUp({ auth: req.auth, id: req.params.id, requestId: req.requestId });
+      return ok(res, await pub.detail({ auth: req.auth, id: req.params.id }), { status: 201, message: 'Đã đăng ký' });
+    })
+  );
+
+  router.delete(
+    '/me/sessions/:id/signup',
+    requireScope('entry:self'),
+    asyncHandler(async (req, res) => {
+      await signups.cancel({ auth: req.auth, id: req.params.id, requestId: req.requestId });
+      return ok(res, await pub.detail({ auth: req.auth, id: req.params.id }), { message: 'Đã huỷ đăng ký' });
+    })
+  );
+
+  router.get('/me/sessions', requireScope('entry:self'), asyncHandler(async (req, res) => ok(res, { items: await pub.mine({ auth: req.auth }) })));
 
   router.get('/sessions/:id/matches', requireScope(...READ), asyncHandler(async (req, res) => ok(res, { items: await queries.sessionMatches(base(req)) })));
   router.get('/sessions/:id/board', requireScope(...READ), asyncHandler(async (req, res) => ok(res, await queries.board(base(req)))));

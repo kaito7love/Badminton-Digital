@@ -190,3 +190,37 @@ Khác với bản thiết kế ở mục 1–5 (do hợp đồng service hoặc 
 - **Chịu lỗi:** service tắt → thông báo dễ hiểu + nút "Thử lại", lần tải đầu lỗi vì service tắt thì tự thử lại 5 → 30 s; luồng SSE đứt thì báo "Mất kết nối — đang nối lại" và poll dự phòng; `GET /api/v1/competition/status` (công khai) cho biết `enabled` / `available` (ngắt mạch) để ẩn menu hoặc báo "đang tạm ngưng".
 - **Bấm điểm:** mỗi lần bấm chờ service trả lời rồi mới nhận điểm (không cộng "lạc quan"), bấm hai lần trong chớp mắt thì lần hai bị bỏ — để mạng chập chờn không làm lệch tỉ số.
 
+## 7. Khu công khai "Thi đấu" — `/thi-dau` (plan 27, 07/10/2026)
+
+Một khu riêng của web app để **khách xem giải / buổi giao lưu của sân và đăng ký online** — dùng cho portfolio và cho người chơi thật. Có khung riêng
+(`components/PublicShell.jsx`: logo "Thi đấu", menu Trang chủ · Giải đấu · Giao lưu · Xếp hạng · Giải của tôi, đổi sáng / tối, Đăng nhập / Đăng xuất), **không**
+dùng `CustomerLayout` hay `SidebarLayout` — không có menu bán hàng hay nhân viên. Xem **không cần đăng nhập**; đăng ký cần tài khoản khách (đăng nhập xong quay lại đúng trang).
+
+| Đường dẫn | Nội dung |
+|---|---|
+| `/thi-dau` | Hero + lọc theo chi nhánh (`?cs=<id>`) + các khu: **Giải đang mở đăng ký** (còn chỗ lên trước), **Đang diễn ra / sắp thi đấu**, **Buổi giao lưu**, **Kết quả gần đây**. Làm mới mỗi 30 giây khi tab mở |
+| `/thi-dau/giai/:id` | Thông tin giải + khung đăng ký (chỗ còn tính theo người, lệ phí dự kiến, trạng thái của mình) + tab **Đăng ký** (chính thức / chờ), **Lịch & kết quả** (có trận đang đánh với tỉ số trực tiếp), **Bảng & sơ đồ** (dùng lại `BracketView`), **Kết quả chung cuộc** (sau khi chốt). Tab theo `?tab=` |
+| `/thi-dau/giao-luu/:id` | Thông tin buổi + khung tham gia (chỗ, trạng thái của mình) + tab **Bảng sân** (sân đang đánh kèm tỉ số, sắp vào sân, hàng chờ, kết quả gần đây) và **Đã đăng ký** |
+
+- **Dữ liệu:** `api/publicApi.js` gọi `/public/*` (xem) và `/me/...` (đăng ký / rút) của cổng nối; tải giải / buổi / trang chủ bằng một lượt song song, phần phụ lỗi thì bỏ qua
+  (trang chủ chỉ báo lỗi khi TẤT CẢ lỗi). Tên người chơi do service quyết định theo quyền riêng tư — người bị che hiện **"Thành viên A3F2"** (mờ, nghiêng, không bấm được).
+- **Tự cập nhật:** luồng SSE **công khai** (`/competition/public/{tournaments|sessions}/:id/stream`, **không kèm token** — sự kiện chỉ là tỉ số và "có gì đổi", không có tên người) → `board`
+  tải lại trang, `score` / `snapshot` ghép tỉ số trực tiếp vào lịch / bảng sân ngay (`lib/publicHub.js#liveMapReducer` + `withLive`: chỉ nhận bản `revision` mới hơn). Mất luồng thì poll mỗi 15 giây.
+- **Lệ phí:** hằng số **200.000đ/người** (`FEE_PER_PERSON_VND`) chỉ để **hiển thị** — "thanh toán tại quầy"; chưa thu / ghi nhận online (plan 27 mục 8.1).
+- **Khung đăng ký** (`components/public/Panels.jsx`): chưa đăng nhập → "Đăng nhập để đăng ký / tham gia" (quay lại đúng trang); nhân viên → chỉ dẫn đăng ký hộ ở trang quản lý; khách → trạng thái của mình
+  (`me`: đã đăng ký / đang chờ thứ mấy / đã đến) và nút hành động; giải đã bốc thăm → báo đã chốt danh sách.
+- **Tính năng tắt:** `FeatureGate hub` — không dựng trang, `PublicShell` báo "chưa được bật" (không có lời gọi API thi đấu nào).
+- **Giới hạn công khai ở cổng:** 900 request / phút / IP cho `/public/*` và 40 luồng SSE / IP (cả một sân xem chung Wi-Fi) — xem 02 mục 2.10.
+- **Code:** `pages/hub/{HubPage,PublicTournamentPage,PublicSessionPage}.jsx`, `components/public/{atoms,Cards,Lists,Panels}.jsx`, `lib/publicHub.js` (logic thuần có test), `api/publicApi.js`.
+
+### 7.1 Đăng ký online và màn hình nhân viên (plan 27, slice p4)
+
+- **Hộp thoại "Đăng ký giải"** (`components/public/RegisterDialog.jsx`, logic thuần `lib/registerFlow.js` có test):
+  1. mở ra là kiểm hồ sơ của khách (`GET /me`) — **chưa có điểm trình** cho nội dung của giải thì không hiện form, chỉ báo và dẫn sang "Tự chấm trình" (service sẽ từ chối `NEEDS_ASSESSMENT`);
+  2. giải đơn: xác nhận một bấm, kèm lệ phí 200.000đ; giải đôi cặp cố định: chọn đồng đội — tab **Đã có trong hệ thống** (ô tìm ≥ 2 chữ, gọi `/me/partners` sau 300 ms, người chưa có điểm
+     chọn được nhưng chưa đăng ký được) hoặc tab **Chưa có tài khoản** (họ tên, SĐT, giới tính, mức trình — kiểm sớm cùng luật với service, lỗi từng ô; lỗi 422 `INVALID_GUEST` của service gắn lại đúng ô);
+  3. lệ phí "2 × 200.000đ = 400.000đ" (chỉ hiển thị); đăng ký xong báo "Đã đăng ký cả cặp" hoặc "Đã vào danh sách chờ (thứ N)".
+- **Rút / huỷ:** hỏi xác nhận (giải đôi nói rõ cả cặp cùng rút); giải đã bốc thăm thì khung đăng ký báo liên hệ nhân viên (`WITHDRAW_LOCKED`).
+- **Buổi giao lưu:** nút "Tham gia buổi này" / "Vào danh sách chờ" / "Huỷ đăng ký"; người chờ được lên thì trang tự cập nhật qua luồng công khai.
+- **Giải của tôi** (`/my-tournaments`): thêm trạng thái "Trong danh sách chờ", link "Xem trang giải / rút đăng ký", mục "Buổi giao lưu đã đăng ký".
+- **Nhân viên:** `TabRegistration` (`OnlineTags`), `SessionDetailPage` (thẻ đăng ký online, `SignupRow`), `SessionFormDialog` (sức chứa) — xem 06 mục 17.

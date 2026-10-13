@@ -8,6 +8,10 @@ const definePlayerModels = (sequelize) => {
       id: { type: DataTypes.CHAR(36), primaryKey: true, defaultValue: () => newId() },
       tenantId: { type: DataTypes.STRING(64), allowNull: false },
       externalRef: { type: DataTypes.STRING(128), allowNull: true },
+      // Đồng đội khách đăng ký online (plan 27): SĐT chỉ nhân viên xem; source = 'online_guest'; createdByRef = người tạo.
+      contactPhone: { type: DataTypes.STRING(20), allowNull: true },
+      source: { type: DataTypes.STRING(24), allowNull: true },
+      createdByRef: { type: DataTypes.STRING(128), allowNull: true },
       sourceVersion: { type: DataTypes.BIGINT, allowNull: true },
       displayName: { type: DataTypes.STRING(100), allowNull: false },
       nickname: { type: DataTypes.STRING(30), allowNull: true },

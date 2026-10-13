@@ -18,7 +18,9 @@ const INBOUND_SECRET = 'inbound-secret-for-tests-0123456789abcdef';
 // Dựng service thật (Express + MySQL thật) với cấu hình test: bật kiểm response
 // theo OpenAPI và kiểm payload sự kiện theo JSON Schema → mọi lệch hợp đồng làm
 // test đỏ. Mỗi file test dùng tenant riêng để không giẫm dữ liệu của nhau.
-const createTestContext = async ({ webhookTargets = [], tenant, env = {} } = {}) => {
+// `tokenTtl`: hạn token mặc định của `as()` (giây). Mặc định 300 = mức tối đa service chấp nhận; file chạy lâu hơn thế (vd liveScoring
+// ~5 phút) đặt lớn hơn — kéo theo trần `MAX_TOKEN_LIFETIME_SECONDS` của service trong context test đó.
+const createTestContext = async ({ webhookTargets = [], tenant, env = {}, tokenTtl = 300 } = {}) => {
   const { publicKey, privateKey } = await generateKeyPair('ES256', { extractable: true });
   const kid = 'test-key';
   const jwk = { ...(await exportJWK(publicKey)), kid, alg: 'ES256' };
@@ -28,6 +30,7 @@ const createTestContext = async ({ webhookTargets = [], tenant, env = {} } = {})
     NODE_ENV: 'test',
     DB_NAME: process.env.TEST_DB_NAME || 'competition_service_test',
     OPENAPI_VALIDATE_RESPONSES: 'true',
+    MAX_TOKEN_LIFETIME_SECONDS: String(Math.max(300, tokenTtl)),
     EVENTS_VALIDATE: 'true',
     LOG_LEVEL: process.env.TEST_LOG_LEVEL || 'silent',
     TRUSTED_ISSUERS: JSON.stringify([{ issuer: ISSUER, jwks: { keys: [jwk] } }]),
@@ -58,10 +61,10 @@ const createTestContext = async ({ webhookTargets = [], tenant, env = {} } = {})
 
   const api = request(built.app);
   // Gọi API với một bộ scope; tự thêm Idempotency-Key cho POST nếu không đưa.
-  // Token của `as` sống 300 giây (mức tối đa service chấp nhận): một file test chạy quá
-  // 60 giây + 30 giây dung sai thì token 60 giây hết hạn giữa chừng → 401 (gặp ở plan 18 mục 9).
+  // Token của `as` sống 300 giây mặc định (mức tối đa service chấp nhận): một file test chạy quá
+  // 60 giây + 30 giây dung sai thì token 60 giây hết hạn giữa chừng → 401 (gặp ở plan 18 mục 9). File chạy quá ~5 phút dùng `tokenTtl`.
   const as = async (claims) => {
-    const bearer = `Bearer ${await token({ ttl: 300, ...claims })}`;
+    const bearer = `Bearer ${await token({ ttl: tokenTtl, ...claims })}`;
     const wrap = (method) => (url, { key } = {}) => {
       const req = api[method](url).set('Authorization', bearer);
       if ((method === 'post' || method === 'put') && key !== false) req.set('Idempotency-Key', key || crypto.randomUUID());

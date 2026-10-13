@@ -13,7 +13,7 @@ const READ = ['tournament:read', 'tournament:operate', 'tournament:manage'];
 const OPERATE = ['tournament:operate', 'tournament:manage'];
 const MANAGE = ['tournament:manage'];
 
-const createTournamentRouter = ({ service, finalizer, queries, ctx, players, matches, idempotency, stream }) => {
+const createTournamentRouter = ({ service, finalizer, queries, ctx, players, matches, idempotency, stream, selfRegistration }) => {
   const router = express.Router();
   const base = (req) => ({ auth: req.auth, id: req.params.id, requestId: req.requestId });
   const detail = async (t) => ctx.view(t, { progress: await queries.progress(t) });
@@ -276,6 +276,23 @@ const createTournamentRouter = ({ service, finalizer, queries, ctx, players, mat
       const self = await players.ensureSelf(req.auth, { requestId: req.requestId });
       return ok(res, { items: await queries.mine({ tenant: req.auth.tenant, playerId: self.id }) });
     })
+  );
+
+  // Khách tự đăng ký / rút trên trang công khai (plan 27). Trả về chi tiết giải công khai kèm `me` (đăng ký của chính mình).
+  router.post(
+    '/me/tournaments/:id/entries',
+    requireScope('entry:self'),
+    idempotency.middleware,
+    asyncHandler(async (req, res) => {
+      const data = await selfRegistration.register({ auth: req.auth, id: req.params.id, partner: req.body.partner, requestId: req.requestId });
+      return ok(res, data, { status: 201, message: 'Đã đăng ký' });
+    })
+  );
+
+  router.delete(
+    '/me/tournaments/:id/entries',
+    requireScope('entry:self'),
+    asyncHandler(async (req, res) => ok(res, await selfRegistration.withdraw({ auth: req.auth, id: req.params.id, requestId: req.requestId }), { message: 'Đã rút khỏi giải' }))
   );
 
   return router;

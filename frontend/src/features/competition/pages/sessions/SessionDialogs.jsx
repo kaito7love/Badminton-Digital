@@ -7,7 +7,7 @@ import { useAction } from '../../hooks/useAction';
 import { useLoad } from '../../hooks/useLoad';
 import { courtName, fmtDelta, fmtNumber } from '../../lib/format';
 import { MODE, presetOf, QUICK_LEVELS, SCORING_PRESETS } from '../../lib/labels';
-import { buildFillBody, initFill, personLabel, repeatWarning, swapFill, SESSION_FORMAT } from '../../lib/sessionModel';
+import { buildFillBody, initFill, parseMaxPlayers, personLabel, repeatWarning, swapFill, SESSION_FORMAT } from '../../lib/sessionModel';
 
 // Các hộp thoại của trang buổi giao lưu. Cùng quy ước với TournamentDialogs: tự tải dữ liệu xem trước, khoá nút khi gửi, `onDone(thôngBáo)`.
 
@@ -25,6 +25,8 @@ export const buildSessionBody = (f, { organizerRef, creating }) => {
   const name = f.name.trim();
   if (name.length < 3) return { error: 'Tên buổi tối thiểu 3 ký tự.' };
   if (!f.courts.length) return { error: 'Chọn ít nhất một sân.' };
+  const max = parseMaxPlayers(f.maxPlayers);
+  if (max.error) return { error: max.error };
   const body = {
     name,
     startsAt: new Date(f.startsAt).toISOString(),
@@ -32,7 +34,8 @@ export const buildSessionBody = (f, { organizerRef, creating }) => {
     format: f.format,
     mode: f.mode,
     scoring: f.scoring,
-    rated: Boolean(f.rated)
+    rated: Boolean(f.rated),
+    maxPlayers: max.value
   };
   if (creating) body.organizerRef = organizerRef;
   return { body };
@@ -45,8 +48,8 @@ export function SessionFormDialog({ session = null, organizerRef, branchCourts, 
   const [run, { busy, error }] = useAction();
   const [localError, setLocalError] = useState('');
   const [f, setF] = useState(() => (editing
-    ? { name: session.name, startsAt: toLocalInput(session.startsAt), courts: [...session.courtRefs], format: session.format, mode: session.mode, scoring: presetOf(session.scoring), rated: session.rated }
-    : { name: '', startsAt: nowLocal(), courts: [], format: 'doubles', mode: 'balanced', scoring: '1x21', rated: false }));
+    ? { name: session.name, startsAt: toLocalInput(session.startsAt), courts: [...session.courtRefs], format: session.format, mode: session.mode, scoring: presetOf(session.scoring), rated: session.rated, maxPlayers: session.maxPlayers ? String(session.maxPlayers) : '' }
+    : { name: '', startsAt: nowLocal(), courts: [], format: 'doubles', mode: 'balanced', scoring: '1x21', rated: false, maxPlayers: '' }));
   const set = (patch) => setF((x) => ({ ...x, ...patch }));
   const toggle = (ref) => set({ courts: f.courts.includes(ref) ? f.courts.filter((c) => c !== ref) : [...f.courts, ref] });
 
@@ -91,6 +94,9 @@ export function SessionFormDialog({ session = null, organizerRef, branchCourts, 
             <select className={inputClass} value={f.scoring} onChange={(e) => set({ scoring: e.target.value })}>
               {SCORING_PRESETS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
+          </Field>
+          <Field label="Sức chứa đăng ký online" hint="Để trống = không giới hạn. Hết chỗ thì khách vào danh sách chờ; tăng sức chứa thì người chờ được lên.">
+            <input type="number" min={2} max={200} inputMode="numeric" className={inputClass} value={f.maxPlayers} onChange={(e) => set({ maxPlayers: e.target.value })} placeholder="Không giới hạn" aria-label="Sức chứa đăng ký online" />
           </Field>
         </div>
         <div>

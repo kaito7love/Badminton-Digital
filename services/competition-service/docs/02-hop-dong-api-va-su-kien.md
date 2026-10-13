@@ -58,6 +58,8 @@ Scope viết tắt:
 | `t` | `tournament:*` |
 | `s` | `session:*` |
 | `rk` | `ranking:read` |
+| `pub` | `public:read` — xem giải / buổi giao lưu trên trang công khai (mục 2.10) |
+| `es` | `entry:self` — khách tự đăng ký / rút giải, tìm đồng đội (mục 2.11); chỉ cấp cho `customer` |
 | `mm` | `matchmaking:compute` |
 | `pw` | `player:write` |
 | `ms` | `match:score` — token "chỉ bấm điểm" của người chơi (kèm claim `player`): chỉ trận mình đang đánh |
@@ -165,11 +167,12 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 
 | Method + đường dẫn | Scope | Việc |
 |---|---|---|
-| `POST /v1/sessions` · `GET /v1/sessions` · `GET/PATCH /v1/sessions/{id}` | `s:operate` / `s:read` | Tạo (mở ngay) / xem (kèm tiến độ) / sửa buổi (`PATCH` bắt buộc `If-Match`; có trận thì khoá Đơn / Đôi; không bỏ được sân đang có trận) |
+| `POST /v1/sessions` · `GET /v1/sessions` · `GET/PATCH /v1/sessions/{id}` | `s:operate` / `s:read` | Tạo (mở ngay) / xem (kèm tiến độ, số đăng ký online) / sửa buổi (`PATCH` bắt buộc `If-Match`; có trận thì khoá Đơn / Đôi; không bỏ được sân đang có trận). `maxPlayers` 2–200 hoặc `null` = sức chứa cho đăng ký online — tăng / bỏ thì người chờ được lên |
 | `GET /v1/sessions/{id}/players` · `POST …/players` · `DELETE …/players/{playerId}` | `s:read` / `s:operate` | Danh sách điểm danh / điểm danh (kèm `quickLevel` nếu chưa có điểm — cần thêm `rating:assess`; đang có mặt ở buổi khác chưa đóng → 409 `PRESENT_ELSEWHERE`, `errors[].field` = id buổi kia) / rời buổi (đang ở sân → 409 `PLAYER_ON_COURT`) |
 | `POST /v1/sessions/{id}/fill-courts/preview` · `POST …/fill-courts` | `s:operate` | Xếp sân trống: xem trước (đổi tay được, có `repeatPartners`) / xác nhận bản gửi lại nguyên văn hoặc để hệ thống tự xếp → sinh trận đang đánh. Bản cũ → 409 `FILL_STALE`; không có gì để xếp → 422 `NOTHING_TO_FILL` |
 | `GET /v1/sessions/{id}/matches` | `s:read` | Các trận của buổi theo lượt |
 | `GET /v1/sessions/{id}/board` | `s:read` | Dữ liệu màn hình lớn: sân – ai với ai – từ lúc nào (kèm `serverTime`); `upcoming` = ai sẽ vào các sân đang trống nếu bấm "Xếp sân trống" ngay (cùng hàm, cùng seed — rỗng khi không có sân trống); hàng chờ theo thứ tự ưu tiên của thuật toán, `next` = nằm trong `upcoming`; kết quả gần nhất |
+| `GET /v1/sessions/{id}/signups` · `DELETE …/signups/{signupId}` | `s:read` / `s:operate` | Đăng ký online (mục 2.11): danh sách ai đã báo trước (kèm đã có mặt chưa, điểm, cờ — để điểm danh nhanh) / gỡ một đăng ký (nhường chỗ cho người chờ). Điểm danh vẫn là `POST …/players` — người đã đăng ký tự thành `attended` |
 | `GET /v1/sessions/{id}/stream` | `s:read` | Luồng SSE cho màn hình TV (mục 2.9) |
 | `GET /v1/sessions/{id}/close-preview` · `POST …/close` · `POST …/cancel` | `s:read` / `s:operate` | Xem trước khi đóng / đóng (trận chưa tỉ số bị huỷ, áp điểm hệ số 0.5 nếu bật, cộng thống kê "giao lưu") / huỷ buổi |
 
@@ -200,6 +203,66 @@ Nhận **điểm do bên gọi cung cấp**, không đọc DB. Hệ thống nào
 - Đẩy trong bộ nhớ một process: đúng khi service chạy **một bản** (01, mục 9). Tỉ số không đi qua outbox (5 giây / lần,
   thử lại tới 24 giờ — hợp với kết quả trận, không hợp với từng điểm). Xác nhận kết quả vẫn phát
   `competition.match.completed` qua outbox như cũ.
+
+### 2.10 Trang công khai — xem giải / buổi giao lưu không cần quyền nhân viên (plan 27)
+
+Tiền tố riêng `/v1/public/*`, **chỉ GET**, scope `pub` = `public:read` (gateway cấp cho cả người chưa đăng nhập, khách và
+nhân viên). Tách khỏi route của nhân viên thay vì mở chúng ra: dữ liệu đi qua một bộ gọt liệt kê **từng trường được lộ**
+(hợp đồng đóng `additionalProperties: false`, test so tập khoá) và tên người chơi theo quyền riêng tư.
+
+| Method + đường dẫn | Việc |
+|---|---|
+| `GET /v1/public/tournaments` | Danh sách giải của **mọi chi nhánh**: chỉ `open / drawn / in_progress / finalized` (nháp, đã huỷ không có). `status` một hoặc nhiều giá trị cách nhau dấu phẩy, `organizerRef`, `q` (tìm trong tên), `order` `asc` (mặc định, ngày sớm nhất trước) / `desc`, phân trang. Mỗi giải kèm `registration` = { `open`, `needsPartner`, `registered`, `waitlisted`, `maxEntries`, `spotsLeft` } — đếm theo **người**, như lúc đăng ký |
+| `GET /v1/public/tournaments/{id}` | Chi tiết (kèm `matches` { total, completed }). Giải nháp / huỷ / không có → 404 |
+| `GET …/{id}/entries` | Danh sách đăng ký, **mỗi dòng một người hoặc một cặp**: `status` (`registered` / `waitlisted`), `waitlistPosition` (chỉ khi chờ vì hết chỗ), `players[]`, `mine`. Người đã rút không có |
+| `GET …/{id}/matches` · `…/standings` · `…/bracket` · `…/placements` | Lịch + kết quả (có `live` nếu đang bấm điểm, `expectedTime`), bảng vòng bảng, sơ đồ loại trực tiếp, thứ hạng cuối |
+| `GET …/{id}/stream` | Luồng SSE như mục 2.9, chỉ cho giải xem công khai |
+| `GET /v1/public/sessions` | Buổi `open` và buổi `closed` trong **30 ngày** gần đây (huỷ không có); `status`, `organizerRef`, `order`, phân trang; mỗi buổi kèm `players.present` |
+| `GET /v1/public/sessions/{id}` · `…/board` · `…/signups` · `…/stream` | Chi tiết (kèm `matches`, `signup` = { `open`, `maxPlayers`, `registered`, `waitlisted`, `spotsLeft` } và — với khách đăng nhập — `me` = { `status` `registered` / `waitlisted` / `attended`, `waitlistPosition`, `canCancel` }), bảng sân (sân đang đánh, người sắp vào sân, hàng chờ, kết quả gần đây), **ai đã đăng ký** (giữ chỗ / chờ / đã đến, tên theo quyền riêng tư; người đã đăng ký thấy tên đầy đủ của nhau), luồng SSE. `signup` cũng có ở danh sách buổi |
+
+**Tên người chơi** (`player.domain.profile.publicRef`, cùng luật 05 mục 1.1; mỗi người là `{ id, name, masked }`):
+
+| Người xem | `public` | `members` (mặc định) | `hidden` |
+|---|---|---|---|
+| Chưa đăng nhập (`sub = anonymous`) | tên thi đấu, hoặc "Tên H." (vd "An N.") | **che** | **che** |
+| Đã đăng nhập | tên đầy đủ | tên đầy đủ | **che** |
+| Nhân viên (`rating:read`), chính chủ, **người cùng tham gia giải / buổi đó** | tên đầy đủ | tên đầy đủ | tên đầy đủ |
+
+"Che" = `{ id: null, name: "Thành viên A3F2", masked: true }`: mã 4 ký tự suy từ id người chơi (SHA-1) nên **ổn định** giữa
+các lần gọi và giữa các route (một sơ đồ có nhiều người bị che vẫn phân biệt được) mà không lộ id — và không mở được hồ sơ.
+"Người cùng tham gia" khớp nguyên tắc "đối thủ / đồng đội luôn thấy tên nhau" (05 mục 1.1): người đang đăng ký giải (chưa
+rút) hoặc có tên trong danh sách buổi giao lưu thấy tên đầy đủ của mọi người trong **giải / buổi đó**.
+
+Không có trong dữ liệu công khai: `courtRefs`, `createdByRef`, `drawSeed`, `version`, `contextId`, điểm trình và cờ của người chơi.
+
+**Giới hạn ở gateway:** `GET /public/*` không cần đăng nhập có bộ giới hạn tần suất RIÊNG, thoáng hơn BXH (**900 lần / phút / IP**, BXH vẫn 120): cả sân xem giải
+bằng điện thoại trên cùng một Wi-Fi (một IP công khai) không được chặn lẫn nhau. Luồng SSE công khai bị giới hạn **40 luồng / IP và 300 luồng cả hệ thống**
+(429 `TOO_MANY_STREAMS`) — mỗi luồng giữ một kết nối tới service và một ít RAM của gói free, nên tổng mới là chốt. Luồng của nhân viên (`/tournaments/{id}/stream`)
+không bị giới hạn này; người bị chặn luồng vẫn xem được vì trang tự poll dự phòng.
+
+### 2.11 Khách tự đăng ký giải (plan 27, p1)
+
+Scope `es` = `entry:self` — gateway chỉ cấp cho `customer` (nhân viên đăng ký hộ bằng `t:operate`, mục 2.6). Người đăng ký **luôn là chính
+mình** (claim `player` của token; hồ sơ tự tạo lần đầu từ `player_name`). Dùng lại đúng lệnh đăng ký / rút của nhân viên — cùng kiểm điều
+kiện, cùng khoá giải, cùng hết chỗ → danh sách chờ (06, mục 4.2 và 15).
+
+| Method + đường dẫn | Scope | Việc |
+|---|---|---|
+| `POST /v1/me/tournaments/{id}/entries` | `es` | Tự đăng ký. Giải đánh đơn / ghép cặp ngẫu nhiên: không gửi gì. **Đôi cặp cố định**: `{ "partner": { "playerId" } }` (người đã có hồ sơ) **hoặc** `{ "partner": { "guest": { name, phone, gender, level } } }` (người chưa có tài khoản) — nhận **cả hai người trong một lần**. `201` + chi tiết giải công khai kèm `me`. Giải nháp / huỷ → 404; không còn mở đăng ký → 409 `INVALID_STATE`; trùng → 409 `ALREADY_REGISTERED`; 422 `NEEDS_ASSESSMENT`, `NOT_ELIGIBLE`, `PARTNER_REQUIRED`, `PARTNER_NOT_ALLOWED`, `PARTNER_INVALID`, `INVALID_GUEST`, `GUEST_LIMIT` |
+| `DELETE /v1/me/tournaments/{id}/entries` | `es` | Rút (cả cặp rút). Chỉ khi giải còn `open`: sau bốc thăm → 409 `WITHDRAW_LOCKED` (liên hệ nhân viên); chưa đăng ký → 404 `NOT_REGISTERED`. Nhường chỗ cho người đầu danh sách chờ |
+| `GET /v1/me/partners?search=&limit=` | `es` | Tìm đồng đội: tối thiểu 2 ký tự, tối đa 20 kết quả, chỉ người đang hoạt động mà **thành viên** được thấy (`public` / `members`) — không có chính mình, hồ sơ `hidden`, hồ sơ khách. Mỗi dòng `{ id, name, nickname, gender, rated }` (`rated` = đã có điểm; chưa có thì đăng ký bị `NEEDS_ASSESSMENT`) |
+
+`GET /v1/public/tournaments/{id}` (mục 2.10) có thêm **`me`** khi người xem là khách đăng nhập: `{ entry, canWithdraw }` — đăng ký của chính mình
+(gồm cả khi mình chỉ là người được thêm làm đồng đội), `null` nếu chưa đăng ký; không có khoá `me` với người chưa đăng nhập và nhân viên.
+`canWithdraw` chỉ đúng khi giải còn `open`.
+
+**Buổi giao lưu (p2)** — cùng scope `es`:
+
+| Method + đường dẫn | Việc |
+|---|---|
+| `POST /v1/me/sessions/{id}/signup` | Báo trước "tôi sẽ đến". Chỗ = đã đăng ký giữ chỗ ∪ đang có mặt so với `maxPlayers`; hết chỗ → danh sách chờ. `201` + chi tiết buổi công khai kèm `me`. Buổi huỷ / không có → 404; buổi đã đóng → 409 `SESSION_CLOSED`; trùng → 409 `ALREADY_SIGNED_UP`; đã điểm danh → 409 `ALREADY_PRESENT`. Không đòi có điểm trình (điểm danh tại quầy vẫn kèm `quickLevel` nếu chưa có điểm) |
+| `DELETE /v1/me/sessions/{id}/signup` | Huỷ (nhường chỗ cho người chờ). Chưa đăng ký / đã đến → 404 `NOT_SIGNED_UP`; buổi đã đóng → 409 `SESSION_CLOSED` |
+| `GET /v1/me/sessions` | Các buổi **đang mở** mà mình đã đăng ký (giữ chỗ hoặc chờ, kèm thứ tự chờ), sắp theo giờ bắt đầu |
 
 ## 3. Sự kiện
 
@@ -341,16 +404,24 @@ vai trò được gọi + scope cấp. Không có dòng thì không chuyển ti�
 
 | Vai trò app chính | Scope được cấp | `org` | `player` |
 |---|---|---|---|
-| Chưa đăng nhập (trang BXH công khai) | `ranking:read` | — | — (chỉ thấy hồ sơ `public`) |
-| `customer` | `rating:self ranking:read match:score` (`match:score`: chỉ bấm điểm trận mình đang đánh — service kiểm người chơi có trong trận) | — | `bd:customer:<customer.id>` |
-| `employee` | `rating:read rating:assess player:write ranking:read matchmaking:compute tournament:read tournament:operate session:read session:operate` | chi nhánh của nhân viên | — |
+| Chưa đăng nhập (trang BXH và trang giải công khai) | `ranking:read public:read` | — | — (chỉ thấy hồ sơ `public`; tên theo mục 2.10) |
+| `customer` | `rating:self ranking:read match:score public:read entry:self` (`match:score`: chỉ bấm điểm trận mình đang đánh — service kiểm người chơi có trong trận) | — | `bd:customer:<customer.id>` |
+| `employee` | `rating:read rating:assess player:write ranking:read matchmaking:compute tournament:read tournament:operate session:read session:operate public:read` | chi nhánh của nhân viên | — |
 | `branch_manager` | như `employee` + `rating:assess:any rating:adjust tournament:manage` | chi nhánh của mình | — |
 | `admin` | như `branch_manager` | chi nhánh đang chọn (`X-Branch-Id`); chưa chọn → `*` | — |
 
 - Ví dụ ánh xạ: `GET /api/v1/competition/me` → `GET /v1/me`; `PUT /api/v1/competition/matches/:id/result` →
   `PUT /v1/matches/:id/result`.
+- `GET /api/v1/competition/public/*` (mục 2.10) → `GET /v1/public/*`: **chỉ GET**, không cần đăng nhập; POST / PUT / PATCH / DELETE vào `/public/*` → 404 ngay
+  tại cổng.
 - Envelope, status code, `ETag` giữ nguyên.
 - Luồng SSE (`…/stream`, mục 2.9): chuyển tiếp nguyên trạng, **không đệm** (`X-Accel-Buffering: no`), ký token 5 phút
   cho đường này để trình duyệt không phải nối lại mỗi phút.
 - Gateway tự sinh `Idempotency-Key` nếu frontend không gửi, nhưng frontend **nên** tự gửi để bấm hai lần vẫn chỉ
   một lần.
+
+### Ghi chú p4 — danh sách đăng ký cho nhân viên biết "ai đăng ký online"
+
+`GET /v1/tournaments/{id}/entries` (nhân viên) mỗi dòng có thêm: `via` (`staff` nhân viên nhập · `self` khách tự đăng ký trên trang công khai — **cả hai người của một cặp** đều `self`),
+`source` (`online_guest` = hồ sơ khách tạo khi đăng ký online; còn lại `null`) và `contactPhone` (SĐT đồng đội khách, dạng `0xxxxxxxxx`; **chỉ nhân viên thấy**, không có ở bất kỳ API công khai nào).
+Đổi đồng đội (`PUT …/partner`) tạo dòng mới `via = staff` — nhân viên là người thực hiện. Ba trường này bắt buộc trong schema `Entry` (test kiểm đủ khoá).

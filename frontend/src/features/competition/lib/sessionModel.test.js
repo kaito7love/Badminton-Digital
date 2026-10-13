@@ -113,4 +113,10 @@ describe('buildSessionBody', () => {
     expect(buildSessionBody({ ...f, name: 'ab' }, {}).error).toMatch(/3 ký tự/);
     expect(buildSessionBody({ ...f, courts: [] }, {}).error).toMatch(/ít nhất một sân/);
   });
+  test('sức chứa đăng ký online: trống = không giới hạn (null), số 2–200, sai → lỗi', () => {
+    expect(buildSessionBody(f, { creating: false }).body.maxPlayers).toBeNull();
+    expect(buildSessionBody({ ...f, maxPlayers: '' }, { creating: false }).body.maxPlayers).toBeNull();
+    expect(buildSessionBody({ ...f, maxPlayers: '12' }, { creating: false }).body.maxPlayers).toBe(12);
+    for (const bad of ['1', '201', '3.5', 'abc', '-4']) expect(buildSessionBody({ ...f, maxPlayers: bad }, {}).error).toMatch(/từ 2 đến 200/);
+  });
 });

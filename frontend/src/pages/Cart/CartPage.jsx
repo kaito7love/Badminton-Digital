@@ -123,8 +123,8 @@ export default function CartPage() {
       {items.length === 0 ? (
         <div className="nike-card-static p-12 text-center">
           <p className="text-6xl">🛒</p>
-          <p className="mt-4 font-kinetic text-xl font-black uppercase text-white">Giỏ hàng đang trống</p>
-          <p className="mt-3 text-slate-400">Ghé cửa hàng chọn vài món trước khi ra sân.</p>
+          <p className="mt-4 font-kinetic text-xl font-black uppercase text-slate-900 dark:text-white">Giỏ hàng đang trống</p>
+          <p className="mt-3 text-slate-600 dark:text-slate-400">Ghé cửa hàng chọn vài món trước khi ra sân.</p>
           <Link to="/shop" className="btn-nike-bolt mt-6 text-xs">
             Xem cửa hàng 🛍️
           </Link>
@@ -132,7 +132,7 @@ export default function CartPage() {
       ) : (
         <>
           <div className="nike-card-static mb-4 flex flex-wrap items-center justify-between gap-4 px-6 py-4">
-            <label className="flex cursor-pointer items-center gap-3 text-sm font-bold text-slate-300">
+            <label className="flex cursor-pointer items-center gap-3 text-sm font-bold text-slate-700 dark:text-slate-300">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -145,7 +145,7 @@ export default function CartPage() {
               type="button"
               onClick={removeSelected}
               disabled={selectedItems.length === 0}
-              className="text-xs font-bold text-rose-400 transition hover:underline disabled:opacity-40"
+              className="text-xs font-bold text-rose-600 dark:text-rose-400 transition hover:underline disabled:opacity-40"
             >
               🗑 Xoá mục đã chọn
             </button>
@@ -173,7 +173,7 @@ export default function CartPage() {
 
                   <Link
                     to={`/shop/${item.productId}`}
-                    className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br ${look.tint}`}
+                    className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-200 dark:border-white/10 bg-gradient-to-br ${look.tint}`}
                   >
                     <span className="text-4xl">{look.icon}</span>
                   </Link>
@@ -181,12 +181,12 @@ export default function CartPage() {
                   <div className="min-w-[10rem] flex-1">
                     <Link
                       to={`/shop/${item.productId}`}
-                      className="font-kinetic text-base font-black uppercase leading-tight text-white hover:text-emerald-400"
+                      className="font-kinetic text-base font-black uppercase leading-tight text-slate-900 dark:text-white hover:text-emerald-700 dark:hover:text-emerald-400"
                     >
                       {item.name}
                     </Link>
-                    <p className="mt-1 text-xs text-slate-400">{variantLabel(item)}</p>
-                    <p className="font-mono text-[11px] text-slate-600">{item.sku}</p>
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{variantLabel(item)}</p>
+                    <p className="font-mono text-[11px] text-slate-500 dark:text-slate-600">{item.sku}</p>
                   </div>
 
                   <QuantityStepper
@@ -196,14 +196,14 @@ export default function CartPage() {
                   />
 
                   <div className="ml-auto text-right">
-                    <p className="font-kinetic text-lg font-black text-emerald-400">
+                    <p className="font-kinetic text-lg font-black text-emerald-700 dark:text-emerald-400">
                       {formatVnd(item.price * item.quantity)}
                     </p>
-                    <p className="text-[11px] text-slate-500">{formatVnd(item.price)} / cái</p>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-500">{formatVnd(item.price)} / cái</p>
                     <button
                       type="button"
                       onClick={() => removeItem(item.variantId)}
-                      className="mt-1 text-[11px] font-bold text-rose-400 hover:underline"
+                      className="mt-1 text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline"
                     >
                       Xoá
                     </button>
@@ -218,10 +218,10 @@ export default function CartPage() {
           <div className="sticky bottom-20 z-30 mt-6 lg:bottom-4">
             <div className="nike-card-static flex flex-wrap items-center justify-between gap-4 border-emerald-500/30 p-5">
               <div>
-                <p className="font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <p className="font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
                   Tổng tiền ({selectedItems.reduce((sum, item) => sum + item.quantity, 0)} sản phẩm)
                 </p>
-                <p className="font-kinetic text-3xl font-black text-emerald-400">{formatVnd(selectedTotal)}</p>
+                <p className="font-kinetic text-3xl font-black text-emerald-700 dark:text-emerald-400">{formatVnd(selectedTotal)}</p>
               </div>
               <button
                 type="button"

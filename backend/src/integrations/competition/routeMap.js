@@ -2,7 +2,7 @@
 // `/v1/events`, `/v1/ops/*`, `…/assessments/ai` và mọi đường lạ không bao giờ tới được service.
 // Cách làm: tiền tố tài nguyên + method (service tự kiểm scope từng route) — không phải sửa hai nơi mỗi khi thêm route.
 
-const RESOURCES = new Set(['me', 'players', 'rubrics', 'assessments', 'leaderboards', 'matchmaking', 'matches', 'tournaments', 'sessions']);
+const RESOURCES = new Set(['me', 'players', 'rubrics', 'assessments', 'leaderboards', 'matchmaking', 'matches', 'tournaments', 'sessions', 'public']);
 const METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 const SAFE_PATH = /^\/[A-Za-z0-9._~:@%!$&()*+,;=-]+(?:\/[A-Za-z0-9._~:@%!$&()*+,;=-]+)*$/;
 
@@ -16,11 +16,14 @@ const matchRoute = (method, path) => {
   if (!RESOURCES.has(segments[0])) return null;
   // Đường nội bộ của dịch vụ phân tích video — chỉ scope assessment:submit-ai, cổng không cấp.
   if (segments.includes('ai')) return null;
+  // Trang công khai (plan 27) chỉ đọc: ghi vào /public/* không có nghĩa gì → chặn ngay tại cổng (và phải có ít nhất /public/<tài nguyên>).
+  if (segments[0] === 'public' && (verb !== 'GET' || segments.length < 2)) return null;
 
   const isStream = verb === 'GET' && segments[segments.length - 1] === 'stream';
   const isPublic = verb === 'GET' && (
     (segments[0] === 'leaderboards' && segments.length === 2 && ['rating', 'points'].includes(segments[1]))
     || (segments[0] === 'players' && segments.length === 3 && segments[2] === 'public')
+    || segments[0] === 'public' // giải / buổi giao lưu xem công khai, kể cả luồng SSE của chúng
   );
   return { resource: segments[0], isStream, isPublic };
 };

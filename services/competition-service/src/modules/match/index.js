@@ -6,6 +6,7 @@ const { createMatchRouter } = require('./infrastructure/http/routes');
 const badmintonScore = require('./domain/badmintonScore');
 const matchStats = require('./domain/matchStats');
 const liveScore = require('./domain/liveScore');
+const publicView = require('./domain/publicView');
 const player = require('../player');
 
 const createMatchModule = ({ models, sequelize, platform, players }) => {
@@ -16,4 +17,4 @@ const createMatchModule = ({ models, sequelize, platform, players }) => {
   return { service, live, router };
 };
 
-module.exports = { defineMatchModels, createMatchModule, domain: { badmintonScore, matchStats, liveScore } };
+module.exports = { defineMatchModels, createMatchModule, domain: { badmintonScore, matchStats, liveScore, publicView } };

@@ -138,10 +138,14 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
   };
 
   // ---------- đăng ký ----------
-  const register = async ({ auth, id, playerId, partnerPlayerId, requestId }) =>
+  // `self`: khách tự đăng ký trên trang công khai (plan 27) — quyền do selfRegistration kiểm (entry:self + người đăng ký là chính mình),
+  // giải chưa xem công khai được (nháp / huỷ) coi như không tồn tại; mọi luật còn lại y như nhân viên đăng ký.
+  const register = async ({ auth, id, playerId, partnerPlayerId, requestId, self = false }) =>
     sequelize.transaction(async (transaction) => {
       const t = await ctx.load(transaction, auth.tenant, id, { lock: true });
-      ctx.authorize(auth, t, 'operate');
+      if (self) {
+        if (['draft', 'cancelled'].includes(t.status)) throw notFound('Không tìm thấy giải');
+      } else ctx.authorize(auth, t, 'operate');
       assertAction(t, 'register');
       const needsPartner = t.discipline === 'doubles' && t.pairingMode === 'fixed';
       if (needsPartner && !partnerPlayerId) throw unprocessable('PARTNER_REQUIRED', 'Giải cặp cố định — cần chọn đồng đội');
@@ -176,14 +180,15 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
           ratingSnapshot: ratings.get(pid).rating,
           pairingRatingSnapshot: ratings.get(pid).pairingRating,
           registeredAt: now,
-          registeredByRef: auth.sub
+          registeredByRef: auth.sub,
+          registeredVia: self ? 'self' : 'staff'
         };
         const old = existing.find((e) => e.playerId === pid);
         out.push(old ? await old.update(values, { transaction }) : await TournamentEntry.create(values, { transaction }));
       }
       await audit.record(transaction, {
         tenant: auth.tenant, actorRef: auth.sub, action: 'tournament.entry_added', targetType: 'tournament', targetId: t.id,
-        after: { players: ids, status }, requestId
+        after: { players: ids, status, via: self ? 'self' : 'staff' }, requestId
       });
       return { tournament: t, entries: out };
     });
@@ -222,10 +227,10 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
 
   // Rút: trước bốc thăm → nhường chỗ cho người chờ; sau bốc thăm → cả đội rút, trận
   // chưa đánh thành W.O. cho đối thủ (docs/06 mục 7.4).
-  const withdraw = async ({ auth, id, entryId, requestId }) =>
+  const withdraw = async ({ auth, id, entryId, requestId, self = false }) =>
     sequelize.transaction(async (transaction) => {
       const t = await ctx.load(transaction, auth.tenant, id, { lock: true });
-      ctx.authorize(auth, t, 'operate');
+      if (!self) ctx.authorize(auth, t, 'operate'); // khách tự rút: quyền + "đúng là lượt của mình" do selfRegistration kiểm
       assertAction(t, 'withdraw');
       const entry = await TournamentEntry.findOne({ where: { id: entryId, tournamentId: t.id }, transaction });
       if (!entry) throw notFound('Không tìm thấy lượt đăng ký');
@@ -266,7 +271,7 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
       }
       await audit.record(transaction, {
         tenant: auth.tenant, actorRef: auth.sub, action: 'tournament.entry_withdrawn', targetType: 'tournament', targetId: t.id,
-        after: { entryId, players: group.map((e) => e.playerId) }, requestId
+        after: { entryId, players: group.map((e) => e.playerId), via: self ? 'self' : 'staff' }, requestId
       });
       boardChanged(transaction, t, 'withdrawn');
       return { tournament: t, entries: group };
@@ -617,7 +622,7 @@ const createTournamentService = ({ models, sequelize, players, ratingQueries, ma
       const values = {
         tenantId: auth.tenant, tournamentId: t.id, playerId: partnerPlayerId, partnerPlayerId: entry.playerId, status: entry.status, waitlistReason: entry.waitlistReason,
         ratingSnapshot: ratings.get(partnerPlayerId).rating, pairingRatingSnapshot: ratings.get(partnerPlayerId).pairingRating,
-        registeredAt: entry.registeredAt, registeredByRef: auth.sub, checkedInAt: null, checkedInByRef: null
+        registeredAt: entry.registeredAt, registeredByRef: auth.sub, registeredVia: 'staff', checkedInAt: null, checkedInByRef: null
       };
       if (existing) await existing.update(values, { transaction });
       else await TournamentEntry.create(values, { transaction });

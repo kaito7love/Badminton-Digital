@@ -1,4 +1,4 @@
-import { fmtDate } from './format';
+import { fmtDate, fmtNumber } from './format';
 import { REASON_LABEL } from './rating';
 
 // Màn hình của khách (07 mục 1.1): trình độ của tôi, hồ sơ, bảng xếp hạng, giải của tôi — hàm thuần, có test.
@@ -32,6 +32,20 @@ export const selfAssessState = (player) => {
   if (rows.some((r) => r.ratedMatches > 0)) return { can: false, reason: 'Bạn đã có trận tính điểm — điểm giờ do kết quả thi đấu quyết định, không tự chấm lại được.' };
   if (rows.some((r) => r.verified)) return { can: false, reason: 'Trình độ đã được nhân viên chấm / xác nhận — không tự chấm đè lên được. Cần chỉnh thì nhờ nhân viên ở quầy.' };
   return { can: true, reason: '' };
+};
+
+/**
+ * Tóm tắt trình độ cho thẻ ở trang Tài khoản (hồ sơ `/me` của khách): chưa có điểm đơn lẫn đôi → { rated: false } (thẻ mời đi chấm trình);
+ * có rồi → { rated: true, rows: [{ key, label, rating, level, matches, provisional }] } chỉ gồm những nội dung đã có điểm. Chi tiết nằm ở /my-rating.
+ */
+export const ratingSummary = (player) => {
+  const rows = [['singles', 'Đơn'], ['doubles', 'Đôi']]
+    .map(([key, label]) => {
+      const r = player && player.ratings ? player.ratings[key] : null;
+      return r ? { key, label, rating: fmtNumber(r.rating), level: r.level || '', matches: r.ratedMatches || 0, provisional: Boolean(r.provisional) } : null;
+    })
+    .filter(Boolean);
+  return rows.length ? { rated: true, rows } : { rated: false, rows: [] };
 };
 
 // ---- Biểu đồ điểm theo thời gian ----
@@ -98,6 +112,7 @@ export const myTournamentState = (item) => {
   const s = item.tournament.status;
   if (s === 'finalized') return item.placement ? { label: `Đã kết thúc · ${item.placement.label || item.placement}`, tone: 'done' } : { label: 'Đã kết thúc', tone: 'done' };
   if (s === 'cancelled') return { label: 'Đã huỷ', tone: 'bad' };
+  if (item.entryStatus === 'waitlisted') return { label: 'Trong danh sách chờ', tone: 'wait' };
   if (['drawn', 'in_progress'].includes(s)) return { label: 'Đang thi đấu', tone: 'live' };
   return { label: 'Đang mở đăng ký', tone: 'open' };
 };

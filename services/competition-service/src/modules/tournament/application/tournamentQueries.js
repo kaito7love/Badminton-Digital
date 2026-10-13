@@ -55,6 +55,10 @@ const createTournamentQueries = ({ models, players, matches, ctx }) => {
         rating: r ? r.rating : e.ratingSnapshot === null ? null : round2(Number(e.ratingSnapshot)),
         pairingRating: r ? r.pairingRating : e.pairingRatingSnapshot === null ? null : round2(Number(e.pairingRatingSnapshot)),
         flags: v ? v.flags || [] : [],
+        // Đăng ký online (plan 27): nguồn đăng ký và — với đồng đội chưa có tài khoản — SĐT khách nhập (chỉ nhân viên thấy ở route này).
+        via: e.registeredVia || 'staff',
+        source: v ? v.source ?? null : null,
+        contactPhone: v ? v.contactPhone ?? null : null,
         registeredAt: new Date(e.registeredAt).toISOString(),
         checkedInAt: e.checkedInAt ? new Date(e.checkedInAt).toISOString() : null
       };

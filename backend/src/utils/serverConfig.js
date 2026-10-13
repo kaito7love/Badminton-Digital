@@ -56,4 +56,21 @@ const resolveTrustProxy = (env = process.env) => {
   return hops;
 };
 
-module.exports = { resolveCorsOrigin, resolveTrustProxy, DEV_DEFAULT_ORIGIN };
+/**
+ * Mã commit đang chạy, để `GET /health` nói được bản nào đã lên.
+ *
+ * Lý do có hàm này: sau một lần deploy chỉ đổi kiểu cột, không cách nào biết từ
+ * bên ngoài bản mới đã lên hay Render vẫn đang phục vụ bản cũ — `/health` chỉ
+ * trả `{status, time}`. Render tự đặt sẵn `RENDER_GIT_COMMIT`; `GIT_COMMIT` để
+ * compose hoặc nơi khác truyền vào.
+ *
+ * CHỈ nhận chuỗi trông đúng như SHA của git rồi cắt còn 7 ký tự. Đây là endpoint
+ * công khai, không đăng nhập — dội thẳng giá trị env ra ngoài là tự mở đường rò
+ * cấu hình nếu có ai đặt nhầm biến. Không hợp lệ hoặc không có → `dev`.
+ */
+const resolveBuildVersion = (env = process.env) => {
+  const raw = String(env.RENDER_GIT_COMMIT || env.GIT_COMMIT || '').trim();
+  return /^[0-9a-f]{7,40}$/i.test(raw) ? raw.slice(0, 7).toLowerCase() : 'dev';
+};
+
+module.exports = { resolveCorsOrigin, resolveTrustProxy, resolveBuildVersion, DEV_DEFAULT_ORIGIN };
