@@ -1,11 +1,12 @@
 const { Booking, Branch, Court, Customer, User, sequelize } = require("../models");
 const { Op } = require("sequelize");
 const { getPagination, getPagingData } = require("../utils/pagination");
-const { toMinutes, zonedTimeToUtc, DEFAULT_TIMEZONE } = require("../utils/dateTime");
+const { toMinutes, zonedTimeToUtc, localDateString, DEFAULT_TIMEZONE } = require("../utils/dateTime");
 const AuditService = require("./AuditService");
 const CustomerService = require("./CustomerService");
 const SettingService = require("./SettingService");
 const { operatingHoursViolation } = require("../utils/operatingHours");
+const { BOOKING_WINDOW_DAYS, bookingWindow } = require("../utils/daySlots");
 
 // Thông điệp khách đọc trực tiếp trên trang chủ (toast của widget đặt sân) nên
 // phải là tiếng Việt — ALREADY_BOOKED trước đây là câu tiếng Anh duy nhất trong
@@ -46,6 +47,25 @@ class BookingService {
     const [hour, minute] = String(endTime).split(":").map(Number);
     const endsAt = zonedTimeToUtc(year, month, day, hour, minute, 0, timezone || DEFAULT_TIMEZONE);
     return endsAt.getTime() <= now.getTime();
+  }
+
+  /**
+   * Khách tự đặt quá xa so với hôm nay chưa — hàm thuần, không đụng DB.
+   *
+   * Dải khách được đặt là hôm nay … hôm nay + 13 (BOOKING_WINDOW_DAYS = 14 ngày,
+   * tính cả hôm nay), đúng dải mà lưới của trang Đặt sân vẽ. "Hôm nay" tính theo
+   * lịch của CHI NHÁNH, cùng lý do với `hasSlotPassed`.
+   *
+   * Chỉ áp cho vai `customer` (`createBooking`): nhân viên đặt xa hơn cho giải
+   * đấu hay sự kiện vẫn được. Trả `null` nếu hợp lệ, hoặc câu thông báo nêu rõ
+   * ngày cuối cùng đặt được.
+   */
+  static advanceBookingViolation({ bookingDate, timezone, now = new Date() }) {
+    const today = localDateString(now, timezone || DEFAULT_TIMEZONE);
+    const { last } = bookingWindow(today);
+    if (String(bookingDate).slice(0, 10) <= last) return null;
+    const [year, month, day] = last.split("-");
+    return `Chỉ nhận đặt trước tối đa ${BOOKING_WINDOW_DAYS} ngày (đến ${day}/${month}/${year}), vui lòng chọn ngày sớm hơn`;
   }
 
   /**
@@ -202,6 +222,20 @@ class BookingService {
         const error = new Error("Court not found");
         error.statusCode = 404;
         throw error;
+      }
+      // Khách chỉ đặt trong dải 14 ngày; nhân viên không bị giới hạn này. Chỉ vai
+      // customer mới tốn thêm một truy vấn lấy múi giờ chi nhánh.
+      if (context.actor?.role?.name === "customer") {
+        const branch = await Branch.findByPk(court.branchId, { attributes: ["id", "timezone"], transaction });
+        const tooFar = BookingService.advanceBookingViolation({
+          bookingDate: data.bookingDate,
+          timezone: branch?.timezone,
+        });
+        if (tooFar) {
+          const error = new Error(tooFar);
+          error.statusCode = 400;
+          throw error;
+        }
       }
       let customerId = context.actor?.role?.name === "customer" ? context.actor.customer?.id : data.customerId || null;
       if (context.actor?.role?.name === "customer" && !customerId) {
