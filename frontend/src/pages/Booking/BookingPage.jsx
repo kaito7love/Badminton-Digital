@@ -1,35 +1,290 @@
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CustomerLayout from '../../layouts/CustomerLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import { roleOf } from '../../utils/roles';
+import { todayInZone } from '../../utils/datetime';
+import { publicService } from '../../services/apiServices';
+import useDayAvailability from './useDayAvailability';
+import useCompactLayout from './useCompactLayout';
+import { buildDayStrip, fallbackWindow } from './lib/dayStrip';
+import { dayStatus } from './lib/gridModel';
+import {
+  MAX_BOOKING_HOURS,
+  hintText,
+  lostText,
+  reconcileSelection,
+  summarize,
+  tapSlot
+} from './lib/daySelection';
+import DayStrip from './components/DayStrip';
+import Legend from './components/Legend';
+import CourtGrid from './components/CourtGrid';
+import PhoneGrid from './components/PhoneGrid';
+import SummaryBar from './components/SummaryBar';
+import ConfirmDialog from './components/ConfirmDialog';
+import { ErrorBoard, LoadingBoard, NoCourtsBoard, OverBoard } from './components/BoardStates';
+
+// Cùng khoá với ô đặt nhanh ở Trang chủ: khách chọn chi nhánh ở đâu thì cả hai
+// nơi cùng nhớ. KHÔNG phải "admin_selected_branch_id" (bộ chuyển của nhân viên).
+const CUSTOMER_BRANCH_KEY = 'customer_selected_branch_id';
+
+const readStored = (key) => {
+  try {
+    return localStorage.getItem(key) || '';
+  } catch {
+    return '';
+  }
+};
+const writeStored = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // kho bị chặn: chỉ là không nhớ được lần sau
+  }
+};
+
+const clock = (date) =>
+  date ? date.toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
 
 /**
- * Trang Đặt sân (/dat-san) — mới chỉ có khung cơ bản, công khai (khách chưa đăng nhập vẫn vào xem được).
- * Chỗ để làm trang đặt sân đầy đủ sau; hiện dẫn sang ô đặt nhanh ở Trang chủ và (với khách hàng) trang Lịch đặt.
+ * Trang Đặt sân (/dat-san, kế hoạch 29): lưới sân × giờ của một ngày, chạm khung
+ * giờ còn trống rồi đặt. Công khai — khách chưa đăng nhập vẫn xem được.
+ *
+ * Trang chỉ ghép: dữ liệu từ `useDayAvailability`, mọi quy tắc chọn / tạm tính
+ * nằm ở `lib/` (thuần, có test), luật nghiệp vụ thật do server chốt.
  */
 export default function BookingPage() {
   const { user } = useAuth();
-  const isCustomer = roleOf(user) === 'customer';
+  const role = roleOf(user);
+  const mode = !user ? 'guest' : role === 'customer' ? 'customer' : 'staff';
+  const compact = useCompactLayout();
+
+  const [branches, setBranches] = useState([]);
+  const [branchId, setBranchId] = useState(() => readStored(CUSTOMER_BRANCH_KEY));
+  const [date, setDate] = useState(() => todayInZone());
+  const [selection, setSelection] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const [courtTab, setCourtTab] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const { day, loading, error, stamp, reload, refresh } = useDayAvailability({
+    date,
+    branchId,
+    paused: dialogOpen
+  });
+
+  // Danh sách chi nhánh cho bộ chọn, tải một lần.
+  useEffect(() => {
+    publicService
+      .getBranches()
+      .then((res) => setBranches(res.data?.data || []))
+      .catch(() => {});
+  }, []);
+
+  // Lần đầu chưa chọn chi nhánh thì server chọn hộ: đồng bộ ngược để bộ chọn hiện
+  // đúng. CHỈ khi chưa có chi nhánh: khi khách vừa đổi chi nhánh, `day` còn là của
+  // chi nhánh cũ tới lúc phản hồi mới về, đồng bộ lúc đó sẽ kéo lựa chọn về chỗ cũ.
+  useEffect(() => {
+    const id = day?.branch?.id;
+    if (!id) return;
+    if (!branchId) setBranchId(String(id));
+    if (String(id) === String(branchId) || !branchId) writeStored(CUSTOMER_BRANCH_KEY, String(id));
+  }, [day, branchId]);
+
+  // Chi nhánh đã nhớ từ lần trước mà nay ngưng hoạt động / không còn: về mặc định,
+  // nếu không trang kẹt ở lỗi 404 mãi.
+  useEffect(() => {
+    if (branchId && branches.length > 0 && !branches.some((b) => String(b.id) === String(branchId))) {
+      setBranchId('');
+      writeStored(CUSTOMER_BRANCH_KEY, '');
+    }
+  }, [branches, branchId]);
+
+  // Dải ngày theo "hôm nay" và hạn cuối của server; trước khi có phản hồi thì dải mặc định.
+  const bookingWindow = useMemo(
+    () => (day ? { today: day.today, lastDate: day.lastBookableDate } : fallbackWindow(todayInZone())),
+    [day]
+  );
+  const days = useMemo(() => buildDayStrip(bookingWindow), [bookingWindow]);
+
+  // Để tab mở qua nửa đêm: ngày đang xem thành "hôm qua" thì nhảy sang hôm nay.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const today = todayInZone();
+      setDate((current) => (current < today ? today : current));
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Lưới vừa tải lại: khung đang chọn có còn trống không. Đọc lựa chọn qua ref để
+  // chỉ chạy khi `day` đổi, không chạy lại mỗi lần khách chạm một ô.
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
+  useEffect(() => {
+    if (!day) return;
+    const result = reconcileSelection(selectionRef.current, day);
+    if (result.lost) {
+      setSelection(null);
+      setNotice({ tone: 'warn', text: lostText(result.lost) });
+      setDialogOpen(false);
+    }
+  }, [day]);
+
+  const resetPick = useCallback(() => {
+    setSelection(null);
+    setNotice(null);
+  }, []);
+
+  const changeDate = (next) => {
+    setDate(next);
+    resetPick();
+  };
+  const changeBranch = (event) => {
+    const next = event.target.value;
+    setBranchId(next);
+    writeStored(CUSTOMER_BRANCH_KEY, next);
+    setCourtTab(null);
+    resetPick();
+  };
+  const changeCourtTab = (id) => {
+    setCourtTab(id);
+    resetPick();
+  };
+
+  const onTap = (court, slot) => {
+    const result = tapSlot({ selection, court, slot, maxHours: MAX_BOOKING_HOURS });
+    setSelection(result.selection);
+    setNotice(result.hint ? { tone: 'warn', text: hintText(result.hint) } : null);
+  };
+
+  const status = day ? dayStatus(day) : null;
+  const courts = day?.courts || [];
+  const phoneCourt =
+    courts.find((c) => c.id === courtTab) || courts.find((c) => c.bookable) || courts[0] || null;
+  const selectedCourt = selection ? courts.find((c) => c.id === selection.courtId) : null;
+  const summary = summarize(selectedCourt, selection);
+  const nextDay = days.find((d) => d.date > date);
+
+  const hint =
+    notice?.text ||
+    (status === 'full'
+      ? 'Ngày này không còn khung trống. Thử ngày khác nhé.'
+      : `Chạm giờ bắt đầu, rồi chạm thêm một ô cùng sân để kéo dài (tối đa ${MAX_BOOKING_HOURS} giờ).`);
+
+  const peak = day?.peakHours;
+  const pad = (n) => String(n).padStart(2, '0');
 
   return (
     <CustomerLayout
       eyebrow="Đặt sân"
-      title="Đặt sân"
-      subtitle="Chọn sân, ngày và khung giờ bạn muốn chơi."
+      title={
+        <>
+          ĐẶT <span className="text-gradient-nike">SÂN</span>
+        </>
+      }
+      subtitle={
+        peak
+          ? `Chọn ngày, rồi chạm khung giờ còn trống. Giá đã tính giờ cao điểm ${pad(peak.peakStartHour)}:00–${pad(peak.peakEndHour)}:00.`
+          : 'Chọn ngày, rồi chạm khung giờ còn trống.'
+      }
+      action={
+        mode === 'customer' ? (
+          <Link to="/my-bookings" className="btn-nike-dark text-xs">
+            Lịch đặt của tôi
+          </Link>
+        ) : null
+      }
     >
-      <section className="nike-card-static p-7">
-        <h2 className="font-kinetic text-xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">
-          Trang đặt sân đang được hoàn thiện
-        </h2>
-        <p className="mt-3 max-w-2xl text-slate-600 dark:text-slate-400">
-          Hiện bạn có thể đặt nhanh ngay ở Trang chủ: chọn sân, ngày, giờ rồi xác nhận.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link to="/#booking-widget" className="btn-nike-bolt text-xs">Đặt nhanh ở Trang chủ</Link>
-          {isCustomer && <Link to="/my-bookings" className="btn-nike-dark text-xs">Lịch đặt của tôi</Link>}
+      <div className="pb-40 lg:pb-0">
+        <div className="grid gap-4">
+          <label className="grid w-full gap-2 sm:w-64">
+            <span className="font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
+              Chi nhánh
+            </span>
+            <select
+              id="dat-san-branch"
+              value={branchId}
+              onChange={changeBranch}
+              disabled={branches.length === 0}
+              className="booking-input"
+            >
+              {branches.length === 0 && <option value={branchId}>{day?.branch?.name || 'Đang tải…'}</option>}
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <DayStrip days={days} value={date} onChange={changeDate} />
         </div>
-      </section>
+
+        <div className="mt-6 mb-3">
+          <Legend />
+        </div>
+
+        <section className="nike-card-static p-4 sm:p-5" aria-label="Lịch sân theo giờ">
+          {loading && <LoadingBoard />}
+          {!loading && error && <ErrorBoard message={error} onRetry={reload} />}
+          {!loading && !error && day && status === 'no-courts' && <NoCourtsBoard />}
+          {!loading && !error && day && status === 'over' && (
+            <OverBoard onNextDay={nextDay ? () => changeDate(nextDay.date) : null} />
+          )}
+          {!loading && !error && day && (status === 'ok' || status === 'full') && (
+            <>
+              {compact ? (
+                <PhoneGrid
+                  day={day}
+                  courtId={phoneCourt?.id}
+                  onCourt={changeCourtTab}
+                  selection={selection}
+                  onTap={onTap}
+                />
+              ) : (
+                <CourtGrid day={day} selection={selection} onTap={onTap} />
+              )}
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-slate-200 pt-3 text-xs text-slate-600 dark:border-white/10 dark:text-slate-400">
+                <span>Cập nhật {clock(stamp)} · tự tải lại mỗi 30 giây</span>
+                <button
+                  type="button"
+                  onClick={refresh}
+                  className="font-bold text-emerald-700 underline hover:no-underline dark:text-emerald-300"
+                >
+                  Tải lại
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+
+        {(status === 'ok' || status === 'full') && (
+          <p
+            role="status"
+            className={`mx-1 mt-3 min-h-[1.5rem] text-sm font-semibold ${
+              notice?.tone === 'warn' ? 'text-amber-800 dark:text-amber-300' : 'text-slate-600 dark:text-slate-400'
+            }`}
+          >
+            {hint}
+          </p>
+        )}
+
+        {(status === 'ok' || status === 'full') && (
+          <SummaryBar summary={summary} date={date} role={mode} portal={compact} onBook={() => setDialogOpen(true)} />
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={dialogOpen && Boolean(summary)}
+        summary={summary}
+        branchName={day?.branch?.name}
+        date={date}
+        mode={mode}
+        user={user}
+        onClose={() => setDialogOpen(false)}
+        // Bước 4 nối: đặt thật, cất lựa chọn qua đăng nhập, xử lý 409.
+        onConfirm={undefined}
+      />
     </CustomerLayout>
   );
 }
