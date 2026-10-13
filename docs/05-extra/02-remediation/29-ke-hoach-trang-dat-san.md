@@ -146,3 +146,28 @@ Dữ liệu thử: lịch #228 của khách demo (sân 1, 16/10 21:00–23:00) �
 - `/public/branches` không trả `timezone` nên widget Trang chủ rơi về mặc định Việt Nam (đúng với mọi chi nhánh hiện có).
 
 **Bản mẫu bấm thử:** <https://claude.ai/artifact/M9FUSenTXEoYva7CAu784u> (riêng tư). Lưới sân × giờ với dữ liệu minh hoạ; có chuyển sáng / tối, "xem như" khách / khách hàng / nhân viên, giờ hiện tại giả lập (04:50 / 15:30 / 22:10), trạng thái tải / lỗi, và giả lập "có người vừa đặt" để xem luồng 409. Ở bản mẫu, ô đã bắt đầu được coi là "đã qua" (chặt như widget Trang chủ, đừng nới theo lý do ghi ở `utils/bookingSlots.js`); server vẫn nhận khung đang chạy dở cho quầy.
+
+## 11. Kết quả bước 1 (14/10/2026)
+
+Commit `b357203` trên `feat/trang-dat-san`. Bản mẫu đã được chủ dự án duyệt ("bản mẫu ổn") trước bước này.
+
+**Endpoint** `GET /api/v1/public/availability/day?date=YYYY-MM-DD[&branchId=]`, công khai, chỉ-đọc, `Cache-Control: no-store`. Trả `branch {id,name}`, `date`, `today`, `lastBookableDate`, `operatingHours`, `peakHours`, và mỗi sân kèm `slots[{start,end,state,peak}]` với `state` ∈ `free | booked | passed | maintenance`. Hai trường thêm so với mục 4.1 (`today`, `lastBookableDate`) để trang dựng dải ngày theo lịch của chi nhánh chứ không theo đồng hồ máy khách. Mã: `utils/daySlots.js` (thuần), `PublicCatalogService.getDayAvailability`, `routes/publicRoutes.js`; `getCourts` tách `courtCatalog` để lưới dùng chung bảng giá và cờ `bookable` với `/public/courts`.
+
+| Kiểm | Kết quả |
+|---|---|
+| Jest, hai file mới (không cần DB) | `daySlots.test.js` 22 + `publicDayAvailability.test.js` 8 = **30/30** xanh |
+| Số câu SQL thật (chạy `getDayAvailability` trên DB local) | **6 câu cố định** (chi nhánh, sân, lịch cả ngày, 3 dòng setting) cho cả 4 ca: 4 sân hôm nay, 4 sân +13 ngày, 3 sân, 3 sân có 1 bảo trì; 54–72 ô mỗi ngày |
+| Cột lấy từ bảng lịch | chỉ `court_id`, `start_time`, `end_time` (đọc từ SQL thật) |
+| Đối chiếu mọi ô với `/public/availability` (server thật, DB thật) | 3 chi nhánh × 14 ngày × mọi sân × mọi ô = **2520 ô, 0 lệch**: 2250 trống, 9 kín, 9 đã qua, 252 bảo trì |
+| Lịch thật tạo qua API (khách demo) | nguyên giờ, 2 giờ, **lệch nửa giờ** 09:30–10:30 làm kín cả hai ô 09 và 10, **13:15–13:45** làm kín ô 13, sát giờ đóng 22:00–23:00, và lịch **đã huỷ** (ô trống lại): 10/10 ô đúng |
+| Rò dữ liệu | phản hồi không chứa tên, SĐT, mã khách hay mã lịch (quét chuỗi + test schema đóng) |
+| Từ chối | quá khứ 400 · quá 14 ngày 400 · ngày cuối của dải 200 · `2026-02-30` 400 · sai dạng 400 · thiếu `date` 400 · chi nhánh 999 404 · `branchId=abc` 400 |
+| Jest toàn bộ | 617–619 xanh; **`competitionGateway.test.js` lỗi 2–3 ca khi chạy song song cùng server đang bật**, đạt 41/41 khi chạy riêng (2 lần). Lỗi **giống hệt** trên `75766e8` (code chưa có bước 1) ở cùng điều kiện máy: đây là test dễ lỗi theo tải đã ghi nhận từ trước (giới hạn tần suất và SSE), không do thay đổi này |
+
+**Điều chưa kiểm được:** ca "server từ chối vì khung đã đóng" trên DB thật. Lúc đo là 05:xx sáng nên chỉ có ô 05:00 là đang chạy dở (9 ô, một ô mỗi sân); các ô đã đóng hẳn chỉ được khoá bằng test đơn vị (quét nhiều mốc `now` đối chiếu `BookingService.hasSlotPassed`, kể cả hai múi giờ).
+
+**Ghi nhận cần bạn quyết (chưa làm, không nằm trong bước này):**
+1. **`POST /bookings` có chặn đặt quá 14 ngày không?** Mục 5 câu b ghi "server chặn cùng mức", nhưng mục 7 để backend ngoài endpoint mới là ngoài phạm vi. Hiện chỉ lưới (và dải ngày của trang) giới hạn 14 ngày; lịch gọi thẳng API vẫn đặt được xa hơn như hôm nay. *Gợi ý: chặn ở `createBooking` cho vai `customer` thôi, nhân viên đặt xa hơn cho giải đấu hay sự kiện vẫn được.*
+2. **Tài liệu API chưa có endpoint mới:** `docs/APIDesign.md` (mục Public), `backend/src/docs/openapi.yaml` và bộ Postman. Mục 9 cấm sửa tài liệu khác khi bạn chưa nói.
+
+**Server local:** backend :5000 và Vite :5173 đã chuyển từ worktree nhánh cũ sang thư mục chính (khởi động lại một lần lúc đo, có nạp `competition.env`); dịch vụ thi đấu :5102 giữ nguyên.
