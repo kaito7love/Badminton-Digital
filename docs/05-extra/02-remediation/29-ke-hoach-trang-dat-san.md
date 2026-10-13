@@ -292,3 +292,44 @@ Lỗi JS / `console.error`: 0.
 | Hết hạn mức đăng nhập (10 lần / 15 phút / IP) giữa chừng | do chính các lần thử của mình | chờ cửa sổ hết hạn (11 phút), thêm bộ nhớ đệm token cho script. **Không** tắt hay nới giới hạn của server |
 
 **Dữ liệu thử đã dọn (xoá mềm):** 19 lịch thử (#249–#253, #258–#271) và hồ sơ khách + tài khoản "Khách Thử Mới" do bài thử đăng ký tạo ra. Backend log có một chuỗi 403 `DELETE /bookings/...`: script thử gọi huỷ bằng cả hai token (chỉ một token là chủ lịch), vô hại.
+
+## 15. Kết quả cuối và đề nghị gộp (14/10/2026)
+
+**Nhánh `feat/trang-dat-san`, 13 commit trên `main`, 45 file, +4688/−44.** Chưa gộp, chưa đẩy. Gộp vào `main` là gộp **cả** hai bản vá giờ của nhánh cũ (chặn khung giờ đã qua; chỉ nhận đặt 05:00–23:00) cùng trang mới; bản demo Render sẽ nhận tất cả khi đẩy `main`. Không có migration, không đổi DB.
+
+### 15.1 Đo cuối ở `HEAD`
+
+| Kiểm | Kết quả |
+|---|---|
+| Jest backend | **627/627** (47 suite; `competitionGateway.test.js` từng lỗi chập chờn khi chạy song song với server đang bật, xem mục 11, lần này đạt) |
+| Vitest frontend | **476/476** (32 file) |
+| `vite build` | sạch |
+| Luồng thật trên Chrome | **30/30** (mục 14.1) + **18/18** nhiều loại người dùng (mục 14.2); bước 3: 5 cỡ màn hình × sáng / tối, không tràn ngang, xếp lớp đúng |
+| Đối chiếu lưới với `/public/availability` | 2520/2520 ô, 0 lệch (đo ở bước 1; mã endpoint không đổi từ đó) |
+| Ô đặt nhanh Trang chủ | còn nguyên: mở hộp, sang `/login`, cất ở khoá `pending_booking` (khoá của trang mới không bị đụng) |
+
+### 15.2 Việc đã làm so với yêu cầu
+
+| Mục | Làm |
+|---|---|
+| Trang `/dat-san` | lưới sân × giờ, dải 14 ngày, chọn 1 giờ hoặc kéo khoảng tối đa 3 giờ, tạm tính, hộp xác nhận theo vai, các trạng thái, tải lại ngầm, đặt thật, đăng nhập quay lại |
+| Backend | `GET /public/availability/day` (6 câu SQL cố định, không lộ dữ liệu khách); khách chỉ đặt trước tối đa 14 ngày ở `POST /bookings` |
+| Nhánh cũ | gộp `fix/customer-booking-flow-round2` vào nhánh này (giờ đã qua, giờ mở cửa) |
+| Không đụng | ô đặt nhanh Trang chủ và các nút "Đặt sân" khác; `CustomerLayout`; khu nhân viên; `CLAUDE.md`, `00-tien-do.md`, `APIDesign.md`, `openapi.yaml`, Postman |
+
+### 15.3 Rủi ro còn mở và điều chưa kiểm
+
+| | Nội dung |
+|---|---|
+| **Trang trắng chập chờn** | một lần ở dev server, không tái hiện được sau 50 lần thử (mục 14.3). Chưa chạy bản build thật (`vite preview` / Render). Nên mở thử `/dat-san` vài lần trên bản chạy thật sau khi gộp |
+| Ca G1 lỗi hai lần rồi đạt | nguyên nhân chưa xác định; nghi dev server nạp lại trang giữa chừng |
+| Trang Chủ vẫn cho chọn ngày quá 14 ngày | `/public/availability` trả "còn trống" cho ngày xa, khách chỉ bị từ chối ở bước xác nhận (toast đúng thông điệp). Muốn báo sớm thì phải đụng Trang chủ hoặc endpoint đó: chưa làm |
+| Chưa kiểm | điện thoại thật; Safari / Firefox (chỉ Chrome); trình đọc màn hình; hai tab cùng đặt một khung; bản demo Render sau reset đêm; lưới lúc quá 22:00 giờ chi nhánh trên DB thật (trạng thái "hết giờ" dựng bằng cách sửa phản hồi); đặt thật bằng tài khoản nhân viên ở trang này (không có đường đặt, chỉ có hướng dẫn) |
+| Tài liệu API | `APIDesign.md`, `openapi.yaml`, Postman chưa có endpoint mới; chờ bạn nói |
+| Giới hạn đăng nhập | các lần thử của mình đã chạm 10 lần / 15 phút / IP; không đổi giới hạn của server |
+
+### 15.4 Chờ quyết định của chủ dự án
+
+1. **"merge vào main đi"** để gộp nhánh (kèm hai bản vá giờ của nhánh cũ), hoặc nói chỗ cần sửa.
+2. Có cập nhật tài liệu API (`APIDesign.md`, `openapi.yaml`, Postman) và `CLAUDE.md` / `00-tien-do.md` cho trang và endpoint mới không.
+3. Có muốn báo sớm giới hạn 14 ngày ở ô đặt nhanh Trang chủ không (đụng Trang chủ).
