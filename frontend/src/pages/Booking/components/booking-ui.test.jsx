@@ -162,6 +162,15 @@ describe('ConfirmDialog', () => {
     expect(html).toContain('Lựa chọn hiện tại được giữ');
   });
 
+  test('vừa đăng nhập xong (resumed): có dòng báo lựa chọn được giữ; đặt thẳng thì không có', () => {
+    const resumed = render({ mode: 'customer', onConfirm: noop, resumed: true });
+    expect(resumed).toContain('Đã đăng nhập. Lựa chọn của bạn được giữ nguyên');
+    const direct = render({ mode: 'customer', onConfirm: noop });
+    expect(direct).not.toContain('Đã đăng nhập.');
+    // Khách chưa đăng nhập không bao giờ thấy dòng này, kể cả khi cờ bị bật nhầm.
+    expect(render({ mode: 'guest', onConfirm: noop, resumed: true })).not.toContain('Đã đăng nhập. Lựa chọn');
+  });
+
   test('nhân viên: thông báo đặt ở Quản Lý Đặt Sân, không có nút chính', () => {
     const html = render({ mode: 'staff', onConfirm: noop });
     expect(html).toContain('Quản Lý Đặt Sân');

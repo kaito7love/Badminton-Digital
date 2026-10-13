@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import CustomerLayout from '../../layouts/CustomerLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import { roleOf } from '../../utils/roles';
 import { todayInZone } from '../../utils/datetime';
-import { publicService } from '../../services/apiServices';
+import { bookingService, publicService } from '../../services/apiServices';
 import useDayAvailability from './useDayAvailability';
 import useCompactLayout from './useCompactLayout';
 import { buildDayStrip, fallbackWindow } from './lib/dayStrip';
 import { dayStatus } from './lib/gridModel';
+import { confirmBooking, resumePending } from './lib/bookingFlow';
 import {
   MAX_BOOKING_HOURS,
   hintText,
@@ -44,6 +45,16 @@ const writeStored = (key, value) => {
   }
 };
 
+// sessionStorage có thể ném lỗi ngay khi truy cập (chế độ riêng tư, bị chặn): khi đó
+// đưa vào một đối tượng rỗng — mọi thao tác ở lib/pendingBooking đều đã nuốt lỗi.
+const sessionStore = () => {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return {};
+  }
+};
+
 const clock = (date) =>
   date ? date.toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
 
@@ -59,6 +70,7 @@ export default function BookingPage() {
   const role = roleOf(user);
   const mode = !user ? 'guest' : role === 'customer' ? 'customer' : 'staff';
   const compact = useCompactLayout();
+  const navigate = useNavigate();
 
   const [branches, setBranches] = useState([]);
   const [branchId, setBranchId] = useState(() => readStored(CUSTOMER_BRANCH_KEY));
@@ -67,6 +79,9 @@ export default function BookingPage() {
   const [notice, setNotice] = useState(null);
   const [courtTab, setCourtTab] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [dialogError, setDialogError] = useState('');
+  const [resumed, setResumed] = useState(false);
 
   const { day, loading, error, stamp, reload, refresh } = useDayAvailability({
     date,
@@ -121,15 +136,47 @@ export default function BookingPage() {
   // chỉ chạy khi `day` đổi, không chạy lại mỗi lần khách chạm một ô.
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
+  // Lựa chọn vừa dựng lại sau đăng nhập, đang chờ lưới đúng ngày / chi nhánh về để kiểm.
+  const restoreRef = useRef(false);
   useEffect(() => {
     if (!day) return;
+    // Lưới còn là của ngày / chi nhánh khác (phản hồi mới chưa về, ví dụ ngay sau khi
+    // dựng lại lựa chọn đã cất): đối chiếu lúc này sẽ bỏ oan lựa chọn.
+    if (day.date !== date) return;
+    if (branchId && String(day.branch?.id) !== String(branchId)) return;
+
     const result = reconcileSelection(selectionRef.current, day);
     if (result.lost) {
+      restoreRef.current = false;
+      setResumed(false);
       setSelection(null);
       setNotice({ tone: 'warn', text: lostText(result.lost) });
       setDialogOpen(false);
+    } else if (restoreRef.current && selectionRef.current) {
+      // Đã đăng nhập, khung còn trống: mở hộp xác nhận để khách bấm đặt nốt.
+      restoreRef.current = false;
+      setDialogOpen(true);
     }
-  }, [day]);
+  }, [day, date, branchId]);
+
+  // Quay lại từ trang đăng nhập: dựng lại đúng lựa chọn đã cất. Chỉ chạy một lần,
+  // khi đã biết người dùng; việc "còn trống không" do lưới tải về quyết định (effect trên).
+  const resumedOnce = useRef(false);
+  useEffect(() => {
+    if (resumedOnce.current || !user) return;
+    resumedOnce.current = true;
+    const result = resumePending({ storage: sessionStore(), mode, window: fallbackWindow(todayInZone()) });
+    if (result.type !== 'resume') return;
+    restoreRef.current = true;
+    setResumed(true);
+    if (result.branchId) {
+      setBranchId(String(result.branchId));
+      writeStored(CUSTOMER_BRANCH_KEY, String(result.branchId));
+    }
+    setDate(result.date);
+    setSelection(result.selection);
+    setCourtTab(result.selection.courtId);
+  }, [user, mode]);
 
   const resetPick = useCallback(() => {
     setSelection(null);
@@ -150,6 +197,46 @@ export default function BookingPage() {
   const changeCourtTab = (id) => {
     setCourtTab(id);
     resetPick();
+  };
+
+  const closeDialog = useCallback(() => {
+    setDialogOpen(false);
+    setDialogError('');
+    setResumed(false);
+  }, []);
+
+  // Nút chính của hộp xác nhận: đặt thật (khách hàng) hoặc cất lựa chọn rồi sang đăng nhập (khách).
+  const handleConfirm = async () => {
+    if (busy || !selection) return;
+    setBusy(true);
+    setDialogError('');
+    const outcome = await confirmBooking({
+      mode,
+      date,
+      branchId: day?.branch?.id ?? branchId,
+      selection,
+      createBooking: bookingService.createBooking,
+      storage: sessionStore()
+    });
+    setBusy(false);
+
+    if (outcome.type === 'login') {
+      navigate('/login', { state: { from: { pathname: '/dat-san' } } });
+    } else if (outcome.type === 'created') {
+      navigate('/my-bookings');
+    } else if (outcome.type === 'failed') {
+      if (outcome.refreshGrid) {
+        // Khung đã đổi dưới chân khách (trùng lịch, hết giờ, ngoài dải): bỏ lựa chọn,
+        // nói đúng lý do của server và tải lại lưới để thấy tình hình thật.
+        closeDialog();
+        setSelection(null);
+        setNotice({ tone: 'warn', text: outcome.message });
+        refresh();
+      } else {
+        // Mất mạng / lỗi tạm: giữ hộp và lựa chọn để khách bấm thử lại.
+        setDialogError(outcome.message);
+      }
+    }
   };
 
   const onTap = (court, slot) => {
@@ -281,9 +368,11 @@ export default function BookingPage() {
         date={date}
         mode={mode}
         user={user}
-        onClose={() => setDialogOpen(false)}
-        // Bước 4 nối: đặt thật, cất lựa chọn qua đăng nhập, xử lý 409.
-        onConfirm={undefined}
+        resumed={resumed}
+        busy={busy}
+        error={dialogError}
+        onClose={closeDialog}
+        onConfirm={handleConfirm}
       />
     </CustomerLayout>
   );

@@ -12,9 +12,10 @@ import Portal from './Portal';
  *  · 'staff'    : nhân viên đặt ở Quản Lý Đặt Sân; không có nút chính
  *
  * Nút chính chỉ bấm được khi có `onConfirm` (và không đang `busy`): hộp này
- * thuần trình bày, việc gọi API nằm ở trang.
+ * thuần trình bày, việc gọi API nằm ở trang. `resumed`: khách vừa đăng nhập xong
+ * và lựa chọn được dựng lại.
  */
-export default function ConfirmDialog({ open, summary, branchName, date, mode, user, error, busy, onClose, onConfirm }) {
+export default function ConfirmDialog({ open, summary, branchName, date, mode, user, error, busy, resumed, onClose, onConfirm }) {
   const closeRef = useRef(null);
 
   useEffect(() => {
@@ -57,6 +58,12 @@ export default function ConfirmDialog({ open, summary, branchName, date, mode, u
         <h2 id="dat-san-dialog-title" className="font-kinetic text-xl font-black uppercase text-slate-900 dark:text-white">
           Xác nhận đặt sân
         </h2>
+
+        {resumed && mode === 'customer' && (
+          <p className="mt-3 rounded-xl border border-emerald-600/30 bg-emerald-500/10 p-3 text-sm text-slate-700 dark:border-emerald-400/30 dark:text-slate-300">
+            Đã đăng nhập. Lựa chọn của bạn được giữ nguyên và khung giờ này vẫn còn trống.
+          </p>
+        )}
 
         <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
           {rows.map(([label, value]) => (
