@@ -43,7 +43,7 @@
 | Chọn | Chạm ô đầu rồi ô cuối trên **cùng một hàng**; nếu giữa chừng có ô không trống thì ô vừa chạm thành điểm bắt đầu mới và có dòng giải thích. Chạm lại ô đã chọn để bỏ |
 | Tóm tắt (dính dưới lưới) | Sân · ngày · khung giờ · số giờ · tạm tính (tách giờ thường / cao điểm) · nút **Đặt sân** |
 
-**Điện thoại (dưới 768 px):** không cuộn ngang. Chọn sân bằng thẻ chuyển (mỗi sân một thẻ), mỗi sân là lưới 4 cột các giờ; thanh tóm tắt dính ngay trên thanh tab dưới của header.
+**Điện thoại và máy tính bảng (dưới 1024 px; kế hoạch ghi 768 px, đo trên trang thật nâng lên 1024 px, xem mục 13):** không cuộn ngang. Chọn sân bằng thẻ chuyển (mỗi sân một thẻ), mỗi sân là lưới 4 cột các giờ; thanh tóm tắt dính ngay trên thanh tab dưới của header.
 
 **Luồng:**
 1. Chọn ngày → lưới tải (khung xương khi đang tải; lỗi mạng có nút Thử lại; chi nhánh không có sân; "hôm nay đã hết giờ, chọn ngày khác").
@@ -205,3 +205,45 @@ Năm module thuần, không đụng React hay DOM; trang ở bước 3 chỉ g�
 | Múi giờ máy chạy | 57/57 dưới `TZ=UTC`, `Asia/Ho_Chi_Minh`, `Pacific/Auckland` |
 
 **Dữ liệu thử đã dọn:** các lịch thử của khách demo (#228–#235) và lịch + hồ sơ khách vãng lai "Thử dải ngày" của lần thử quản trị (#236, khách #136) đã xoá mềm (`deleted_at`), không còn hiện trong app.
+
+## 13. Kết quả bước 3 (14/10/2026)
+
+Commit `dc79b8f`. Trang `/dat-san` thật thay khung "đang hoàn thiện": `BookingPage.jsx` + `pages/Booking/components/` (lưới, thanh tóm tắt, hộp xác nhận, dải ngày, chú thích, các trạng thái) + `useDayAvailability.js` (tải thường và tải ngầm) + `useCompactLayout.js`; thêm `publicService.getDayAvailability`. Nối vào logic thuần của bước 2.
+
+**Chưa nối (đúng phân chia của kế hoạch):** nút "Xác nhận đặt sân" trong hộp xác nhận đang **khoá** (hộp không có `onConfirm`); gọi `POST /bookings`, cất lựa chọn qua đăng nhập và xử lý 409 là bước 4.
+
+### 13.1 Hai điều đo ra khác với kế hoạch / bản mẫu
+
+| Phát hiện | Cách xử lý |
+|---|---|
+| Ở 768 px lưới đầy đủ 18 cột chỉ còn ô rộng **24 px**, quá nhỏ để chạm (1024 px: 38 px) | Lưới gọn (từng sân) dùng cho **mọi màn dưới 1024 px**, cùng ngưỡng với thanh tab dưới của header; ở 640–1023 px là lưới 6 cột, dưới 640 px là 4 cột; ô cao 56 px |
+| `<main>` của `CustomerLayout` là `relative z-10`, chân trang cũng `relative z-10` và nằm sau: **chân trang đè lên mọi phần tử `fixed` trong `<main>`**, kể cả `z-30` / `z-50`. Đo ở 768 px: chân trang che nửa nút "Đặt sân"; hộp xác nhận không phủ tới chân trang | Thanh tóm tắt (dưới 1024 px) và hộp xác nhận dựng ra `document.body` bằng `Portal`. Từ 1024 px thanh `sticky` ở lại trong luồng. Chưa sửa `CustomerLayout` vì nó dùng chung cho cả khu khách |
+
+### 13.2 Đo trên Chrome thật (headless, CDP; Vitest không thay được bước này)
+
+| Kiểm | Kết quả |
+|---|---|
+| Cỡ màn hình | 1440×900, 1024×768, 768×1024, 390×844, 360×740, mỗi cỡ chọn một khoảng giờ: **không cỡ nào tràn ngang** (`scrollWidth` ≤ `innerWidth`) |
+| Số ô, cỡ ô nhỏ nhất | máy tính 72 ô (4 sân × 18), điện thoại 18 ô mỗi sân; ô nhỏ nhất: 44 px (1440), 38 px (1024), **56 px** (≤ 1023) |
+| Chọn / kéo khoảng | chạm hai ô → 2 ô `aria-pressed`, thanh tóm tắt "180.000đ · 2 giờ cao điểm" đúng; ở điện thoại dùng cảm ứng thật (`touchStart/End`) |
+| Sáng / tối | 1440 và 390 cả hai; chuyển bằng `localStorage.theme`, kiểm lớp `kinetic-light` và `html.dark` |
+| Xếp lớp | ở cả 5 cỡ: thanh tóm tắt và nút **ở trên cùng** tại điểm giữa (`elementFromPoint`), hộp xác nhận nằm trong `body` và **phủ** cả chân trang |
+| Hộp xác nhận theo vai | khách: "Lựa chọn hiện tại được giữ…" + nút "Đăng nhập để đặt sân"; khách hàng demo: "Đặt dưới tên Nguyễn Văn Khách • …" + nút xác nhận **khoá**; (nhân viên: chỉ có test dựng) |
+| Trạng thái | khung chờ (trả chậm 3 s) · lỗi 503 ("Thử lại") · hết giờ hôm nay (mọi ô đã qua → "Xem ngày mai") · hết ô trống (toàn ô kín, hint "Ngày này không còn khung trống", thanh tóm tắt khoá) · chi nhánh không có sân; ba trạng thái hiếm dựng bằng cách chặn và sửa phản hồi thật của endpoint |
+| Đổi chi nhánh | Quận 7: 36 ô + dải "Bảo trì" của sân 3; `customer_selected_branch_id` = 3 (cùng khoá với ô đặt nhanh Trang chủ); tải lại trang vẫn ở Quận 7; về chi nhánh chính |
+| Đổi ngày | chọn ô ở T5 rồi đổi sang T6: lựa chọn **bị bỏ**, thanh tóm tắt về "Chưa chọn" |
+| **Người khác vừa đặt đúng khung đang chọn** | chọn Sân 2 · 20:00–21:00 ngày mai, tạo lịch trùng bằng API (khách demo, 201), bấm "Tải lại": lựa chọn bị bỏ, thông báo "Khung giờ bạn chọn vừa có người đặt. Mời bạn chọn khung khác." |
+
+### 13.3 Kiểm tra mã
+
+| Kiểm | Kết quả |
+|---|---|
+| Vitest `booking-ui.test.jsx` (react-dom/server) | 21: số ô khớp dữ liệu, sân bảo trì là dải không có nút, `aria-pressed` / `disabled` / nhãn đọc, hộp xác nhận ba vai và nút khoá khi thiếu `onConfirm`, dải ngày, chú thích, bốn trạng thái; quét nguồn: không có `text-white` / `bg-slate-950` trần, mỗi màu ô có biến thể `dark:` |
+| Toàn bộ Vitest | **463/463** (31 file; trước bước này 442); `vite build` sạch |
+| Thử nghiệm lỗi của chính test | ba lỗi đầu là test viết chưa chuẩn (nhãn đọc có kèm loại sân; regex `disabled` khớp nhầm lớp `disabled:opacity-50`; quét nguồn bị cắt chuỗi `+`), đã sửa test, không sửa thành phần |
+
+**Điều chưa kiểm:** trình duyệt điện thoại thật (chỉ mô phỏng cỡ và cảm ứng trong Chrome); chế độ nhân viên trên trang chạy (chỉ có test dựng hộp xác nhận); đăng nhập rồi quay lại và đặt thật (bước 4); lưới lúc quá 22:00 giờ chi nhánh trên DB thật (trạng thái "hết giờ" được dựng bằng cách sửa phản hồi).
+
+**Lỗi nhỏ đã tự sửa lúc đo (đều trong trang mới):** đổi chi nhánh bị đồng bộ kéo ngược về chi nhánh cũ (chỉ đồng bộ khi chưa có chi nhánh); nhãn tháng "TH10" khó hiểu → "Thg 10"; thanh cuộn trắng ở dải ngày; thanh tóm tắt cao 198 px ở 390 và bị nút ↑ của header che → bố cục hai cột, chừa chỗ cho nút ↑ (130 px); khung giờ bị cắt cụt ở màn hẹp → khung giờ lên dòng đầu.
+
+**Dữ liệu thử đã dọn:** các lịch thử #237–#238 (huỷ rồi xoá mềm). Chrome headless chạy ở cổng 9333 (profile riêng trong thư mục tạm của phiên), không đụng Chrome của bạn.
