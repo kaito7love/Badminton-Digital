@@ -1,7 +1,7 @@
 # Kế hoạch 29: trang Đặt sân (`/dat-san`) — lưới sân × giờ
 
 - **Ngày:** 14/10/2026.
-- **Trạng thái:** chủ dự án đã duyệt kế hoạch và chọn "theo gợi ý hết" ở mục 5 (14/10/2026). **Bước 0 đã làm xong, chờ "merge vào main đi" cho nhánh cũ; bản mẫu bấm thử chờ bạn xem** (mục 10). Chưa có dòng code nào của trang mới. Nhánh `feat/trang-dat-san`, tách từ `main` @ `c3bfa5a`.
+- **Trạng thái:** chủ dự án đã duyệt kế hoạch và chọn "theo gợi ý hết" ở mục 5 (14/10/2026). **Bước 0 đã làm xong; theo yêu cầu của chủ dự án (14/10/2026) nhánh cũ được gộp thẳng vào nhánh này (`736a123`), `main` chưa đổi; bản mẫu bấm thử chờ bạn xem** (mục 10). Chưa có dòng code nào của trang mới. Nhánh `feat/trang-dat-san`, tách từ `main` @ `c3bfa5a`.
 - **Làm lại từ đầu** theo yêu cầu của chủ dự án (14/10/2026: "làm lại trang đặt sân"): không kế thừa hướng thiết kế của ô đặt nhanh ở Trang chủ.
 - **Phạm vi:** trang `/dat-san` và những gì nó cần để chạy đúng (một endpoint công khai chỉ-đọc, và nhánh vá luật giờ đang chờ gộp). Mục 7 liệt kê những gì **không** đụng.
 
@@ -30,7 +30,7 @@
 | Bố cục | **Lưới sân × giờ**: chọn ngày, thấy cả bảng sân theo giờ (trống / kín / đã qua / bảo trì / cao điểm), chạm một khoảng giờ rồi đặt; trên điện thoại thành từng sân |
 | Phạm vi | **Chỉ trang `/dat-san`**: ô đặt nhanh ở Trang chủ và mọi nút "Đặt sân" khác giữ nguyên |
 | Backend | **Thêm 1 endpoint công khai chỉ-đọc** cho dữ liệu cả ngày |
-| Nhánh chưa gộp | **Gộp vào `main` trước** (bước 0 dưới đây), rồi mới làm trang mới |
+| Nhánh chưa gộp | Ban đầu chọn "gộp vào `main` trước"; **đổi ngày 14/10/2026: gộp thẳng vào `feat/trang-dat-san`** (vì nhánh này đúng bằng `main` cộng một commit tài liệu). Hai bản vá lên `main` cùng lúc với trang mới, khi bạn nói "merge vào main đi" |
 
 ## 4. Thiết kế
 
@@ -93,7 +93,7 @@ Mỗi bước một commit; đo trước, sửa, đo lại bằng Chrome thật 
 
 | Bước | Việc | Kiểm |
 |---|---|---|
-| 0 | **Nhánh cũ:** trong worktree `customer-flow-2` gộp `main` vào `fix/customer-booking-flow-round2`, sửa 2 chỗ xung đột ở `HomePage.jsx`. **Chưa gộp vào `main`** | Jest + Vitest toàn bộ xanh; đi lại luồng đặt ở ô Trang chủ (chưa / đã đăng nhập): chặn giờ đã qua và ngoài 05:00–23:00; báo kết quả rồi chờ "merge vào main đi" |
+| 0 | **Nhánh cũ:** trong worktree `customer-flow-2` gộp `main` vào `fix/customer-booking-flow-round2`, sửa 2 chỗ xung đột ở `HomePage.jsx`, rồi gộp nhánh đó vào `feat/trang-dat-san` (không vào `main`) | Jest + Vitest toàn bộ xanh; đi lại luồng đặt ở ô Trang chủ (chưa / đã đăng nhập): chặn giờ đã qua và ngoài 05:00–23:00; báo kết quả (mục 10); `main` chỉ đổi khi bạn nói "merge vào main đi" cho cả nhánh này |
 | 1 | Endpoint `/public/availability/day` + validator + test (Jest) | Test phủ: sân bảo trì, lịch kín nửa giờ, ngày hôm nay (giờ đã qua theo múi giờ chi nhánh), ngày xa, `branchId` sai; **phản hồi không chứa trường nhận dạng khách**; truy vấn thật trên MySQL: số truy vấn không tăng theo số ô |
 | 2 | Phần logic thuần của trang (chọn khoảng giờ, tạm tính, cất / dựng lại lựa chọn) + test (Vitest) | Mọi quy tắc ở mục 4: khoảng bị chắn giữa chừng, đổi ngày thì bỏ chọn, vượt số giờ tối đa |
 | 3 | Trang `/dat-san`: lưới, thanh tóm tắt, hộp xác nhận, trạng thái tải / lỗi / trống | Chụp sáng / tối × 1440, 1024, 768, 390, 360; không trang nào tràn ngang; đủ 5 trạng thái ô |
@@ -126,7 +126,7 @@ Mỗi bước một commit; đo trước, sửa, đo lại bằng Chrome thật 
 
 ## 10. Kết quả bước 0 (14/10/2026)
 
-**Nhánh cũ `fix/customer-booking-flow-round2`** (worktree `customer-flow-2`): gộp `main` vào, commit `75766e8`. Xung đột đúng 2 chỗ ở `HomePage.jsx` (phần import và hằng số đầu file), xử lý: giữ `SiteHeader` của `main`; giữ `bookingSlots`, `wallClockPassed`, `to12h` của nhánh; bỏ `useCart`, `isStaff`, `homePathForRole`, `SECTION_LINKS` vì chỉ phục vụ khối header cũ đã bị `main` thay. So với `main`, diff của `HomePage.jsx` chỉ còn phần widget và khối số liệu giờ mở cửa. **Chưa gộp vào `main`, chưa đẩy.**
+**Nhánh cũ `fix/customer-booking-flow-round2`** (worktree `customer-flow-2`): gộp `main` vào, commit `75766e8`. Xung đột đúng 2 chỗ ở `HomePage.jsx` (phần import và hằng số đầu file), xử lý: giữ `SiteHeader` của `main`; giữ `bookingSlots`, `wallClockPassed`, `to12h` của nhánh; bỏ `useCart`, `isStaff`, `homePathForRole`, `SECTION_LINKS` vì chỉ phục vụ khối header cũ đã bị `main` thay. So với `main`, diff của `HomePage.jsx` chỉ còn phần widget và khối số liệu giờ mở cửa. **Chưa gộp vào `main`, chưa đẩy.** Sau đó gộp nhánh này vào `feat/trang-dat-san` (commit `736a123`, không xung đột): cây mã giống hệt `75766e8`, chỉ thêm file kế hoạch này (đo bằng `git diff --stat 75766e8 HEAD`), nên kết quả kiểm bên dưới vẫn đúng cho nhánh này.
 
 | Kiểm | Kết quả |
 |---|---|
