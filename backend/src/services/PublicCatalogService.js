@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const {
+  Booking,
   Branch,
   Court,
   Product,
@@ -10,6 +11,12 @@ const {
 const BookingService = require('./BookingService');
 const SettingService = require('./SettingService');
 const { isTransferEnabled } = require('../utils/paymentConfig');
+const { localDateString, DEFAULT_TIMEZONE } = require('../utils/dateTime');
+const {
+  BOOKING_WINDOW_DAYS,
+  bookingWindow,
+  buildDayAvailability
+} = require('../utils/daySlots');
 
 /**
  * Dữ liệu cho trang chủ công khai — người xem CHƯA đăng nhập.
@@ -35,7 +42,16 @@ class PublicCatalogService {
 
   static async getCourts(branchId = null) {
     const branch = await PublicCatalogService.resolveBranch(branchId);
+    return PublicCatalogService.courtCatalog(branch);
+  }
 
+  /**
+   * Sân + giá + giờ cao điểm + giờ mở cửa của một chi nhánh đã resolve. Tách
+   * khỏi `getCourts` để lưới đặt sân theo ngày (`getDayAvailability`) dùng
+   * CHUNG đúng một bảng giá và một cờ `bookable` với `/public/courts`, thay vì
+   * một bản sao có thể lệch.
+   */
+  static async courtCatalog(branch) {
     // Sân ngưng khai thác không còn là hàng hoá đang bán, không đưa lên trang chủ.
     // Sân bảo trì vẫn hiện để khách biết quán có sân đó, nhưng gắn cờ không đặt được.
     const courts = await Court.findAll({
@@ -77,6 +93,63 @@ class PublicCatalogService {
 
     // Không trả conflictBookingId ra ngoài: người lạ không cần biết mã lịch của khách khác.
     return { available: result.available, message: result.message };
+  }
+
+  /**
+   * Lưới sân × giờ của MỘT ngày cho trang Đặt sân (kế hoạch 29).
+   *
+   * Số truy vấn cố định (chi nhánh, sân, lịch của cả ngày, vài dòng setting),
+   * không tăng theo số ô: lịch của cả chi nhánh trong ngày lấy bằng MỘT câu và
+   * chỉ lấy ba cột (sân, giờ bắt đầu, giờ kết thúc) — tên và mã khách không bao
+   * giờ rời DB. Trạng thái từng ô do `utils/daySlots.js` tính theo đúng thứ tự
+   * ưu tiên của `BookingService.checkAvailability`.
+   *
+   * `now` truyền được để test; mặc định là lúc gọi.
+   */
+  static async getDayAvailability({ date, branchId = null, now = new Date() }) {
+    const branch = await PublicCatalogService.resolveBranch(branchId);
+    const timezone = branch.timezone || DEFAULT_TIMEZONE;
+
+    // "Hôm nay" theo lịch của chi nhánh, không phải của máy chạy server (UTC):
+    // từ 00:00 tới 07:00 giờ Việt Nam UTC vẫn còn ở hôm qua.
+    const today = localDateString(now, timezone);
+    const { last } = bookingWindow(today);
+    if (date < today) {
+      const error = new Error('Ngày này đã qua, vui lòng chọn từ hôm nay trở đi');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (date > last) {
+      const error = new Error(`Chỉ nhận xem và đặt trước tối đa ${BOOKING_WINDOW_DAYS} ngày, vui lòng chọn ngày sớm hơn`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const [catalog, bookings] = await Promise.all([
+      PublicCatalogService.courtCatalog(branch),
+      Booking.findAll({
+        where: {
+          branchId: branch.id,
+          bookingDate: date,
+          // Cùng tập trạng thái mà BookingService.checkAvailability coi là đang chiếm chỗ.
+          status: { [Op.in]: ['pending', 'confirmed'] }
+        },
+        attributes: ['courtId', 'startTime', 'endTime'],
+        raw: true
+      })
+    ]);
+
+    return buildDayAvailability({
+      date,
+      branch,
+      courts: catalog.courts,
+      bookings,
+      operatingHours: catalog.operatingHours,
+      peakHours: catalog.peakHours,
+      timezone,
+      today,
+      now
+    });
   }
 
   /**

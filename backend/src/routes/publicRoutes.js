@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { param, query, validationResult } = require('express-validator');
 const PublicCatalogService = require('../services/PublicCatalogService');
+const { isRealDate } = require('../utils/daySlots');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 // Nhóm route DUY NHẤT không đi qua authMiddleware. Mọi thứ thêm vào đây phải là
@@ -75,6 +76,33 @@ router.get(
         branchId: req.query.branchId || null
       });
       return successResponse(res, data, 'Kết quả kiểm tra khung giờ');
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Lưới sân × giờ cả ngày cho trang Đặt sân (kế hoạch 29). Chỉ-đọc, không lộ mã
+// lịch hay thông tin khách — mỗi ô chỉ là một trạng thái. Luôn `no-store`: đây là
+// số liệu sống, một lớp đệm (Cloudflare trước Render) giữ lại sẽ chào ô đã kín.
+router.get(
+  '/availability/day',
+  [
+    query('date')
+      .matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('date phải dạng YYYY-MM-DD')
+      .bail()
+      .custom((value) => isRealDate(value)).withMessage('date không phải ngày có thật'),
+    branchRule,
+    validate
+  ],
+  async (req, res, next) => {
+    try {
+      const data = await PublicCatalogService.getDayAvailability({
+        date: req.query.date,
+        branchId: req.query.branchId || null
+      });
+      res.set('Cache-Control', 'no-store');
+      return successResponse(res, data, 'Lưới khung giờ theo ngày');
     } catch (err) {
       next(err);
     }
