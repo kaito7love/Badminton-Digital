@@ -247,3 +247,48 @@ Commit `dc79b8f`. Trang `/dat-san` thật thay khung "đang hoàn thiện": `Boo
 **Lỗi nhỏ đã tự sửa lúc đo (đều trong trang mới):** đổi chi nhánh bị đồng bộ kéo ngược về chi nhánh cũ (chỉ đồng bộ khi chưa có chi nhánh); nhãn tháng "TH10" khó hiểu → "Thg 10"; thanh cuộn trắng ở dải ngày; thanh tóm tắt cao 198 px ở 390 và bị nút ↑ của header che → bố cục hai cột, chừa chỗ cho nút ↑ (130 px); khung giờ bị cắt cụt ở màn hẹp → khung giờ lên dòng đầu.
 
 **Dữ liệu thử đã dọn:** các lịch thử #237–#238 (huỷ rồi xoá mềm). Chrome headless chạy ở cổng 9333 (profile riêng trong thư mục tạm của phiên), không đụng Chrome của bạn.
+
+## 14. Kết quả bước 4: đặt thật (14/10/2026)
+
+Commit `a35d0b7`. Nút xác nhận gọi được: khách hàng → `POST /bookings` → `/my-bookings`; khách chưa đăng nhập → cất lựa chọn (`pending_booking_datsan`) → `/login` với `from = /dat-san` → quay về dựng lại đúng chi nhánh, ngày, sân, khung giờ, chờ lưới đúng ngày về rồi **tự mở hộp xác nhận** kèm dòng "Đã đăng nhập"; nhân viên thấy hướng dẫn, không có nút đặt, không gọi POST. Quyết định đặt thật nằm ở `lib/bookingFlow.js` (`confirmBooking`, `resumePending`) để test bằng kho giả và hàm API giả.
+
+**Đã chốt theo "như hôm nay" (câu d):** đặt xong chuyển tới `/my-bookings`, lịch ở trạng thái chờ xác nhận.
+
+### 14.1 Luồng thật trên Chrome (30 ca, `step4-flows.js`)
+
+| Nhóm | Ca đạt |
+|---|---|
+| A. Khách chưa đăng nhập, form đăng nhập thật | chọn 18:00–20:00 Sân số 3 → "Đăng nhập để đặt" → sang `/login`, khoá cất đúng, **không** gọi POST, khoá của Trang chủ không bị đè → đăng nhập bằng gõ phím thật → quay về `/dat-san`, hộp tự mở đúng lựa chọn, nút xác nhận bấm được, khoá đã xoá → đặt → `/my-bookings` có thẻ "chờ xác nhận" đúng ngày giờ sân; server có lịch `pending`, sân 3, 18:00–20:00 |
+| B. Đã đăng nhập sẵn | thanh ghi "Đặt sân", hộp "Đặt dưới tên Nguyễn Văn Khách", không có dòng "Đã đăng nhập"; đặt thẳng, server có lịch |
+| C. 409 | tạo lịch trùng bằng API ngay trước khi bấm: hộp đóng, ở lại `/dat-san`, thông báo "Khung giờ này đã có người đặt…", lựa chọn bị bỏ, ô đó thành "đã kín" sau khi lưới tải lại |
+| D. Mất mạng | chặn `POST` bằng `Fetch.failRequest`: hộp còn mở, thông báo "Không kết nối được máy chủ…", nút bấm lại được, lựa chọn giữ; bật mạng lại bấm lần nữa thì đặt được |
+| E. 400 luật nghiệp vụ | phản hồi 400 giả lập: hộp đóng, hiện đúng câu của server, lựa chọn bị bỏ |
+| F. Nhân viên (admin) | "Quản Lý Đặt Sân", chỉ có nút "Đóng", **không có POST nào** |
+| G. Hết hạn | lựa chọn cất của hôm qua (khách hàng) và lựa chọn của nhân viên: không dựng lại, không mở hộp, khoá bị xoá |
+| H. Điện thoại 390 px, cảm ứng | chọn Sân số 2 19:00–21:00 → đăng nhập → quay về, hộp tự mở đúng sân và thẻ sân đang xem là Sân số 2 (không phải sân đầu) → đặt, server có lịch `pending` ở sân 2 |
+
+**Lỗi JS / `console.error` của trang trong cả bộ: 0.**
+
+### 14.2 Nhiều loại người dùng (18 ca, `step5-diverse.js`, theo yêu cầu 14/10)
+
+| Tình huống | Kết quả |
+|---|---|
+| **Khách mới đăng ký ngay giữa luồng đặt** (form `/register` thật, SĐT mới) | đăng ký xong quay về `/dat-san`, hộp tự mở đúng khung (nhờ `from` được mang qua trang đăng ký), "Đặt dưới tên" đúng tên và SĐT khách mới; server: khách mới có đúng 1 lịch `pending`; trang Lịch đặt hiện lịch |
+| Khách demo đặt ở **chi nhánh khác** (Quận 7) | hộp ghi "Chi nhánh Quận 7"; lịch ở sân 8, chi nhánh 3 |
+| Biên | ngày cuối của dải (hôm nay + 13), khung sát giờ đóng 22:00–23:00: đặt được; khoảng dài nhất 3 giờ chọn được; chạm ô ngoài khoảng thì chọn lại; hai lịch **liền kề** 08:00–11:00 và 11:00–12:00 cùng sân đều đặt được |
+| **Hai khách khác nhau** giành một khung | khách mới đặt trước qua API; khách demo chậm hơn nhận 409, hộp đóng, thông báo đúng, ô thành "đã kín" |
+| Vai nhân viên | nhân viên chi nhánh chính và quản lý Quận 3: hướng dẫn đặt ở Quản Lý Đặt Sân, không nút đặt, không POST |
+| Lựa chọn hết hạn, lặp 3 lần | cả ba lần: không dựng lại, không mở hộp, khoá bị xoá |
+
+Lỗi JS / `console.error`: 0.
+
+### 14.3 Chuyện không suôn sẻ (ghi lại đúng như đã xảy ra)
+
+| Việc | Chuyện gì | Kết luận |
+|---|---|---|
+| Lần chạy bộ kiểm đầu: 23/30, lần hai 28/30 | các "lỗi" đầu là của **script kiểm**: so chữ phân biệt hoa/thường (nút hiển thị in hoa bằng CSS), đếm nhầm thẻ chọn sân vào số ô đang chọn, và so với thẻ lịch đã huỷ của lần chạy trước | sửa script, không sửa trang |
+| Ca G1 (lựa chọn của hôm qua) lỗi hai lần liên tiếp rồi **đạt** ở lần chạy sạch, và đạt 3/3 khi lặp riêng, 4/4 khi tái hiện riêng lẻ | **Chưa xác định được nguyên nhân** lúc nó lỗi (khoá cất vẫn còn trong kho sau khi mở trang). Hai lần lỗi trùng với lúc mình đang sửa file trong `src/` làm Vite dev server nạp lại trang (Tailwind coi mọi file trong `src/`, kể cả file test, là phụ thuộc của CSS) | nghi do nạp lại trang giữa chừng của dev server; **không** chứng minh được. Cần theo dõi nếu thấy lại |
+| Một lần trang **trắng** (body rỗng, đã tải xong, không lỗi JS) lúc mở `/dat-san` bằng phiên nhân viên ngay sau một luồng 409; một lần lưới không hiện sau 8 s | tải lại thì bình thường. Săn lại: **42 lần tải lạnh (3 vai) + 8 vòng lặp đúng chuỗi đó: 0 lần trắng**; không có yêu cầu mạng lỗi nào, log Vite không có gì ở thời điểm đó | **chưa giải thích được, chưa tái hiện**. Chỉ thấy ở dev server (chưa chạy bản build thật). Rủi ro còn mở, ghi ở mục 15 |
+| Hết hạn mức đăng nhập (10 lần / 15 phút / IP) giữa chừng | do chính các lần thử của mình | chờ cửa sổ hết hạn (11 phút), thêm bộ nhớ đệm token cho script. **Không** tắt hay nới giới hạn của server |
+
+**Dữ liệu thử đã dọn (xoá mềm):** 19 lịch thử (#249–#253, #258–#271) và hồ sơ khách + tài khoản "Khách Thử Mới" do bài thử đăng ký tạo ra. Backend log có một chuỗi 403 `DELETE /bookings/...`: script thử gọi huỷ bằng cả hai token (chỉ một token là chủ lịch), vô hại.
