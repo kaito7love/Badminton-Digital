@@ -167,7 +167,41 @@ Commit `b357203` trên `feat/trang-dat-san`. Bản mẫu đã được chủ d�
 **Điều chưa kiểm được:** ca "server từ chối vì khung đã đóng" trên DB thật. Lúc đo là 05:xx sáng nên chỉ có ô 05:00 là đang chạy dở (9 ô, một ô mỗi sân); các ô đã đóng hẳn chỉ được khoá bằng test đơn vị (quét nhiều mốc `now` đối chiếu `BookingService.hasSlotPassed`, kể cả hai múi giờ).
 
 **Ghi nhận cần bạn quyết (chưa làm, không nằm trong bước này):**
-1. **`POST /bookings` có chặn đặt quá 14 ngày không?** Mục 5 câu b ghi "server chặn cùng mức", nhưng mục 7 để backend ngoài endpoint mới là ngoài phạm vi. Hiện chỉ lưới (và dải ngày của trang) giới hạn 14 ngày; lịch gọi thẳng API vẫn đặt được xa hơn như hôm nay. *Gợi ý: chặn ở `createBooking` cho vai `customer` thôi, nhân viên đặt xa hơn cho giải đấu hay sự kiện vẫn được.*
+1. **[Đã trả lời 14/10/2026: chặn vai `customer` thôi; đã làm, xem mục 12.] `POST /bookings` có chặn đặt quá 14 ngày không?** Mục 5 câu b ghi "server chặn cùng mức", nhưng mục 7 để backend ngoài endpoint mới là ngoài phạm vi. Hiện chỉ lưới (và dải ngày của trang) giới hạn 14 ngày; lịch gọi thẳng API vẫn đặt được xa hơn như hôm nay. *Gợi ý: chặn ở `createBooking` cho vai `customer` thôi, nhân viên đặt xa hơn cho giải đấu hay sự kiện vẫn được.*
 2. **Tài liệu API chưa có endpoint mới:** `docs/APIDesign.md` (mục Public), `backend/src/docs/openapi.yaml` và bộ Postman. Mục 9 cấm sửa tài liệu khác khi bạn chưa nói.
 
 **Server local:** backend :5000 và Vite :5173 đã chuyển từ worktree nhánh cũ sang thư mục chính (khởi động lại một lần lúc đo, có nạp `competition.env`); dịch vụ thi đấu :5102 giữ nguyên.
+
+## 12. Kết quả bước 2 và chặn 14 ngày (14/10/2026)
+
+### 12.1 Khách chỉ đặt trước tối đa 14 ngày (commit `2f89d85`)
+
+Trả lời câu 1 ở mục 11: **chặn vai `customer` thôi**. `BookingService.createBooking` từ chối lịch của khách sau hôm nay + 13 ngày (theo lịch chi nhánh) bằng 400 tiếng Việt nêu rõ ngày cuối; nhân viên và quản trị không bị giới hạn. Chặn trước khi kiểm khung giờ và ghi lịch. Chỉ vai khách tốn thêm một truy vấn (múi giờ chi nhánh).
+
+| Kiểm | Kết quả |
+|---|---|
+| Jest `bookingAdvanceWindow.test.js` (không cần DB) | **8/8**: biên hôm nay và hôm nay + 13 được, +14 bị chặn; "hôm nay" theo chi nhánh chứ không theo UTC (cùng mốc UTC, Việt Nam và New York khác ngày cuối); khách bị chặn **trước** khi gọi kiểm khung giờ và trước `Booking.create`, giao dịch rollback; nhân viên và quản trị +78 ngày vẫn tạo được và không tốn truy vấn múi giờ |
+| API thật (server khởi động lại với mã mới) | khách +13 ngày **201**; khách +14 ngày **400** "Chỉ nhận đặt trước tối đa 14 ngày (đến 27/10/2026)…"; khách +60 ngày **400**; quản trị +60 ngày **201** |
+
+**Hệ quả cần biết:** ô đặt nhanh ở Trang chủ (không đổi trong kế hoạch này) cho chọn ngày bất kỳ và `/public/availability` vẫn trả "còn trống" cho ngày xa; khách chọn ngày quá dải sẽ chỉ nhận thông báo ở bước xác nhận (toast hiện đúng thông điệp của server). Muốn Trang chủ báo sớm hơn thì phải đụng ô đó hoặc `/public/availability`: chưa làm.
+
+### 12.2 Bước 2: logic thuần của trang (frontend, `pages/Booking/lib/`)
+
+Năm module thuần, không đụng React hay DOM; trang ở bước 3 chỉ gọi và vẽ.
+
+| Module | Việc |
+|---|---|
+| `daySelection.js` | chạm ô → chọn 1 giờ / kéo thành khoảng (hai chiều, tối đa 3 giờ) / bỏ chọn; khoảng bị chắn giữa chừng thì chọn lại và nói rõ; `reconcileSelection` khi lưới tải lại (người khác vừa đặt → bỏ chọn kèm lý do); `summarize` (tách giờ thường / cao điểm, tạm tính theo cờ `peak` của server); thân `POST /bookings` |
+| `pendingBooking.js` | cất / lấy lựa chọn qua đăng nhập, **khoá riêng** `pending_booking_datsan`; bỏ khi ngày ra ngoài dải hoặc dữ liệu hỏng; nuốt lỗi kho bị chặn |
+| `dayStrip.js` | dải 14 ngày từ `today` / `lastBookableDate` của server, số học lịch thuần (không dính múi giờ máy) |
+| `gridModel.js` | hàng tiêu đề giờ, tình trạng cả ngày (`ok` / `full` / `over` / `no-courts`), nhãn trợ năng, tách "Sân số 1 (Thường)" thành tên + loại |
+| `bookingError.js` | 409 / 400 / 401 / mất mạng → việc trang cần làm; dịch "Validation failed" |
+
+| Kiểm | Kết quả |
+|---|---|
+| Vitest, 5 file mới | **57/57**; toàn bộ **442/442** (30 file, trước đó 385); `vite build` sạch |
+| Hợp đồng với server | `day.fixture.json` là **phản hồi thật** của `/public/availability/day` (chi nhánh Quận 7: hai sân đặt được, một sân bảo trì), chỉ cố định ngày; test dựng mọi ca từ đó và có ca khẳng định dạng dữ liệu, nên server đổi dạng thì test đỏ trước khi trang vỡ |
+| Thử đột biến | đổi giới hạn 3 giờ → 2: 2 test đỏ; bỏ "chạm lại thì bỏ chọn": 1 test đỏ; đã hoàn lại nguyên vẹn (`cmp`) |
+| Múi giờ máy chạy | 57/57 dưới `TZ=UTC`, `Asia/Ho_Chi_Minh`, `Pacific/Auckland` |
+
+**Dữ liệu thử đã dọn:** các lịch thử của khách demo (#228–#235) và lịch + hồ sơ khách vãng lai "Thử dải ngày" của lần thử quản trị (#236, khách #136) đã xoá mềm (`deleted_at`), không còn hiện trong app.
