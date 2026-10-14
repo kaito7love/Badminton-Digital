@@ -1,20 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import "./HomePage.css";
-import { publicService, bookingService } from "../../services/apiServices";
+import { publicService } from "../../services/apiServices";
 import CourtFloorPlan from "../../components/CourtFloorPlan";
-import { useAuth } from "../../contexts/AuthContext";
-import { roleOf } from "../../utils/roles";
-import { todayInZone, wallClockPassed } from '../../utils/datetime';
-import { FALLBACK_HOURS, addHours, durationsFor, openSlotsFor } from '../../utils/bookingSlots';
 import SiteHeader from '../../components/site/SiteHeader';
+import SiteFooter from '../../components/site/SiteFooter';
+import BookingCta, { lowestOffpeakPrice } from "./BookingCta";
 
-// Lựa chọn của khách được giữ lại khi họ phải rẽ qua trang đăng nhập, để quay
-// về là đặt tiếp chứ không phải chọn lại từ đầu.
-const PENDING_BOOKING_KEY = "pending_booking";
 // Chi nhánh khách đã chọn ở trang chủ — riêng biệt với "admin_selected_branch_id"
 // (BranchContext.jsx) vì đó là bộ chuyển chi nhánh của nhân viên, khác đối tượng.
+// Trang Đặt sân (/dat-san) dùng cùng khoá này: chọn chi nhánh ở đây rồi bấm Đặt sân là sang đúng chi nhánh đó.
 const CUSTOMER_BRANCH_KEY = "customer_selected_branch_id";
+
+// Dùng khi chưa tải xong `/public/courts`. Trùng mặc định của backend (operating_hours).
+const FALLBACK_HOURS = { open: "05:00", close: "23:00" };
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
@@ -25,11 +24,14 @@ const to12h = (hhmm) => {
   return `${hour12}${m ? `:${String(m).padStart(2, "0")}` : ""}${h >= 12 ? "PM" : "AM"}`;
 };
 
+/**
+ * Trang chủ chỉ GIỚI THIỆU: mọi nút "đặt sân" đều dẫn tới /dat-san (kế hoạch 30).
+ * Việc chọn ngày/giờ/sân, hỏi chỗ trống và tạo booking nằm ở một nơi duy nhất là
+ * trang Đặt sân, nên ở đây không còn form, hộp xác nhận hay lưới giờ riêng.
+ */
 export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [courts, setCourts] = useState([]);
   const [layout, setLayout] = useState(null);
   const [branches, setBranches] = useState([]);
@@ -39,51 +41,7 @@ export default function HomePage() {
   const [peakHours, setPeakHours] = useState({ peakStartHour: 17, peakEndHour: 22 });
   const [operatingHours, setOperatingHours] = useState(FALLBACK_HOURS);
   const [catalogError, setCatalogError] = useState(null);
-  const [selectedCourt, setSelectedCourt] = useState(null);
-  const [checking, setChecking] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const [booking, setBooking] = useState({
-    date: todayInZone(),
-    time: "17:00",
-    duration: "2",
-    court: "",
-  });
-  const closeButtonRef = useRef(null);
-  const lastFocusedElementRef = useRef(null);
   const currentBranch = branches.find((b) => String(b.id) === String(selectedBranchId));
-  const branchTimezone = currentBranch?.timezone;
-
-  // Mốc giờ và số giờ chơi widget được phép chào bán — luật đầy đủ kèm lý do ở
-  // utils/bookingSlots.js (có test riêng).
-  const openSlots = openSlotsFor({ date: booking.date, hours: operatingHours, timezone: branchTimezone });
-  const openSlotsKey = openSlots.join(",");
-  const openDurations = durationsFor(booking.time, operatingHours);
-  const openDurationsKey = openDurations.join(",");
-
-  // Giá một khung đặt: cộng theo từng giờ, giờ nào rơi vào cao điểm thì tính giá
-  // cao điểm — cùng quy tắc với priceCalculator ở backend.
-  const estimatePrice = (court, startTime, hours) => {
-    if (!court) return 0;
-    const startHour = Number(String(startTime).split(":")[0]);
-    let total = 0;
-    for (let i = 0; i < Number(hours); i += 1) {
-      const hour = startHour + i;
-      const isPeak = hour >= peakHours.peakStartHour && hour < peakHours.peakEndHour;
-      total += isPeak ? court.peakPricePerHour : court.offpeakPricePerHour;
-    }
-    return total;
-  };
-
-  useEffect(() => {
-    if (!isModalOpen) return undefined;
-    closeButtonRef.current?.focus();
-    const handleEscape = (event) => {
-      if (event.key === "Escape") closeBookingModal();
-    };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [isModalOpen]);
 
   // Danh sách chi nhánh cho bộ chọn — chỉ tải 1 lần, độc lập với chi nhánh
   // đang xem.
@@ -97,7 +55,7 @@ export default function HomePage() {
   // Danh mục sân, bảng giá và sơ đồ mặt bằng — tải lại mỗi khi khách đổi chi
   // nhánh. Không cứng branchId trong code: đổi giá/sân ở màn Cài đặt hay đổi
   // chi nhánh ở đây đều phải phản ánh đúng ngay, tránh khách xem nhầm sân của
-  // chi nhánh khác rồi đặt lịch ở sai địa điểm.
+  // chi nhánh khác.
   useEffect(() => {
     let cancelled = false;
     publicService
@@ -105,15 +63,13 @@ export default function HomePage() {
       .then((res) => {
         if (cancelled) return;
         const data = res.data?.data;
-        const list = data?.courts || [];
-        setCourts(list);
+        setCourts(data?.courts || []);
         setLayout(null);
+        setCatalogError(null);
         if (data?.peakHours) setPeakHours(data.peakHours);
         if (data?.operatingHours?.open && data?.operatingHours?.close) {
           setOperatingHours(data.operatingHours);
         }
-        const firstBookable = list.find((c) => c.bookable);
-        setBooking((cur) => ({ ...cur, court: firstBookable ? String(firstBookable.id) : "" }));
         // Chưa chọn chi nhánh nào (lần đầu vào trang) thì server tự chọn hộ —
         // đồng bộ ngược lại state/localStorage để bộ chọn hiện đúng chi nhánh
         // đang xem, không để trống gây hiểu nhầm.
@@ -141,181 +97,6 @@ export default function HomePage() {
       cancelled = true;
     };
   }, [selectedBranchId]);
-
-  // Mốc giờ đang chọn vừa rơi ra ngoài tập đang chào (khách đổi ngày về hôm nay,
-  // để trang mở qua luôn giờ đó, hoặc giờ mở cửa vừa tải về hẹp hơn mặc định):
-  // nhảy sang mốc gần nhất còn mở. Thiếu bước này thì <select> hiện một giờ mà
-  // state giữ một giờ khác, và cái gửi lên server là giờ đã bị loại.
-  useEffect(() => {
-    if (openSlots.length === 0 || openSlots.includes(booking.time)) return;
-    setBooking((cur) => ({ ...cur, time: openSlots[0] }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openSlotsKey, booking.time]);
-
-  // Cùng lý do, cho số giờ chơi: chọn 3 giờ ở mốc 21:00 thì phải tụt về mức dài
-  // nhất còn vừa khung mở cửa, chứ không được âm thầm gửi lên một khoảng vượt
-  // giờ đóng.
-  useEffect(() => {
-    if (openDurations.length === 0 || openDurations.includes(booking.duration)) return;
-    setBooking((cur) => ({ ...cur, duration: openDurations[openDurations.length - 1] }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openDurationsKey, booking.duration]);
-
-  // Quay lại sau khi đăng nhập: dựng lại đúng lựa chọn dở dang.
-  useEffect(() => {
-    if (!user || courts.length === 0) return;
-    const saved = sessionStorage.getItem(PENDING_BOOKING_KEY);
-    if (!saved) return;
-    sessionStorage.removeItem(PENDING_BOOKING_KEY);
-    try {
-      const pending = JSON.parse(saved);
-      // Lựa chọn cất đi có thể đã hết hạn: chọn sân 23h50 rồi đăng nhập xong
-      // sau nửa đêm là dựng lại một khung giờ của hôm qua — và đường này đi
-      // thẳng tới `handleBookingSubmit`, không qua ô ngày nên không có ràng
-      // buộc `min` nào chặn. Hết hạn thì bỏ, mời khách chọn lại.
-      if (wallClockPassed(pending.selection?.bookingDate, pending.selection?.endTime, branchTimezone)) {
-        showToast("Khung giờ bạn chọn trước đó đã qua. Mời bạn chọn lại khung giờ khác.");
-        return;
-      }
-      setBooking(pending.form);
-      setSelectedCourt(pending.selection);
-      setIsModalOpen(true);
-    } catch {
-      // Dữ liệu hỏng thì bỏ qua, khách chọn lại từ đầu
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, courts.length]);
-
-  const closeBookingModal = () => {
-    setIsModalOpen(false);
-    lastFocusedElementRef.current?.focus();
-  };
-
-  /**
-   * Các nút "Đặt sân" rải khắp phần giới thiệu chỉ là lối tắt: chúng điền sẵn
-   * form rồi đưa khách về widget, chứ không tự mở hộp xác nhận. Khung giờ có
-   * còn trống hay không phải do hệ thống trả lời, không phải do trang tĩnh này
-   * đoán — nên mọi đường đều đi qua đúng một chỗ kiểm tra.
-   */
-  const startBookingFromCard = (courtIndex, time, hours = 2) => {
-    const court = courts[courtIndex] || courts.find((c) => c.bookable);
-    if (!court) {
-      showToast("Chưa tải được danh sách sân. Vui lòng thử lại sau.");
-      return;
-    }
-    setBooking((cur) => ({
-      ...cur,
-      court: String(court.id),
-      time,
-      duration: String(hours),
-    }));
-    scrollToSection("booking-widget");
-  };
-
-  // Bấm vào 1 ô sân trên sơ đồ mặt bằng: điền sẵn đúng sân đó rồi đưa khách
-  // về widget đặt sân — cùng một điểm kiểm tra trống với mọi lối tắt khác.
-  const selectCourtFromLayout = (court) => {
-    setBooking((cur) => ({ ...cur, court: String(court.id) }));
-    scrollToSection("booking-widget");
-  };
-
-  const handleBookingChange = (event) => {
-    setBooking((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }));
-  };
-
-  const handleQuickBooking = async (event) => {
-    event.preventDefault();
-    const court = courts.find((c) => String(c.id) === String(booking.court));
-    if (!court) {
-      showToast("Vui lòng chọn sân.");
-      return;
-    }
-
-    const startTime = booking.time;
-    const endTime = addHours(startTime, booking.duration);
-
-    setChecking(true);
-    try {
-      // Hỏi đúng hệ thống xem còn trống không, thay vì hứa suông rồi để khách
-      // phát hiện trùng lịch ở bước cuối.
-      // Bắt buộc kèm branchId: thiếu nó, backend tự resolve về chi nhánh mặc
-      // định và báo "Không tìm thấy sân" cho bất kỳ sân nào không thuộc chi
-      // nhánh đó — đúng lỗi khách đang lo (xem 1 chi nhánh, kiểm tra hoá ra
-      // lại tính theo chi nhánh khác).
-      const res = await publicService.checkAvailability({
-        courtId: court.id,
-        bookingDate: booking.date,
-        startTime,
-        endTime,
-        branchId: selectedBranchId || undefined,
-      });
-      if (!res.data?.data?.available) {
-        showToast(res.data?.data?.message || "Khung giờ này đã có người đặt. Mời bạn chọn giờ khác.");
-        return;
-      }
-
-      lastFocusedElementRef.current = document.activeElement;
-      setSelectedCourt({
-        courtId: court.id,
-        name: court.name,
-        branchName: currentBranch?.name,
-        bookingDate: booking.date,
-        startTime,
-        endTime,
-        duration: Number(booking.duration),
-        price: estimatePrice(court, startTime, booking.duration),
-      });
-      setIsModalOpen(true);
-    } catch (err) {
-      showToast(err.response?.data?.message || "Không kiểm tra được khung giờ. Vui lòng thử lại.");
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  const handleBookingSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedCourt) return;
-
-    // Chưa đăng nhập: cất lựa chọn lại rồi mời đăng nhập, quay về là đặt tiếp.
-    if (!user) {
-      sessionStorage.setItem(
-        PENDING_BOOKING_KEY,
-        JSON.stringify({ form: booking, selection: selectedCourt }),
-      );
-      navigate("/login", { state: { from: { pathname: "/" } } });
-      return;
-    }
-
-    if (roleOf(user) !== "customer") {
-      showToast("Tài khoản nhân viên vui lòng đặt lịch trong màn Quản Lý Đặt Sân.");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      await bookingService.createBooking({
-        courtId: selectedCourt.courtId,
-        bookingDate: selectedCourt.bookingDate,
-        startTime: selectedCourt.startTime,
-        endTime: selectedCourt.endTime,
-      });
-      closeBookingModal();
-      navigate("/my-bookings");
-    } catch (err) {
-      showToast(err.response?.data?.message || "Đặt sân không thành công. Vui lòng thử lại.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(""), 4000);
-  };
 
   // Cuộn mượt tới một mốc, chừa đúng chiều cao header đang cố định (đo thật, trước đây gõ cứng 24 px).
   const scrollToSection = (id) => {
@@ -399,11 +180,7 @@ export default function HomePage() {
               </p>
 
               <div className="flex flex-wrap items-center gap-5 mb-14">
-                <button
-                  type="button"
-                  onClick={() => scrollToSection("booking-widget")}
-                  className="btn-nike-bolt border-0 cursor-pointer"
-                >
+                <Link to="/dat-san" className="btn-nike-bolt border-0 cursor-pointer">
                   RESERVE COURT NOW
                   <svg
                     className="w-5 h-5"
@@ -414,7 +191,7 @@ export default function HomePage() {
                   >
                     <path d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
                   </svg>
-                </button>
+                </Link>
                 <button
                   type="button"
                   onClick={() => scrollToSection("courts")}
@@ -461,128 +238,13 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Right: Booking Glass Widget */}
-            <div className="lg:col-span-5" id="booking-widget">
-              <div className="nike-card p-8 border-emerald-500/40">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-kinetic text-2xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-                    <span className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm">
-                      ⚡
-                    </span>
-                    FAST BOOKING
-                  </h3>
-                  <span className="font-kinetic text-[10px] font-black text-slate-950 bg-emerald-400 px-3 py-1 rounded-full uppercase tracking-widest">
-                    LIVE INSTANT
-                  </span>
-                </div>
-
-                <form className="space-y-4" onSubmit={handleQuickBooking}>
-                  <div>
-                    <label className="block font-kinetic text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                      DATE
-                    </label>
-                    <input
-                      id="booking-date"
-                      type="date"
-                      name="date"
-                      min={todayInZone(branchTimezone)}
-                      value={booking.date}
-                      onChange={handleBookingChange}
-                      className="booking-input"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block font-kinetic text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                        TIME SLOT
-                      </label>
-                      <select
-                        id="booking-time"
-                        name="time"
-                        value={booking.time}
-                        onChange={handleBookingChange}
-                        className="booking-input"
-                      >
-                        {openSlots.length === 0 && (
-                          <option value="">Hết giờ nhận đặt hôm nay — chọn ngày khác</option>
-                        )}
-                        {openSlots.map((t) => {
-                          const hour = Number(t.split(":")[0]);
-                          const peak = hour >= peakHours.peakStartHour && hour < peakHours.peakEndHour;
-                          return (
-                            <option key={t} value={t}>
-                              {t}{peak ? " (CAO ĐIỂM)" : ""}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block font-kinetic text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                        DURATION
-                      </label>
-                      <select
-                        id="booking-duration"
-                        name="duration"
-                        value={booking.duration}
-                        onChange={handleBookingChange}
-                        className="booking-input"
-                      >
-                        {openDurations.map((d) => (
-                          <option key={d} value={d}>
-                            {d} GIỜ
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-kinetic text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                      COURT ARENA
-                    </label>
-                    <select
-                      id="booking-court"
-                      name="court"
-                      value={booking.court}
-                      onChange={handleBookingChange}
-                      className="booking-input"
-                      disabled={courts.length === 0}
-                    >
-                      {courts.length === 0 && <option value="">Đang tải danh sách sân...</option>}
-                      {courts.map((court) => (
-                        <option key={court.id} value={court.id} disabled={!court.bookable}>
-                          {court.name} — {formatVnd(court.offpeakPricePerHour)}
-                          {court.peakPricePerHour !== court.offpeakPricePerHour
-                            ? ` / ${formatVnd(court.peakPricePerHour)} cao điểm`
-                            : ""}
-                          {court.bookable ? "" : " (đang bảo trì)"}
-                        </option>
-                      ))}
-                    </select>
-                    {catalogError && (
-                      <p className="mt-2 text-xs font-bold text-rose-400">{catalogError}</p>
-                    )}
-                  </div>
-
-                  <p className="text-center font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    Nhận đặt sân {operatingHours.open}–{operatingHours.close} hằng ngày
-                  </p>
-
-                  <button
-                    type="submit"
-                    disabled={checking || courts.length === 0 || openSlots.length === 0}
-                    className="w-full btn-nike-bolt justify-center py-4 text-sm mt-4 disabled:opacity-60"
-                  >
-                    {checking
-                      ? "ĐANG KIỂM TRA..."
-                      : openSlots.length === 0
-                        ? "CHỌN NGÀY KHÁC ĐỂ ĐẶT"
-                        : "TÌM KHUNG GIỜ TRỐNG ⚡"}
-                  </button>
-                </form>
-              </div>
+            {/* Bên phải: thẻ dẫn sang trang Đặt sân (thay cho form đặt nhanh cũ) */}
+            <div className="lg:col-span-5" id="booking-cta">
+              <BookingCta
+                operatingHours={operatingHours}
+                fromPrice={lowestOffpeakPrice(courts)}
+                error={catalogError}
+              />
             </div>
           </div>
         </div>
@@ -641,7 +303,7 @@ export default function HomePage() {
           )}
 
           {layout ? (
-            <CourtFloorPlan layout={layout} courts={courts} onSelectCourt={selectCourtFromLayout} />
+            <CourtFloorPlan layout={layout} courts={courts} onSelectCourt={() => navigate("/dat-san")} />
           ) : (
           <div className="grid md:grid-cols-3 gap-8">
             {/* Court 1 */}
@@ -680,14 +342,9 @@ export default function HomePage() {
                     1200 LUX LED
                   </span>
                 </div>
-                <button
-                  onClick={() =>
-                    startBookingFromCard(0, "17:00", 2)
-                  }
-                  className="w-full btn-nike-dark justify-center text-xs py-4"
-                >
+                <Link to="/dat-san" className="w-full btn-nike-dark justify-center text-xs py-4">
                   BOOK COURT 01
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -727,14 +384,9 @@ export default function HomePage() {
                     Maple Subfloor
                   </span>
                 </div>
-                <button
-                  onClick={() =>
-                    startBookingFromCard(1, "17:00", 2)
-                  }
-                  className="w-full btn-nike-bolt justify-center text-xs py-4"
-                >
+                <Link to="/dat-san" className="w-full btn-nike-bolt justify-center text-xs py-4">
                   RESERVE VIP SUITE
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -774,166 +426,13 @@ export default function HomePage() {
                     Cushioned Base
                   </span>
                 </div>
-                <button
-                  onClick={() =>
-                    startBookingFromCard(2, "17:00", 2)
-                  }
-                  className="w-full btn-nike-dark justify-center text-xs py-4"
-                >
+                <Link to="/dat-san" className="w-full btn-nike-dark justify-center text-xs py-4">
                   BOOK COURT 03
-                </button>
+                </Link>
               </div>
             </div>
           </div>
           )}
-        </div>
-      </section>
-
-      {/* SCHEDULE TIMELINE GRID */}
-      <section
-        className="py-32 bg-slate-950/80 relative z-10"
-        id="availability"
-      >
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <div className="live-ticker mb-4">KHUNG GIỜ THAM KHẢO</div>
-            <h2 className="font-kinetic text-5xl sm:text-6xl font-black text-white uppercase tracking-tighter">
-              COURT{" "}
-              <span className="text-gradient-nike">AVAILABILITY GRID</span>
-            </h2>
-            <p className="text-slate-400 text-lg mt-4 font-medium">
-              Bấm vào khung giờ để điền sẵn form đặt sân — hệ thống sẽ kiểm tra chỗ trống thực tế khi bạn bấm tìm.
-            </p>
-          </div>
-
-          <div className="nike-card p-8 overflow-x-auto">
-            <table className="w-full min-w-[850px]">
-              <thead>
-                <tr className="border-b border-white/10 font-kinetic text-xs font-black text-slate-400 uppercase tracking-widest">
-                  <th className="text-left py-4 px-4 text-white text-base">
-                    VENUE COURT
-                  </th>
-                  <th className="py-4 px-3">08:00 AM</th>
-                  <th className="py-4 px-3">10:00 AM</th>
-                  <th className="py-4 px-3">12:00 PM</th>
-                  <th className="py-4 px-3">02:00 PM</th>
-                  <th className="py-4 px-3">04:00 PM</th>
-                  <th className="py-4 px-3">06:00 PM</th>
-                  <th className="py-4 px-3">08:00 PM</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                <tr>
-                  <td className="py-5 px-4 font-kinetic font-black text-white">
-                    Court 01 (BWF)
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(0, "08:00", 1)
-                      }
-                    >
-                      {courts[0] ? formatVnd(estimatePrice(courts[0], "08:00", 1)) : "—"}
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div className="cyber-slot booked">BOOKED</div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(0, "12:00", 1)
-                      }
-                    >
-                      {courts[0] ? formatVnd(estimatePrice(courts[0], "12:00", 1)) : "—"}
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div className="cyber-slot booked">BOOKED</div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(0, "16:00", 1)
-                      }
-                    >
-                      {courts[0] ? formatVnd(estimatePrice(courts[0], "16:00", 1)) : "—"}
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div className="cyber-slot booked">BOOKED</div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(0, "20:00", 1)
-                      }
-                    >
-                      {courts[0] ? formatVnd(estimatePrice(courts[0], "20:00", 1)) : "—"}
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-5 px-4 font-kinetic font-black text-white">
-                    Court 02 (VIP)
-                  </td>
-                  <td className="p-2">
-                    <div className="cyber-slot booked">MAINT.</div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(1, "17:00", 2)
-                      }
-                    >
-                      {courts[1] ? formatVnd(estimatePrice(courts[1], "10:00", 1)) : "—"}
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div className="cyber-slot booked">BOOKED</div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(1, "17:00", 2)
-                      }
-                    >
-                      {courts[1] ? formatVnd(estimatePrice(courts[1], "14:00", 1)) : "—"}
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(1, "17:00", 2)
-                      }
-                    >
-                      {courts[1] ? formatVnd(estimatePrice(courts[1], "16:00", 1)) : "—"}
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div className="cyber-slot booked">BOOKED</div>
-                  </td>
-                  <td className="p-2">
-                    <div
-                      className="cyber-slot available"
-                      onClick={() =>
-                        startBookingFromCard(1, "17:00", 2)
-                      }
-                    >
-                      {courts[1] ? formatVnd(estimatePrice(courts[1], "20:00", 1)) : "—"}
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
         </div>
       </section>
 
@@ -1009,13 +508,9 @@ export default function HomePage() {
                   <span className="text-sm text-slate-400">/giờ</span>
                 </p>
                 <p className="text-slate-400">{detail}</p>
-                <button
-                  type="button"
-                  onClick={() => scrollToSection("booking-widget")}
-                  className="btn-nike-dark justify-center text-xs py-3 mt-7 border-0 cursor-pointer w-full"
-                >
+                <Link to="/dat-san" className="btn-nike-dark justify-center text-xs py-3 mt-7 border-0 cursor-pointer w-full">
                   BOOK NOW
-                </button>
+                </Link>
               </div>
             ))}
           </div>
@@ -1094,140 +589,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="border-t border-white/10 bg-slate-950 pb-28 pt-16 lg:py-16 relative z-10">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-4 font-kinetic font-black text-2xl text-white uppercase">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center">
-              ⚡
-            </div>
-            <span>
-              BADMINTON <span className="text-gradient-nike">DIGITAL</span>
-            </span>
-          </div>
-
-          <div className="font-kinetic text-xs font-bold text-slate-500 uppercase tracking-widest">
-            © 2026 BADMINTON DIGITAL // NIKE KINETIC EDITION
-          </div>
-        </div>
-      </footer>
-
-      {/* CHECKOUT MODAL DRAWER */}
-      {isModalOpen && selectedCourt && (
-        <div
-          className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl z-50 flex items-center justify-center p-6"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeBookingModal();
-          }}
-        >
-          <div
-            className="nike-card max-w-lg w-full p-8 border-emerald-500/50 relative"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="booking-dialog-title"
-          >
-            <button
-              ref={closeButtonRef}
-              type="button"
-              onClick={closeBookingModal}
-              className="absolute top-6 right-6 text-slate-400 hover:text-white text-2xl font-bold"
-              aria-label="Close booking dialog"
-            >
-              &times;
-            </button>
-
-            <h3
-              id="booking-dialog-title"
-              className="font-kinetic text-3xl font-black text-white uppercase tracking-tight mb-6"
-            >
-              XÁC NHẬN ĐẶT SÂN
-            </h3>
-
-            <div className="bg-slate-950/90 p-5 rounded-2xl mb-6 space-y-3 border border-white/10 font-kinetic text-sm">
-              {selectedCourt.branchName && (
-                <div className="flex justify-between">
-                  <span className="text-slate-400">CHI NHÁNH:</span>
-                  <strong className="text-emerald-400 font-black">
-                    {selectedCourt.branchName}
-                  </strong>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-slate-400">SÂN:</span>
-                <strong className="text-white font-black">
-                  {selectedCourt.name}
-                </strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">NGÀY:</span>
-                <strong className="text-white font-black">
-                  {selectedCourt.bookingDate.split("-").reverse().join("/")}
-                </strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">GIỜ:</span>
-                <strong className="text-white font-black">
-                  {selectedCourt.startTime}–{selectedCourt.endTime} ({selectedCourt.duration} giờ)
-                </strong>
-              </div>
-              <div className="flex justify-between pt-3 border-t border-white/10 text-xl font-black">
-                <span className="text-white">TẠM TÍNH:</span>
-                <span className="text-emerald-400">{formatVnd(selectedCourt.price)}</span>
-              </div>
-            </div>
-
-            {/* Cầu, vợt, nước gọi tại quầy lúc vào chơi và tính vào hoá đơn cuối
-                buổi — không đặt trước ở đây, nên không bày ra để hứa hão. */}
-            <p className="mb-6 rounded-xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-relaxed text-slate-400">
-              Tiền sân tính theo giờ chơi thực tế khi kết thúc. Cầu, vợt và nước gọi thêm
-              tại quầy sẽ được cộng vào hoá đơn cuối buổi.
-            </p>
-
-            <form onSubmit={handleBookingSubmit} className="space-y-4">
-              {user ? (
-                <div className="rounded-xl border border-white/10 bg-slate-950/60 p-4 font-kinetic text-sm">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                    ĐẶT DƯỚI TÊN
-                  </div>
-                  <strong className="text-white font-black">{user.fullName}</strong>
-                  {user.phone && <span className="ml-2 text-slate-400">• {user.phone}</span>}
-                </div>
-              ) : (
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs font-semibold text-emerald-300 space-y-2">
-                  <p>
-                    Bạn cần đăng nhập để hoàn tất. Lựa chọn hiện tại sẽ được giữ lại,
-                    đăng nhập xong quay về là đặt tiếp.
-                  </p>
-                  <p className="text-emerald-400/80 font-medium">
-                    Chưa có tài khoản? Đăng ký chỉ cần số điện thoại — bấm nút bên dưới
-                    rồi chọn “Đăng ký”.
-                  </p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full btn-nike-bolt justify-center py-4 text-sm mt-2 disabled:opacity-60"
-              >
-                {submitting
-                  ? "ĐANG GỬI..."
-                  : user
-                    ? "XÁC NHẬN ĐẶT SÂN ⚡"
-                    : "ĐĂNG NHẬP ĐỂ ĐẶT SÂN ⚡"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* TOAST */}
-      {toastMessage && (
-        <div className="fixed bottom-24 right-8 bg-emerald-400 text-slate-950 font-kinetic font-black text-sm px-8 py-4 rounded-full shadow-2xl z-50 animate-bounce">
-          {toastMessage}
-        </div>
-      )}
-
+      {/* Chân trang chung (kế hoạch 31); Trang chủ luôn tối nên tone="dark". */}
+      <SiteFooter tone="dark" />
     </div>
   );
 }

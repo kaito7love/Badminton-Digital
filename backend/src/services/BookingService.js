@@ -8,8 +8,8 @@ const SettingService = require("./SettingService");
 const { operatingHoursViolation } = require("../utils/operatingHours");
 const { BOOKING_WINDOW_DAYS, bookingWindow } = require("../utils/daySlots");
 
-// Thông điệp khách đọc trực tiếp trên trang chủ (toast của widget đặt sân) nên
-// phải là tiếng Việt — ALREADY_BOOKED trước đây là câu tiếng Anh duy nhất trong
+// Thông điệp khách đọc trực tiếp trên trang Đặt sân (hộp xác nhận và thông báo
+// lỗi khi đặt) nên phải là tiếng Việt — ALREADY_BOOKED trước đây là câu tiếng Anh duy nhất trong
 // nhóm này và nó đi thẳng ra mặt khách.
 const UNAVAILABLE = {
   COURT_NOT_FOUND: "Không tìm thấy sân",
@@ -110,7 +110,7 @@ class BookingService {
     // Lịch cho thời điểm đã qua là rác không ai chơi được, nhưng vẫn chiếm chỗ
     // thật (truy vấn trùng lịch ngay dưới đếm cả `pending`/`confirmed`) và vẫn
     // chui vào màn Quản lý Đặt Sân để nhân viên dọn tay. Chặn ở đây — nơi duy
-    // nhất trả lời câu "đặt được không" — nên trang chủ và lúc bấm đặt thật
+    // nhất trả lời câu "đặt được không" — nên trang Đặt sân và lúc bấm đặt thật
     // không thể nói khác nhau.
     if (BookingService.hasSlotPassed({ bookingDate, endTime, timezone: court.branch?.timezone })) {
       return deny("SLOT_PASSED");

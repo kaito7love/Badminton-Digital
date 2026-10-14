@@ -14,6 +14,13 @@
 - Login accepts phone number or email in a single `identifier` field; customers can self-register (see §2).
 - Accessory stock moved from a flat `extras.stock_quantity` column to a per-branch ledger (`suppliers`, `goods-receipts`, `inventory/*` — see §8).
 
+## Booking page additions (plan 29)
+
+- New public, read-only `GET /public/availability/day?date=YYYY-MM-DD[&branchId=]` (`Cache-Control: no-store`): every court of a branch for one day as 60-minute slots (`state`: `free | booked | passed | maintenance`, plus a `peak` flag). It exposes no booking id and no customer data. See §12.1.
+- Booking time rules are decided in one place (`BookingService.checkAvailability`) and apply identically to `GET /public/availability`, `GET /bookings/availability` and `POST /bookings`: a slot that has already ended is rejected, and a slot outside `operating_hours` (`open`/`close`, default 05:00–23:00) is rejected. See §5.
+- `POST /bookings` for the `customer` role is limited to 14 calendar days ahead (today … today + 13, branch calendar); staff are not limited. See §5.
+- `GET /public/courts` also returns `operatingHours: { open, close }`.
+
 ## Dự án: Badminton Digital Management – Hệ thống quản lý sân cầu lông
 
 **Phiên bản:** 1.0
@@ -242,7 +249,7 @@ không cần chọn chi nhánh vì đã bị khoá cố định vào chi nhánh 
 |---|---|---|---|
 | GET | `/bookings` | Authenticated (Customer chỉ thấy booking của mình) | Danh sách booking (filter theo ngày/sân/trạng thái) |
 | GET | `/bookings/:id` | Authenticated (Customer chỉ xem booking của mình, không kèm `creator`) | Chi tiết booking |
-| POST | `/bookings` | Admin, BranchManager, Employee, Customer | Tạo booking mới (UC-10) |
+| POST | `/bookings` | Admin, BranchManager, Employee, Customer | Tạo booking mới (UC-10). Trạng thái ban đầu `pending`. Chịu các **luật thời gian** bên dưới; vai Customer chỉ đặt trước tối đa 14 ngày |
 | PUT | `/bookings/:id` | Admin, BranchManager, Employee | Đổi sân/ngày/giờ — body chỉ nhận `courtId`, `bookingDate`, `startTime`, `endTime`; trường khác → 400 `"Không sửa được các trường: ..."`. Khách muốn đổi thì hủy rồi đặt lại |
 | DELETE | `/bookings/:id` | Admin, BranchManager, Employee, Customer (chỉ booking của mình) | Hủy booking |
 | PUT | `/bookings/:id/confirm` | Admin, BranchManager, Employee | Xác nhận booking (UC-13) |
@@ -250,12 +257,39 @@ không cần chọn chi nhánh vì đã bị khoá cố định vào chi nhánh 
 
 **GET /bookings/availability**
 ```
-?courtId=3&date=2026-07-20&startTime=18:00&endTime=19:00
+?courtId=3&bookingDate=2026-07-20&startTime=18:00&endTime=19:00
 ```
 ```json
 // Response 200
-{ "success": true, "data": { "available": false, "conflictBookingId": 88 } }
+{
+  "success": true,
+  "data": {
+    "available": false,
+    "reason": "ALREADY_BOOKED",
+    "message": "Khung giờ này đã có người đặt, vui lòng chọn khung giờ khác",
+    "conflictBookingId": 88
+  }
+}
 ```
+
+`reason` ∈ `COURT_NOT_FOUND | COURT_INACTIVE | COURT_MAINTENANCE | SLOT_PASSED | OUTSIDE_OPERATING_HOURS | ALREADY_BOOKED` (`null` khi `available: true`). Tên tham số ngày là `bookingDate` (không phải `date`). Endpoint công khai `/public/availability` chỉ trả `available` và `message` — **không** có `reason` hay `conflictBookingId`.
+
+**Luật thời gian khi tạo booking** (cùng một nguồn `BookingService.checkAvailability`, nên `/public/availability`, `/bookings/availability` và `POST /bookings` không thể nói khác nhau). Kiểm theo thứ tự:
+
+| # | Điều kiện | Kết quả | Thông điệp |
+|---|---|---|---|
+| 1 | Sân không thuộc chi nhánh / không có | 404 (`POST`) · `available: false` (kiểm tra) | "Court not found" (`POST`) · "Không tìm thấy sân" (kiểm tra) |
+| 2 | Sân ngưng khai thác / đang bảo trì | 400 | "Sân đã ngưng khai thác, không nhận đặt lịch" / "Sân đang bảo trì, không nhận đặt lịch mới cho tới khi hoàn tất" |
+| 3 | Khung giờ **đã đóng hẳn** (`endTime` ≤ bây giờ, tính theo múi giờ chi nhánh) | 400 | "Khung giờ này đã qua, vui lòng chọn khung giờ khác" |
+| 4 | Khung giờ không nằm trọn trong giờ mở cửa (`operating_hours`, mặc định 05:00–23:00) | 400 | "Quán chỉ nhận đặt sân trong khung 05:00–23:00" |
+| 5 | Trùng lịch `pending`/`confirmed` của cùng sân | 409 | "Khung giờ này đã có người đặt, vui lòng chọn khung giờ khác" |
+| 6 | **Chỉ vai `customer`** (`POST /bookings`): `bookingDate` sau hôm nay + 13 ngày | 400 | "Chỉ nhận đặt trước tối đa 14 ngày (đến dd/mm/yyyy), vui lòng chọn ngày sớm hơn" |
+
+Ghi chú:
+- Khung giờ đã **bắt đầu nhưng chưa kết thúc** vẫn nhận (khách bước vào quầy giữa khung giờ; tiền sân tính theo giờ chơi thực tế). Lưới `/public/availability/day` cố ý chặt hơn một bậc: coi ô đã bắt đầu là `passed`.
+- Luật 3 và 4 áp cho **mọi vai** và cả `PUT /bookings/:id`. Luật 6 chỉ áp cho `customer` ở `POST /bookings` (được kiểm **trước** các luật còn lại, ngay sau khi tìm thấy sân) — nhân viên đặt xa hơn cho giải đấu, sự kiện vẫn được.
+- Cột "Kết quả" của các dòng 2–5 là mã HTTP của `POST /bookings`; ở `/availability` và `/bookings/availability` cùng lý do được trả dưới dạng `available: false` kèm `message`.
+- "Hôm nay" luôn theo lịch của **chi nhánh** (`branches.timezone`), không theo đồng hồ máy chủ.
 
 ---
 
@@ -607,10 +641,43 @@ Không đi qua `authMiddleware`. Giá và tồn kho tính theo chi nhánh trong 
 | Method | Endpoint | Role | Mô tả |
 |---|---|---|---|
 | GET | `/public/branches` | Public | Danh sách chi nhánh đang hoạt động (id, tên, địa chỉ, `transferEnabled` — có nhận chuyển khoản trước không; số tài khoản không bao giờ lộ ở đây) |
-| GET | `/public/courts` | Public | Danh mục sân + bảng giá + khung giờ cao điểm |
-| GET | `/public/availability` | Public | Kiểm tra một khung giờ còn trống không |
+| GET | `/public/courts` | Public | Danh mục sân + bảng giá + khung giờ cao điểm + giờ mở cửa (`operatingHours`) |
+| GET | `/public/availability` | Public | Kiểm tra một khung giờ còn trống không → `{ available, message }` (luật ở §5; không trả mã lịch của khách khác) |
+| GET | `/public/availability/day` | Public | Lưới sân × giờ của **cả một ngày** cho trang Đặt sân (xem bên dưới) |
 | GET | `/public/products` | Public | Catalog bán lẻ đang mở bán (`isActive`, `productType = 'retail'`) |
 | GET | `/public/products/:id` | Public | Chi tiết một sản phẩm + tối đa 4 sản phẩm cùng danh mục |
+
+**GET /public/availability/day**
+
+```
+?date=2026-10-15&branchId=1
+```
+```json
+// Response 200
+{
+  "branch": { "id": 1, "name": "Chi nhánh chính" },
+  "date": "2026-10-15",
+  "today": "2026-10-14",
+  "lastBookableDate": "2026-10-27",
+  "operatingHours": { "open": "05:00", "close": "23:00" },
+  "peakHours": { "peakStartHour": 17, "peakEndHour": 21 },
+  "courts": [
+    {
+      "id": 1, "name": "Sân số 1 (Thường)", "bookable": true, "note": null,
+      "peakPricePerHour": 90000, "offpeakPricePerHour": 60000,
+      "slots": [
+        { "start": "05:00", "end": "06:00", "state": "free",   "peak": false },
+        { "start": "18:00", "end": "19:00", "state": "booked", "peak": true }
+      ]
+    }
+  ]
+}
+```
+
+- `state`: `free` (đặt được), `booked` (đã có lịch `pending`/`confirmed` chạm vào ô), `passed` (ô đã **bắt đầu** — chặt hơn luật nhận đặt của server), `maintenance` (sân đang bảo trì; `bookable: false`). Thứ tự ưu tiên: bảo trì → đã qua → đã kín → trống, giống `BookingService.checkAvailability`.
+- Ô dài 60 phút, phủ trọn giờ mở cửa; `peak` là cờ giờ cao điểm, giá một giờ lấy `peakPricePerHour` nếu `peak`, ngược lại `offpeakPricePerHour`.
+- Ngày hợp lệ: từ `today` tới `lastBookableDate` (hôm nay + 13, tức 14 ngày, theo lịch chi nhánh). Ngày đã qua hoặc quá dải → 400 tiếng Việt; sai dạng / ngày không có thật → 400 `Validation failed`; chi nhánh không có hoặc ngưng → 404.
+- **Không lộ** mã lịch, tên hay số điện thoại khách: truy vấn lịch chỉ lấy ba cột (sân, giờ bắt đầu, giờ kết thúc). Số câu SQL cố định (6) bất kể số sân hay số ô. Phản hồi `Cache-Control: no-store`.
 
 Biến thể trả ra chỉ gồm `id, sku, size, color, price, inStock` — **không** lộ
 giá vốn (`averageCost`) hay số tồn chính xác. `inStock` là `true` khi biến thể
@@ -731,7 +798,12 @@ dịch). Hàng đã trả về kệ nên hệ thống không hồi đơn — qu�
 
 | Trường hợp | HTTP Code | Message mẫu |
 |---|---|---|
-| Trùng lịch khi tạo booking | 409 | "Khung giờ đã được đặt" |
+| Trùng lịch khi tạo booking | 409 | "Khung giờ này đã có người đặt, vui lòng chọn khung giờ khác" |
+| Đặt khung giờ đã đóng hẳn (đã qua) | 400 | "Khung giờ này đã qua, vui lòng chọn khung giờ khác" |
+| Đặt ngoài giờ mở cửa | 400 | "Quán chỉ nhận đặt sân trong khung 05:00–23:00" |
+| Khách (`customer`) đặt xa hơn 14 ngày | 400 | "Chỉ nhận đặt trước tối đa 14 ngày (đến 27/10/2026), vui lòng chọn ngày sớm hơn" |
+| `GET /public/availability/day` với ngày đã qua | 400 | "Ngày này đã qua, vui lòng chọn từ hôm nay trở đi" |
+| `GET /public/availability/day` với ngày quá dải 14 ngày | 400 | "Chỉ nhận xem và đặt trước tối đa 14 ngày, vui lòng chọn ngày sớm hơn" |
 | Mở sân đang bảo trì | 400 | "Sân đang bảo trì, không thể mở" |
 | Đóng sân chưa mở | 400 | "Sân chưa có phiên chơi nào đang diễn ra" |
 | Không đủ tồn kho (gọi phụ kiện / nhập kho / điều chỉnh) | 400 | "Không đủ tồn kho tại chi nhánh này. Hiện có: {N}" |

@@ -99,7 +99,7 @@ export default function ShopPage() {
       }
       subtitle="Vợt, áo, quần và phụ kiện chính hãng bày sẵn tại quầy. Đặt trước trên web, tới lấy và thanh toán tại chi nhánh."
       action={
-        <Link to="/#booking-widget" className="btn-nike-dark text-xs">
+        <Link to="/dat-san" className="btn-nike-dark text-xs">
           Đặt sân ngay ⚡
         </Link>
       }

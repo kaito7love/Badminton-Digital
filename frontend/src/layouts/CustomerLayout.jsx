@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import SiteHeader from '../components/site/SiteHeader';
+import SiteFooter from '../components/site/SiteFooter';
 
 /**
  * Vỏ chung cho mặt tiền dành cho khách: cửa hàng, lịch đặt, tài khoản.
@@ -17,7 +18,8 @@ import SiteHeader from '../components/site/SiteHeader';
  * gắn lớp đó nên giữ nguyên bản tối). Mọi trang trong khung phải có cặp màu sáng/tối (`text-slate-900 dark:text-white`...).
  */
 
-export default function CustomerLayout({ eyebrow, title, subtitle, action, children }) {
+// `clearBottomBar`: trang có thanh `fixed` riêng ngay trên thanh tab dưới (thanh tóm tắt của /dat-san) — chân trang chừa chỗ cho nó.
+export default function CustomerLayout({ eyebrow, title, subtitle, action, clearBottomBar = false, children }) {
   const themeCtx = useTheme();
   // Không có ThemeProvider (test, nhúng riêng) → như mặc định của app là tối.
   const light = Boolean(themeCtx) && themeCtx.theme === 'light';
@@ -45,16 +47,7 @@ export default function CustomerLayout({ eyebrow, title, subtitle, action, child
         {children}
       </main>
 
-      <footer className="relative z-10 border-t border-slate-200 dark:border-white/10 bg-white pb-24 pt-10 dark:bg-slate-950 lg:py-10">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 text-center sm:px-6 md:flex-row md:text-left">
-          <div className="font-kinetic text-lg font-black uppercase text-slate-900 dark:text-white">
-            BADMINTON <span className="text-gradient-nike">DIGITAL</span>
-          </div>
-          <p className="font-kinetic text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-500">
-            © 2026 BADMINTON DIGITAL // NIKE KINETIC EDITION
-          </p>
-        </div>
-      </footer>
+      <SiteFooter clearBottomBar={clearBottomBar} />
     </div>
   );
 }

@@ -26,7 +26,10 @@ export const TONES = {
     sheetMuted: 'text-slate-500 dark:text-slate-400',
     tabs: 'border-t border-slate-200 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95',
     tab: 'text-slate-600 dark:text-slate-400',
-    tabOn: 'text-emerald-700 dark:text-emerald-400'
+    tabOn: 'text-emerald-700 dark:text-emerald-400',
+    // Chân trang (SiteFooter) — đúng bộ lớp của footer /thi-dau cũ.
+    foot: 'border-t border-slate-200 bg-white text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400',
+    footLink: 'hover:text-emerald-600 dark:hover:text-emerald-400'
   },
   dark: {
     bar: 'border-b border-white/10 bg-slate-950/90 text-white shadow-2xl backdrop-blur-2xl',
@@ -49,7 +52,9 @@ export const TONES = {
     sheetMuted: 'text-slate-400',
     tabs: 'border-t border-white/10 bg-slate-950/95 backdrop-blur-xl',
     tab: 'text-slate-400',
-    tabOn: 'text-emerald-400'
+    tabOn: 'text-emerald-400',
+    foot: 'border-t border-slate-800 bg-slate-950 text-slate-400',
+    footLink: 'hover:text-emerald-400'
   }
 };
 

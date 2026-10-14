@@ -356,7 +356,7 @@ paths:
         - '02 · Public (không cần đăng nhập)'
       summary: 'Danh sách sân + bảng giá'
       operationId: get_public_courts
-      description: 'Trả kèm khung giờ cao điểm và giá peak/offpeak của từng sân.'
+      description: 'Trả kèm khung giờ cao điểm và giá peak/offpeak của từng sân. Kèm `operatingHours` ({ open, close }) — khung giờ duy nhất nhận đặt sân.'
       parameters:
         -
           name: branchId
@@ -444,7 +444,7 @@ paths:
         - '02 · Public (không cần đăng nhập)'
       summary: 'Kiểm tra khung giờ trống'
       operationId: get_public_availability
-      description: 'Endpoint bị dồn tải nhiều nhất khi mở bán khung giờ đẹp — cũng là mục tiêu của `k6/spike_test.js`.'
+      description: "Endpoint bị dồn tải nhiều nhất khi mở bán khung giờ đẹp — cũng là mục tiêu của `k6/spike_test.js`.\n\n`available: false` kèm `message` tiếng Việt khi: sân đang bảo trì / ngưng, **khung giờ đã đóng hẳn** (đã qua, tính theo múi giờ chi nhánh), **ngoài giờ mở cửa** (`operatingHours` ở `/public/courts`), hoặc đã có người đặt. Không trả mã lịch của khách khác. Muốn xem cả ngày một lần thì dùng `GET /public/availability/day`."
       parameters:
         -
           name: courtId
@@ -474,6 +474,40 @@ paths:
           schema:
             type: string
           example: '10:00'
+        -
+          name: branchId
+          in: query
+          required: false
+          schema:
+            type: string
+          example: branchId
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/public/availability/day:
+    get:
+      tags:
+        - '02 · Public (không cần đăng nhập)'
+      summary: 'Lưới sân × giờ cả ngày'
+      operationId: get_public_availability_day
+      description: "Dữ liệu cho trang Đặt sân (`/dat-san`): **mọi sân của chi nhánh trong MỘT ngày**, mỗi sân kèm các ô 60 phút trong giờ mở cửa.\n\nMỗi ô: `{ start, end, state, peak }` với `state` ∈ `free` | `booked` | `passed` | `maintenance`. `passed` là ô đã **bắt đầu** (chặt hơn một bậc so với luật nhận đặt của server, vốn chỉ từ chối khung đã đóng hẳn). `peak` là cờ giờ cao điểm — giá một giờ lấy `peakPricePerHour` nếu `peak`, ngược lại `offpeakPricePerHour`.\n\nTrả thêm `today` và `lastBookableDate` (theo lịch của chi nhánh) để dựng dải ngày. Ngày hợp lệ: từ hôm nay tới hôm nay + 13 (14 ngày); ngày đã qua hoặc quá dải → **400**; ngày không có thật / sai dạng → **400**; chi nhánh không có → **404**.\n\n**Không lộ** mã lịch, tên hay số điện thoại khách — lịch chỉ đóng góp khoảng giờ để tô ô \"đã kín\". Phản hồi `Cache-Control: no-store`. Chỉ tốn 6 câu SQL cố định, không tăng theo số sân hay số ô."
+      parameters:
+        -
+          name: date
+          in: query
+          required: false
+          schema:
+            type: string
+          example: tomorrow
         -
           name: branchId
           in: query
@@ -926,7 +960,7 @@ paths:
         - '05 · Bookings'
       summary: 'Tạo booking'
       operationId: post_bookings
-      description: "Không gửi `customerName`/`customerPhone` thì booking là khách vãng lai (`customerId: null`) — **gửi vào là service tự tạo bản ghi Customer mới**, nhớ dọn.\n\nTrùng khung giờ → **409**."
+      description: "Không gửi `customerName`/`customerPhone` thì booking là khách vãng lai (`customerId: null`) — **gửi vào là service tự tạo bản ghi Customer mới**, nhớ dọn.\n\nTrùng khung giờ → **409**.\n\n**Luật thời gian** (cùng nguồn với `/public/availability`): khung giờ đã qua → **400** \"đã qua\"; ngoài giờ mở cửa → **400**; sân bảo trì → **400**; trùng lịch → **409**. Vai `customer` chỉ được đặt **trước tối đa 14 ngày** (hôm nay … hôm nay + 13, theo lịch chi nhánh), xa hơn → **400** \"Chỉ nhận đặt trước tối đa 14 ngày (đến dd/mm/yyyy)…\"; nhân viên và quản trị không bị giới hạn này (giải đấu, sự kiện). Collection này chạy bằng tài khoản quản trị nên `farFutureDate` (+300 ngày) không vướng luật 14 ngày."
       parameters:
         -
           name: X-Branch-Id

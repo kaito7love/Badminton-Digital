@@ -15,7 +15,6 @@ export const NAV_KEYS = { home: 'home', book: 'book', shop: 'shop', comp: 'comp'
 // id khớp với <section id> / <div id> trong HomePage.
 const HOME_SECTIONS = [
   ['courts', 'Sân'],
-  ['availability', 'Lịch trống'],
   ['facilities', 'Tiện ích'],
   ['pricing', 'Bảng giá'],
   ['services', 'Dụng cụ'],
@@ -162,6 +161,8 @@ export function buildSiteNav({ user = null, competitionOn = true } = {}) {
   return {
     items,
     tabs,
+    // Chân trang: đúng các mục chính của menu (Thi đấu tự biến mất khi dịch vụ tắt), không khai báo lần hai.
+    footerLinks: items.map(({ key, label, to }) => ({ key, label, to })),
     account: user
       ? { name: user.fullName || user.email || '', initials: initialsOf(user.fullName || user.email), menu: buildAccountMenu(user, competitionOn) }
       : null

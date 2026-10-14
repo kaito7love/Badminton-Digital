@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { BOOKING_WINDOW_DAYS, addDays, buildDayStrip, dayLabel, fallbackWindow } from './dayStrip';
+import {
+  BOOKING_WINDOW_DAYS,
+  addDays,
+  buildDayStrip,
+  dayLabel,
+  fallbackWindow
+} from './dayStrip';
 
 describe('dayStrip', () => {
   test('addDays qua ranh giới tháng, năm, năm nhuận và lùi ngày', () => {

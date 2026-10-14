@@ -285,7 +285,7 @@ export default function AccountPage() {
             <p className="mt-2 text-xs text-slate-600 dark:text-slate-500">
               Từng chơi tại quầy trước khi có tài khoản? Nhờ nhân viên gộp lịch sử vào tài khoản của bạn.
             </p>
-            <Link to="/#booking-widget" className="btn-nike-bolt mt-6 text-xs">
+            <Link to="/dat-san" className="btn-nike-bolt mt-6 text-xs">
               Đặt sân ngay ⚡
             </Link>
           </div>
