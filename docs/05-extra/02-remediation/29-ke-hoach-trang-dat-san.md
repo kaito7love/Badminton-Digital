@@ -372,3 +372,40 @@ Mã mới của trang chỉ dùng: `scrollbar-width` / `scrollbar-color` (Firefo
 - Bản thử là **một tiến trình trên máy bạn**, không phải ảnh Docker của Render: không có Cloudflare / ingress, không DB qua TLS (Aiven), không dịch vụ thi đấu chạy cùng, không khởi động nguội 30–60 s của gói free. Reset chạy bằng script, không qua workflow GitHub.
 - Đồng hồ lệch chỉ ở **tiến trình backend thử**; trình duyệt dùng giờ thật, nên ca "quá 22:00" đúng nhờ cả hai cùng một ngày lịch.
 - Hai tab dùng chung một hồ sơ trình duyệt (cùng `localStorage`), đúng như hai tab thật của một người; hai tài khoản khác nhau giành một khung đã kiểm riêng ở mục 14.2.
+
+## 17. Việc tồn đọng đã làm sau khi gộp (14/10/2026, nhánh `docs/cap-nhat-trang-dat-san-va-han-14-ngay`)
+
+Chủ dự án yêu cầu ba việc còn lại của mục 15.4: cập nhật tài liệu API, cập nhật `CLAUDE.md` / `00-tien-do.md`, báo sớm giới hạn 14 ngày ở ô đặt nhanh Trang chủ.
+
+### 17.1 Ô đặt nhanh Trang chủ báo sớm giới hạn 14 ngày (commit `3328da5`)
+
+Ô ngày có `max` = hôm nay + 13 (theo lịch chi nhánh) và dòng nhắc "Đặt trước tối đa 14 ngày (đến dd/mm)". Chọn ngày quá hạn thì dòng đó thành **đúng câu server trả** (`role="alert"`), nút "Tìm khung giờ" khoá và đổi chữ thành "Chọn ngày sớm hơn", Enter cũng không gửi yêu cầu. Trước đây khách chỉ bị từ chối ở bước xác nhận. Dùng chung hàm thuần với trang Đặt sân (`lib/dayStrip.js`: `isBeyondWindow`, `advanceLimitMessage`, `dayMonth`), nên một luật, một câu chữ; test khoá câu chữ trùng với `BookingService.advanceBookingViolation`.
+
+| Kiểm | Kết quả |
+|---|---|
+| Vitest | `dayStrip.test.js` 10; toàn bộ 486/486 |
+| Chrome thật (8 ca) | mặc định (`max` đúng, nút bấm được); đúng ngày cuối vẫn được; ngày thứ 15 hiện câu của server + nút khoá; Enter ở ô ngày quá hạn: 0 yêu cầu gửi đi; quay lại ngày hợp lệ thì bỏ cảnh báo và đi tiếp tới hộp xác nhận; điện thoại 390 px không tràn ngang; không lỗi JS |
+
+### 17.2 Tài liệu API
+
+| Tệp | Thay đổi |
+|---|---|
+| `postman/badminton_api_collection.json` (nguồn) | thêm request `Lưới sân × giờ cả ngày` (kèm test: 200, `success`, dạng ô, không lộ dữ liệu khách); cập nhật mô tả `Tạo booking` (luật thời gian, 14 ngày theo vai), `Kiểm tra khung giờ trống`, `Danh sách sân + bảng giá` (`operatingHours`); dòng mô tả đầu 113 → 115 endpoint |
+| `backend/src/docs/openapi.yaml` | **sinh lại** bằng `npm run docs:build`: 115 operation, khớp 1-1 115 route |
+| `docs/APIDesign.md` | ghi chú đầu file; §5 (luật thời gian theo thứ tự kiểm, vai trò); §12.1 (`/public/availability/day` kèm ví dụ phản hồi, `operatingHours` ở `/public/courts`); §13 (thêm 5 dòng lỗi, sửa câu 409 cũ) |
+| `postman/README.md` | tổng 114 → 115, nhóm Public 5 → 6 |
+
+**Hai điều phát hiện:**
+- **`npm run docs:build` thoát mã 1 từ bước 1 tới nay** ("collection và `routes/` không khớp 1-1": thiếu `GET /public/availability/day`). Đây là hệ quả của việc thêm route mà không thêm vào collection, và mình đã không chạy lệnh này ở bước 1 (không có trong CI nên không ai thấy). Đã sửa; lần sinh lại này khớp.
+- Ví dụ cũ của `GET /bookings/availability` trong `APIDesign.md` dùng sai tên tham số (`date` thay vì `bookingDate`) và thiếu `reason` / `message`; đã sửa theo mã thật.
+
+**Cách kiểm test mới của Postman:** `newman` chưa cài trong repo và mình không tự tải gói mới, nên chạy **đúng đoạn test script trong collection** bằng một lớp giả `pm` tối thiểu trên phản hồi thật: 4/4 đạt; hai thử đột biến (phản hồi lộ `customerName`; trạng thái ô lạ) đều làm test đỏ. Chưa chạy bằng newman thật.
+
+### 17.3 `CLAUDE.md` và `00-tien-do.md`
+
+- `CLAUDE.md`: lệnh `npm run docs:build` (kèm cảnh báo "không sửa tay YAML, thêm route phải thêm vào collection"); đoạn **luật đặt sân và lưới theo ngày** ở phần backend; đoạn **trang Đặt sân** ở phần frontend (cấu trúc, khoá `pending_booking_datsan` tách khỏi `pending_booking`, ngưỡng 1024 px, lý do dùng `Portal`, khoá Tab); sửa câu cũ nói `/dat-san` là trang cơ bản.
+- `00-tien-do.md`: mục 28 mới (yêu cầu, đã làm, kiểm chứng, lỗi thật đã sửa, chưa giải thích, đợt 2) và dòng "Cập nhật".
+
+### 17.4 Kiểm tra cuối nhánh này
+
+Jest 627/627 · Vitest 486/486 · `vite build` sạch · `docs:build` khớp 1-1. Chưa gộp vào `main`, chưa đẩy.

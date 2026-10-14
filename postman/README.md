@@ -1,6 +1,6 @@
 # Postman — API collection
 
-Bộ sưu tập đầy đủ **114 endpoint / 23 nhóm** của Badminton Digital Management API.
+Bộ sưu tập đầy đủ **115 endpoint / 23 nhóm** của Badminton Digital Management API.
 
 | File | Nội dung |
 |---|---|
@@ -59,7 +59,7 @@ Không truyền thì request webhook tự `SKIP`; backend chưa cấu hình secr
 > ⚠️ `runDestructive=true` sẽ **thay đổi dữ liệu thật** và không tự hoàn tác: nó đóng phiên chơi,
 > huỷ hoá đơn, sửa cấu hình cửa hàng và xoá bản ghi có sẵn. Chỉ bật trên CSDL dùng một lần.
 
-## Chạy trọn bộ 114 endpoint
+## Chạy trọn bộ 115 endpoint
 
 `runDestructive=true` đụng vào dữ liệu có sẵn nên **đừng bật trên CSDL thật**. Cách an toàn là
 dựng một CSDL dùng một lần rồi xoá đi:
@@ -85,7 +85,7 @@ git checkout -- backend/public/layouts/
 
 > 🔴 **CSDL dùng một lần KHÔNG cô lập được tất cả.** `PUT /courts/layout` ghi ra **file trên đĩa**
 > (`backend/public/layouts/branch-<id>.json`) chứ không ghi vào CSDL, nên chạy trên CSDL test vẫn
-> ghi đè sơ đồ mặt bằng thật. Đây là thứ duy nhất trong 114 endpoint có tác dụng phụ ra ngoài phạm
+> ghi đè sơ đồ mặt bằng thật. Đây là thứ duy nhất trong 115 endpoint có tác dụng phụ ra ngoài phạm
 > vi CSDL — nhớ `git checkout -- backend/public/layouts/` sau khi chạy.
 
 ### Trạng thái được dựng sẵn thế nào
@@ -178,7 +178,7 @@ Collection chạy bằng token admin nên không đụng các giới hạn này,
 | # | Nhóm | Số request | | # | Nhóm | Số request |
 |---|---|---|---|---|---|---|
 | 01 | Auth | 8 | | 13 | Vouchers | 6 |
-| 02 | Public | 5 | | 14 | Sales Orders | 8 |
+| 02 | Public | 6 | | 14 | Sales Orders | 8 |
 | 03 | Branches | 1 | | 15 | My Orders | 4 |
 | 04 | Courts | 10 | | 16 | Customers | 7 |
 | 05 | Bookings | 7 | | 17 | Employees | 6 |
@@ -188,4 +188,4 @@ Collection chạy bằng token admin nên không đụng các giới hạn này,
 | 09 | Goods Receipts | 3 | | 21 | Reports | 8 |
 | 10 | Inventory | 4 | | 22 | Settings | 5 |
 | 11 | Product Categories | 4 | | 23 | Realtime (SSE) | 1 |
-| 12 | Products | 6 | | | **Tổng** | **114** |
+| 12 | Products | 6 | | | **Tổng** | **115** |
