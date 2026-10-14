@@ -1,5 +1,6 @@
 const { Setting } = require('../models');
 const { normalizeDiscountPolicy } = require('../utils/discountPolicy');
+const { normalizeOperatingHours } = require('../utils/operatingHours');
 
 class SettingService {
   static async getAllSettings() {
@@ -44,6 +45,15 @@ class SettingService {
       peakStartHour: Number.isFinite(start) ? start : 17,
       peakEndHour: Number.isFinite(end) ? end : 22
     };
+  }
+
+  /**
+   * Giờ mở cửa (`operating_hours.open`/`close`) — khung giờ duy nhất nhận đặt
+   * sân. Hai trường này đã nằm trong DB từ seeder đầu tiên nhưng chưa từng
+   * được đọc; xem utils/operatingHours.js.
+   */
+  static async getOperatingHours() {
+    return normalizeOperatingHours(await SettingService.getSettingByKey('operating_hours'));
   }
 
   /**

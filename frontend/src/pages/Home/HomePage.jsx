@@ -5,7 +5,8 @@ import { publicService, bookingService } from "../../services/apiServices";
 import CourtFloorPlan from "../../components/CourtFloorPlan";
 import { useAuth } from "../../contexts/AuthContext";
 import { roleOf } from "../../utils/roles";
-import { todayInZone } from '../../utils/datetime';
+import { todayInZone, wallClockPassed } from '../../utils/datetime';
+import { FALLBACK_HOURS, addHours, durationsFor, openSlotsFor } from '../../utils/bookingSlots';
 import SiteHeader from '../../components/site/SiteHeader';
 
 // Lựa chọn của khách được giữ lại khi họ phải rẽ qua trang đăng nhập, để quay
@@ -15,13 +16,14 @@ const PENDING_BOOKING_KEY = "pending_booking";
 // (BranchContext.jsx) vì đó là bộ chuyển chi nhánh của nhân viên, khác đối tượng.
 const CUSTOMER_BRANCH_KEY = "customer_selected_branch_id";
 
-const addHours = (hhmm, hours) => {
-  const [h, m] = hhmm.split(":").map(Number);
-  const end = Math.min(h + Number(hours), 23);
-  return `${String(end).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-};
-
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
+
+// "05:00" → "5AM", "23:00" → "11PM". Chỉ dùng cho khối số liệu tiếng Anh ở hero.
+const to12h = (hhmm) => {
+  const [h, m] = String(hhmm).split(":").map(Number);
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}${m ? `:${String(m).padStart(2, "0")}` : ""}${h >= 12 ? "PM" : "AM"}`;
+};
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -35,6 +37,7 @@ export default function HomePage() {
     () => localStorage.getItem(CUSTOMER_BRANCH_KEY) || "",
   );
   const [peakHours, setPeakHours] = useState({ peakStartHour: 17, peakEndHour: 22 });
+  const [operatingHours, setOperatingHours] = useState(FALLBACK_HOURS);
   const [catalogError, setCatalogError] = useState(null);
   const [selectedCourt, setSelectedCourt] = useState(null);
   const [checking, setChecking] = useState(false);
@@ -49,6 +52,14 @@ export default function HomePage() {
   const closeButtonRef = useRef(null);
   const lastFocusedElementRef = useRef(null);
   const currentBranch = branches.find((b) => String(b.id) === String(selectedBranchId));
+  const branchTimezone = currentBranch?.timezone;
+
+  // Mốc giờ và số giờ chơi widget được phép chào bán — luật đầy đủ kèm lý do ở
+  // utils/bookingSlots.js (có test riêng).
+  const openSlots = openSlotsFor({ date: booking.date, hours: operatingHours, timezone: branchTimezone });
+  const openSlotsKey = openSlots.join(",");
+  const openDurations = durationsFor(booking.time, operatingHours);
+  const openDurationsKey = openDurations.join(",");
 
   // Giá một khung đặt: cộng theo từng giờ, giờ nào rơi vào cao điểm thì tính giá
   // cao điểm — cùng quy tắc với priceCalculator ở backend.
@@ -98,6 +109,9 @@ export default function HomePage() {
         setCourts(list);
         setLayout(null);
         if (data?.peakHours) setPeakHours(data.peakHours);
+        if (data?.operatingHours?.open && data?.operatingHours?.close) {
+          setOperatingHours(data.operatingHours);
+        }
         const firstBookable = list.find((c) => c.bookable);
         setBooking((cur) => ({ ...cur, court: firstBookable ? String(firstBookable.id) : "" }));
         // Chưa chọn chi nhánh nào (lần đầu vào trang) thì server tự chọn hộ —
@@ -128,6 +142,25 @@ export default function HomePage() {
     };
   }, [selectedBranchId]);
 
+  // Mốc giờ đang chọn vừa rơi ra ngoài tập đang chào (khách đổi ngày về hôm nay,
+  // để trang mở qua luôn giờ đó, hoặc giờ mở cửa vừa tải về hẹp hơn mặc định):
+  // nhảy sang mốc gần nhất còn mở. Thiếu bước này thì <select> hiện một giờ mà
+  // state giữ một giờ khác, và cái gửi lên server là giờ đã bị loại.
+  useEffect(() => {
+    if (openSlots.length === 0 || openSlots.includes(booking.time)) return;
+    setBooking((cur) => ({ ...cur, time: openSlots[0] }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSlotsKey, booking.time]);
+
+  // Cùng lý do, cho số giờ chơi: chọn 3 giờ ở mốc 21:00 thì phải tụt về mức dài
+  // nhất còn vừa khung mở cửa, chứ không được âm thầm gửi lên một khoảng vượt
+  // giờ đóng.
+  useEffect(() => {
+    if (openDurations.length === 0 || openDurations.includes(booking.duration)) return;
+    setBooking((cur) => ({ ...cur, duration: openDurations[openDurations.length - 1] }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDurationsKey, booking.duration]);
+
   // Quay lại sau khi đăng nhập: dựng lại đúng lựa chọn dở dang.
   useEffect(() => {
     if (!user || courts.length === 0) return;
@@ -136,12 +169,21 @@ export default function HomePage() {
     sessionStorage.removeItem(PENDING_BOOKING_KEY);
     try {
       const pending = JSON.parse(saved);
+      // Lựa chọn cất đi có thể đã hết hạn: chọn sân 23h50 rồi đăng nhập xong
+      // sau nửa đêm là dựng lại một khung giờ của hôm qua — và đường này đi
+      // thẳng tới `handleBookingSubmit`, không qua ô ngày nên không có ràng
+      // buộc `min` nào chặn. Hết hạn thì bỏ, mời khách chọn lại.
+      if (wallClockPassed(pending.selection?.bookingDate, pending.selection?.endTime, branchTimezone)) {
+        showToast("Khung giờ bạn chọn trước đó đã qua. Mời bạn chọn lại khung giờ khác.");
+        return;
+      }
       setBooking(pending.form);
       setSelectedCourt(pending.selection);
       setIsModalOpen(true);
     } catch {
       // Dữ liệu hỏng thì bỏ qua, khách chọn lại từ đầu
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, courts.length]);
 
   const closeBookingModal = () => {
@@ -410,7 +452,7 @@ export default function HomePage() {
                 </div>
                 <div>
                   <div className="font-kinetic text-4xl font-black text-emerald-400">
-                    6AM–11PM
+                    {to12h(operatingHours.open)}–{to12h(operatingHours.close)}
                   </div>
                   <div className="font-kinetic text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-1">
                     OPEN DAILY
@@ -443,7 +485,7 @@ export default function HomePage() {
                       id="booking-date"
                       type="date"
                       name="date"
-                      min={todayInZone()}
+                      min={todayInZone(branchTimezone)}
                       value={booking.date}
                       onChange={handleBookingChange}
                       className="booking-input"
@@ -462,7 +504,10 @@ export default function HomePage() {
                         onChange={handleBookingChange}
                         className="booking-input"
                       >
-                        {["06:00", "08:00", "10:00", "14:00", "16:00", "17:00", "19:00", "21:00"].map((t) => {
+                        {openSlots.length === 0 && (
+                          <option value="">Hết giờ nhận đặt hôm nay — chọn ngày khác</option>
+                        )}
+                        {openSlots.map((t) => {
                           const hour = Number(t.split(":")[0]);
                           const peak = hour >= peakHours.peakStartHour && hour < peakHours.peakEndHour;
                           return (
@@ -484,9 +529,11 @@ export default function HomePage() {
                         onChange={handleBookingChange}
                         className="booking-input"
                       >
-                        <option value="1">1 GIỜ</option>
-                        <option value="2">2 GIỜ</option>
-                        <option value="3">3 GIỜ</option>
+                        {openDurations.map((d) => (
+                          <option key={d} value={d}>
+                            {d} GIỜ
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -519,12 +566,20 @@ export default function HomePage() {
                     )}
                   </div>
 
+                  <p className="text-center font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    Nhận đặt sân {operatingHours.open}–{operatingHours.close} hằng ngày
+                  </p>
+
                   <button
                     type="submit"
-                    disabled={checking || courts.length === 0}
+                    disabled={checking || courts.length === 0 || openSlots.length === 0}
                     className="w-full btn-nike-bolt justify-center py-4 text-sm mt-4 disabled:opacity-60"
                   >
-                    {checking ? "ĐANG KIỂM TRA..." : "TÌM KHUNG GIỜ TRỐNG ⚡"}
+                    {checking
+                      ? "ĐANG KIỂM TRA..."
+                      : openSlots.length === 0
+                        ? "CHỌN NGÀY KHÁC ĐỂ ĐẶT"
+                        : "TÌM KHUNG GIỜ TRỐNG ⚡"}
                   </button>
                 </form>
               </div>
