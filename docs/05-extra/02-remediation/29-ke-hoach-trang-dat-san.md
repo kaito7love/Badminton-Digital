@@ -333,3 +333,42 @@ Lỗi JS / `console.error`: 0.
 1. **"merge vào main đi"** để gộp nhánh (kèm hai bản vá giờ của nhánh cũ), hoặc nói chỗ cần sửa.
 2. Có cập nhật tài liệu API (`APIDesign.md`, `openapi.yaml`, Postman) và `CLAUDE.md` / `00-tien-do.md` cho trang và endpoint mới không.
 3. Có muốn báo sớm giới hạn 14 ngày ở ô đặt nhanh Trang chủ không (đụng Trang chủ).
+
+## 16. Kiểm nốt các mục "chưa kiểm" (14/10/2026, theo yêu cầu)
+
+Hộp **DB tạm cô lập** `bd_reset_check_tmp` (đã xoá sau khi kiểm; DB dev của bạn không bị đụng, đã đối chiếu số bảng, chi nhánh, lịch trước và sau) + hai backend thử cổng 5200 / 5201 chạy `NODE_ENV=production` phục vụ **bản build thật** (`FRONTEND_DIST_DIR`, một tiến trình cho cả web và API như container của Render). Cả hai đã tắt; server của bạn (5000, 5173, 5102) chạy suốt, không đụng.
+
+| Mục chưa kiểm | Cách kiểm | Kết quả |
+|---|---|---|
+| **Bản demo sau reset đêm** | chạy đúng `scripts/demo-reset.js` (xoá bảng → migrate → seed) vào DB tạm, **225 s**, rồi mở trang trên bản build thật với dữ liệu vừa seed | `N0–N3` **đạt**: đăng nhập khách demo, đăng nhập từ trang đặt rồi quay lại hộp tự mở đúng khung, server có lịch `pending` đúng sân. Nội dung sau reset: 4 sân (Sân số 1–3, Sân VIP), giờ cao điểm 17:00–21:00. Lại chạy cả bộ **30 ca luồng thật: 30/30**, 0 lỗi trang |
+| **Trang trắng chập chờn** (mục 14.3), trên bản build thật | 40 lần tải lạnh `/dat-san` (20 khách, 20 khách hàng) | **0/40 trắng**; thời gian tới lưới: trung vị 425 ms, tối đa 871 ms; không yêu cầu mạng lỗi, không lỗi JS. Tức là hiện tượng ở dev server chưa lặp lại trên bản build; vẫn **chưa giải thích được** lần đã thấy |
+| **Hai tab cùng đặt một khung** (cùng tài khoản, một trình duyệt) | hai tab đều chọn Sân số 2 16:00 và mở hộp; tab A xác nhận; tab B xác nhận sau | `C0–C2` **đạt**: tab B nhận 409, hộp đóng, ở lại `/dat-san`, lựa chọn bị bỏ, thông báo "Khung giờ này đã có người đặt…", ô thành "đã kín"; server có **đúng một** lịch cho khung đó |
+| **Lưới lúc quá 22:00 trên server thật** | backend thử chạy đồng hồ lệch tới **22:31 giờ VN** (preload thay `Date`), DB tạm đã seed, **không sửa phản hồi** | `S1–S9` **đạt**: server trả mọi ô hôm nay là `passed` (kể cả ô 22:00 đang chạy dở); trang tự vẽ "Hôm nay đã hết giờ nhận đặt", không có thanh tóm tắt; "Xem ngày mai" sang ngày mai với 72 ô trống; đặt 21:00–22:00 hôm nay bị 400 "đã qua"; đặt **22:00–23:00 (đang chạy dở) server nhận** (201) — đúng luật đã ghi (chỉ từ chối khung đã đóng hẳn), còn lưới vẫn gọi ô đó là `passed` có chủ đích |
+| **Trình đọc màn hình** (không có NVDA / VoiceOver trên máy) | cây trợ năng của Chrome (`Accessibility.getFullAXTree`) + thao tác chỉ bàn phím | xem 16.1 |
+| **Safari, Firefox** | **không cài trên máy: không chạy được** | chỉ rà mã tĩnh, xem 16.2 |
+| **Điện thoại thật** | **không có thiết bị: không kiểm được** | mô phỏng cỡ và cảm ứng trong Chrome (mục 13, 14) vẫn là mức cao nhất |
+
+### 16.1 Trợ năng: tìm ra và sửa hai lỗi thật của hộp xác nhận
+
+Cây trợ năng: một vùng `main`, đúng một tiêu đề cấp 1 "ĐẶT SÂN", **73 nút trong khu lịch sân đều có tên đọc được** (VD "Sân số 1 (Thường), 08:00, trống, 60.000đ"), 72/72 ô là nút bật/tắt (`pressed`), ô không đặt được là `disabled`, có vùng `status` cho gợi ý và lý do.
+
+Bàn phím (14 ca): Tab tới ô trống đầu tiên (sau **26** lần Tab, xem dưới), Space chọn ô, Tab + Enter kéo thành khoảng 2 giờ, Tab tới nút ở thanh tóm tắt, Enter mở hộp, Escape đóng. Hai ca **lỗi lúc đầu, là lỗi thật của mã mình viết**:
+
+| Lỗi | Hậu quả | Sửa (`07e307a`) |
+|---|---|---|
+| hộp khai báo `aria-modal` nhưng **Tab chạy ra phía sau hộp** | người dùng bàn phím / trình đọc màn hình lạc ra trang phía sau đang bị che | khoá tiêu điểm: Tab / Shift+Tab xoay vòng trong hộp (`focusTrap.js`, thuần, 7 test) |
+| đóng hộp xong **tiêu điểm không quay về nút đã mở** | rơi về đầu trang, phải Tab lại từ đầu | trả tiêu điểm về đúng nút đã mở (không ép nếu nút đã khoá / gỡ, vd sau lỗi 409) |
+
+Sau sửa: **14/14** ca trợ năng và bàn phím; Vitest 483/483.
+
+**Quan sát ngoài phạm vi (không sửa):** tới được ô lưới đầu tiên phải **26 lần Tab** vì header chung có nhiều mục và **chưa có liên kết "Bỏ qua tới nội dung"**; trong lưới chỉ đi bằng Tab (không có phím mũi tên). Cả hai là của khung chung / thiết kế lưới, nói nếu muốn làm.
+
+### 16.2 Safari, Firefox: rà mã tĩnh (không phải đã chạy)
+
+Mã mới của trang chỉ dùng: `scrollbar-width` / `scrollbar-color` (Firefox hỗ trợ; Safari cũ bỏ qua nên chỉ hiện thanh cuộn mặc định, không vỡ), `env(safe-area-inset-bottom)` và `backdrop-filter` (Safari hỗ trợ; Tailwind thêm tiền tố), CSS grid, `matchMedia().addEventListener`. `toLocaleTimeString({ hour12: false })` chỉ dùng cho dòng "Cập nhật…" (một số engine ghi nửa đêm là 24:xx, chỉ là nhãn). Không dùng API quá mới (`:has`, `dvh`, `structuredClone`, `at()`…). **Chưa chạy trên hai trình duyệt này.**
+
+### 16.3 Giới hạn của chính các phép kiểm này
+
+- Bản thử là **một tiến trình trên máy bạn**, không phải ảnh Docker của Render: không có Cloudflare / ingress, không DB qua TLS (Aiven), không dịch vụ thi đấu chạy cùng, không khởi động nguội 30–60 s của gói free. Reset chạy bằng script, không qua workflow GitHub.
+- Đồng hồ lệch chỉ ở **tiến trình backend thử**; trình duyệt dùng giờ thật, nên ca "quá 22:00" đúng nhờ cả hai cùng một ngày lịch.
+- Hai tab dùng chung một hồ sơ trình duyệt (cùng `localStorage`), đúng như hai tab thật của một người; hai tài khoản khác nhau giành một khung đã kiểm riêng ở mục 14.2.
