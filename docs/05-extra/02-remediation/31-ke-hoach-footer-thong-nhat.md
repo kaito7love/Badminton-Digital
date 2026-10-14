@@ -1,7 +1,7 @@
 # Kế hoạch 31: footer chung cho khu khách, lấy footer `/thi-dau` làm chuẩn
 
 - **Ngày:** 15/10/2026.
-- **Trạng thái:** **đã làm xong, chờ chủ dự án duyệt merge.** Nhánh `feat/footer-thong-nhat`, tách từ `feat/chuyen-dat-san-sang-trang-dat-san` (kế hoạch 30, chưa gộp) vì `HomePage.jsx` đang nằm trong cả hai; hai nhánh gộp cùng lúc hoặc kế hoạch 30 trước.
+- **Trạng thái:** **đã làm xong và đã gộp vào `main` cục bộ (`0ccc767`, 15/10/2026, theo lệnh "merge vào main đi").** Nhánh `feat/footer-thong-nhat`, tách từ `feat/chuyen-dat-san-sang-trang-dat-san` (kế hoạch 30) vì `HomePage.jsx` nằm trong cả hai; gộp cùng một lần. Chưa push.
 - **Phạm vi:** chỉ phần chân trang của khu khách. Không đụng header, thân trang, khu nhân viên (không có footer), API, DB.
 
 ## 1. Yêu cầu
@@ -71,5 +71,5 @@ Một ca "nền trắng ở `/shop` bản sáng" đỏ một lần trong lượt
 - Mất khối logo ⚡ + chữ lớn và dòng "NIKE KINETIC EDITION" ở Trang chủ và khung khách (theo chuẩn `/thi-dau` không có).
 - Liên kết "Đặt sân" ở `/thi-dau` trước đây trỏ `/my-bookings`; nay là `/dat-san`. Liên kết "Bảng xếp hạng" không còn ở footer (vẫn có ở menu Thi đấu ▾).
 - Trên điện thoại 390 px, nút lên đầu trang nổi nằm sát liên kết cuối ("Thi đấu") khi cuộn tới cuối trang (cách ~10 px, không đè).
-- Chưa làm (chưa được duyệt): cập nhật `CLAUDE.md` và `00-tien-do.md`.
+- `CLAUDE.md` và `00-tien-do.md` (mục 30) được cập nhật sau, theo yêu cầu, ở nhánh `docs/cap-nhat-footer-chung`.
 - Khi push: không đổi API, không migration; chỉ frontend.

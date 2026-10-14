@@ -1,7 +1,7 @@
 # Kế hoạch 30: chuyển mọi việc đặt sân sang trang `/dat-san`
 
 - **Ngày:** 15/10/2026.
-- **Trạng thái:** **đã làm xong, chờ chủ dự án duyệt merge.** Nhánh `feat/chuyen-dat-san-sang-trang-dat-san`, tách từ nhánh `docs/cap-nhat-trang-dat-san-va-han-14-ngay` (chưa gộp vào `main`) nên hai nhánh phải gộp cùng lúc hoặc nhánh tài liệu trước. Chưa push.
+- **Trạng thái:** **đã làm xong và đã gộp vào `main` cục bộ (`0ccc767`, 15/10/2026, theo lệnh "merge vào main đi").** Nhánh `feat/chuyen-dat-san-sang-trang-dat-san`, tách từ nhánh `docs/cap-nhat-trang-dat-san-va-han-14-ngay`; hai nhánh này và nhánh kế hoạch 31 gộp cùng một lần. Chưa push.
 - **Phạm vi:** phía khách (Trang chủ và các trang trỏ tới ô đặt nhanh). Không đổi API, không đổi DB, không đụng trang `/dat-san` và khu nhân viên.
 
 ## 1. Yêu cầu
