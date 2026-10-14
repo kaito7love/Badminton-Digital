@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { formatVnd } from '../../../utils/shop';
 import { dayLabel } from '../lib/dayStrip';
 import Portal from './Portal';
+import { FOCUSABLE, trapTarget } from './focusTrap';
 
 /**
  * Hộp xác nhận đặt sân.
@@ -17,18 +18,38 @@ import Portal from './Portal';
  */
 export default function ConfirmDialog({ open, summary, branchName, date, mode, user, error, busy, resumed, onClose, onConfirm }) {
   const closeRef = useRef(null);
+  const dialogRef = useRef(null);
+  const visible = Boolean(open && summary);
 
+  // Mở: nhớ chỗ đang giữ tiêu điểm, chuyển vào hộp, khoá Tab trong hộp, Escape đóng.
+  // Đóng: trả tiêu điểm về đúng nút đã mở hộp (người dùng bàn phím không bị rơi về đầu trang).
   useEffect(() => {
-    if (!open) return undefined;
+    if (!visible) return undefined;
+    const opener = document.activeElement;
     closeRef.current?.focus();
+
     const onKey = (event) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const items = [...dialogRef.current.querySelectorAll(FOCUSABLE)];
+      const target = trapTarget(items, document.activeElement, event.shiftKey);
+      if (target) {
+        event.preventDefault();
+        target.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      // Nút mở hộp có thể đã bị khoá / gỡ (vd sau lỗi 409 lựa chọn bị bỏ): khi đó không ép tiêu điểm.
+      if (opener && typeof opener.focus === 'function' && opener.isConnected && !opener.disabled) opener.focus();
+    };
+  }, [visible, onClose]);
 
-  if (!open || !summary) return null;
+  if (!visible) return null;
 
   const rows = [
     ['Chi nhánh', branchName || '—'],
@@ -50,6 +71,7 @@ export default function ConfirmDialog({ open, summary, branchName, date, mode, u
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="dat-san-dialog-title"
