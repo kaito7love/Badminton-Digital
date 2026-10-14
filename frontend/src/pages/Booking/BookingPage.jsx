@@ -264,6 +264,7 @@ export default function BookingPage() {
 
   return (
     <CustomerLayout
+      clearBottomBar
       eyebrow="Đặt sân"
       title={
         <>

@@ -10,6 +10,7 @@ import { StaticRouter } from 'react-router-dom/server';
 const state = vi.hoisted(() => ({ value: { enabled: true, loading: false } }));
 vi.mock('../context/CompetitionContext', () => ({ useCompetition: () => state.value }));
 vi.mock('../../../components/site/SiteHeader', () => ({ default: () => <header data-site-header-stub /> }));
+vi.mock('../../../components/site/SiteFooter', () => ({ default: () => <footer data-site-footer-stub /> }));
 
 import PublicShell from './PublicShell';
 
@@ -50,10 +51,10 @@ describe('PublicShell — khung khu Thi đấu', () => {
     expect(html).not.toMatch(/NOI-DUNG-GIAI/);
   });
 
-  test('chân trang có đường về trang chủ của cả site và chừa chỗ cho thanh tab dưới trên điện thoại', () => {
+  test('dùng chân trang chung (liên kết và chỗ cho thanh tab dưới do SiteFooter lo, test ở components/site)', () => {
     const html = render();
-    expect(html).toMatch(/<a [^>]*href="\/"[^>]*>Trang chủ Badminton Digital<\/a>/);
-    expect(html).toMatch(/<footer[^>]*pb-24/);
+    expect(html).toMatch(/data-site-footer-stub/);
+    expect(html).not.toMatch(/Giải đấu &amp; giao lưu cầu lông của sân/);
     expect(html).toMatch(/<main[^>]*pb-28/);
   });
 });

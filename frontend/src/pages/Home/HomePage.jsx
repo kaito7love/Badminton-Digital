@@ -4,6 +4,7 @@ import "./HomePage.css";
 import { publicService } from "../../services/apiServices";
 import CourtFloorPlan from "../../components/CourtFloorPlan";
 import SiteHeader from '../../components/site/SiteHeader';
+import SiteFooter from '../../components/site/SiteFooter';
 import BookingCta, { lowestOffpeakPrice } from "./BookingCta";
 
 // Chi nhánh khách đã chọn ở trang chủ — riêng biệt với "admin_selected_branch_id"
@@ -588,23 +589,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="border-t border-white/10 bg-slate-950 pb-28 pt-16 lg:py-16 relative z-10">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-4 font-kinetic font-black text-2xl text-white uppercase">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center">
-              ⚡
-            </div>
-            <span>
-              BADMINTON <span className="text-gradient-nike">DIGITAL</span>
-            </span>
-          </div>
-
-          <div className="font-kinetic text-xs font-bold text-slate-500 uppercase tracking-widest">
-            © 2026 BADMINTON DIGITAL // NIKE KINETIC EDITION
-          </div>
-        </div>
-      </footer>
+      {/* Chân trang chung (kế hoạch 31); Trang chủ luôn tối nên tone="dark". */}
+      <SiteFooter tone="dark" />
     </div>
   );
 }

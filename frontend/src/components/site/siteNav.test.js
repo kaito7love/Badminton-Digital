@@ -24,6 +24,16 @@ describe('buildSiteNav — các mục chính', () => {
     expect(home.children.map((c) => c.to)).toEqual(['/#courts', '/#facilities', '/#pricing', '/#services', '/#faq']);
   });
 
+  test('chân trang có đúng các mục chính của menu; Thi đấu biến mất khi dịch vụ thi đấu tắt', () => {
+    expect(buildSiteNav({}).footerLinks).toEqual([
+      { key: 'home', label: 'Trang chủ', to: '/' },
+      { key: 'book', label: 'Đặt sân', to: '/dat-san' },
+      { key: 'shop', label: 'Cửa hàng', to: '/shop' },
+      { key: 'comp', label: 'Thi đấu', to: '/thi-dau' }
+    ]);
+    expect(buildSiteNav({ competitionOn: false }).footerLinks.map((l) => l.key)).toEqual(['home', 'book', 'shop']);
+  });
+
   test('Cửa hàng theo danh mục Vợt, Giày, Phụ kiện', () => {
     const shop = buildSiteNav({}).items.find((i) => i.key === NAV_KEYS.shop);
     expect(shop.children.map((c) => c.label)).toEqual(['Vợt', 'Giày', 'Phụ kiện']);

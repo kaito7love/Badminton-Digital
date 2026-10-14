@@ -1,8 +1,8 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { useCompetition } from '../context/CompetitionContext';
 import { EmptyState, Spinner } from './ui';
 import SiteHeader from '../../../components/site/SiteHeader';
+import SiteFooter from '../../../components/site/SiteFooter';
 
 // Khung riêng của khu công khai "Thi đấu" (/thi-dau — plan 27): xem giải / buổi giao lưu của sân, đăng ký online. Cố tình KHÔNG dùng
 // CustomerLayout hay SidebarLayout — không có menu bán hàng hay nhân viên. Theo giao diện sáng / tối của app.
@@ -33,16 +33,7 @@ export default function PublicShell({ children, title, subtitle }) {
         {!loading && enabled && children}
       </main>
 
-      <footer className="border-t border-slate-200 bg-white pb-24 pt-6 dark:border-slate-800 dark:bg-slate-950 lg:py-6">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 text-center text-xs text-slate-500 dark:text-slate-400 sm:flex-row sm:text-left">
-          <p>© 2026 Badminton Digital — Giải đấu &amp; giao lưu cầu lông của sân.</p>
-          <div className="flex flex-wrap items-center justify-center gap-4 font-semibold">
-            <Link to="/" className="hover:text-emerald-600 dark:hover:text-emerald-400">Trang chủ Badminton Digital</Link>
-            <Link to="/rankings" className="hover:text-emerald-600 dark:hover:text-emerald-400">Bảng xếp hạng</Link>
-            <Link to="/my-bookings" className="hover:text-emerald-600 dark:hover:text-emerald-400">Đặt sân</Link>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
