@@ -379,6 +379,8 @@ Chủ dự án yêu cầu ba việc còn lại của mục 15.4: cập nhật t�
 
 ### 17.1 Ô đặt nhanh Trang chủ báo sớm giới hạn 14 ngày (commit `3328da5`)
 
+> **Đã gỡ ngày 15/10/2026 (kế hoạch 30):** ô đặt nhanh không còn ở Trang chủ nên phần này chỉ còn là lịch sử; `isBeyondWindow`, `advanceLimitMessage`, `dayMonth` đã xoá cùng nó.
+
 Ô ngày có `max` = hôm nay + 13 (theo lịch chi nhánh) và dòng nhắc "Đặt trước tối đa 14 ngày (đến dd/mm)". Chọn ngày quá hạn thì dòng đó thành **đúng câu server trả** (`role="alert"`), nút "Tìm khung giờ" khoá và đổi chữ thành "Chọn ngày sớm hơn", Enter cũng không gửi yêu cầu. Trước đây khách chỉ bị từ chối ở bước xác nhận. Dùng chung hàm thuần với trang Đặt sân (`lib/dayStrip.js`: `isBeyondWindow`, `advanceLimitMessage`, `dayMonth`), nên một luật, một câu chữ; test khoá câu chữ trùng với `BookingService.advanceBookingViolation`.
 
 | Kiểm | Kết quả |

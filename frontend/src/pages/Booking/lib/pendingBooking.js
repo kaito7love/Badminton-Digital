@@ -1,9 +1,9 @@
 // Lựa chọn dở dang của khách chưa đăng nhập: cất lại khi họ rẽ sang /login và
 // dựng lại khi quay về /dat-san (kế hoạch 29).
 //
-// Khoá RIÊNG, không dùng `pending_booking` của ô đặt nhanh ở Trang chủ: hai bên
-// lưu hai dạng dữ liệu khác nhau, dùng chung khoá thì trang này sẽ đọc nhầm của
-// trang kia (và ngược lại) sau khi đăng nhập.
+// Khoá RIÊNG, không dùng `pending_booking` của ô đặt nhanh cũ ở Trang chủ (đã gỡ ở
+// kế hoạch 30): hai bên từng lưu hai dạng dữ liệu khác nhau, nên một khoá còn sót
+// trong sessionStorage của phiên cũ không được đọc nhầm thành lựa chọn của trang này.
 //
 // `storage` truyền vào (sessionStorage ngoài trình duyệt, một Map giả khi test) và
 // mọi thao tác đều nuốt lỗi: chế độ riêng tư hay bị chặn lưu trữ không được làm
@@ -34,7 +34,7 @@ export function savePending(storage, { branchId, date, selection }) {
 }
 
 /**
- * Lấy lựa chọn đã cất ra VÀ xoá khỏi kho (đọc một lần, như Trang chủ làm).
+ * Lấy lựa chọn đã cất ra VÀ xoá khỏi kho (đọc một lần).
  *
  * Trả `null` khi: không có gì, dữ liệu hỏng, hoặc ngày đã ra ngoài dải còn đặt
  * được — chọn khung 23h50 rồi đăng nhập xong sau nửa đêm là dựng lại khung của

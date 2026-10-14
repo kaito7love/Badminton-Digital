@@ -26,7 +26,7 @@ import SummaryBar from './components/SummaryBar';
 import ConfirmDialog from './components/ConfirmDialog';
 import { ErrorBoard, LoadingBoard, NoCourtsBoard, OverBoard } from './components/BoardStates';
 
-// Cùng khoá với ô đặt nhanh ở Trang chủ: khách chọn chi nhánh ở đâu thì cả hai
+// Cùng khoá với bộ chọn chi nhánh ở Trang chủ: khách chọn chi nhánh ở đâu thì cả hai
 // nơi cùng nhớ. KHÔNG phải "admin_selected_branch_id" (bộ chuyển của nhân viên).
 const CUSTOMER_BRANCH_KEY = 'customer_selected_branch_id';
 

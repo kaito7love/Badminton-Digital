@@ -246,7 +246,6 @@
 }
 
 .booking-input:focus-visible,
-.cyber-slot:focus-visible,
 a:focus-visible,
 button:focus-visible,
 summary:focus-visible {
@@ -264,7 +263,7 @@ summary:focus-visible {
   padding: 0.375rem 0.75rem;
 }
 
-/* Chip lọc (danh mục, sắp xếp) — cùng ngôn ngữ với .cyber-slot của trang chủ */
+/* Chip lọc (danh mục, sắp xếp) */
 .kinetic-chip {
   font-family: var(--font-kinetic);
   font-weight: 800;

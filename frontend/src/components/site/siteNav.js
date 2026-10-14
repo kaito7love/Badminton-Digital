@@ -15,7 +15,6 @@ export const NAV_KEYS = { home: 'home', book: 'book', shop: 'shop', comp: 'comp'
 // id khớp với <section id> / <div id> trong HomePage.
 const HOME_SECTIONS = [
   ['courts', 'Sân'],
-  ['availability', 'Lịch trống'],
   ['facilities', 'Tiện ích'],
   ['pricing', 'Bảng giá'],
   ['services', 'Dụng cụ'],

@@ -79,7 +79,7 @@ export default function MyBookingsPage() {
         </>
       }
       action={
-        <Link to="/#booking-widget" className="btn-nike-bolt text-xs">
+        <Link to="/dat-san" className="btn-nike-bolt text-xs">
           + Đặt sân mới
         </Link>
       }
@@ -91,8 +91,8 @@ export default function MyBookingsPage() {
       ) : bookings.length === 0 ? (
         <div className="nike-card-static p-12 text-center">
           <p className="font-kinetic text-xl font-black uppercase text-slate-900 dark:text-white">Bạn chưa đặt sân lần nào</p>
-          <p className="mt-3 text-slate-600 dark:text-slate-400">Chọn khung giờ ở trang chủ, hệ thống sẽ giữ chỗ ngay khi còn trống.</p>
-          <Link to="/#booking-widget" className="btn-nike-bolt mt-6 text-xs">
+          <p className="mt-3 text-slate-600 dark:text-slate-400">Chọn khung giờ trên lưới ở trang Đặt sân, hệ thống sẽ giữ chỗ ngay khi còn trống.</p>
+          <Link to="/dat-san" className="btn-nike-bolt mt-6 text-xs">
             Đặt sân đầu tiên ⚡
           </Link>
         </div>

@@ -18,10 +18,10 @@ describe('buildSiteNav — các mục chính', () => {
     expect(book.to).toBe('/dat-san');
   });
 
-  test('Trang chủ có 6 mốc tiếng Việt, id khớp các <section> của HomePage', () => {
+  test('Trang chủ có 5 mốc tiếng Việt, id khớp các <section> của HomePage (không còn "Lịch trống": đặt sân chỉ ở /dat-san)', () => {
     const home = buildSiteNav({}).items[0];
-    expect(home.children.map((c) => c.label)).toEqual(['Sân', 'Lịch trống', 'Tiện ích', 'Bảng giá', 'Dụng cụ', 'Hỏi đáp']);
-    expect(home.children.map((c) => c.to)).toEqual(['/#courts', '/#availability', '/#facilities', '/#pricing', '/#services', '/#faq']);
+    expect(home.children.map((c) => c.label)).toEqual(['Sân', 'Tiện ích', 'Bảng giá', 'Dụng cụ', 'Hỏi đáp']);
+    expect(home.children.map((c) => c.to)).toEqual(['/#courts', '/#facilities', '/#pricing', '/#services', '/#faq']);
   });
 
   test('Cửa hàng theo danh mục Vợt, Giày, Phụ kiện', () => {
@@ -90,7 +90,6 @@ describe('resolveActive — mục chính đang đứng', () => {
 
   test('trang Đặt sân và trang Lịch đặt là Đặt sân; "/" kèm mốc vẫn là Trang chủ', () => {
     expect(resolveActive(loc('/dat-san'))).toBe('book');
-    expect(resolveActive(loc('/', '#booking-widget'))).toBe('home');
     expect(resolveActive(loc('/', '#pricing'))).toBe('home');
     expect(resolveActive(loc('/my-bookings'))).toBe('book');
   });

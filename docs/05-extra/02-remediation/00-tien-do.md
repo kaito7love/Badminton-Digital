@@ -1,6 +1,6 @@
 # Tiến độ sửa lỗi — đã làm gì, còn gì chưa làm
 
-**Cập nhật:** 2026-10-14 (mục 28 — trang Đặt sân `/dat-san` làm lại, đã merge vào `main` cục bộ, chưa push); trước đó 2026-10-10 (mục 27 — header chung cho Trang chủ, Cửa hàng, Thi đấu, đã lên `main` và bản live); trước đó 2026-10-05 (bản demo công khai đã lên Render; mục 22 — sửa số proxy của Render trong `render.yaml` + dòng admin không mật khẩu trên trang đăng nhập demo — đã merge vào `main` và push). Trước đó 2026-10-03 (mục 19 — bấm điểm trực tiếp, tỉ số lên màn hình TV — và mục 20 — giải đấu tổ chức + vận hành được ngày thi đấu — đã merge vào `main` sau khi chủ dự án bấm thử: main fast-forward tới `030513f`, gồm cả hai nhánh). Trước đó 2026-09-28 (mục 18 — competition-service bước 1–3 kèm phần sửa sau khi bấm thử — đã merge vào `main`). Trước đó 2026-09-25 (mục 16 — nhóm sửa 4, hạ tầng deploy + bản demo công khai — và mục 17 — nhóm sửa 5, thao tác tại quầy — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-4-5`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
+**Cập nhật:** 2026-10-15 (mục 29 — chuyển mọi việc đặt sân sang `/dat-san`, chờ duyệt merge); trước đó 2026-10-14 (mục 28 — trang Đặt sân `/dat-san` làm lại, đã merge vào `main` cục bộ, chưa push); trước đó 2026-10-10 (mục 27 — header chung cho Trang chủ, Cửa hàng, Thi đấu, đã lên `main` và bản live); trước đó 2026-10-05 (bản demo công khai đã lên Render; mục 22 — sửa số proxy của Render trong `render.yaml` + dòng admin không mật khẩu trên trang đăng nhập demo — đã merge vào `main` và push). Trước đó 2026-10-03 (mục 19 — bấm điểm trực tiếp, tỉ số lên màn hình TV — và mục 20 — giải đấu tổ chức + vận hành được ngày thi đấu — đã merge vào `main` sau khi chủ dự án bấm thử: main fast-forward tới `030513f`, gồm cả hai nhánh). Trước đó 2026-09-28 (mục 18 — competition-service bước 1–3 kèm phần sửa sau khi bấm thử — đã merge vào `main`). Trước đó 2026-09-25 (mục 16 — nhóm sửa 4, hạ tầng deploy + bản demo công khai — và mục 17 — nhóm sửa 5, thao tác tại quầy — đã merge vào `main` sau khi gộp và test chung trên nhánh `test/merge-fix-groups-4-5`). Tài liệu này là nguồn sự thật duy nhất về tiến độ —
 nếu khác với những gì `01-audit/*.md` mô tả, tin tài liệu này (audit là ảnh
 chụp lúc phát hiện, không được cập nhật lại).
 
@@ -870,8 +870,16 @@ rồi mới nhả số của hồ sơ đã xoá).
   - Tài liệu API: collection Postman thêm request `Lưới sân × giờ cả ngày` (kèm test) và cập nhật mô tả `Tạo booking`, `Kiểm tra khung giờ trống`, `Danh sách sân`; `openapi.yaml` sinh lại (115 operation, khớp 1-1 115 route); `APIDesign.md` §5, §12.1, §13 (kèm sửa ví dụ `GET /bookings/availability` dùng sai tên tham số `date` và thiếu `reason`/`message`); `postman/README.md`.
   - **Lỗi do bước 1 để lại:** thêm route mới mà không thêm vào collection làm `npm run docs:build` thoát mã khác 0 ("collection và routes/ không khớp 1-1") từ lúc đó cho tới đợt này.
   - `CLAUDE.md` (lệnh `docs:build`, luật đặt sân và lưới theo ngày, trang Đặt sân).
-  - Ô đặt nhanh Trang chủ báo sớm giới hạn 14 ngày (ô ngày có `max`, dòng nhắc, nút khoá, cùng câu chữ với server, dùng chung `lib/dayStrip.js`); Chrome thật 8/8.
+  - Ô đặt nhanh Trang chủ báo sớm giới hạn 14 ngày (ô ngày có `max`, dòng nhắc, nút khoá, cùng câu chữ với server, dùng chung `lib/dayStrip.js`); Chrome thật 8/8. **Đã bị gỡ cùng với ô đặt nhanh ở mục 29.**
 - **Ảnh hưởng khi push:** bản demo Render tự deploy khi `main` được đẩy — trang mới và hai bản vá giờ lên live cùng lúc; không có migration, không đổi DB.
+
+### 29. `feat/chuyen-dat-san-sang-trang-dat-san` — mọi việc đặt sân chỉ còn ở `/dat-san` (plan 30, **xong 15/10/2026, chờ duyệt merge**)
+
+- **Yêu cầu (15/10/2026):** "booking thì chuyển hết sang trang đặt sân đi". Hỏi bốn câu phạm vi, chủ dự án chọn đều theo gợi ý; chi tiết: `30-ke-hoach-chuyen-dat-san-sang-trang-dat-san.md`.
+- **Đã làm:** ô "FAST BOOKING" ở hero Trang chủ thành thẻ dẫn sang `/dat-san` (giờ nhận đặt, giá từ, một nút); xoá lưới "Lịch trống" giả và mục menu cùng tên; ba thẻ sân, sơ đồ mặt bằng, ba "BOOK NOW" và "RESERVE COURT NOW" là liên kết thường tới `/dat-san` (không điền sẵn); `/shop`, `/account`, `/my-bookings` trỏ `/dat-san` thay vì `/#booking-widget`; xoá mã của ô cũ (hộp xác nhận, khôi phục `pending_booking`, ước giá, `utils/bookingSlots.js`, `wallClockPassed`, các hàm báo 14 ngày ở `dayStrip.js`, CSS `.cyber-slot`). `HomePage.jsx` 1255 → 611 dòng.
+- **Kiểm chứng:** Vitest 465/465, Jest 627/627, `vite build` sạch; Chrome thật 20/20 (không còn form / lưới giả; bấm thật từng nút → `/dat-san`; sơ đồ và thẻ sân tĩnh; menu; neo cũ không hỏng; đổi chi nhánh rồi đặt; điện thoại 390; khách, trạng thái rỗng, nhân viên).
+- **Cần biết:** bấm một sân ở Trang chủ không còn điền sẵn sân đó ở `/dat-san` (đã chọn "không deep-link"); liên kết cũ `/#booking-widget`, `/#availability` vẫn mở Trang chủ, chỉ không còn nhảy tới đâu.
+- **Phụ thuộc gộp:** nhánh này tách từ `docs/cap-nhat-trang-dat-san-va-han-14-ngay` (chưa gộp), nên gộp cùng lúc hoặc nhánh tài liệu trước. Không migration, không đổi API.
 
 ## Chưa làm — xem plan riêng từng phần
 

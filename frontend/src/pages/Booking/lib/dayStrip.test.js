@@ -2,12 +2,9 @@ import { describe, expect, test } from 'vitest';
 import {
   BOOKING_WINDOW_DAYS,
   addDays,
-  advanceLimitMessage,
   buildDayStrip,
   dayLabel,
-  dayMonth,
-  fallbackWindow,
-  isBeyondWindow
+  fallbackWindow
 } from './dayStrip';
 
 describe('dayStrip', () => {
@@ -54,28 +51,5 @@ describe('dayStrip', () => {
   test('dayLabel', () => {
     expect(dayLabel('2026-10-15')).toBe('T5 15/10');
     expect(dayLabel('2026-10-18')).toBe('CN 18/10');
-  });
-
-  test('isBeyondWindow: ngày cuối còn hợp lệ, ngày kế tiếp thì không (biên giống server)', () => {
-    const { lastDate } = fallbackWindow('2026-10-14');
-    expect(lastDate).toBe('2026-10-27');
-    expect(isBeyondWindow('2026-10-27', lastDate)).toBe(false);
-    expect(isBeyondWindow('2026-10-28', lastDate)).toBe(true);
-    expect(isBeyondWindow('2026-10-14', lastDate)).toBe(false);
-    expect(isBeyondWindow('2026-10-28T00:00:00.000Z', lastDate)).toBe(true);
-    expect(isBeyondWindow('', lastDate)).toBe(false);
-    expect(isBeyondWindow(undefined, lastDate)).toBe(false);
-  });
-
-  test('advanceLimitMessage: đúng câu server trả khi khách đặt quá 14 ngày', () => {
-    // Giữ nguyên văn với BookingService.advanceBookingViolation; nếu một bên đổi chữ, test này đỏ.
-    expect(advanceLimitMessage('2026-10-27')).toBe(
-      'Chỉ nhận đặt trước tối đa 14 ngày (đến 27/10/2026), vui lòng chọn ngày sớm hơn'
-    );
-  });
-
-  test('dayMonth', () => {
-    expect(dayMonth('2026-10-27')).toBe('27/10');
-    expect(dayMonth('2027-01-07')).toBe('07/01');
   });
 });
