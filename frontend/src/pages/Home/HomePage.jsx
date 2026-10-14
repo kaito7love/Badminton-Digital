@@ -17,13 +17,6 @@ const FALLBACK_HOURS = { open: "05:00", close: "23:00" };
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
-// "05:00" → "5AM", "23:00" → "11PM". Chỉ dùng cho khối số liệu tiếng Anh ở hero.
-const to12h = (hhmm) => {
-  const [h, m] = String(hhmm).split(":").map(Number);
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}${m ? `:${String(m).padStart(2, "0")}` : ""}${h >= 12 ? "PM" : "AM"}`;
-};
-
 /**
  * Trang chủ chỉ GIỚI THIỆU: mọi nút "đặt sân" đều dẫn tới /dat-san (kế hoạch 30).
  * Việc chọn ngày/giờ/sân, hỏi chỗ trống và tạo booking nằm ở một nơi duy nhất là
@@ -179,7 +172,7 @@ export default function HomePage() {
                 glare-free vertical LED lighting arrays.
               </p>
 
-              <div className="flex flex-wrap items-center gap-5 mb-14">
+              <div className="flex flex-wrap items-center gap-5">
                 <Link to="/dat-san" className="btn-nike-bolt border-0 cursor-pointer">
                   RESERVE COURT NOW
                   <svg
@@ -199,42 +192,6 @@ export default function HomePage() {
                 >
                   EXPLORE ARENAS
                 </button>
-              </div>
-
-              {/* Metrics Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-6 nike-card border-white/10">
-                <div>
-                  <div className="font-kinetic text-4xl font-black text-emerald-400">
-                    4.9 ★
-                  </div>
-                  <div className="font-kinetic text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-1">
-                    PRO RATING
-                  </div>
-                </div>
-                <div>
-                  <div className="font-kinetic text-4xl font-black text-emerald-400">
-                    12,000+
-                  </div>
-                  <div className="font-kinetic text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-1">
-                    MATCHES
-                  </div>
-                </div>
-                <div>
-                  <div className="font-kinetic text-4xl font-black text-emerald-400">
-                    8
-                  </div>
-                  <div className="font-kinetic text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-1">
-                    BWF COURTS
-                  </div>
-                </div>
-                <div>
-                  <div className="font-kinetic text-4xl font-black text-emerald-400">
-                    {to12h(operatingHours.open)}–{to12h(operatingHours.close)}
-                  </div>
-                  <div className="font-kinetic text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-1">
-                    OPEN DAILY
-                  </div>
-                </div>
               </div>
             </div>
 
