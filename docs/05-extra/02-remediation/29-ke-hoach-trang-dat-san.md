@@ -1,7 +1,7 @@
 # Kế hoạch 29: trang Đặt sân (`/dat-san`) — lưới sân × giờ
 
 - **Ngày:** 14/10/2026.
-- **Trạng thái:** chủ dự án đã duyệt kế hoạch và chọn "theo gợi ý hết" ở mục 5 (14/10/2026). **Bước 0 đã làm xong; theo yêu cầu của chủ dự án (14/10/2026) nhánh cũ được gộp thẳng vào nhánh này (`736a123`), `main` chưa đổi; bản mẫu bấm thử chờ bạn xem** (mục 10). Chưa có dòng code nào của trang mới. Nhánh `feat/trang-dat-san`, tách từ `main` @ `c3bfa5a`.
+- **Trạng thái:** **đã làm xong cả 6 bước (0–5) và được gộp vào `main` ngày 14/10/2026 theo lệnh "merge vào main đi" của chủ dự án.** Kết quả cuối ở mục 15, kiểm nốt ở mục 16. Gộp cục bộ; **chưa đẩy `origin`** (đẩy là quyết định riêng, vì bản demo Render tự deploy khi `main` được đẩy). Nhánh `feat/trang-dat-san` giữ nguyên, không xoá.
 - **Làm lại từ đầu** theo yêu cầu của chủ dự án (14/10/2026: "làm lại trang đặt sân"): không kế thừa hướng thiết kế của ô đặt nhanh ở Trang chủ.
 - **Phạm vi:** trang `/dat-san` và những gì nó cần để chạy đúng (một endpoint công khai chỉ-đọc, và nhánh vá luật giờ đang chờ gộp). Mục 7 liệt kê những gì **không** đụng.
 
