@@ -8,6 +8,7 @@ import { roleOf } from "../../utils/roles";
 import { todayInZone, wallClockPassed } from '../../utils/datetime';
 import { FALLBACK_HOURS, addHours, durationsFor, openSlotsFor } from '../../utils/bookingSlots';
 import SiteHeader from '../../components/site/SiteHeader';
+import { advanceLimitMessage, dayMonth, fallbackWindow, isBeyondWindow } from '../Booking/lib/dayStrip';
 
 // Lựa chọn của khách được giữ lại khi họ phải rẽ qua trang đăng nhập, để quay
 // về là đặt tiếp chứ không phải chọn lại từ đầu.
@@ -57,6 +58,9 @@ export default function HomePage() {
   // Mốc giờ và số giờ chơi widget được phép chào bán — luật đầy đủ kèm lý do ở
   // utils/bookingSlots.js (có test riêng).
   const openSlots = openSlotsFor({ date: booking.date, hours: operatingHours, timezone: branchTimezone });
+  // Hạn cuối được đặt (hôm nay + 13 ngày, theo lịch chi nhánh) — cùng luật với trang Đặt sân và server.
+  const lastBookableDate = fallbackWindow(todayInZone(branchTimezone)).lastDate;
+  const beyondLimit = isBeyondWindow(booking.date, lastBookableDate);
   const openSlotsKey = openSlots.join(",");
   const openDurations = durationsFor(booking.time, operatingHours);
   const openDurationsKey = openDurations.join(",");
@@ -228,6 +232,11 @@ export default function HomePage() {
 
   const handleQuickBooking = async (event) => {
     event.preventDefault();
+    // Chặn sớm ở form: không gửi lên server một ngày mà server chắc chắn từ chối.
+    if (beyondLimit) {
+      showToast(advanceLimitMessage(lastBookableDate));
+      return;
+    }
     const court = courts.find((c) => String(c.id) === String(booking.court));
     if (!court) {
       showToast("Vui lòng chọn sân.");
@@ -486,10 +495,21 @@ export default function HomePage() {
                       type="date"
                       name="date"
                       min={todayInZone(branchTimezone)}
+                      max={lastBookableDate}
                       value={booking.date}
                       onChange={handleBookingChange}
+                      aria-describedby="booking-date-hint"
                       className="booking-input"
                     />
+                    <p
+                      id="booking-date-hint"
+                      role={beyondLimit ? "alert" : undefined}
+                      className={`mt-2 text-[11px] font-bold ${beyondLimit ? "text-rose-400" : "text-slate-500"}`}
+                    >
+                      {beyondLimit
+                        ? advanceLimitMessage(lastBookableDate)
+                        : `Đặt trước tối đa 14 ngày (đến ${dayMonth(lastBookableDate)})`}
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -572,14 +592,16 @@ export default function HomePage() {
 
                   <button
                     type="submit"
-                    disabled={checking || courts.length === 0 || openSlots.length === 0}
+                    disabled={checking || courts.length === 0 || openSlots.length === 0 || beyondLimit}
                     className="w-full btn-nike-bolt justify-center py-4 text-sm mt-4 disabled:opacity-60"
                   >
                     {checking
                       ? "ĐANG KIỂM TRA..."
-                      : openSlots.length === 0
-                        ? "CHỌN NGÀY KHÁC ĐỂ ĐẶT"
-                        : "TÌM KHUNG GIỜ TRỐNG ⚡"}
+                      : beyondLimit
+                        ? "CHỌN NGÀY SỚM HƠN"
+                        : openSlots.length === 0
+                          ? "CHỌN NGÀY KHÁC ĐỂ ĐẶT"
+                          : "TÌM KHUNG GIỜ TRỐNG ⚡"}
                   </button>
                 </form>
               </div>

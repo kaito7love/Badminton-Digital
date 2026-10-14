@@ -49,3 +49,21 @@ export function dayLabel(dateString) {
   const [, month, day] = String(dateString).split('-');
   return `${WEEKDAYS[parse(dateString).getUTCDay()]} ${day}/${month}`;
 }
+
+/** `date` (YYYY-MM-DD, có thể kèm giờ) có vượt ngày cuối của dải không. */
+export const isBeyondWindow = (date, lastDate) => Boolean(date) && String(date).slice(0, 10) > lastDate;
+
+/**
+ * Câu báo khi chọn ngày quá dải — CÙNG câu với server (`BookingService.advanceBookingViolation`),
+ * để khách thấy một thông điệp duy nhất dù bị chặn sớm ở form hay muộn ở bước xác nhận.
+ */
+export function advanceLimitMessage(lastDate) {
+  const [year, month, day] = String(lastDate).split('-');
+  return `Chỉ nhận đặt trước tối đa ${BOOKING_WINDOW_DAYS} ngày (đến ${day}/${month}/${year}), vui lòng chọn ngày sớm hơn`;
+}
+
+/** 'YYYY-MM-DD' → 'dd/mm' (dòng nhắc ngắn dưới ô ngày). */
+export function dayMonth(dateString) {
+  const [, month, day] = String(dateString).split('-');
+  return `${day}/${month}`;
+}
