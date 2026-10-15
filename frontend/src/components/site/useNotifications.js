@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { notificationService } from '../../services/apiServices';
-import { applyRead, applyReadAll } from './notificationView';
+import { applyRead, applyReadAll, NOTIFICATIONS_CHANGED_EVENT, NOTIFICATIONS_COUNT_EVENT } from './notificationView';
 
 const POLL_MS = 60 * 1000;
 const PREVIEW_LIMIT = 8;
@@ -20,6 +20,7 @@ export default function useNotifications({ enabled, routeKey }) {
       const res = await notificationService.list({ limit: PREVIEW_LIMIT });
       const data = res.data?.data;
       if (alive.current && data) setState({ items: data.items || [], unreadCount: Number(data.unreadCount) || 0 });
+      if (data) window.dispatchEvent(new CustomEvent(NOTIFICATIONS_COUNT_EVENT, { detail: { unreadCount: Number(data.unreadCount) || 0 } }));
     } catch {
       // Chuông chỉ là tiện ích: lỗi mạng/401 thì giữ số cũ, lần sau thử lại. Phiên hết hạn do apiClient xử lý.
     }
@@ -41,9 +42,11 @@ export default function useNotifications({ enabled, routeKey }) {
     }, POLL_MS);
     const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
     document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
     return () => {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
     };
   }, [enabled, refresh, routeKey]);
 
@@ -52,18 +55,20 @@ export default function useNotifications({ enabled, routeKey }) {
     try {
       await notificationService.markRead(id);
     } catch {
-      refresh();
+      // lỗi thì lấy lại số thật từ server
     }
-  }, [refresh]);
+    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
+  }, []);
 
   const markAllRead = useCallback(async () => {
     setState((s) => applyReadAll(s));
     try {
       await notificationService.markAllRead();
     } catch {
-      refresh();
+      // lỗi thì lấy lại số thật từ server
     }
-  }, [refresh]);
+    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
+  }, []);
 
   if (!enabled) return null;
   return { ...state, refresh, markRead, markAllRead };

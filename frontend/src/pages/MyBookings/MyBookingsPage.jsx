@@ -5,6 +5,7 @@ import { bookingService, notificationService } from '../../services/apiServices'
 import InlineNotice from '../../components/InlineNotice';
 import { serverMessage } from '../../utils/serverMessage';
 import { groupMyBookings, isUpcoming } from './groupMyBookings';
+import { NOTIFICATIONS_COUNT_EVENT } from '../../components/site/notificationView';
 
 // Trang của khách hàng, cố tình KHÔNG dùng SidebarLayout: khách không có việc gì
 // với thanh điều hướng quản trị, và nhìn thấy "Quản Lý Sân", "Nhân Viên" chỉ tổ
@@ -57,6 +58,10 @@ export default function MyBookingsPage() {
     notificationService.list({ limit: 1, unread: true })
       .then((res) => setUnreadNotifications(Number(res.data?.data?.unreadCount) || 0))
       .catch(() => {});
+    // Số chưa đọc đổi khi đang ở trang này (header hỏi lại định kỳ / khi quay lại tab) thì dòng nhắc theo kịp.
+    const onCount = (e) => setUnreadNotifications(Number(e.detail?.unreadCount) || 0);
+    window.addEventListener(NOTIFICATIONS_COUNT_EVENT, onCount);
+    return () => window.removeEventListener(NOTIFICATIONS_COUNT_EVENT, onCount);
   }, []);
 
   const handleCancel = async (id) => {

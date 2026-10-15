@@ -18,6 +18,12 @@ export function relativeTime(iso, now = new Date()) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
+/** Sự kiện cửa sổ: trang Thông báo vừa đánh dấu đã đọc → chuông ở header hỏi lại số chưa đọc ngay. */
+export const NOTIFICATIONS_CHANGED_EVENT = 'bd:notifications-changed';
+
+/** Header phát lại số chưa đọc mới nhất (detail.unreadCount) để trang đang mở (vd Lịch của tôi) cập nhật dòng nhắc. */
+export const NOTIFICATIONS_COUNT_EVENT = 'bd:notifications-count';
+
 /** Chữ trong chấm đỏ: rỗng khi 0, "99+" khi nhiều. */
 export function badgeText(count) {
   const n = Number(count) || 0;

@@ -25,9 +25,17 @@ describe('R15: độ dài một lượt đặt', () => {
   });
 
   test('khách đặt đúng 3 giờ được nhận (dò khung trống)', async () => {
+    // DB thử dùng lại nhiều lần nên lịch có thể dày, và POST của khách bị giới hạn 20 lượt/10 phút (kế hoạch 42):
+    // chọn khung 3 giờ liền còn trống từ lưới công khai (GET không bị giới hạn) rồi đặt đúng một lần.
     let res;
-    for (let start = 6; start <= 18 && !(res && res.status === 201); start += 1) {
-      res = await book(`Bearer ${tokenFor(customer)}`, start, start + 3, day(6));
+    for (let offset = 6; offset <= 12 && !(res && res.status === 201); offset += 1) {
+      const grid = await api().get(`/api/v1/public/availability/day?branchId=1&date=${day(offset)}`);
+      const court = (grid.body.data.courts || []).find((c) => (c.courtId ?? c.id) === courtId);
+      const free = new Set((court?.slots || []).filter((c) => c.state === 'free').map((c) => Number(String(c.start || c.startTime).slice(0, 2))));
+      for (let startHour = 6; startHour <= 18 && !(res && res.status === 201); startHour += 1) {
+        if (!free.has(startHour) || !free.has(startHour + 1) || !free.has(startHour + 2)) continue;
+        res = await book(`Bearer ${tokenFor(customer)}`, startHour, startHour + 3, day(offset));
+      }
     }
     expect(res.status).toBe(201);
   });

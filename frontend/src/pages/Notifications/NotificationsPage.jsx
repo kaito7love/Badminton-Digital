@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import CustomerLayout from '../../layouts/CustomerLayout';
 import { notificationService } from '../../services/apiServices';
 import { serverMessage } from '../../utils/serverMessage';
-import { applyRead, applyReadAll, notificationTarget, relativeTime, typeIcon } from '../../components/site/notificationView';
+import {
+  applyRead, applyReadAll, notificationTarget, relativeTime, typeIcon, NOTIFICATIONS_CHANGED_EVENT
+} from '../../components/site/notificationView';
 
 // Trang "Thông báo" của khách (kế hoạch 43): danh sách đầy đủ — cũng là nơi điện thoại tới từ chuông.
 
@@ -37,6 +39,7 @@ export default function NotificationsPage() {
     } catch {
       load();
     }
+    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
   };
 
   const markAll = async () => {
@@ -46,6 +49,7 @@ export default function NotificationsPage() {
     } catch {
       load();
     }
+    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
   };
 
   return (

@@ -1,7 +1,7 @@
 # Kế hoạch 43 — Thông báo cho khách khi lịch đặt sân đổi trạng thái
 
 **Nhánh:** `feat/thong-bao-khach` (cắt từ `test/flow-dat-san` = `b430d9f`)
-**Trạng thái:** ⏳ **chờ bạn duyệt** — chưa sửa dòng code nào.
+**Trạng thái:** ✅ **đã duyệt (Q1–Q8 theo mặc định) và làm xong** — xem [kết quả](43-ket-qua-thong-bao-khach.md).
 **Nguồn:** [báo cáo kết quả 42](42-ket-qua-sua-flow-dat-san-f3-f6.md) §3 — lịch `pending` của khách bị tự huỷ (F3b) mà khách **không được báo**; nhân viên duyệt lịch mà khách cũng chỉ biết khi mở lại "Lịch của tôi".
 
 ---
