@@ -193,7 +193,7 @@ và hiển thị **thông điệp cụ thể của server** ("quá phổ biến"
 Postman: 4 mật khẩu mẫu trong body đăng ký/tạo nhân viên/đặt lại đổi sang mật khẩu đạt chính sách.
 
 **Kiểm tra:** `npm test` **55 suite, 801 test pass**; Vitest **36 file, 493 test pass**; `test:security`
-**4 suite, 71 test pass** (R2 chuyển từ `test.failing` sang 9 test thường); Chrome headless 2 thiết bị **10/10**:
+**4 suite, 71 test pass** (R2 chuyển từ `test.failing` sang 11 test thường); Chrome headless 2 thiết bị **10/10**:
 form đăng ký đòi 8 ký tự, "password" bị từ chối với thông điệp "quá phổ biến", mật khẩu mạnh đăng ký được, đổi
 sang "qwertyuiop" hiện "quá phổ biến", đổi sang mật khẩu mạnh → "Đã đổi mật khẩu.".
 *(Lưu ý bộ kiểm: lần chạy đầu thất bại vì công cụ bấm của mình gọi `scrollIntoView` mượt rồi bấm theo toạ độ
