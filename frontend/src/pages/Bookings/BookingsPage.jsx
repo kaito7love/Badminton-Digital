@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Badge, Pagination } from '../../components/UIComponents';
 import { bookingService, courtService } from '../../services/apiServices';
+import InlineNotice from '../../components/InlineNotice';
 
 const formatMoney = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n)) + 'đ';
 
@@ -12,6 +13,9 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('list');
+  // Lỗi thao tác hiện thành banner trong trang (không dùng alert); lỗi lưu lịch hiện trong modal để không mất dữ liệu đang gõ.
+  const [notice, setNotice] = useState(null);
+  const [modalError, setModalError] = useState(null);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -60,6 +64,7 @@ export default function BookingsPage() {
 
   const handleOpenAddModal = () => {
     setEditingBooking(null);
+    setModalError(null);
     setFormData({
       customerName: '',
       customerPhone: '',
@@ -73,6 +78,7 @@ export default function BookingsPage() {
 
   const handleOpenEditModal = (b) => {
     setEditingBooking(b);
+    setModalError(null);
     setFormData({
       customerName: b.customer?.fullName || '',
       customerPhone: b.customer?.phone || '',
@@ -108,7 +114,7 @@ export default function BookingsPage() {
       await fetchBookings();
       setIsModalOpen(false);
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi lưu lịch đặt sân');
+      setModalError(err.response?.data?.message || 'Lỗi lưu lịch đặt sân');
     }
   };
 
@@ -118,7 +124,7 @@ export default function BookingsPage() {
       await bookingService.cancelBooking(id);
       await fetchBookings();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi hủy đặt sân');
+      setNotice(err.response?.data?.message || 'Lỗi hủy đặt sân');
     }
   };
 
@@ -127,7 +133,7 @@ export default function BookingsPage() {
       await bookingService.confirmBooking(id);
       await fetchBookings();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi xác nhận đặt sân');
+      setNotice(err.response?.data?.message || 'Lỗi xác nhận đặt sân');
     }
   };
 
@@ -167,6 +173,8 @@ export default function BookingsPage() {
           </button>
         </div>
       </div>
+
+      <InlineNotice message={notice} onClose={() => setNotice(null)} />
 
       {viewMode === 'list' ? (
         <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-slate-900/80 p-6 md:p-8 shadow-2xl backdrop-blur-xl">
@@ -309,6 +317,8 @@ export default function BookingsPage() {
               />
             </div>
           </div>
+
+          <InlineNotice message={modalError} onClose={() => setModalError(null)} />
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
             <button

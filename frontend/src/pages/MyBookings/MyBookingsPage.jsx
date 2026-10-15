@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CustomerLayout from '../../layouts/CustomerLayout';
 import { bookingService } from '../../services/apiServices';
+import InlineNotice from '../../components/InlineNotice';
+import { groupMyBookings, isUpcoming } from './groupMyBookings';
 
 // Trang của khách hàng, cố tình KHÔNG dùng SidebarLayout: khách không có việc gì
 // với thanh điều hướng quản trị, và nhìn thấy "Quản Lý Sân", "Nhân Viên" chỉ tổ
@@ -22,16 +24,22 @@ const formatDate = (value) => {
 
 const trimSeconds = (t) => (t ? String(t).slice(0, 5) : '');
 
+// Lịch sử dài thì chỉ mở sẵn ngần này dòng, phần còn lại sau nút "Xem thêm".
+const HISTORY_PREVIEW = 6;
+
 export default function MyBookingsPage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   const fetchBookings = async () => {
     try {
       setError(null);
-      const res = await bookingService.getAllBookings({ limit: 100 });
+      // sort=desc: khách có nhiều lịch vẫn thấy lịch mới nhất, không bị cắt ở 100 lịch cũ nhất.
+      const res = await bookingService.getAllBookings({ limit: 100, sort: 'desc' });
       const data = res.data?.data;
       setBookings(Array.isArray(data) ? data : data?.bookings || []);
     } catch (err) {
@@ -52,16 +60,51 @@ export default function MyBookingsPage() {
       await bookingService.cancelBooking(id);
       await fetchBookings();
     } catch (err) {
-      alert(err.response?.data?.message || 'Huỷ lịch thất bại');
+      setNotice(err.response?.data?.message || 'Huỷ lịch thất bại');
     } finally {
       setBusyId(null);
     }
   };
 
-  // Lịch đã qua giờ kết thúc thì không còn gì để huỷ nữa
-  const isUpcoming = (b) => {
-    const end = new Date(`${String(b.bookingDate).slice(0, 10)}T${b.endTime || '23:59'}`);
-    return end > new Date();
+  const { upcoming, history } = groupMyBookings(bookings);
+  const shownHistory = showAllHistory ? history : history.slice(0, HISTORY_PREVIEW);
+
+  const renderCard = (b) => {
+    const status = String(b.status || '').toUpperCase();
+    const meta = STATUS_META[status] || { label: status, cls: 'bg-slate-200/60 dark:bg-slate-700/30 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600' };
+    const canCancel = isUpcoming(b);
+
+    return (
+      <div key={b.id} className="nike-card flex flex-col justify-between gap-4 p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-mono text-xs font-bold text-slate-600 dark:text-slate-400">
+              📅 {formatDate(b.bookingDate)} • ⏱ {trimSeconds(b.startTime)}–{trimSeconds(b.endTime)}
+            </p>
+            <h3 className="mt-2 font-kinetic text-lg font-black uppercase tracking-tight text-emerald-700 dark:text-emerald-400">
+              🏸 {b.court?.name || `Sân #${b.courtId}`}
+            </h3>
+          </div>
+          <span
+            className={`shrink-0 rounded-full border px-3 py-1 font-kinetic text-[10px] font-black uppercase tracking-widest ${meta.cls}`}
+          >
+            {meta.label}
+          </span>
+        </div>
+
+        {canCancel && (
+          <div className="border-t border-slate-200 dark:border-white/10 pt-3 text-right">
+            <button
+              onClick={() => handleCancel(b.id)}
+              disabled={busyId === b.id}
+              className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50"
+            >
+              {busyId === b.id ? 'Đang huỷ...' : '❌ Huỷ lịch này'}
+            </button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -97,44 +140,41 @@ export default function MyBookingsPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {bookings.map((b) => {
-            const status = String(b.status || '').toUpperCase();
-            const meta = STATUS_META[status] || { label: status, cls: 'bg-slate-200/60 dark:bg-slate-700/30 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600' };
-            const canCancel = ['PENDING', 'CONFIRMED'].includes(status) && isUpcoming(b);
+        <div className="space-y-10">
+          <InlineNotice message={notice} onClose={() => setNotice(null)} />
 
-            return (
-              <div key={b.id} className="nike-card flex flex-col justify-between gap-4 p-6">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-mono text-xs font-bold text-slate-600 dark:text-slate-400">
-                      📅 {formatDate(b.bookingDate)} • ⏱ {trimSeconds(b.startTime)}–{trimSeconds(b.endTime)}
-                    </p>
-                    <h3 className="mt-2 font-kinetic text-lg font-black uppercase tracking-tight text-emerald-700 dark:text-emerald-400">
-                      🏸 {b.court?.name || `Sân #${b.courtId}`}
-                    </h3>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full border px-3 py-1 font-kinetic text-[10px] font-black uppercase tracking-widest ${meta.cls}`}
+          <section aria-labelledby="my-upcoming">
+            <h2 id="my-upcoming" className="mb-4 font-kinetic text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">
+              Sắp tới ({upcoming.length})
+            </h2>
+            {upcoming.length === 0 ? (
+              <p className="nike-card-static p-6 text-sm text-slate-600 dark:text-slate-400">
+                Chưa có lịch nào sắp tới. <Link to="/dat-san" className="font-bold text-emerald-700 hover:underline dark:text-emerald-400">Đặt sân ngay</Link>
+              </p>
+            ) : (
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{upcoming.map(renderCard)}</div>
+            )}
+          </section>
+
+          {history.length > 0 && (
+            <section aria-labelledby="my-history">
+              <h2 id="my-history" className="mb-4 font-kinetic text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">
+                Lịch sử ({history.length})
+              </h2>
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{shownHistory.map(renderCard)}</div>
+              {history.length > HISTORY_PREVIEW && (
+                <div className="mt-5 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllHistory((v) => !v)}
+                    className="text-xs font-bold text-emerald-700 hover:underline dark:text-emerald-400"
                   >
-                    {meta.label}
-                  </span>
+                    {showAllHistory ? 'Thu gọn lịch sử' : `Xem thêm ${history.length - HISTORY_PREVIEW} lịch`}
+                  </button>
                 </div>
-
-                {canCancel && (
-                  <div className="border-t border-slate-200 dark:border-white/10 pt-3 text-right">
-                    <button
-                      onClick={() => handleCancel(b.id)}
-                      disabled={busyId === b.id}
-                      className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50"
-                    >
-                      {busyId === b.id ? 'Đang huỷ...' : '❌ Huỷ lịch này'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              )}
+            </section>
+          )}
         </div>
       )}
     </CustomerLayout>
