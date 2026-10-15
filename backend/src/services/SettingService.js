@@ -2,6 +2,7 @@ const { Setting } = require('../models');
 const { normalizeDiscountPolicy } = require('../utils/discountPolicy');
 const { normalizeOperatingHours } = require('../utils/operatingHours');
 const { normalizeBookingPolicy } = require('../utils/bookingPolicy');
+const { normalizeNotificationPolicy } = require('../utils/notificationMessages');
 
 class SettingService {
   static async getAllSettings() {
@@ -61,6 +62,10 @@ class SettingService {
    * Trần giảm giá tay của nhân viên (`discount_policy`, admin sửa ở trang Cài
    * đặt). Chưa cấu hình hoặc lưu sai thì 10% — xem utils/discountPolicy.
    */
+  static async getNotificationPolicy() {
+    return normalizeNotificationPolicy(await SettingService.getSettingByKey('notification_policy'));
+  }
+
   static async getBookingPolicy() {
     return normalizeBookingPolicy(await SettingService.getSettingByKey('booking_policy'));
   }

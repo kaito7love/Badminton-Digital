@@ -3,6 +3,7 @@ const { Op } = require("sequelize");
 const { getPagination, getPagingData } = require("../utils/pagination");
 const { toMinutes, zonedTimeToUtc, localDateString, localTimeString, DEFAULT_TIMEZONE } = require("../utils/dateTime");
 const realtimeBus = require("../utils/realtimeBus");
+const NotificationService = require("./NotificationService");
 const { activeBookingLimitViolation, pendingExpiryAt } = require("../utils/bookingPolicy");
 const AuditService = require("./AuditService");
 const CustomerService = require("./CustomerService");
@@ -412,8 +413,10 @@ class BookingService {
           newValues: { ...booking.toJSON(), expiredAt: expireAt.toISOString(), reason: "pending_not_confirmed_in_time" },
           transaction,
         });
+        const notified = await NotificationService.notifyBooking(NotificationService.TYPES.EXPIRED, booking, { transaction });
         await transaction.commit();
         BookingService.notifyChanged(booking);
+        NotificationService.deliverEmail(notified);
         expired += 1;
       } catch (error) {
         await transaction.rollback();
@@ -490,8 +493,16 @@ class BookingService {
         requestId: context.requestId,
         transaction,
       });
+      // Đổi sân/ngày/giờ của khách thì phải báo (kế hoạch 43); sửa mà không đổi gì thì không.
+      const slotOf = (b) => [b.courtId, String(b.bookingDate).slice(0, 10), String(b.startTime).slice(0, 5), String(b.endTime).slice(0, 5)].join("|");
+      let notified = null;
+      if (slotOf(oldValues) !== slotOf(updated)) {
+        const previous = await NotificationService.describeSlot(oldValues, { transaction });
+        notified = await NotificationService.notifyBooking(NotificationService.TYPES.RESCHEDULED, updated, { transaction, previous });
+      }
       await transaction.commit();
       BookingService.notifyChanged(updated);
+      NotificationService.deliverEmail(notified);
       return updated;
     } catch (error) {
       await transaction.rollback();
@@ -531,8 +542,13 @@ class BookingService {
         requestId: context.requestId,
         transaction,
       });
+      // Khách tự huỷ thì không cần báo (họ vừa làm xong); nhân viên huỷ thì báo (kế hoạch 43).
+      const notified = context.actor?.role?.name === "customer"
+        ? null
+        : await NotificationService.notifyBooking(NotificationService.TYPES.CANCELLED_BY_STAFF, updated, { transaction });
       await transaction.commit();
       BookingService.notifyChanged(updated);
+      NotificationService.deliverEmail(notified);
       return updated;
     } catch (error) {
       await transaction.rollback();
@@ -571,8 +587,11 @@ class BookingService {
         requestId: context.requestId,
         transaction,
       });
+      // Báo khách (kế hoạch 43) — cùng transaction nên trạng thái và thông báo không lệch nhau.
+      const notified = await NotificationService.notifyBooking(NotificationService.TYPES.CONFIRMED, updated, { transaction });
       await transaction.commit();
       BookingService.notifyChanged(updated);
+      NotificationService.deliverEmail(notified);
       return updated;
     } catch (error) {
       await transaction.rollback();

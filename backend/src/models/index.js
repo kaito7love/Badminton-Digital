@@ -42,6 +42,7 @@ db.SalesOrderLine = require('./SalesOrderLine')(sequelize);
 db.Voucher = require('./Voucher')(sequelize);
 // Tích hợp competition-service (plan 23) — không có quan hệ với các bảng khác
 db.IntegrationOutbox = require('./IntegrationOutbox')(sequelize);
+db.CustomerNotification = require('./CustomerNotification')(sequelize);
 db.IntegrationInbox = require('./IntegrationInbox')(sequelize);
 
 // Associations
@@ -72,6 +73,8 @@ db.BranchDocumentSequence.belongsTo(db.Branch, { foreignKey: 'branchId', as: 'br
 // User <-> Customer (1-1, optional)
 db.User.hasOne(db.Customer, { foreignKey: 'userId', as: 'customer' });
 db.Customer.belongsTo(db.User, { foreignKey: 'userId', as: 'user' });
+db.Customer.hasMany(db.CustomerNotification, { foreignKey: 'customerId', as: 'notifications' });
+db.CustomerNotification.belongsTo(db.Customer, { foreignKey: 'customerId', as: 'customer' });
 
 // Court <-> Booking
 db.Court.hasMany(db.Booking, { foreignKey: 'courtId', as: 'bookings' });

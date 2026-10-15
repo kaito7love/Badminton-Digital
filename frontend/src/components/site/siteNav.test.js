@@ -76,8 +76,8 @@ describe('menu tài khoản', () => {
     expect(buildSiteNav({}).account).toBeNull();
   });
 
-  test('khách hàng: Tài khoản, Đơn mua, Lịch đặt, Lịch sử thi đấu, Đăng xuất', () => {
-    expect(buildAccountMenu(customer).map((m) => m.label)).toEqual(['Tài khoản', 'Đơn mua', 'Lịch đặt', 'Lịch sử thi đấu', 'Đăng xuất']);
+  test('khách hàng: Tài khoản, Đơn mua, Lịch đặt, Thông báo, Lịch sử thi đấu, Đăng xuất', () => {
+    expect(buildAccountMenu(customer).map((m) => m.label)).toEqual(['Tài khoản', 'Đơn mua', 'Lịch đặt', 'Thông báo', 'Lịch sử thi đấu', 'Đăng xuất']);
     expect(buildAccountMenu(customer).at(-1)).toMatchObject({ action: 'logout' });
   });
 

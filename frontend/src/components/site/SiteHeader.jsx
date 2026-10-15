@@ -7,6 +7,7 @@ import { useCompetition } from '../../features/competition/context/CompetitionCo
 import SiteHeaderView from './SiteHeaderView';
 import ScrollToTop from './ScrollToTop';
 import { buildSiteNav } from './siteNav';
+import useNotifications from './useNotifications';
 
 /**
  * Header chung của Trang chủ, Cửa hàng và Thi đấu (kế hoạch 28). Nối context vào SiteHeaderView.
@@ -21,6 +22,9 @@ export default function SiteHeader({ tone = 'auto', overlay = false }) {
   const themeCtx = useTheme();
   const { enabled: competitionOn } = useCompetition();
   const nav = useMemo(() => buildSiteNav({ user, competitionOn }), [user, competitionOn]);
+  // Chuông thông báo chỉ dành cho khách đã đăng nhập (kế hoạch 43); nhân viên có kênh riêng.
+  const isCustomer = (typeof user?.role === 'string' ? user.role : user?.role?.name) === 'customer';
+  const notifications = useNotifications({ enabled: isCustomer, routeKey: location.pathname });
 
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -63,6 +67,7 @@ export default function SiteHeader({ tone = 'auto', overlay = false }) {
       overlay={overlay}
       scrolled={scrolled}
       onLogoClick={onLogoClick}
+      notifications={notifications}
     />
     <ScrollToTop tone={tone} />
     </>

@@ -160,6 +160,13 @@ export const voucherService = {
 };
 
 // ─── Customers ───────────────────────────────────────────────────
+// Thông báo trong ứng dụng của khách (kế hoạch 43).
+export const notificationService = {
+  list: (params) => apiClient.get('/notifications', { params }),
+  markRead: (id) => apiClient.put(`/notifications/${id}/read`),
+  markAllRead: () => apiClient.put('/notifications/read-all')
+};
+
 export const customerService = {
   getAllCustomers: (params) => apiClient.get('/customers', { params }),
   getCustomerById: (id) => apiClient.get(`/customers/${id}`),
