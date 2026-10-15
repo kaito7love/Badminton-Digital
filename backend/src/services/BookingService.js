@@ -6,7 +6,7 @@ const AuditService = require("./AuditService");
 const CustomerService = require("./CustomerService");
 const SettingService = require("./SettingService");
 const { operatingHoursViolation } = require("../utils/operatingHours");
-const { BOOKING_WINDOW_DAYS, bookingWindow } = require("../utils/daySlots");
+const { BOOKING_WINDOW_DAYS, CUSTOMER_MAX_BOOKING_HOURS, bookingWindow } = require("../utils/daySlots");
 
 // Thông điệp khách đọc trực tiếp trên trang Đặt sân (hộp xác nhận và thông báo
 // lỗi khi đặt) nên phải là tiếng Việt — ALREADY_BOOKED trước đây là câu tiếng Anh duy nhất trong
@@ -66,6 +66,16 @@ class BookingService {
     if (String(bookingDate).slice(0, 10) <= last) return null;
     const [year, month, day] = last.split("-");
     return `Chỉ nhận đặt trước tối đa ${BOOKING_WINDOW_DAYS} ngày (đến ${day}/${month}/${year}), vui lòng chọn ngày sớm hơn`;
+  }
+
+  /**
+   * Khách đặt một lượt dài quá giới hạn chưa — hàm thuần (R15). Chỉ áp cho vai `customer` (nhân viên đặt giải
+   * đấu/sự kiện dài hơn vẫn được). Trả `null` nếu hợp lệ, hoặc câu thông báo.
+   */
+  static durationViolation({ startTime, endTime, maxHours = CUSTOMER_MAX_BOOKING_HOURS }) {
+    const minutes = toMinutes(endTime) - toMinutes(startTime);
+    if (minutes <= maxHours * 60) return null;
+    return `Mỗi lượt đặt tối đa ${maxHours} giờ liền, vui lòng chọn khoảng giờ ngắn hơn hoặc đặt thành nhiều lượt`;
   }
 
   /**
@@ -233,6 +243,12 @@ class BookingService {
         });
         if (tooFar) {
           const error = new Error(tooFar);
+          error.statusCode = 400;
+          throw error;
+        }
+        const tooLong = BookingService.durationViolation({ startTime: data.startTime, endTime: data.endTime });
+        if (tooLong) {
+          const error = new Error(tooLong);
           error.statusCode = 400;
           throw error;
         }

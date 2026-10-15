@@ -198,3 +198,15 @@ form đăng ký đòi 8 ký tự, "password" bị từ chối với thông đi�
 sang "qwertyuiop" hiện "quá phổ biến", đổi sang mật khẩu mạnh → "Đã đổi mật khẩu.".
 *(Lưu ý bộ kiểm: lần chạy đầu thất bại vì công cụ bấm của mình gọi `scrollIntoView` mượt rồi bấm theo toạ độ
 cũ — lỗi của harness, không phải của ứng dụng; đã sửa bằng bấm lại tới khi thấy request.)*
+
+### Nhóm D — quy tắc & hạ tầng (nhánh `fix/r14-r15-quy-tac-va-ha-tang`) — XONG
+
+| Mục | Đã làm |
+|---|---|
+| R15 | `BookingService.durationViolation` + `CUSTOMER_MAX_BOOKING_HOURS = 3` (`utils/daySlots.js`, có test khớp với `MAX_BOOKING_HOURS` của frontend). `POST /bookings` từ vai `customer` quá 3 giờ → 400 "Mỗi lượt đặt tối đa 3 giờ liền…". Nhân viên không giới hạn; `PUT /bookings/:id` vốn chỉ dành cho nhân viên nên không áp |
+| R14a | `actions/checkout` và `actions/setup-node` trong `ci.yml`, `demo-reset.yml` ghim theo **commit SHA** (đã tra bằng `git ls-remote`: tag `v4` trùng `v4.4.0` — `11d5960…` và `49933ea…`), kèm comment `# v4.4.0`; có test bắt mọi `uses:` ngoài repo phải là SHA 40 ký tự |
+| R14b/c/d | **Không đổi** (theo Q6): `$host` của nginx (backend không dùng `Host` để dựng link), nginx chạy root trong image frontend, token SSE trong URL — ghi vào báo cáo là rủi ro chấp nhận |
+| R7 | **Giữ nguyên** thông báo trùng SĐT/email (Q7) — ghi là rủi ro chấp nhận |
+
+**Kiểm tra:** `npm test` (xem dòng dưới); `test:security` **5 suite, 74 test pass** (3 test mới cho R15: khách 6 giờ → 400,
+khách 3 giờ → 201, nhân viên 6 giờ → 201).
