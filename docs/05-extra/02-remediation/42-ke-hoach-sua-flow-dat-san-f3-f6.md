@@ -1,7 +1,7 @@
 # Kế hoạch 42 — Xử lý F3, F4, F5, F6 của báo cáo 40
 
 **Nhánh:** `fix/flow-dat-san-f3-f6` (cắt từ `test/flow-dat-san` = `388104f`, đã gồm kế hoạch 41)
-**Trạng thái:** ⏳ **chờ bạn duyệt** — chưa sửa dòng code nào. Nguồn: [báo cáo 40](40-ket-qua-kiem-thu-flow-dat-san.md) §3–§4; các mặc định dưới đây là cột "Gợi ý mặc định" của §4 đó.
+**Trạng thái:** ✅ **đã duyệt (Q1–Q8 theo mặc định) và làm xong** — xem [kết quả](42-ket-qua-sua-flow-dat-san-f3-f6.md). Nguồn: [báo cáo 40](40-ket-qua-kiem-thu-flow-dat-san.md) §3–§4; các mặc định dưới đây là cột "Gợi ý mặc định" của §4 đó.
 **Khác với kế hoạch 41:** bốn mục này **đổi hành vi nghiệp vụ** (có thể từ chối thứ trước đây được phép, có việc tự chạy nền), nên mỗi mục có công tắc/giá trị cấu hình và có mục "Rủi ro" riêng.
 
 ---
