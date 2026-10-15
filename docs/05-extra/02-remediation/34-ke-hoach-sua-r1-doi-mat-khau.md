@@ -2,7 +2,7 @@
 
 **Ngày:** 2026-10-15 · **Nhánh:** `fix/r1-doi-mat-khau-thu-hoi-phien`
 **Tách từ:** `test/ke-hoach-kiem-thu-bao-mat` (98d3db1, **chưa merge vào `main`**) — vì test `test.failing` cần đổi nằm ở nhánh đó.
-**Trạng thái:** CHỜ DUYỆT. Chưa sửa dòng code nào.
+**Trạng thái:** ĐÃ DUYỆT 2026-10-15 và đã code, chờ bạn xem kết quả (§8) rồi mới merge.
 **Nguồn:** phát hiện R1 trong `33-ket-qua-kiem-thu-bao-mat.md` (A6b).
 
 ## 1. Vấn đề
@@ -111,3 +111,36 @@ Các mục dưới đây **chưa có câu trả lời nên chưa làm**; mặc �
   cáo 33 không? (Đề xuất: làm (a) vì Postman sẽ giữ refresh token cũ; (b), (c) chỉ khi bạn nói.)
 - **Q4.** Thứ tự merge: nhánh này tách từ `test/ke-hoach-kiem-thu-bao-mat` (chưa merge). Bạn muốn merge nhánh
   test vào `main` trước, rồi nhánh này — hay merge cùng lúc?
+
+## 8. Quyết định đã chốt và kết quả thực hiện
+
+**Trả lời bốn câu hỏi (2026-10-15):** Q1 cấp cặp token mới cho thiết bị đang đổi · Q2 không đổi chữ trên giao
+diện · Q3 chỉ làm (a) Postman + `docs:build` · Q4 merge nhánh test vào `main` trước, rồi mới tới nhánh này
+(**chưa merge gì**, chờ lệnh "merge vào main đi").
+
+**Đã sửa:** đúng theo §3 — `AuthService.changePassword` (nạp `Role`, cấp cặp token mới, một lệnh
+`User.update`), `authController.changePassword` (trả `data.{accessToken, refreshToken}`),
+`utils/sessionTokens.js` + `AccountPage.jsx`; Postman: mô tả + script test của "Change password" lưu cặp token
+mới, `openapi.yaml` sinh lại bằng `npm run docs:build` (115 route khớp, chỉ đổi 1 dòng mô tả).
+
+**Kết quả kiểm tra:**
+
+| Hạng mục | Kết quả |
+|---|---|
+| `npm test` backend | 50 suite, 665 test pass (trước 660; +5 của `changePassword.test.js`) |
+| Vitest frontend | 35 file, 482 test pass (trong đó 9 của `sessionTokens.test.js`) |
+| `npm run test:security` (DB tạm) | 2 suite, 39 test pass. R1 là 7 test thường; R2, R3, R4, R8 vẫn `failing` như mong đợi |
+| R1 trên **code cũ** (stash 2 file src) | 5 trong 7 test R1 đỏ → test thật sự bắt được lỗi |
+| API thật trên backend tạm :5051 | 9/9: phiên A bị 401 sau khi B đổi; B giữ phiên bằng token mới; mật khẩu cũ sai (400) không thu hồi gì |
+| Chrome headless, 2 thiết bị (390×844 và 1366×768) | 8/8: đổi qua form → "Đã đổi mật khẩu."; B hết hạn access token rồi tải lại vẫn ở `/account`; A bị đưa về `/login` |
+
+**Phát hiện thêm khi kiểm (không sửa, ngoài phạm vi):**
+- Refresh token là JWT chỉ có `id` + `iat` (độ chính xác 1 giây, không có `jti`). Hai token ký trong cùng
+  một giây **trùng nhau từng ký tự**, nên đổi mật khẩu trong cùng giây với lần đăng nhập thì "token mới" ==
+  "token cũ" và phiên cũ chưa bị thu hồi. Ngoài đời không xảy ra (không ai đăng nhập và đổi mật khẩu trong
+  một giây); test đã chờ 1,1 giây giữa các bước. Thêm `jti` ngẫu nhiên vào refresh token là việc cần cho
+  **R3** (xoay vòng) — nên làm ở nhánh R3 thay vì nhánh này.
+- Bản chạy thử đầu tiên của `tests-security/authz` đỏ khi chạy lại trên cùng DB vì slot đặt sân đã bị lần
+  chạy trước chiếm (409): đã sửa để tự dò slot trống.
+- Trang Tài khoản/AuthContext coi "không có `access_token` trong localStorage" là chưa đăng nhập và không thử
+  refresh (có sẵn từ trước, không liên quan R1). Chỉ token hết hạn/sai mới đi qua luồng refresh.

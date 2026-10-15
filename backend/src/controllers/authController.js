@@ -115,9 +115,10 @@ class AuthController {
       const { oldPassword, newPassword } = req.body;
       const result = await AuthService.changePassword(req.user.id, { oldPassword, newPassword });
 
+      // Cặp token mới cho thiết bị đang đổi; refresh token của các thiết bị khác đã bị thu hồi.
       res.status(200).json({
         success: true,
-        data: null,
+        data: { accessToken: result.accessToken, refreshToken: result.refreshToken },
         message: result.message,
         errors: null
       });

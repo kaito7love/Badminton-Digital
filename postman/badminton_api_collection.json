@@ -460,7 +460,7 @@
                 "change-password"
               ]
             },
-            "description": "Đổi mật khẩu của chính tài khoản đang đăng nhập.",
+            "description": "Đổi mật khẩu của chính tài khoản đang đăng nhập. Thu hồi refresh token cũ (mọi thiết bị khác bị đăng xuất) và trả `data.accessToken` + `data.refreshToken` mới cho thiết bị đang đổi — script test bên dưới lưu lại vào biến collection.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oldPassword\": \"{{adminPassword}}\",\n  \"newPassword\": \"{{adminPassword}}\"\n}",
@@ -493,7 +493,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
-                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });",
+                  "pm.test(pm.info.requestName + ' -> cap token moi', function () { var d = pm.response.json().data; pm.expect(d.accessToken).to.be.a('string'); pm.expect(d.refreshToken).to.be.a('string'); pm.collectionVariables.set('accessToken', d.accessToken); pm.collectionVariables.set('refreshToken', d.refreshToken); });"
                 ]
               }
             }

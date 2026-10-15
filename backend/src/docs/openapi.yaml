@@ -237,7 +237,7 @@ paths:
         - '01 · Auth'
       summary: 'Change password'
       operationId: put_auth_change_password
-      description: 'Đổi mật khẩu của chính tài khoản đang đăng nhập.'
+      description: 'Đổi mật khẩu của chính tài khoản đang đăng nhập. Thu hồi refresh token cũ (mọi thiết bị khác bị đăng xuất) và trả `data.accessToken` + `data.refreshToken` mới cho thiết bị đang đổi — script test bên dưới lưu lại vào biến collection.'
       requestBody:
         required: true
         content:
