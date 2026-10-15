@@ -7,7 +7,7 @@ File này **tự đầy đủ**: đọc một mình là đủ. Quy ước kết 
 
 ---
 
-> **Cập nhật sau kế hoạch 41 (nhánh `fix/flow-dat-san-f1-f2-nho`):** F1, F2, F7, F8, F10, F11 **đã sửa**; F9 **ghi nhận có chủ đích, không đổi**; F3, F4, F5, F6 vẫn mở. Chi tiết: [báo cáo kết quả sửa](41-ket-qua-sua-flow-dat-san.md).
+> **Cập nhật sau kế hoạch 41 (nhánh `fix/flow-dat-san-f1-f2-nho`):** F1, F2, F7, F8, F10, F11 **đã sửa**; F9 **ghi nhận có chủ đích, không đổi**; F3, F4, F5, F6 **đã sửa ở kế hoạch 42** ([kết quả](42-ket-qua-sua-flow-dat-san-f3-f6.md)). Chi tiết: [báo cáo kết quả sửa](41-ket-qua-sua-flow-dat-san.md).
 
 ---
 
@@ -107,22 +107,22 @@ Mức: 🟠 nên sửa · 🟡 ghi nhận, sửa khi tiện · 🟢 nhỏ. Khôn
 - **Gợi ý:** dùng cùng bộ chuẩn hoá/validator SĐT của `auth/register` cho `customerPhone` ở `POST /bookings` (và `POST /customers`); từ chối khi không hợp lệ.
 - **Test:** `test.failing` "đặt hộ với SĐT không hợp lệ phải bị từ chối".
 
-### F3 🔒 🟠 — Không giới hạn số booking `pending` / không hết hạn → chiếm chỗ hàng loạt
+### F3 🔒 🟠 — Không giới hạn số booking `pending` / không hết hạn → chiếm chỗ hàng loạt — **✅ đã sửa (kế hoạch 42)**
 - **Tái hiện:** một tài khoản khách vừa đăng ký, vòng lặp `POST /bookings` qua mọi sân CN1–CN3 × 4 ngày × 6 khung 1 giờ → **60 lần 201 liên tiếp** (6 lần dừng chỉ vì sân bảo trì); không 429. Toàn bộ khung đó biến thành "đã kín" trên lưới công khai cho người khác.
 - **Vì sao đáng kể:** trần 3 giờ/lượt và 14 ngày chặn *một* lượt, không chặn *số lượt*; `pending` không có hạn tự huỷ (kiểm DB: không có job dọn) nên chỉ nhân viên huỷ tay mới nhả chỗ. Một kẻ phá hoại hoặc một khách vô ý có thể làm trống lịch cả chuỗi. `POST /bookings` không có rate limiter riêng.
 - **Gợi ý (cần bạn chọn mức, xem §4 Q1–Q2):** (a) trần số booking `pending/confirmed` còn hiệu lực mỗi khách (vd 5–10); (b) tự huỷ `pending` quá N giờ chưa duyệt hoặc cách giờ chơi < M phút; (c) rate limit `POST /bookings` theo user/IP.
 
-### F4 ❓ 🟠 — Mở sân từ booking **không kiểm ngày/giờ** của booking
+### F4 ❓ 🟠 — Mở sân từ booking **không kiểm ngày/giờ** của booking — **✅ đã sửa (kế hoạch 42)**
 - **Tái hiện:** nhân viên tạo booking ngày **hôm nay+20**, rồi `POST /courts/:id/open {bookingId}` ngay hôm nay → **201**; checkout → booking thành `completed`, khung của ngày +20 trở lại **trống** cho người khác đặt.
 - **Tác động:** mở nhầm booking (chọn nhầm dòng trong danh sách, nhất là khi một khách có nhiều lịch) làm "ăn" mất lịch tương lai của họ mà không cảnh báo. Mã chỉ kiểm: booking pending/confirmed, cùng sân, cùng chi nhánh.
 - **Gợi ý:** chỉ cho mở khi `bookingDate` = hôm nay theo múi giờ chi nhánh (và có thể trong ±X phút quanh giờ bắt đầu), nếu không trả 400 kèm lý do; hoặc cho phép nhưng bắt nhân viên xác nhận rõ ràng.
 
-### F5 ❓ 🟡 — Đặt hộ bằng SĐT trùng khách có sẵn: **tên nhập bị bỏ qua, không cảnh báo**
+### F5 ❓ 🟡 — Đặt hộ bằng SĐT trùng khách có sẵn: **tên nhập bị bỏ qua, không cảnh báo** — **✅ đã sửa (kế hoạch 42)**
 - **Tái hiện:** nhân viên đặt hộ tên "Kẻ Mạo Danh", SĐT `0903333333` → 201, booking gắn vào hồ sơ **Nguyễn Văn Khách** (đúng thiết kế: SĐT là khoá). Hồ sơ không bị đổi tên (✅). Tên đã nhập không xuất hiện ở đâu.
 - **Tác động:** gõ nhầm một số điện thoại → booking nằm trong "Lịch của tôi" của một người lạ (họ có thể huỷ), nhân viên không biết. Ở giao diện: form đóng như thường.
 - **Gợi ý:** phản hồi trả thêm tên khách khớp và giao diện hiện "Đã gắn vào khách *Nguyễn Văn Khách* (khớp SĐT)"; cảnh báo khi tên nhập khác tên lưu.
 
-### F6 🎨 🟠 — Trang **Quản lý đặt sân của nhân viên không tự cập nhật**
+### F6 🎨 🟠 — Trang **Quản lý đặt sân của nhân viên không tự cập nhật** — **✅ đã sửa (kế hoạch 42)**
 - **Tái hiện:** nhân viên mở `/bookings`; khách đặt mới qua website; chờ 8 giây → **không xuất hiện** (phải tải lại trang).
 - **Nguyên nhân:** SSE `/realtime/stream` chỉ phát `court:updated` (đọc `realtimeController.js`); `BookingService` không phát sự kiện nào; trang không polling. (Trang `/dat-san` của khách thì tự tải lại mỗi 30 giây.)
 - **Tác động:** vận hành — yêu cầu đặt sân `pending` của khách nằm đó tới khi nhân viên tình cờ tải lại; khách chờ "nhân viên sẽ duyệt trước giờ chơi".

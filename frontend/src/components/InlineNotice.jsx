@@ -6,9 +6,12 @@ import React from 'react';
  */
 export default function InlineNotice({ message, onClose, tone = 'error', className = '' }) {
   if (!message) return null;
-  const palette = tone === 'error'
-    ? 'border-rose-600/40 bg-rose-500/10 text-rose-800 dark:border-rose-400/40 dark:text-rose-300'
-    : 'border-emerald-600/40 bg-emerald-500/10 text-emerald-800 dark:border-emerald-400/40 dark:text-emerald-300';
+  const PALETTES = {
+    error: 'border-rose-600/40 bg-rose-500/10 text-rose-800 dark:border-rose-400/40 dark:text-rose-300',
+    warning: 'border-amber-600/40 bg-amber-500/10 text-amber-900 dark:border-amber-400/40 dark:text-amber-200',
+    success: 'border-emerald-600/40 bg-emerald-500/10 text-emerald-800 dark:border-emerald-400/40 dark:text-emerald-300'
+  };
+  const palette = PALETTES[tone] || PALETTES.error;
   return (
     <div
       role="alert"

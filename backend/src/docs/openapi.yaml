@@ -778,7 +778,7 @@ paths:
         - '04 · Courts'
       summary: 'Mở sân (bắt đầu phiên chơi)'
       operationId: post_courts_id_open
-      description: 'Tạo `CourtSession`. Có thể gắn khách có sẵn (`customerId`), booking (`bookingId`) hoặc khách vãng lai (`guestName`/`guestPhone`).'
+      description: 'Tạo `CourtSession`. Có thể gắn khách có sẵn (`customerId`), booking (`bookingId`) hoặc khách vãng lai (`guestName`/`guestPhone`, SĐT sai → 400). Với `bookingId`: lịch khác ngày hôm nay (theo múi giờ chi nhánh) → 400 `BOOKING_WRONG_DAY`; cùng ngày nhưng lệch giờ → 409 `BOOKING_TIME_MISMATCH`, gửi lại kèm `acknowledgeTimeMismatch: true` để vẫn mở.'
       parameters:
         -
           name: id

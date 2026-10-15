@@ -193,6 +193,15 @@ class CustomerService {
    * Trả về null nếu không có thông tin gì — phiên chơi/booking khi đó thực sự ẩn danh.
    */
   static async resolveWalkIn({ fullName, phone, transaction = null }) {
+    return (await CustomerService.resolveWalkInDetailed({ fullName, phone, transaction })).customer;
+  }
+
+  /**
+   * Như `resolveWalkIn` nhưng cho biết hồ sơ này có phải **khớp theo SĐT với khách đã có** không và tên nhập có
+   * khác tên đã lưu không — để nhân viên không đặt nhầm vào hồ sơ người khác mà không hay biết (báo cáo 40, F5).
+   * @returns {{ customer: object|null, matched: boolean, nameDiffers: boolean }}
+   */
+  static async resolveWalkInDetailed({ fullName, phone, transaction = null }) {
     const name = (fullName || '').trim();
     const normalizedPhone = normalizePhone(phone);
     // Có nhập SĐT mà không hợp lệ thì từ chối, đừng lưu số rác hay lặng lẽ bỏ số (báo cáo 40, F2).
@@ -202,23 +211,27 @@ class CustomerService {
       throw error;
     }
 
-    if (!name && !normalizedPhone) return null;
+    if (!name && !normalizedPhone) return { customer: null, matched: false, nameDiffers: false };
 
     if (normalizedPhone) {
       const existing = await Customer.findOne({
         where: { phone: normalizedPhone },
         transaction
       });
-      if (existing) return existing;
+      if (existing) {
+        const same = (a, b) => String(a || '').trim().normalize('NFC').toLowerCase() === String(b || '').trim().normalize('NFC').toLowerCase();
+        return { customer: existing, matched: true, nameDiffers: Boolean(name) && !same(name, existing.fullName) };
+      }
       // Số chỉ còn nằm trên một hồ sơ đã xoá: nhả ra để người này nhận hồ sơ
       // mới, thay vì mở sân/đặt sân đụng unique index mãi (DATA-01).
       await CustomerService.releaseDeletedPhoneHolder(normalizedPhone, { transaction });
     }
 
-    return await Customer.create({
+    const created = await Customer.create({
       fullName: name || 'Khách vãng lai',
       phone: normalizedPhone
     }, { transaction });
+    return { customer: created, matched: false, nameDiffers: false };
   }
 
   /**

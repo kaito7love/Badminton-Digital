@@ -17,7 +17,7 @@ const classifyError = (err) => {
   // Lỗi có statusCode/status là service tự throw có chủ đích (validation,
   // not found, forbidden...) — message của nó luôn an toàn để trả nguyên văn.
   if (err.statusCode || err.status) {
-    return { statusCode: err.statusCode || err.status, message: err.message || GENERIC_MESSAGE, errors: null };
+    return { statusCode: err.statusCode || err.status, message: err.message || GENERIC_MESSAGE, errors: null, code: err.errorCode || undefined };
   }
   // UniqueConstraintError kế thừa ValidationError nên phải xét trước.
   if (err instanceof UniqueConstraintError) {
@@ -67,14 +67,15 @@ const logError = (err, req, statusCode) => {
 };
 
 const errorHandler = (err, req, res, next) => {
-  const { statusCode, message, errors } = classifyError(err);
+  const { statusCode, message, errors, code } = classifyError(err);
   logError(err, req, statusCode);
 
   res.status(statusCode).json({
     success: false,
     data: null,
     message,
-    errors
+    errors,
+    ...(code ? { code } : {})
   });
 };
 

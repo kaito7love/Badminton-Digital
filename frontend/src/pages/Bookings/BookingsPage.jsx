@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Badge, Pagination } from '../../components/UIComponents';
-import { bookingService, courtService } from '../../services/apiServices';
+import { bookingService, courtService, customerService } from '../../services/apiServices';
+import { connectRealtimeStream } from '../../services/realtimeClient';
+import { useBranch } from '../../contexts/BranchContext';
+import { todayInZone } from '../../utils/datetime';
+import { isValidPhone, normalizePhone, sameName } from '../../utils/phone';
 import InlineNotice from '../../components/InlineNotice';
 import { serverMessage } from '../../utils/serverMessage';
 
@@ -16,7 +20,16 @@ export default function BookingsPage() {
   const [viewMode, setViewMode] = useState('list');
   // Lỗi thao tác hiện thành banner trong trang (không dùng alert); lỗi lưu lịch hiện trong modal để không mất dữ liệu đang gõ.
   const [notice, setNotice] = useState(null);
+  const [noticeTone, setNoticeTone] = useState('error');
   const [modalError, setModalError] = useState(null);
+  // Khách có sẵn khớp SĐT đang gõ trong form tạo lịch (kế hoạch 42, F5): { id, fullName, phone } | null.
+  const [phoneMatch, setPhoneMatch] = useState(null);
+  const [realtimeStatus, setRealtimeStatus] = useState('live');
+  const { selectedBranchId, activeTimezone } = useBranch() || {};
+  const showNotice = (message, tone = 'error') => {
+    setNoticeTone(tone);
+    setNotice(message);
+  };
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -63,14 +76,57 @@ export default function BookingsPage() {
     fetchBookings(page);
   }, [page]);
 
+  // Đồng bộ realtime (F6): khách đặt/huỷ ở nơi khác thì danh sách tự tải lại, không cần F5. Nhận sự kiện = tải lại
+  // TRANG HIỆN TẠI (không ráp state từ payload). Đang mở form thì hoãn tới khi đóng, để không làm mất dữ liệu đang gõ.
+  const pageRef = useRef(page);
+  const modalOpenRef = useRef(false);
+  const refreshPendingRef = useRef(false);
+  pageRef.current = page;
+  modalOpenRef.current = isModalOpen;
+
+  useEffect(() => {
+    const refresh = () => {
+      if (modalOpenRef.current) {
+        refreshPendingRef.current = true;
+        return;
+      }
+      fetchBookings(pageRef.current);
+    };
+    const close = connectRealtimeStream({
+      branchId: selectedBranchId,
+      onEvent: (eventName) => {
+        if (eventName === 'booking:changed') refresh();
+      },
+      onReconnect: refresh,
+      onStatusChange: setRealtimeStatus
+    });
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      close();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [selectedBranchId]);
+
+  useEffect(() => {
+    if (!isModalOpen && refreshPendingRef.current) {
+      refreshPendingRef.current = false;
+      fetchBookings(pageRef.current);
+    }
+  }, [isModalOpen]);
+
   const handleOpenAddModal = () => {
     setEditingBooking(null);
     setModalError(null);
+    setPhoneMatch(null);
     setFormData({
       customerName: '',
       customerPhone: '',
       courtId: courts[0]?.id ? String(courts[0].id) : '',
-      bookingDate: new Date().toISOString().split('T')[0],
+      // Theo múi giờ chi nhánh — cắt toISOString() ra ngày hôm trước trong khoảng 00:00–07:00 giờ Việt Nam.
+      bookingDate: todayInZone(activeTimezone),
       startTime: '08:00',
       endTime: '09:00',
     });
@@ -80,6 +136,7 @@ export default function BookingsPage() {
   const handleOpenEditModal = (b) => {
     setEditingBooking(b);
     setModalError(null);
+    setPhoneMatch(null);
     setFormData({
       customerName: b.customer?.fullName || '',
       customerPhone: b.customer?.phone || '',
@@ -105,11 +162,18 @@ export default function BookingsPage() {
         // Đổi lịch chỉ đổi sân/ngày/giờ — backend trả 400 nếu gửi thêm trường khác.
         await bookingService.updateBooking(editingBooking.id, schedule);
       } else {
-        await bookingService.createBooking({
+        const res = await bookingService.createBooking({
           ...schedule,
           customerName: formData.customerName,
           customerPhone: formData.customerPhone,
         });
+        // Lịch vừa gắn vào hồ sơ có sẵn theo SĐT: nói rõ cho nhân viên, nhất là khi tên gõ khác tên đã lưu (F5).
+        const match = res?.data?.data?.customerMatch;
+        if (match?.nameDiffers) {
+          showNotice(`Đã tạo lịch và gắn vào khách "${match.fullName}" (khớp SĐT). Tên bạn gõ khác tên đã lưu — nếu nhập nhầm SĐT hãy huỷ lịch rồi tạo lại.`, 'warning');
+        } else if (match) {
+          showNotice(`Đã tạo lịch và gắn vào khách "${match.fullName}" (khớp SĐT).`, 'success');
+        }
       }
 
       await fetchBookings();
@@ -119,13 +183,31 @@ export default function BookingsPage() {
     }
   };
 
+  // Rời ô SĐT: tra khách có sẵn khớp đúng số này để nhân viên thấy lịch sẽ gắn vào hồ sơ nào TRƯỚC khi lưu (F5).
+  const lookupPhone = async () => {
+    const phone = normalizePhone(formData.customerPhone);
+    if (editingBooking || !phone || !isValidPhone(phone)) {
+      setPhoneMatch(null);
+      return;
+    }
+    try {
+      const res = await customerService.getAllCustomers({ search: phone, limit: 10 });
+      const list = res.data?.data;
+      const rows = Array.isArray(list) ? list : list?.items || list?.customers || list?.rows || [];
+      const hit = rows.find((c) => normalizePhone(c.phone) === phone);
+      setPhoneMatch(hit ? { id: hit.id, fullName: hit.fullName, phone: hit.phone } : null);
+    } catch {
+      setPhoneMatch(null); // tra cứu chỉ là gợi ý — lỗi thì thôi, việc lưu vẫn có chốt chặn ở server
+    }
+  };
+
   const handleCancelBooking = async (id) => {
     if (!window.confirm('Bạn có chắc muốn hủy đặt sân này?')) return;
     try {
       await bookingService.cancelBooking(id);
       await fetchBookings();
     } catch (err) {
-      setNotice(serverMessage(err, 'Lỗi hủy đặt sân'));
+      showNotice(serverMessage(err, 'Lỗi hủy đặt sân'));
     }
   };
 
@@ -134,7 +216,7 @@ export default function BookingsPage() {
       await bookingService.confirmBooking(id);
       await fetchBookings();
     } catch (err) {
-      setNotice(serverMessage(err, 'Lỗi xác nhận đặt sân'));
+      showNotice(serverMessage(err, 'Lỗi xác nhận đặt sân'));
     }
   };
 
@@ -175,7 +257,12 @@ export default function BookingsPage() {
         </div>
       </div>
 
-      <InlineNotice message={notice} onClose={() => setNotice(null)} />
+      {realtimeStatus === 'reconnecting' && (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-800 dark:text-amber-200">
+          Đang kết nối lại để cập nhật tự động… danh sách có thể chưa mới nhất.
+        </p>
+      )}
+      <InlineNotice message={notice} tone={noticeTone} onClose={() => setNotice(null)} />
 
       {viewMode === 'list' ? (
         <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-slate-900/80 p-6 md:p-8 shadow-2xl backdrop-blur-xl">
@@ -265,7 +352,11 @@ export default function BookingsPage() {
                 required={!editingBooking}
                 disabled={Boolean(editingBooking)}
                 value={formData.customerPhone}
-                onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
+                onChange={(e) => {
+                  setPhoneMatch(null);
+                  setFormData({ ...formData, customerPhone: e.target.value });
+                }}
+                onBlur={lookupPhone}
                 className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-white px-4 py-3 text-sm focus:border-emerald-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                 placeholder="090XXXXXXX"
               />
@@ -318,6 +409,22 @@ export default function BookingsPage() {
               />
             </div>
           </div>
+
+          {phoneMatch && !editingBooking && (
+            <p
+              data-testid="phone-match"
+              className={`rounded-xl border px-3 py-2 text-xs font-semibold ${
+                formData.customerName.trim() && !sameName(formData.customerName, phoneMatch.fullName)
+                  ? 'border-amber-600/40 bg-amber-500/10 text-amber-900 dark:border-amber-400/40 dark:text-amber-200'
+                  : 'border-emerald-600/40 bg-emerald-500/10 text-emerald-800 dark:border-emerald-400/40 dark:text-emerald-300'
+              }`}
+            >
+              Khớp khách <strong>{phoneMatch.fullName}</strong> ({phoneMatch.phone}).
+              {formData.customerName.trim() && !sameName(formData.customerName, phoneMatch.fullName)
+                ? ' Tên bạn gõ khác tên đã lưu — lịch sẽ gắn vào hồ sơ này. Kiểm lại SĐT?'
+                : ' Lịch sẽ gắn vào hồ sơ này.'}
+            </p>
+          )}
 
           <InlineNotice message={modalError} onClose={() => setModalError(null)} />
 
