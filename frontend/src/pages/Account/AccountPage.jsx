@@ -40,8 +40,8 @@ const initialsOf = (name) =>
 function InfoRow({ label, value }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-slate-100 dark:border-white/5 py-3 last:border-0">
-      <span className="font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">{label}</span>
-      <span className="truncate text-sm font-bold text-slate-900 dark:text-white">{value || '—'}</span>
+      <span className="shrink-0 font-kinetic text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">{label}</span>
+      <span className="min-w-0 truncate text-sm font-bold text-slate-900 dark:text-white" title={value || undefined}>{value || '—'}</span>
     </div>
   );
 }
@@ -219,14 +219,14 @@ export default function AccountPage() {
         </Link>
       }
     >
-      <div className="grid gap-6 lg:grid-cols-3">
-        <section className="nike-card-static p-7 lg:col-span-1">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <section className="nike-card-static min-w-0 p-7 lg:col-span-1">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500 to-lime-400 font-kinetic text-xl font-black text-slate-950">
               {initialsOf(customer?.fullName || user?.fullName)}
             </div>
             <div className="min-w-0">
-              <h2 className="truncate font-kinetic text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
+              <h2 className="break-words font-kinetic text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white lg:truncate">
                 {customer?.fullName || user?.fullName}
               </h2>
               <span
@@ -250,7 +250,7 @@ export default function AccountPage() {
           </p>
         </section>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:col-span-2 lg:content-start">
+        <div className="grid min-w-0 grid-cols-1 gap-6 sm:grid-cols-2 lg:col-span-2 lg:content-start">
           <StatTile
             label="Tổng chi tiêu"
             value={formatVnd(totalSpent)}
