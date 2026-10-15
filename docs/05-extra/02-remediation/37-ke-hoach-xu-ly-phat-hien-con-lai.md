@@ -233,3 +233,31 @@ refresh đồng thời, ân hạn, quá ân hạn, thu hồi chéo thiết bị,
 chung `localStorage` cùng refresh một lúc → cả hai vẫn ở `/my-bookings`, `refresh_token` được xoay đúng một lần;
 thiết bị B đổi mật khẩu qua giao diện → thiết bị A (access token **còn hạn**) bị đưa về `/login` ngay, B vẫn trong
 hệ thống.
+
+### Nhóm E — kiểm thử còn thiếu (nhánh `test/e-kiem-thu-con-thieu`) — XONG
+
+Không đổi code ứng dụng; chỉ thêm 1 file test. Lỗi mới (nếu có) được **liệt kê, không tự sửa** (theo §6).
+
+| Mục | Kết quả |
+|---|---|
+| **B9** gọi thẳng competition-service :5150 | ✅ 6/6: không token, chuỗi rác, **ES256 ký bằng khoá lạ** (cùng `kid`/`iss`/`aud`, scope admin), **HS256 ký bằng secret của app chính**, `alg: none` → đều 401; service vẫn sống |
+| **C4** xuất Excel formula injection | ✅ `reportExporterFormula.test.js` (mới, 8 test): 6 payload (`=HYPERLINK…`, `+cmd…`, `-2+3`, `@SUM…`, `	=…`, `=…`) qua tên sân/khách/SĐT/phụ kiện → không ô công thức, không ô chuỗi bắt đầu bằng ký tự kích hoạt; nội dung thường không đổi |
+| **D2** webhook competition | ✅ 9/9 trên backend tạm: chữ ký đúng 200; gửi lại cùng id → `duplicate`; sửa 1 byte thân → 401; timestamp cũ 10 phút → 401; secret sai → 401; `X-Event-Source` lạ → 401; không header → 401; thiếu `id` → 400; 300 KB → 413 |
+| **D7** phí sân khi chuyển sân | ✅ dựa trên `courtFeeSegments.test.js` + `priceCalculator.test.js` (57 test cùng nhóm H pass); không dựng lại luồng chuyển sân trên server vì thời gian chơi thật tính theo giây |
+| **D8** void hoá đơn | ✅ 7/7: thiếu lý do 400; nhân viên 403; khách 403; QL CN2 void hoá đơn CN3 → 404; void lần 1 → 200; lần 2 → 409; **3 request song song → 200,409,409** |
+| **E4** log và `ActivityLog` | ✅ 18 file log của các server tạm + 54 dòng `activity_logs` gần nhất: không có JWT, hash bcrypt, mật khẩu thử, `"password":`, token trong URL |
+| **F3** token trong `localStorage` | ⚠️ ghi nhận, **chấp nhận**: đúng thiết kế hiện tại (audit 08/2026 mục 5). Giảm nhẹ bằng CSP `script-src 'self'` (R9) và 0 sink XSS trong `frontend/src`; chuyển sang cookie `httpOnly` là việc kiến trúc riêng |
+| **F4** nhúng trang nhân viên | ✅ `/dashboard`, `/employees`, `/settings`, `/reports`: `X-Frame-Options: DENY` + `frame-ancestors 'none'`; `/login` thật sự không nhúng được (đã thử bằng iframe ở origin khác, đối chứng bản cũ nhúng được) |
+| **F6** vào thẳng URL nhân viên | ✅ chưa đăng nhập: 9/9 URL → `/login`; đăng nhập bằng **khách**: 9/9 URL → `/my-bookings`, không thấy nội dung quản trị (Chrome headless) |
+| **G1** giới hạn SSE công khai | ✅ 45 kết nối từ một IP: đúng **40** được nhận, **5 bị 429**; đóng hết rồi mở lại → 200 |
+| **G6** k6 `smoke.js` | ✅ 60/60 check, `http_req_failed` 0% (k6 v2.0.0) |
+| **H6** TLS DB | ✅ `dbSsl.test.js` pass (luôn kiểm chứng chỉ máy chủ) |
+| **H7** chặn seed ở production | ✅ `demoSeedGuard.test.js`, `createAdmin.test.js` pass |
+| **H8** quyền token workflow | ⚠️ `demo-reset.yml` có `permissions: contents: read`; **`ci.yml` KHÔNG khai `permissions`** → quyền `GITHUB_TOKEN` phụ thuộc cài đặt mặc định của repo (**phát hiện mới R16**) |
+| **H12** trivy quét **image** | ✅ build `docker/app.Dockerfile` (`bd-security-test/app:32`, 100 MB): gói hệ điều hành Alpine 3.24 **0 HIGH/CRITICAL**, 0 secret; 11 HIGH nằm **toàn bộ** trong `/usr/local/lib/node_modules/npm/` (npm CLI đóng kèm image gốc `node:22-alpine`: `pacote`, `sigstore`, `picomatch`, `brace-expansion`…) — **không phải thư viện của ứng dụng** và container chạy `node src/server.js`, không gọi npm (**phát hiện mới R17**, mức thông tin); DS-0002 "chạy bằng root" chỉ ở `Dockerfile` bên trong `node_modules/bcrypt` (không phải image của dự án) |
+
+**Phát hiện mới (liệt kê, chưa sửa):**
+- **R16 🟡** `.github/workflows/ci.yml` thiếu khối `permissions:`. Sửa: thêm `permissions: contents: read` ở đầu file (1 dòng).
+- **R17 🟡** (thông tin) npm CLI trong image gốc có 11 HIGH. Sửa nếu muốn: nâng image gốc `node:22-alpine` khi có bản mới, hoặc gỡ npm khỏi image chạy (`rm -rf /usr/local/lib/node_modules/npm`) nếu entrypoint không cần.
+
+**Kiểm tra:** `npm test` (xem tổng kết cuối đợt).
