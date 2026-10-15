@@ -11,18 +11,18 @@ const validate = (req, res, next) => {
 };
 
 const createGoodsReceiptRules = [
-  body('supplierId').optional({ nullable: true }).isInt().withMessage('Supplier ID must be an integer'),
+  body('supplierId').optional({ nullable: true }).isInt({ min: 1, max: 2147483647 }).withMessage('Supplier ID must be an integer'),
   body('note').optional().trim(),
   body('items').isArray({ min: 1 }).withMessage('Goods receipt must have at least 1 line item'),
-  body('items.*.extraId').optional({ nullable: true }).isInt().withMessage('extraId must be an integer'),
-  body('items.*.productVariantId').optional({ nullable: true }).isInt().withMessage('productVariantId must be an integer'),
+  body('items.*.extraId').optional({ nullable: true }).isInt({ min: 1, max: 2147483647 }).withMessage('extraId must be an integer'),
+  body('items.*.productVariantId').optional({ nullable: true }).isInt({ min: 1, max: 2147483647 }).withMessage('productVariantId must be an integer'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('quantity must be at least 1'),
   body('items.*.unitCost').isFloat({ min: 0 }).withMessage('unitCost must be a non-negative number'),
   validate
 ];
 
 const getGoodsReceiptRules = [
-  param('id').isInt().withMessage('Goods receipt ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Goods receipt ID must be an integer'),
   validate
 ];
 

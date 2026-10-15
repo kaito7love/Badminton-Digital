@@ -91,8 +91,8 @@ describe('B3: nhân viên chi nhánh này không đụng được chi nhánh kh�
     expect(res.status).toBe(403);
   });
 
-  // --- lỗi đã biết (báo cáo 33, R8) ---
-  test.failing('R8: GET /sessions/:id/extras của phiên chi nhánh khác bị chặn', async () => {
+  // --- R8 (báo cáo 33, kế hoạch 37): đã sửa ---
+  test('R8: GET /sessions/:id/extras của phiên chi nhánh khác bị chặn', async () => {
     await api().post('/api/v1/courts/9/open').set('Authorization', bearer('employeeCn3')).send({});
     const [row] = await sequelize.query('SELECT id FROM court_sessions WHERE branch_id = 3 ORDER BY id DESC LIMIT 1', { type: 'SELECT' });
     const res = await api().get(`/api/v1/sessions/${row.id}/extras`).set('Authorization', bearer('employeeCn2'));

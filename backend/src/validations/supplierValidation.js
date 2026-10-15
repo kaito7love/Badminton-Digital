@@ -21,7 +21,7 @@ const createSupplierRules = [
 ];
 
 const updateSupplierRules = [
-  param('id').isInt().withMessage('Supplier ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Supplier ID must be an integer'),
   body('name').optional().trim().notEmpty(),
   body('phone').optional().trim(),
   body('email').optional({ checkFalsy: true }).isEmail().withMessage('Invalid email'),

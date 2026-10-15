@@ -12,7 +12,7 @@ const validate = (req, res, next) => {
 };
 
 const checkoutRules = [
-  body('sessionId').isInt().withMessage('Session ID is required and must be an integer'),
+  body('sessionId').isInt({ min: 1, max: 2147483647 }).withMessage('Session ID is required and must be an integer'),
   body('paymentMethod').isIn(['cash', 'transfer']).withMessage('Payment method must be cash or transfer'),
   body('discountAmount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('Số tiền giảm giá phải là số không âm').toFloat(),
   // `.toBoolean(true)`: chỉ true / "true" / "1" mới là giảm theo %. Trước đây
@@ -51,7 +51,7 @@ const webhookRules = [
 ];
 
 const voidInvoiceRules = [
-  param('id').isInt().withMessage('Invoice ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Invoice ID must be an integer'),
   body('reason').trim().notEmpty().withMessage('Lý do huỷ hoá đơn là bắt buộc'),
   validate
 ];

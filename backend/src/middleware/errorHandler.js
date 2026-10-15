@@ -33,6 +33,20 @@ const classifyError = (err) => {
       errors: null
     };
   }
+  // Lỗi tranh chấp của MySQL (R11): hai request cùng khoá một dòng, một bên bị chọn làm "nạn nhân". Dữ liệu vẫn
+  // nhất quán — nên là 409 để client thử lại, không phải 500 như crash thật.
+  const dbCode = err.parent?.code || err.original?.code;
+  if (dbCode === 'ER_LOCK_DEADLOCK' || dbCode === 'ER_LOCK_WAIT_TIMEOUT') {
+    return {
+      statusCode: 409,
+      message: 'Hệ thống đang xử lý một yêu cầu khác trên cùng dữ liệu, vui lòng thử lại sau giây lát.',
+      errors: null
+    };
+  }
+  // Giá trị vượt cột (chuỗi quá dài, số ngoài miền INT) lọt qua validator: lỗi của đầu vào, không phải của máy chủ.
+  if (['ER_DATA_TOO_LONG', 'ER_WARN_DATA_OUT_OF_RANGE', 'ER_DATA_OUT_OF_RANGE', 'ER_TRUNCATED_WRONG_VALUE', 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD'].includes(dbCode)) {
+    return { statusCode: 400, message: 'Dữ liệu vượt quá độ dài hoặc giá trị cho phép.', errors: null };
+  }
   // Còn lại là crash/bug thật: message có thể chứa chi tiết nội bộ (lỗi DB,
   // tên bảng...) nên chỉ lộ ra ngoài lúc dev.
   return {

@@ -31,7 +31,7 @@ const createVoucherRules = [
 ];
 
 const updateVoucherRules = [
-  param('id').isInt().withMessage('Voucher ID phải là số nguyên'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Voucher ID phải là số nguyên'),
   body('code').optional().trim().notEmpty().isLength({ max: 32 }).withMessage('Mã giảm giá tối đa 32 ký tự'),
   body('description').optional({ nullable: true }).isLength({ max: 255 }).withMessage('Mô tả tối đa 255 ký tự'),
   body('discountType').optional().isIn(['percent', 'flat']),
@@ -46,7 +46,7 @@ const updateVoucherRules = [
   validate
 ];
 
-const voucherIdRules = [param('id').isInt().withMessage('Voucher ID phải là số nguyên'), validate];
+const voucherIdRules = [param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Voucher ID phải là số nguyên'), validate];
 
 const previewVoucherRules = [
   body('code').trim().notEmpty().withMessage('Vui lòng nhập mã giảm giá'),

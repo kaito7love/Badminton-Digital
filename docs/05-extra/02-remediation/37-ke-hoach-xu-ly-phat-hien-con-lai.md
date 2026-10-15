@@ -148,3 +148,24 @@ Mặc định bên cạnh chỉ là đề xuất; câu nào bạn không trả l
   (mục auth, header, chính sách mật khẩu) và `00-tien-do.md` không? (Các lần trước bạn chọn "chưa"; đề xuất:
   **có** vào lúc kết thúc để tài liệu không lệch với code.)
 - **Q9.** Nhóm E (§6) — làm hết như liệt kê?
+
+
+## 10. Kết quả thực hiện (cập nhật theo từng nhóm)
+
+**Trả lời đã nhận (2026-10-15):** Q1 8 ký tự + chặn phổ biến + chặn trùng SĐT/email/tên · Q2 đổi chữ 6→8 ·
+Q3 xoay refresh có ân hạn 30 giây · Q4 một migration, chỉ chạy trên DB tạm · Q5 khách tối đa 3 giờ · Q6 ghim
+Actions theo SHA, không làm R14b/c/d · Q7 giữ thông báo trùng SĐT/email · Q8 có cập nhật tài liệu cuối đợt ·
+Q9 mặc định (làm hết nhóm E; tin nhắn duyệt bị cắt ở Q8 nên Q9 được hiểu theo "đề xuất mặc định").
+
+### Nhóm A — vá nhỏ (nhánh `fix/r5-r6-r8-r11-r12-va-nho`) — XONG
+
+| Mục | Đã làm |
+|---|---|
+| R5 | `AuthService.login`: không có tài khoản vẫn `bcrypt.compare` với hash giả (cost 10). Đo thật trên backend tạm: trung vị **68,1 ms** (không có TK) vs **67,5 ms** (sai MK); trước sửa 5,7 vs 70,3 |
+| R6 | So mật khẩu **trước** khi báo "vô hiệu hóa": sai MK → 401, đúng MK → 403. Mật khẩu không phải chuỗi → 401 thay vì 500 |
+| R8 | `getSessionExtras` kiểm phiên thuộc chi nhánh đang chọn → 404 |
+| R11 | Validator báo cáo (`reportValidation.js`: `period`, `from`/`to` ngày có thật, `from ≤ to`); độ dài chuỗi khớp cột (họ tên 100, email 100/255, chức vụ/ca 50); 42 validator id → `isInt({ min: 1, max: 2147483647 })`; `errorHandler`: `ER_LOCK_DEADLOCK`/`ER_LOCK_WAIT_TIMEOUT` → **409**, `ER_DATA_TOO_LONG`/`ER_*_OUT_OF_RANGE` → 400. Đo thật: 6 checkout song song → **201 + 5×409** (trước: 201 + 4×500) |
+| R12 | `settingValidation.js`: chỉ kiểm kiểu (object/mảng ≤ 20 phần tử, ≤ 4 KB, chuỗi ≤ 200, lồng ≤ 3 tầng, giờ `HH:mm`, giờ cao điểm 0–24, tên trường mang nghĩa tiền phải là số ≥ 0 ≤ 1e9, cấm `__proto__`/`constructor`); `PUT /settings` chỉ nhận 5 khoá đã dùng trong code. Nút "Lưu" của trang Cài đặt thật vẫn chạy ("Đã lưu cài đặt thành công!") |
+
+**Kiểm tra:** `npm test` **54 suite, 742 test pass** (trước 693); `test:security` **4 suite, 61 test pass**
+(R8 chuyển từ `test.failing` sang `test` thường); kiểm thật 14/14 trên backend tạm :5054 (HTTP + Chrome).
