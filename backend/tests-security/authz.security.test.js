@@ -30,8 +30,16 @@ describe('B2: khách không đụng được dữ liệu của khách khác', ()
     intruder = await registerCustomer(unique());
     const courts = await api().get('/api/v1/public/courts?branchId=1');
     const list = courts.body.data.courts || courts.body.data;
-    const res = await api().post('/api/v1/bookings').set('Authorization', `Bearer ${tokenFor(owner)}`)
-      .send({ courtId: list[0].id, bookingDate: tomorrow(), startTime: '19:00', endTime: '20:00' });
+    // Chạy lại nhiều lần trên cùng DB thử thì slot cũ đã bị chiếm (409): dò tới khi có slot trống.
+    let res;
+    for (const court of list) {
+      for (let hour = 7; hour <= 21 && !(res && res.status === 201); hour += 1) {
+        const pad = (n) => String(n).padStart(2, '0');
+        res = await api().post('/api/v1/bookings').set('Authorization', `Bearer ${tokenFor(owner)}`)
+          .send({ courtId: court.id, bookingDate: tomorrow(), startTime: `${pad(hour)}:00`, endTime: `${pad(hour + 1)}:00` });
+      }
+      if (res && res.status === 201) break;
+    }
     expect([200, 201]).toContain(res.status);
     bookingId = res.body.data.id;
     const own = await api().get('/api/v1/auth/me').set('Authorization', `Bearer ${tokenFor(owner)}`);

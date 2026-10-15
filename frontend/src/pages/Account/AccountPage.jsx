@@ -4,6 +4,7 @@ import CustomerLayout from '../../layouts/CustomerLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService, customerService } from '../../services/apiServices';
 import { formatDateTime, formatDate } from '../../utils/datetime';
+import { storeSessionTokens } from '../../utils/sessionTokens';
 import MyRatingCard from '../../features/competition/components/MyRatingCard';
 
 /**
@@ -74,7 +75,9 @@ function ChangePasswordCard() {
 
     setSubmitting(true);
     try {
-      await authService.changePassword({ oldPassword: form.oldPassword, newPassword: form.newPassword });
+      const res = await authService.changePassword({ oldPassword: form.oldPassword, newPassword: form.newPassword });
+      // Đổi mật khẩu thu hồi refresh token cũ — giữ cặp token mới để phiên này không bị đăng xuất.
+      storeSessionTokens(res.data?.data);
       setForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
       setStatus({ type: 'success', message: 'Đã đổi mật khẩu.' });
     } catch (err) {

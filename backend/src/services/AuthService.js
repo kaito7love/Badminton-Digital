@@ -160,7 +160,10 @@ class AuthService {
   }
 
   static async changePassword(userId, { oldPassword, newPassword }) {
-    const user = await User.scope("withSecrets").findByPk(userId);
+    // Kèm role để access token mới mang đúng `role` như khi đăng nhập.
+    const user = await User.scope("withSecrets").findByPk(userId, {
+      include: [{ model: Role, as: "role" }],
+    });
     if (!user) {
       const error = new Error("Người dùng không tồn tại.");
       error.statusCode = 404;
@@ -177,10 +180,25 @@ class AuthService {
       throw error;
     }
 
-    user.passwordHash = await bcrypt.hash(newPassword, 10);
-    await user.save();
+    // Đổi mật khẩu phải thu hồi mọi phiên cũ (R1, báo cáo 33): mỗi user chỉ có
+    // MỘT cột refreshToken nên ghi refresh token mới vào đây là vô hiệu refresh
+    // token của mọi thiết bị khác. Thiết bị đang đổi nhận cặp token mới để giữ
+    // phiên (giao diện hứa "vẫn giữ nguyên phiên đăng nhập này").
+    //
+    // Update trực tiếp, không qua `user.save()`: cùng lý do với `login` — model có
+    // `version: true`, save() ném OptimisticLockError (→ 500) khi chạm một lần
+    // đăng nhập/refresh đồng thời.
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    await User.update(
+      {
+        passwordHash: await bcrypt.hash(newPassword, 10),
+        refreshToken: hashRefreshToken(refreshToken),
+      },
+      { where: { id: user.id } }
+    );
 
-    return { message: "Đổi mật khẩu thành công." };
+    return { message: "Đổi mật khẩu thành công.", accessToken, refreshToken };
   }
 
   static async forgotPassword(email) {
