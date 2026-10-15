@@ -1,6 +1,7 @@
 const { body, param, validationResult } = require('express-validator');
 const { errorResponse } = require('../utils/responseHandler');
 const { isValidPhone } = require('../utils/phone');
+const { checkPassword } = require('../utils/passwordPolicy');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -27,8 +28,11 @@ const createCustomerRules = [
   body('email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('Email không hợp lệ')
     .isLength({ max: 100 }).withMessage('Email tối đa 100 ký tự'),
   // Có mật khẩu nghĩa là nhân viên tạo luôn tài khoản đăng nhập cho khách
-  body('password').optional({ nullable: true, checkFalsy: true })
-    .isLength({ min: 6 }).withMessage('Mật khẩu phải có tối thiểu 6 ký tự'),
+  body('password').optional({ nullable: true, checkFalsy: true }).custom((value, { req }) => {
+    const result = checkPassword(value, { phone: req.body.phone, email: req.body.email, fullName: req.body.fullName });
+    if (!result.ok) throw new Error(result.message);
+    return true;
+  }),
   validate
 ];
 

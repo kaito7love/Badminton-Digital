@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Pagination } from '../../components/UIComponents';
 import { customerService } from '../../services/apiServices';
 import { formatDate } from '../../utils/datetime';
+import { PASSWORD_MIN_LENGTH, PASSWORD_HINT } from '../../utils/passwordRules';
+import { serverMessage } from '../../utils/serverMessage';
 import CustomerRatingButton from '../../features/competition/components/CustomerRatingButton';
 
 const formatMoney = (n) => {
@@ -91,7 +93,7 @@ export default function CustomersPage() {
       setIsModalOpen(false);
       fetchCustomers(search, page);
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi lưu thông tin khách hàng');
+      alert(serverMessage(err, 'Lỗi lưu thông tin khách hàng'));
     }
   };
 
@@ -286,11 +288,11 @@ export default function CustomersPage() {
               </label>
               <input
                 type="text"
-                minLength={6}
+                minLength={PASSWORD_MIN_LENGTH}
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
-                placeholder="Tối thiểu 6 ký tự"
+                placeholder={PASSWORD_HINT}
               />
               <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
                 Mặc định <span className="font-mono text-slate-500 dark:text-slate-400">123456</span> — khách đăng nhập

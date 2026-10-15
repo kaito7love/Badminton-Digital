@@ -1,6 +1,7 @@
 const { body, param, validationResult } = require('express-validator');
 const { errorResponse } = require('../utils/responseHandler');
 const { isValidPhone } = require('../utils/phone');
+const { checkPassword } = require('../utils/passwordPolicy');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -12,7 +13,11 @@ const validate = (req, res, next) => {
 };
 
 const createEmployeeRules = [
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('password').custom((value, { req }) => {
+    const result = checkPassword(value, { phone: req.body.phone, email: req.body.email, fullName: req.body.fullName });
+    if (!result.ok) throw new Error(result.message);
+    return true;
+  }),
   body('email').isEmail().withMessage('Valid email is required')
     .isLength({ max: 255 }).withMessage('Email tối đa 255 ký tự'),
   body('phone').custom((value) => {

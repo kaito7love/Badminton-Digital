@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { PASSWORD_MIN_LENGTH, PASSWORD_HINT } from '../../utils/passwordRules';
 
 // Đăng ký bằng số điện thoại. Email để tuỳ chọn — phần lớn khách đặt sân chỉ
 // có số, nhưng ai điền email thì sau này lấy lại mật khẩu được qua thư.
@@ -91,8 +92,8 @@ export default function RegisterPage() {
 
           <div className="space-y-2">
             <label className={label} htmlFor="reg-pass">Mật khẩu</label>
-            <input id="reg-pass" name="password" type="password" required minLength={6} autoComplete="new-password"
-              value={form.password} onChange={change} className={field} placeholder="Tối thiểu 6 ký tự" />
+            <input id="reg-pass" name="password" type="password" required minLength={PASSWORD_MIN_LENGTH} autoComplete="new-password"
+              value={form.password} onChange={change} className={field} placeholder={PASSWORD_HINT} />
           </div>
 
           <div className="space-y-2">

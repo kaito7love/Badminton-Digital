@@ -218,7 +218,7 @@ paths:
               fullName: 'Khách Postman'
               phone: string
               email: string
-              password: Customer@123
+              password: 'Postman-Khach#2026qa'
       security: []
       responses:
         '201':
@@ -300,7 +300,7 @@ paths:
               type: object
             example:
               token: '<token-tu-email>'
-              newPassword: MatKhauMoi@123
+              newPassword: 'Postman-Mat-Khau-Moi#2026'
       security: []
       responses:
         '201':
@@ -3172,7 +3172,7 @@ paths:
               fullName: 'NV QA Postman'
               email: string
               phone: string
-              password: Employee@123
+              password: 'Postman-NhanVien#2026qa'
               position: 'Lễ tân'
               shift: 'Ca sáng'
       responses:

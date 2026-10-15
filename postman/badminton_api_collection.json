@@ -404,7 +404,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Khách Postman\",\n  \"phone\": \"{{qaCustomerPhone}}\",\n  \"email\": \"{{qaEmail}}\",\n  \"password\": \"Customer@123\"\n}",
+              "raw": "{\n  \"fullName\": \"Khách Postman\",\n  \"phone\": \"{{qaCustomerPhone}}\",\n  \"email\": \"{{qaEmail}}\",\n  \"password\": \"Postman-Khach#2026qa\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -588,7 +588,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"<token-tu-email>\",\n  \"newPassword\": \"MatKhauMoi@123\"\n}",
+              "raw": "{\n  \"token\": \"<token-tu-email>\",\n  \"newPassword\": \"Postman-Mat-Khau-Moi#2026\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5148,7 +5148,7 @@
                   "    pm.sendRequest({",
                   "      url: _base + '/auth/register', method: 'POST',",
                   "      header: { 'Content-Type': 'application/json' },",
-                  "      body: { mode: 'raw', raw: JSON.stringify({ fullName: 'Khách QA online (gộp)', phone: _phone, password: 'Customer@123' }) }",
+                  "      body: { mode: 'raw', raw: JSON.stringify({ fullName: 'Khách QA online (gộp)', phone: _phone, password: 'Postman-Khach#2026qa' }) }",
                   "    }, function (err2, registerRes) {",
                   "      if (err2 || registerRes.code !== 201) {",
                   "        console.log('Không đăng ký được tài khoản cùng số để gộp: ' + (err2 ? err2.message : registerRes.text()));",
@@ -5394,7 +5394,7 @@
             "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"NV QA Postman\",\n  \"email\": \"{{qaEmail}}\",\n  \"phone\": \"{{qaEmployeePhone}}\",\n  \"password\": \"Employee@123\",\n  \"position\": \"Lễ tân\",\n  \"shift\": \"Ca sáng\"\n}",
+              "raw": "{\n  \"fullName\": \"NV QA Postman\",\n  \"email\": \"{{qaEmail}}\",\n  \"phone\": \"{{qaEmployeePhone}}\",\n  \"password\": \"Postman-NhanVien#2026qa\",\n  \"position\": \"Lễ tân\",\n  \"shift\": \"Ca sáng\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
