@@ -29,8 +29,8 @@ describe('Phiên đăng nhập (A5, A6)', () => {
 
   test('A9b: đăng ký kèm role/roleId vẫn là customer', async () => {
     const phone = unique();
-    await api().post('/api/v1/auth/register').send({ phone, fullName: 'Nâng quyền', password: 'SecTest@2026', role: 'admin', roleId: 1 });
-    const res = await api().post('/api/v1/auth/login').send({ identifier: phone, password: 'SecTest@2026' });
+    await api().post('/api/v1/auth/register').send({ phone, fullName: 'Nâng quyền', password: 'Cam-Bien-Gio-2026', role: 'admin', roleId: 1 });
+    const res = await api().post('/api/v1/auth/login').send({ identifier: phone, password: 'Cam-Bien-Gio-2026' });
     expect(res.body.data.user.role).toBe('customer');
   });
 
@@ -96,7 +96,7 @@ describe('Phiên đăng nhập (A5, A6)', () => {
     });
 
     test('đăng nhập bằng mật khẩu cũ bị từ chối sau khi đổi', async () => {
-      const oldPw = await api().post('/api/v1/auth/login').send({ identifier: me.phone, password: 'SecTest@2026' });
+      const oldPw = await api().post('/api/v1/auth/login').send({ identifier: me.phone, password: 'Cam-Bien-Gio-2026' });
       expect(oldPw.status).toBe(401);
     });
   });
@@ -117,8 +117,48 @@ describe('Phiên đăng nhập (A5, A6)', () => {
     expect(res.status).toBe(401);
   });
 
-  test.failing('R2/A3: mật khẩu "123456" bị từ chối khi đăng ký', async () => {
-    const res = await api().post('/api/v1/auth/register').send({ phone: unique(), fullName: 'Yếu', password: '123456' });
-    expect(res.status).toBe(400);
+  // --- R2 (kế hoạch 37 nhóm B): chính sách mật khẩu đã sửa ---
+  // Đăng ký bị limiter 5 lần/giờ/IP nên chỉ dùng 2 lần đăng ký; phần còn lại đi qua đổi mật khẩu (cùng một chính sách).
+  describe('R2/A3: chính sách mật khẩu', () => {
+    test('đăng ký với "123456" bị từ chối, kèm thông điệp cụ thể', async () => {
+      const res = await api().post('/api/v1/auth/register').send({ phone: unique(), fullName: 'Chính Sách MK', password: '123456' });
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body)).toMatch(/8 đến 72/);
+    });
+
+    test('đăng ký với mật khẩu mạnh được nhận', async () => {
+      const res = await api().post('/api/v1/auth/register').send({ phone: unique(), fullName: 'Chính Sách MK', password: 'Tr0ng-Ngay-M@i-2026' });
+      expect(res.status).toBe(201);
+    });
+
+    const change = (newPassword) => api().put('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${tokenFor(me)}`).send({ oldPassword: me.password, newPassword });
+
+    test.each([
+      ['quá ngắn', '1234567', /8 đến 72/],
+      ['phổ biến', 'password', /phổ biến/],
+      ['phổ biến + đuôi số/ký hiệu', 'Matkhau2026!', /phổ biến/],
+      ['dãy bàn phím', 'qwertyuiop', /phổ biến/],
+      ['mật khẩu demo công khai', 'Employee@123', /phổ biến/],
+      ['lặp một ký tự', 'zzzzzzzzzz', /(đơn giản|phổ biến)/],
+      ['dài hơn 72 byte', 'Xk9#mQ2p'.repeat(9) + 'z', /8 đến 72/]
+    ])('đổi mật khẩu sang mật khẩu %s → 400', async (_, pw, message) => {
+      const res = await change(pw);
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body)).toMatch(message);
+    });
+
+    test('đổi mật khẩu sang mật khẩu chứa SĐT của chính mình → 400', async () => {
+      const res = await change(`Xk${me.phone}!z`);
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body)).toMatch(/số điện thoại/);
+    });
+
+    test('bị từ chối thì phiên hiện có không bị thu hồi', async () => {
+      const { refreshToken } = await login();
+      expect((await change('password')).status).toBe(400);
+      const still = await api().post('/api/v1/auth/refresh-token').send({ refreshToken });
+      expect(still.status).toBe(200);
+    });
   });
 });

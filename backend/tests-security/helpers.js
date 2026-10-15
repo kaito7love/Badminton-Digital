@@ -23,7 +23,7 @@ const DEMO = {
 };
 const bearer = (who) => `Bearer ${tokenFor(DEMO[who])}`;
 
-const registerCustomer = async (phone, password = 'SecTest@2026') => {
+const registerCustomer = async (phone, password = 'Cam-Bien-Gio-2026') => {
   const res = await api().post('/api/v1/auth/register').send({ phone, fullName: `SecTest ${phone}`, password });
   if (res.status !== 201) throw new Error(`register ${phone}: ${res.status} ${JSON.stringify(res.body)}`);
   const user = await User.findOne({ where: { phone } });

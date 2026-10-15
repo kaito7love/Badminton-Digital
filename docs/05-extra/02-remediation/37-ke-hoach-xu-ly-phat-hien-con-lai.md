@@ -169,3 +169,32 @@ Q9 mặc định (làm hết nhóm E; tin nhắn duyệt bị cắt ở Q8 nên 
 
 **Kiểm tra:** `npm test` **54 suite, 742 test pass** (trước 693); `test:security` **4 suite, 61 test pass**
 (R8 chuyển từ `test.failing` sang `test` thường); kiểm thật 14/14 trên backend tạm :5054 (HTTP + Chrome).
+
+### Nhóm B — chính sách mật khẩu R2 (nhánh `fix/r2-chinh-sach-mat-khau`) — XONG
+
+**Backend:** `utils/passwordPolicy.js` (hàm thuần): 8–72 **byte** (72 là giới hạn thật của bcrypt), chặn ~220
+mật khẩu phổ biến/dãy bàn phím/từ Việt và ngành cầu lông (so không phân biệt hoa thường, bỏ đuôi số/ký hiệu),
+chặn ký tự lặp và dãy liên tiếp, chặn trùng/chứa SĐT, phần trước `@` của email, họ tên. Áp ở đăng ký, đổi mật
+khẩu, đặt lại mật khẩu, tạo nhân viên, tạo tài khoản khách; `AuthService.changePassword`/`resetPassword` kiểm
+lại phía service (đã biết user). Mật khẩu **đang có** và đăng nhập không bị ảnh hưởng.
+
+**Hai quyết định phát sinh khi làm (cần bạn biết):**
+- **Đổi sang chính mật khẩu hiện tại chỉ kiểm độ dài.** Request "Change password" của Postman đặt mật khẩu mới
+  = mật khẩu cũ (`{{adminPassword}}`, tức `Admin@123` — nằm trong danh sách chặn) để chạy lặp được; chặn luôn
+  thì `runDestructive` của Postman hỏng. Cách này không thêm rủi ro (người đó vốn đã dùng mật khẩu ấy, và vẫn
+  phải biết mật khẩu cũ).
+- **Mật khẩu demo công khai (`Admin@123`, `Employee@123`, `Manager@123`, `Customer@123`) nằm trong danh sách
+  chặn** nên không ai đặt lại được các mật khẩu đó qua API/giao diện. Seeder vẫn tạo chúng bằng bcrypt trực tiếp
+  nên bản demo và đăng nhập không đổi.
+
+**Frontend (đổi chữ 6→8 theo Q2):** `utils/passwordRules.js` + `utils/serverMessage.js` (có Vitest); 5 trang
+(`RegisterPage`, `ResetPasswordPage`, `AccountPage`, `EmployeesPage`, `CustomersPage`) dùng chung hằng số/gợi ý
+và hiển thị **thông điệp cụ thể của server** ("quá phổ biến"…) thay vì "Dữ liệu đầu vào không hợp lệ.".
+Postman: 4 mật khẩu mẫu trong body đăng ký/tạo nhân viên/đặt lại đổi sang mật khẩu đạt chính sách.
+
+**Kiểm tra:** `npm test` **55 suite, 801 test pass**; Vitest **36 file, 493 test pass**; `test:security`
+**4 suite, 71 test pass** (R2 chuyển từ `test.failing` sang 9 test thường); Chrome headless 2 thiết bị **10/10**:
+form đăng ký đòi 8 ký tự, "password" bị từ chối với thông điệp "quá phổ biến", mật khẩu mạnh đăng ký được, đổi
+sang "qwertyuiop" hiện "quá phổ biến", đổi sang mật khẩu mạnh → "Đã đổi mật khẩu.".
+*(Lưu ý bộ kiểm: lần chạy đầu thất bại vì công cụ bấm của mình gọi `scrollIntoView` mượt rồi bấm theo toạ độ
+cũ — lỗi của harness, không phải của ứng dụng; đã sửa bằng bấm lại tới khi thấy request.)*

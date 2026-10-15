@@ -14,6 +14,7 @@ const { sendPasswordResetEmail } = require("../utils/mailer");
 const CustomerService = require("./CustomerService");
 const { normalizePhone, looksLikePhone, isValidPhone } = require("../utils/phone");
 const { assertNotLockedDemoAccount } = require("../utils/demoMode");
+const { assertPassword } = require("../utils/passwordPolicy");
 
 // Hash giả (cost 10 như hash thật, sinh một lần lúc nạp module) để đường "không có tài khoản" của `login`
 // cũng tốn một lần bcrypt.compare — xem R5.
@@ -194,6 +195,12 @@ class AuthService {
       throw error;
     }
 
+    // R2: lớp thứ hai sau validator (đã biết user nên kiểm được "trùng SĐT/email/tên"). Đổi sang chính mật khẩu
+    // hiện tại không thêm rủi ro mới nên không kiểm lại.
+    if (newPassword !== oldPassword) {
+      assertPassword(newPassword, { phone: user.phone, email: user.email, fullName: user.fullName });
+    }
+
     // Đổi mật khẩu phải thu hồi mọi phiên cũ (R1, báo cáo 33): mỗi user chỉ có
     // MỘT cột refreshToken nên ghi refresh token mới vào đây là vô hiệu refresh
     // token của mọi thiết bị khác. Thiết bị đang đổi nhận cặp token mới để giữ
@@ -278,6 +285,8 @@ class AuthService {
       throw invalidTokenError();
     }
     assertNotLockedDemoAccount(user);
+    // R2: validator chưa biết user (token được giải ở đây) nên phần "trùng SĐT/email/tên" kiểm tại đây.
+    assertPassword(newPassword, { phone: user.phone, email: user.email, fullName: user.fullName });
 
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     user.refreshToken = null; // đăng xuất mọi phiên đang mở

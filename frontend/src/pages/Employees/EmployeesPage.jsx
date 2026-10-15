@@ -3,6 +3,8 @@ import { Modal, Badge, Pagination } from '../../components/UIComponents';
 import { employeeService } from '../../services/apiServices';
 import { useAuth } from '../../contexts/AuthContext';
 import { roleOf, canManageStaff } from '../../utils/roles';
+import { PASSWORD_MIN_LENGTH, PASSWORD_HINT } from '../../utils/passwordRules';
+import { serverMessage } from '../../utils/serverMessage';
 
 // Nhãn cho những tài khoản không phải nhân viên thường, để người xem hiểu vì
 // sao thẻ đó không có nút sửa/xoá.
@@ -99,7 +101,7 @@ export default function EmployeesPage() {
       setIsModalOpen(false);
       fetchEmployees();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi lưu thông tin nhân viên');
+      alert(serverMessage(err, 'Lỗi lưu thông tin nhân viên'));
     }
   };
 
@@ -222,11 +224,11 @@ export default function EmployeesPage() {
                 <input
                   type="password"
                   required
-                  minLength={6}
+                  minLength={PASSWORD_MIN_LENGTH}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
-                  placeholder="Tối thiểu 6 ký tự"
+                  placeholder={PASSWORD_HINT}
                 />
               </div>
 

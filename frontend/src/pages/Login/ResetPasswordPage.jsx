@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { authService } from '../../services/apiServices';
 import BrandMark from '../../components/BrandMark';
+import { PASSWORD_MIN_LENGTH, PASSWORD_HINT } from '../../utils/passwordRules';
+import { serverMessage } from '../../utils/serverMessage';
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -29,7 +31,7 @@ export default function ResetPasswordPage() {
       setDone(true);
       setTimeout(() => navigate('/login', { replace: true }), 2500);
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Không đặt lại được mật khẩu');
+      setError(serverMessage(err, err.message || 'Không đặt lại được mật khẩu'));
     } finally {
       setLoading(false);
     }
@@ -83,8 +85,8 @@ export default function ResetPasswordPage() {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                minLength={6}
-                placeholder="Tối thiểu 6 ký tự"
+                minLength={PASSWORD_MIN_LENGTH}
+                placeholder={PASSWORD_HINT}
                 className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3.5 text-sm text-slate-100 outline-none transition focus:border-emerald-400"
                 required
                 autoFocus
@@ -97,7 +99,7 @@ export default function ResetPasswordPage() {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                minLength={6}
+                minLength={PASSWORD_MIN_LENGTH}
                 placeholder="Nhập lại mật khẩu mới"
                 className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3.5 text-sm text-slate-100 outline-none transition focus:border-emerald-400"
                 required
