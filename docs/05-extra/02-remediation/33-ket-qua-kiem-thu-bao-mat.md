@@ -226,3 +226,32 @@ Giữ lại theo yêu cầu chủ dự án, chờ "dọn đi":
   `ghcr.io/zaproxy/zaproxy:stable` (3,76 GB), volume `bd-sec-trivy-cache`. Không còn container nào chạy.
   Các image có sẵn từ trước (`bdcomp-*`, `bd-app-demo`, `node`, `nginx`, `mysql`) không bị đụng và **không** nằm trong danh sách xoá.
 - Docker Desktop do mình mở ở bước công cụ quét; có thể tự đóng sau khi dọn xong.
+
+
+## 9. Trạng thái sau xử lý (cập nhật cuối đợt 15/10/2026)
+
+Báo cáo ở trên là ảnh chụp lúc phát hiện; bảng này là trạng thái hiện tại trên nhánh `test/ke-hoach-kiem-thu-bao-mat`
+(chưa vào `main`). Chi tiết từng nhóm: `34`–`37-*.md`.
+
+| # | Tình trạng | Nhánh / commit merge | Ghi chú |
+|---|---|---|---|
+| R1 | ✅ đã sửa | `fix/r1-doi-mat-khau-thu-hoi-phien` · `45b7a9f` (kế hoạch 34) | đổi mật khẩu thu hồi refresh token cũ, thiết bị đang đổi nhận cặp mới |
+| R2 | ✅ đã sửa | `fix/r2-chinh-sach-mat-khau` · `9925410` | 8–72 byte, chặn phổ biến/trùng thông tin cá nhân; đổi chữ 6→8 |
+| R3 | ✅ đã sửa | `fix/r3-r4-phien-dang-nhap` · `98c23f7` | xoay vòng + ân hạn 30 giây; **có migration** |
+| R4 | ✅ đã sửa | `fix/r3-r4-phien-dang-nhap` · `98c23f7` | `token_version`/`tv`; thu hồi ngay khi logout/đổi/đặt lại mật khẩu |
+| R5 | ✅ đã sửa | `fix/r5-r6-r8-r11-r12-va-nho` · `4699022` | đo lại: 68,1 ms vs 67,5 ms |
+| R6 | ✅ đã sửa | cùng nhánh | chỉ báo "khoá" khi đã đúng mật khẩu |
+| R7 | ⏸ chấp nhận | — | giữ thông báo trùng SĐT/email (Q7); limiter đăng ký 5/giờ/IP |
+| R8 | ✅ đã sửa | `fix/r5-r6-r8-r11-r12-va-nho` · `4699022` | |
+| R9 | ✅ đã sửa | `fix/r9-r10-header-bao-mat-va-no-store` · `f9e8083` (kế hoạch 35) | CSP/XFO/nosniff/Referrer/Permissions/HSTS; nginx |
+| R10 | ✅ đã sửa | cùng nhánh | `no-store` dưới `/api/v1` trừ `/public` |
+| R11 | ✅ đã sửa | `fix/r5-r6-r8-r11-r12-va-nho` · `4699022` | 400 thay vì 500; deadlock → 409 |
+| R12 | ✅ đã sửa | cùng nhánh | kiểm kiểu, khoá đã biết |
+| R13 | ✅ đã sửa (còn rủi ro chấp nhận) | `fix/r13-cap-nhat-thu-vien` · `bae38c7` (kế hoạch 36) | backend 0 high/critical, frontend 0 high; còn `uuid`, `yamljs`, `react-router` 6.x |
+| R14 | ◐ một phần | `fix/r14-r15-quy-tac-va-ha-tang` · `b295f91` | a) Actions ghim SHA ✅; b/c/d chấp nhận (Q6) |
+| R15 | ✅ đã sửa | cùng nhánh | khách tối đa 3 giờ/lượt ở server |
+| R16 | 🔓 mở | — | `ci.yml` thiếu `permissions:` (phát hiện ở nhóm E) |
+| R17 | 🔓 mở (thông tin) | — | npm CLI trong image gốc `node:22-alpine` có 11 HIGH, không phải thư viện của ứng dụng |
+
+**Kiểm thử còn thiếu ở §4** (B9, C4, D2, D7, D8, E4, F3, F4, F6, G1, G6, H6–H8, trivy image) đã làm ở nhóm E của kế hoạch 37
+(`test/e-kiem-thu-con-thieu` · `936c88a`): tất cả đạt; F3 (token trong `localStorage`) là rủi ro chấp nhận.
