@@ -282,19 +282,65 @@ describe('Vòng đời: đặt → xác nhận → mở sân → checkout', () =
   });
 });
 
-describe('Lỗi đang mở (xem báo cáo 40) — test.failing: PASS khi lỗi còn, FAIL khi đã sửa', () => {
-  // 🐞 F1: GET /bookings?date=abc → SQL "Incorrect DATE value" → 500. Mong muốn: 400.
-  test.failing('danh sách đặt sân với date không hợp lệ phải trả 400 (hiện 500)', async () => {
-    const res = await api().get('/api/v1/bookings?date=abc').set('Authorization', await auth('employeeCn1'));
+describe('Đã sửa theo báo cáo 40 (F1, F2, F8, F10)', () => {
+  // F1: GET /bookings?date=abc từng trả 500 (SQL "Incorrect DATE value").
+  test.each([['date=abc'], ['date=2026-13-45'], ['date=2026-02-31'], ['courtId=abc'], ['status=hack'], ['sort=sideways']])(
+    'danh sách đặt sân với %s → 400, không 500',
+    async (qs) => {
+      const res = await api().get(`/api/v1/bookings?${qs}`).set('Authorization', await auth('employeeCn1'));
+      expect(res.status).toBe(400);
+    }
+  );
+
+  test('danh sách hợp lệ vẫn chạy, kể cả khách; sort=desc cho lịch mới nhất trước', async () => {
+    const ok = await api().get(`/api/v1/bookings?date=${dayFrom(5)}&status=pending&limit=5`).set('Authorization', await auth('employeeCn1'));
+    expect(ok.status).toBe(200);
+    const customer = await registerCustomer(unique());
+    const own = await tryBook(customer, { dayOffset: 4, hours: [6, 7, 8] });
+    track(own.res, customer);
+    const later = await tryBook(customer, { dayOffset: 8, hours: [6, 7, 8] });
+    track(later.res, customer);
+    const asc = await api().get('/api/v1/bookings?sort=asc').set('Authorization', await auth(customer));
+    const desc = await api().get('/api/v1/bookings?sort=desc').set('Authorization', await auth(customer));
+    const rows = (r) => r.body.data.items || r.body.data.bookings || r.body.data;
+    expect(rows(asc).map((b) => b.id)).toEqual([own.res.body.data.id, later.res.body.data.id]);
+    expect(rows(desc).map((b) => b.id)).toEqual([later.res.body.data.id, own.res.body.data.id]);
+  });
+
+  // F2: đặt hộ nhận SĐT "123" và lưu thành hồ sơ khách; "abc" lặng lẽ thành NULL.
+  test.each([['123'], ['abc'], ['09abc0001'], ['12345678901234']])('đặt hộ với SĐT "%s" → 400, không tạo khách', async (phone) => {
+    const courts = await publicCourts();
+    const [[before]] = await sequelize.query('SELECT COUNT(*) AS n FROM customers');
+    const res = await api().post('/api/v1/bookings').set('Authorization', await auth('employeeCn1'))
+      .send({ courtId: courts[0].id, bookingDate: dayFrom(14), startTime: '05:00', endTime: '06:00', customerName: 'Thử SĐT', customerPhone: phone });
+    track(res, 'employeeCn1');
+    expect(res.status).toBe(400);
+    const [[after]] = await sequelize.query('SELECT COUNT(*) AS n FROM customers');
+    expect(Number(after.n)).toBe(Number(before.n));
+  });
+
+  test('đặt hộ: SĐT dạng +84 vẫn được và chuẩn hoá; bỏ trống SĐT vẫn được', async () => {
+    const suffix = String(Date.now()).slice(-7);
+    const plus = await tryBook('employeeCn1', { dayOffset: 15, hours: [6, 7, 8], extra: { customerName: 'Khách +84', customerPhone: `+84 91${suffix.slice(0, 1)} ${suffix.slice(1, 4)} ${suffix.slice(4)}` } });
+    track(plus.res, 'employeeCn1');
+    expect(plus.res.status).toBe(201);
+    const blank = await tryBook('employeeCn1', { dayOffset: 15, hours: [9, 10, 11], extra: { customerName: 'Khách Không SĐT' } });
+    track(blank.res, 'employeeCn1');
+    expect(blank.res.status).toBe(201);
+  });
+
+  test('mở sân với guestPhone sai → 400', async () => {
+    const courts = await publicCourts();
+    const res = await api().post(`/api/v1/courts/${courts[0].id}/open`).set('Authorization', await auth('employeeCn1')).send({ guestName: 'Thử', guestPhone: '123' });
     expect(res.status).toBe(400);
   });
 
-  // 🐞 F2: đặt hộ nhận SĐT "123" và lưu thành hồ sơ khách (đăng ký tự phục vụ thì kiểm). Mong muốn: 400.
-  test.failing('đặt hộ với SĐT không hợp lệ phải bị từ chối (hiện 201, lưu "123")', async () => {
-    const courts = await publicCourts();
-    const res = await api().post('/api/v1/bookings').set('Authorization', await auth('employeeCn1'))
-      .send({ courtId: courts[0].id, bookingDate: dayFrom(14), startTime: '05:00', endTime: '06:00', customerName: 'Thử SĐT', customerPhone: '123' });
-    track(res, 'employeeCn1');
-    expect(res.status).toBe(400);
+  // F8: thông báo chọn sai chi nhánh phải nói rõ cách xử lý (mã trạng thái giữ nguyên).
+  test('admin chưa chọn chi nhánh đặt sân CN3 → 404 kèm gợi ý đổi chi nhánh', async () => {
+    const courts3 = await publicCourts(3);
+    const res = await api().post('/api/v1/bookings').set('Authorization', await auth('admin'))
+      .send({ courtId: courts3[0].id, bookingDate: dayFrom(13), startTime: '06:00', endTime: '07:00', customerName: 'Khách Admin', customerPhone: `0917${String(Date.now()).slice(-7)}` });
+    expect(res.status).toBe(404);
+    expect(res.body.message).toMatch(/đổi chi nhánh/);
   });
 });

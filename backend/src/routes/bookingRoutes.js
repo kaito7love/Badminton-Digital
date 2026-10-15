@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const branchContextMiddleware = require('../middleware/branchContextMiddleware');
 const {
+  listBookingsRules,
   createBookingRules,
   updateBookingRules,
   checkAvailabilityRules
@@ -12,7 +13,7 @@ const {
 
 router.use(authMiddleware, branchContextMiddleware);
 
-router.get('/', bookingController.getBookings);
+router.get('/', listBookingsRules, bookingController.getBookings);
 router.get('/availability', checkAvailabilityRules, bookingController.checkAvailability);
 router.get('/:id', bookingController.getBookingById);
 
