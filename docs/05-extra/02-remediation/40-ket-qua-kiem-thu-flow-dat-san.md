@@ -445,4 +445,4 @@ Khi sửa F1/F2: đổi `test.failing` → `test` (test sẽ FAIL ngay khi lỗi
 
 ## 10. Môi trường tạm
 
-DB `bd_sectest_flow` (MySQL cục bộ, migrate đủ 43 migration + seed demo), server tạm `127.0.0.1:5060` chạy `NODE_ENV=production`, frontend build tĩnh do backend phục vụ cùng origin (giống Render), Chrome headless điều khiển bằng CDP, mỗi vai trò gọi API từ một địa chỉ nguồn riêng (`127.0.0.x`) để không chạm limiter đăng nhập 10 lần/15 phút/IP. Không có request nào tới bản live. Môi trường tạm được dọn sau khi lập báo cáo (server dừng, DB xoá, worktree xoá); dữ liệu demo trên máy dev **không bị đổi**.
+DB `bd_sectest_flow` (MySQL cục bộ, migrate đủ 43 migration + seed demo), server tạm `127.0.0.1:5060` chạy `NODE_ENV=production`, frontend build tĩnh do backend phục vụ cùng origin (giống Render), Chrome headless điều khiển bằng CDP, mỗi vai trò gọi API từ một địa chỉ nguồn riêng (`127.0.0.x`) để không chạm limiter đăng nhập 10 lần/15 phút/IP. Không có request nào tới bản live. **Môi trường tạm đang được GIỮ NGUYÊN để bạn tự xem** (server `:5060`, DB `bd_sectest_flow`; tài khoản demo như bình thường) — chỉ dọn khi bạn bảo. Dữ liệu demo trên máy dev **không bị đổi**.
