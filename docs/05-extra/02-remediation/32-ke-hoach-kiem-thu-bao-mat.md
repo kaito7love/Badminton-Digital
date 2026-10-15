@@ -1,8 +1,7 @@
 # Kế hoạch 32 — Kiểm thử bảo mật toàn hệ thống
 
 **Ngày:** 2026-10-15 · **Nhánh:** `test/ke-hoach-kiem-thu-bao-mat` (tách từ `main` 83e8f8b)
-**Trạng thái:** CHỜ DUYỆT LẦN 2. Chủ dự án đã trả lời Q1–Q4 (§13), kế hoạch đã chỉnh theo. Còn Q5–Q6
-cần trả lời. Chưa chạy test nào, chưa sửa dòng code nào.
+**Trạng thái:** ĐÃ DUYỆT 2026-10-15 ("Duyệt kế hoạch 32, code đi"), Q1–Q6 đã trả lời (§13). **DỪNG sau nhóm A và B** theo yêu cầu chủ dự án — kết quả ở `33-ket-qua-kiem-thu-bao-mat.md`.
 
 ## 0. Mục tiêu và nguyên tắc
 
@@ -16,7 +15,7 @@ cần trả lời. Chưa chạy test nào, chưa sửa dòng code nào.
   `test.failing` kèm mã phát hiện (vd `B2`) để `npm test` vẫn xanh. Khi lỗi được sửa ở nhánh sau, đổi lại
   thành `test` thường.
 - **Môi trường:** dùng một **DB tạm riêng** (tạo bằng `migrate` + `seed`) và một bộ server riêng chạy trên
-  cổng khác (backend :5050, competition :5150, Vite :5180). **Không đụng** DB dev
+  cổng khác (backend :5050, competition :5150, Vite :5181 — :5180 đã có tiến trình khác chiếm). **Không đụng** DB dev
   `badminton_digital_management`, không dừng các server đang chạy (:5000/:5102/:5173).
 - **Bản live trên Render (đã đồng ý, Q2): chỉ đọc, không tấn công.** Tối đa khoảng 20 request GET thường
   (trang chủ, một file JS/CSS, `/api/v1/health`, `/api/v1/public/branches`, một route không tồn tại, một
@@ -225,7 +224,12 @@ Chạy **trên server tạm, tải nhỏ, có kiểm soát**, không chạy lên
 - **Q3. Cài công cụ quét:** CÓ, **cài vào Docker**, xoá sau khi chủ dự án xác nhận. Xem §9.1.
 - **Q4. Đưa kiểm thử quan trọng vào `backend/tests`:** CÓ. Xem §11.2.
 
-### Còn hỏi
+### Trả lời thêm (2026-10-15)
+
+- **Q5:** CÓ — thêm `backend/tests-security/` + `npm run test:security`.
+- **Q6:** Claude tự mở Docker Desktop khi tới §9.1.
+
+### Nội dung câu hỏi Q5–Q6 (để tra lại)
 
 - **Q5.** Test tầng 2 cần DB: đồng ý thêm thư mục `backend/tests-security/` + script
   `npm run test:security` vào `package.json` không? (Đề xuất: có. Nếu không, chỉ làm tầng 1, còn kịch bản
