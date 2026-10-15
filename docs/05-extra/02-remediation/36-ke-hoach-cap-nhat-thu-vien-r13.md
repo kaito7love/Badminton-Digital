@@ -2,7 +2,7 @@
 
 **Ngày:** 2026-10-15 · **Nhánh:** `fix/r13-cap-nhat-thu-vien`
 **Tách từ:** `test/ke-hoach-kiem-thu-bao-mat` (f9e8083, đã có R1, R9, R10). Merge đích: nhánh test, **không** `main`.
-**Trạng thái:** CHỜ DUYỆT. Chưa chạy `npm install`/`npm update` nào, chưa sửa file nào.
+**Trạng thái:** ĐÃ DUYỆT 2026-10-15 và đã làm; kết quả ở §9. Merge vào `test/ke-hoach-kiem-thu-bao-mat` theo lệnh của bạn.
 **Nguồn:** `33-ket-qua-kiem-thu-bao-mat.md` — R13 (H1, H12).
 
 ## 1. Hiện trạng (đo bằng `npm audit --omit=dev`, 2026-10-15)
@@ -106,3 +106,56 @@ Chưa trả lời thì chưa làm; mặc định bên cạnh chỉ là đề xu�
   **hạ** `exceljs` về 3.4.0 / `sequelize` về 3.30 (phá vỡ). Chấp nhận để lại (đề xuất — lỗi chỉ xảy ra khi
   truyền `buf` cho v3/v5/v6, mà code không làm vậy), ghi vào báo cáo là rủi ro đã chấp nhận?
 - **Q5.** Tài liệu (`CLAUDE.md`, `00-tien-do.md`, báo cáo 33): chưa cập nhật — đúng ý bạn chứ?
+
+## 9. Quyết định đã chốt và kết quả thực hiện
+
+**Trả lời (2026-10-15):** Q1 nâng `nodemailer` lên 10 · Q2 nâng `bcrypt` lên 6 · Q3 xoá `multer` · Q4 để lại
+`uuid` và ghi rủi ro đã chấp nhận · Q5 chưa cập nhật tài liệu (`CLAUDE.md`, `00-tien-do.md`, báo cáo 33
+**không** đụng).
+
+**Cách làm khác kế hoạch một điểm:** toàn bộ `npm ci`/`npm update` chạy trong một **worktree riêng** (thư mục
+`node_modules` riêng), không đụng `node_modules` trong thư mục chính của bạn — vì server dev của bạn đang giữ
+`bcrypt.node` mở và Windows sẽ không cho ghi đè. Hệ quả: sau khi bạn cập nhật thư mục chính lên nhánh này, cần
+chạy `npm ci` ở `backend/` và `frontend/` để `node_modules` khớp `package-lock.json`.
+
+**Đã đổi (chỉ `package.json` + lockfile, không sửa code `src/`):**
+
+| Dự án | Thay đổi |
+|---|---|
+| backend | `bcrypt` ^5.1.1 → **^6.0.0**; `nodemailer` ^9.0.5 → **^10.1.1**; **xoá `multer`**; trong range hiện có: `express` 4.22.2 → 4.22.3, `proxy-addr` 2.0.7 → **2.0.8**, `mysql2` → 3.24.6, `express-rate-limit`, và các transitive (`brace-expansion`, `qs`, `ip-address`, `tar` biến mất) |
+| frontend | `axios` 1.18.1 → **1.20.0**, `react-router(-dom)` 6.30.4 → 6.30.6 — chỉ đổi lock |
+| competition-service | không đụng |
+
+**Kết quả `npm audit --omit=dev`:**
+
+| Dự án | Trước | Sau |
+|---|---|---|
+| backend | 17 (2 critical, 4 high, 11 moderate) | **6 moderate**, 0 high, 0 critical |
+| frontend | 3 (1 high, 2 moderate) | **2 moderate** (`react-router`), 0 high |
+| trivy lockfile (HIGH/CRITICAL) | 32 + 7 | **0 + 0** |
+
+**Rủi ro đã chấp nhận (còn lại):**
+- `uuid` < 11.1.1 (qua `sequelize`, `exceljs`) — chỉ lỗi khi truyền `buf` cho v3/v5/v6, code không làm vậy; bản
+  "sửa" là hạ `exceljs`/`sequelize` về bản cũ phá vỡ.
+- `yamljs` → `argparse` → `sprintf-js` (DoS qua chuỗi định dạng) — chỉ đọc file `openapi.yaml` của repo cho
+  Swagger UI, không có đầu vào người dùng. Không có bản vá cùng major.
+- `react-router` 6.x (moderate: open redirect qua `<Link>`/`useNavigate`, SSR hydration) — bản sửa chỉ có ở
+  7.18 (major 7). Đã rà `frontend/src`: **không có `navigate()`/`<Link>` nào lấy đích từ query string hay đầu vào
+  người dùng** (chỉ `location.state.from.pathname` do router tự đặt), và không dùng SSR. **Kế hoạch ghi nhầm
+  rằng 6.30.6 sửa được mục này** — thực tế phải nâng major 7, việc riêng.
+
+**Kết quả kiểm tra:**
+
+| Hạng mục | Kết quả |
+|---|---|
+| `bcryptCompat.test.js` (mới) | 5 test; **đỏ trước khi nâng** (bcrypt 5 còn `node-pre-gyp`) → xanh sau |
+| `mailer.test.js` (mới, SMTP giả bằng `net`) | 5 test, xanh trên **cả** nodemailer 9 lẫn 10 |
+| `npm test` backend | 693 test (683 + 10 mới). 692 pass, **1 đỏ là test cũ `competitionGateway`** "giới hạn tần suất mặc định /public/*"; lỗi y hệt trên nhánh test **chưa** đụng gì (bản cũ, 682/683) khi chạy dưới cùng tải; chạy riêng thì 41/41 pass 2 lần. Là flake thời gian đã biết, không do R13 |
+| `npm run test:security` | 48 test pass |
+| Vitest frontend / `npm run build` | 482 pass / build OK |
+| `node:22-alpine` (musl, **không có python/make/g++**) | `npm ci --omit=dev` chạy được, `bcrypt` 6 hash/compare đúng, hash `$2b$` do 5.1.1 sinh vẫn so khớp, không còn `tar`, không còn `multer` |
+| Backend tạm :5053, DB seed bằng bcrypt 5.1.1 | **16/16**: đăng nhập admin/khách bằng hash cũ; đăng ký, đăng nhập, đổi mật khẩu; `forgot-password` → SMTP giả nhận đúng 1 thư (đúng user/pass SMTP, đúng người nhận) → link trong thư đặt được mật khẩu mới, dùng lần hai bị 400; xuất Excel (zip hợp lệ) và PDF; rate limit đăng nhập vẫn 429 |
+| Chrome headless (axios 1.20 + react-router 6.30.6) | 8/8 đổi mật khẩu 2 thiết bị (R1) và 16/16: 30 trang × 2 cỡ màn hình, 0 vi phạm CSP, 0 lỗi |
+
+**Quan sát:** mục §5.2 là rủi ro lớn nhất của bản nâng và đã đạt — prebuild của `bcrypt@6` chạy trên Alpine
+không cần trình biên dịch, nên image Render/compose build lại sẽ không thêm bước compile.
