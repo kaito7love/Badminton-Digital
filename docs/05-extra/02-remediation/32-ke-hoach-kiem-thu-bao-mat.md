@@ -1,7 +1,7 @@
 # Kế hoạch 32 — Kiểm thử bảo mật toàn hệ thống
 
 **Ngày:** 2026-10-15 · **Nhánh:** `test/ke-hoach-kiem-thu-bao-mat` (tách từ `main` 83e8f8b)
-**Trạng thái:** ĐÃ DUYỆT 2026-10-15 ("Duyệt kế hoạch 32, code đi"), Q1–Q6 đã trả lời (§13). **DỪNG sau nhóm A và B** theo yêu cầu chủ dự án — kết quả ở `33-ket-qua-kiem-thu-bao-mat.md`.
+**Trạng thái:** ĐÃ DUYỆT 2026-10-15 ("Duyệt kế hoạch 32, code đi"), Q1–Q6 đã trả lời (§13). Đợt 1 dừng sau nhóm A và B theo yêu cầu chủ dự án; đợt 2 ("test tiếp đó") làm nốt phần còn lại, một số mục chưa làm được ghi rõ trong báo cáo. Kết quả: `33-ket-qua-kiem-thu-bao-mat.md`.
 
 ## 0. Mục tiêu và nguyên tắc
 

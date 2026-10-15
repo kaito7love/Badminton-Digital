@@ -10,6 +10,7 @@
     "start": "node src/server.js",
     "dev": "nodemon --ignore public/ src/server.js",
     "test": "jest",
+    "test:security": "jest --config tests-security/jest.config.js --forceExit --silent",
     "migrate": "sequelize-cli db:migrate",
     "seed": "sequelize-cli db:seed:all",
     "create-admin": "node scripts/create-admin.js",
@@ -38,5 +39,11 @@
     "jest": "^29.7.0",
     "nodemon": "^3.1.4",
     "supertest": "^7.0.0"
+  },
+  "jest": {
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/tests-security/"
+    ]
   }
 }
