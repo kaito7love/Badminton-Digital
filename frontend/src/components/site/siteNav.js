@@ -122,6 +122,7 @@ export function buildAccountMenu(user, competitionOn = true) {
     { key: 'account', label: 'Tài khoản', to: '/account' },
     { key: 'orders', label: 'Đơn mua', to: '/orders' },
     { key: 'bookings', label: 'Lịch đặt', to: '/my-bookings' },
+    { key: 'notifications', label: 'Thông báo', to: '/notifications' },
     ...(competitionOn ? [{ key: 'history', label: 'Lịch sử thi đấu', to: '/my-tournaments' }] : []),
     { key: 'logout', label: 'Đăng xuất', action: 'logout' }
   ];

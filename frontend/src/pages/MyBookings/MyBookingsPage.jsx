@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CustomerLayout from '../../layouts/CustomerLayout';
-import { bookingService } from '../../services/apiServices';
+import { bookingService, notificationService } from '../../services/apiServices';
 import InlineNotice from '../../components/InlineNotice';
 import { serverMessage } from '../../utils/serverMessage';
 import { groupMyBookings, isUpcoming } from './groupMyBookings';
@@ -35,6 +35,7 @@ export default function MyBookingsPage() {
   const [busyId, setBusyId] = useState(null);
   const [notice, setNotice] = useState(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const fetchBookings = async () => {
     try {
@@ -52,6 +53,10 @@ export default function MyBookingsPage() {
 
   useEffect(() => {
     fetchBookings();
+    // Nhắc khi cửa hàng vừa duyệt/huỷ/đổi lịch (kế hoạch 43). Chỉ là gợi ý: lỗi thì bỏ qua.
+    notificationService.list({ limit: 1, unread: true })
+      .then((res) => setUnreadNotifications(Number(res.data?.data?.unreadCount) || 0))
+      .catch(() => {});
   }, []);
 
   const handleCancel = async (id) => {
@@ -143,6 +148,15 @@ export default function MyBookingsPage() {
       ) : (
         <div className="space-y-10">
           <InlineNotice message={notice} onClose={() => setNotice(null)} />
+          {unreadNotifications > 0 && (
+            <p
+              data-testid="unread-notifications"
+              className="rounded-xl border border-amber-600/40 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-900 dark:border-amber-400/40 dark:text-amber-200"
+            >
+              Bạn có {unreadNotifications} thông báo chưa đọc về lịch đặt.{' '}
+              <Link to="/notifications" className="underline">Xem thông báo</Link>
+            </p>
+          )}
 
           <section aria-labelledby="my-upcoming">
             <h2 id="my-upcoming" className="mb-4 font-kinetic text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">

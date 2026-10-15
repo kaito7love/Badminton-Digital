@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import BrandLogo from '../brand/BrandLogo';
 import HeaderActions, { CartLink } from './HeaderActions';
 import MobileMenu from './MobileMenu';
+import NotificationBell from './NotificationBell';
 import MobileTabBar from './MobileTabBar';
 import NavItem from './NavItem';
 import useDropdown from './useDropdown';
@@ -17,7 +18,7 @@ import { TONES } from './siteTone';
  */
 export default function SiteHeaderView({
   nav, location, cartCount = 0, theme, onToggleTheme, showThemeToggle = false, onLogout = () => {},
-  tone = 'auto', overlay = false, scrolled = false, onLogoClick
+  tone = 'auto', overlay = false, scrolled = false, onLogoClick, notifications = null
 }) {
   const t = TONES[tone];
   const rootRef = useRef(null);
@@ -74,10 +75,14 @@ export default function SiteHeaderView({
               loginState={loginState}
               dropdown={dropdown}
               onLogout={onLogout}
+              notifications={notifications}
             />
           </div>
 
           <div className="ml-auto flex items-center gap-2 lg:hidden">
+            {notifications && (
+              <NotificationBell variant="link" tone={tone} unreadCount={notifications.unreadCount} onNavigate={closeMenu} />
+            )}
             <CartLink count={cartCount} tone={tone} onClick={closeMenu} />
             <button
               type="button"

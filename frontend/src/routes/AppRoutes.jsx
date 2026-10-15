@@ -27,6 +27,7 @@ const SettingsPage = lazy(() => import('../pages/Settings/SettingsPage'));
 const HistoryPage = lazy(() => import('../pages/History/HistoryPage'));
 const ActivityLogPage = lazy(() => import('../pages/ActivityLog/ActivityLogPage'));
 const MyBookingsPage = lazy(() => import('../pages/MyBookings/MyBookingsPage'));
+const NotificationsPage = lazy(() => import('../pages/Notifications/NotificationsPage'));
 const AccountPage = lazy(() => import('../pages/Account/AccountPage'));
 const ShopPage = lazy(() => import('../pages/Shop/ShopPage'));
 const BookingPage = lazy(() => import('../pages/Booking/BookingPage'));
@@ -69,6 +70,7 @@ export default function AppRoutes() {
           {/* Trang của khách hàng */}
           {competitionCustomerRoutes}
           <Route path="/my-bookings" element={<ProtectedRoute roles={['customer']}><MyBookingsPage /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute roles={['customer']}><NotificationsPage /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute roles={['customer']}><AccountPage /></ProtectedRoute>} />
           <Route path="/checkout" element={<ProtectedRoute roles={['customer']}><CheckoutPage /></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute roles={['customer']}><OrdersPage /></ProtectedRoute>} />

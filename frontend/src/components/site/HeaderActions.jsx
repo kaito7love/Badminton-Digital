@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { GHOST_BTN_BASE, PRIMARY_BTN, TONES } from './siteTone';
+import NotificationBell from './NotificationBell';
 
 const ICON_BTN = 'relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base transition';
 
@@ -40,13 +41,26 @@ export function ThemeToggle({ theme, onToggle, tone }) {
 }
 
 /** Cụm bên phải trên máy tính: đổi giao diện, giỏ, rồi Đăng nhập (nổi bật) + Đăng ký, hoặc nút tên mở menu tài khoản. */
-export default function HeaderActions({ account, cartCount, theme, onToggleTheme, showThemeToggle, tone, loginState, dropdown, onLogout }) {
+export default function HeaderActions({ account, cartCount, theme, onToggleTheme, showThemeToggle, tone, loginState, dropdown, onLogout, notifications = null }) {
   const t = TONES[tone];
   const open = dropdown.openKey === 'account';
 
   return (
     <div className="flex items-center gap-3">
       {showThemeToggle && <ThemeToggle theme={theme} onToggle={onToggleTheme} tone={tone} />}
+      {notifications && (
+        <NotificationBell
+          variant="dropdown"
+          tone={tone}
+          unreadCount={notifications.unreadCount}
+          items={notifications.items}
+          open={dropdown.openKey === 'notifications'}
+          onToggle={() => dropdown.toggle('notifications')}
+          onClose={dropdown.close}
+          onItemClick={(n) => { dropdown.close(); notifications.markRead(n.id); }}
+          onMarkAllRead={notifications.markAllRead}
+        />
+      )}
       <CartLink count={cartCount} tone={tone} />
       {account ? (
         <div className="relative" onKeyDown={(e) => { if (e.key === 'Escape') dropdown.close(); }}>
