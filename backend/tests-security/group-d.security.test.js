@@ -32,13 +32,15 @@ describe('R15: độ dài một lượt đặt', () => {
     expect(res.status).toBe(201);
   });
 
-  test('nhân viên đặt 6 giờ cho khách quầy vẫn được', async () => {
+  test('nhân viên đặt 6 giờ cho khách quầy vẫn được (dò ngày/khung còn trống)', async () => {
     let res;
-    for (let start = 6; start <= 16 && !(res && res.status === 201); start += 1) {
-      res = await api().post('/api/v1/bookings').set('Authorization', bearer('employeeCn1')).send({
-        courtId, bookingDate: day(7), startTime: `${pad(start)}:00`, endTime: `${pad(start + 6)}:00`,
-        customerName: 'Khách quầy R15', customerPhone: unique()
-      });
+    for (let offset = 7; offset <= 13 && !(res && res.status === 201); offset += 1) {
+      for (let start = 6; start <= 16 && !(res && res.status === 201); start += 1) {
+        res = await api().post('/api/v1/bookings').set('Authorization', bearer('employeeCn1')).send({
+          courtId, bookingDate: day(offset), startTime: `${pad(start)}:00`, endTime: `${pad(start + 6)}:00`,
+          customerName: 'Khách quầy R15', customerPhone: unique()
+        });
+      }
     }
     expect(res.status).toBe(201);
   });

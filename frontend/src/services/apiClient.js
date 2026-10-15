@@ -28,8 +28,9 @@ apiClient.interceptors.request.use(
 
 // Nhiều request bị 401 gần như đồng thời (rất phổ biến vì code hay dùng
 // Promise.all([fetchA(), fetchB()])) phải dùng chung đúng 1 lần gọi
-// refresh-token thay vì mỗi request tự gọi riêng — không sai (backend chấp
-// nhận refresh token dùng lại nhiều lần), nhưng lãng phí không cần thiết.
+// refresh-token thay vì mỗi request tự gọi riêng. Từ R3 điều này còn QUAN TRỌNG hơn:
+// server xoay refresh token mỗi lần refresh (chỉ chấp nhận token cũ trong 30 giây ân hạn),
+// nên gọi dư là tốn thêm một lần xoay vô ích.
 let refreshPromise = null;
 
 const requestRefresh = () => {
@@ -64,6 +65,13 @@ export const refreshAccessToken = async () => {
     const newAccessToken = res.data?.success ? res.data?.data?.accessToken : null;
     if (!newAccessToken) throw Object.assign(new Error('Refresh token không trả về access token'), { rejected: true });
     localStorage.setItem('access_token', newAccessToken);
+    // R3: server xoay refresh token mỗi lần refresh và trả bản mới. Không có `refreshToken` trong response nghĩa
+    // là ta là bên "thua" một cuộc đua refresh (tab khác vừa xoay, token mới đã nằm sẵn trong localStorage dùng
+    // chung) — khi đó giữ nguyên, tuyệt đối không ghi đè bằng token cũ hơn.
+    const rotatedRefreshToken = res.data?.data?.refreshToken;
+    if (typeof rotatedRefreshToken === 'string' && rotatedRefreshToken) {
+      localStorage.setItem('refresh_token', rotatedRefreshToken);
+    }
     return newAccessToken;
   } catch (err) {
     const status = err.response?.status;

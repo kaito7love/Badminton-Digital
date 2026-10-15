@@ -1,6 +1,5 @@
-// Kế hoạch 32, nhóm A — phiên đăng nhập, trên DB thử. Những dòng `test.failing` là LỖI ĐÃ BIẾT (báo cáo 33):
-// khi lỗi được sửa, test báo đỏ để bạn đổi `test.failing` thành `test`.
-const { api, tokenFor, registerCustomer, unique, sequelize } = require('./helpers');
+// Kế hoạch 32, nhóm A — phiên đăng nhập, trên DB thử. Mọi lỗi đã biết trong báo cáo 33 đã được sửa (kế hoạch 34–37) nên không còn `test.failing` nào.
+const { api, tokenForCurrent, registerCustomer, unique, sequelize } = require('./helpers');
 
 afterAll(async () => { await sequelize.close(); });
 
@@ -35,7 +34,7 @@ describe('Phiên đăng nhập (A5, A6)', () => {
   });
 
   test('token tạo sẵn dùng được (đối chứng cho helpers)', async () => {
-    const res = await api().get('/api/v1/auth/me').set('Authorization', `Bearer ${tokenFor(me)}`);
+    const res = await api().get('/api/v1/auth/me').set('Authorization', `Bearer ${await tokenForCurrent(me)}`);
     expect(res.status).toBe(200);
   });
 
@@ -103,14 +102,19 @@ describe('Phiên đăng nhập (A5, A6)', () => {
 
   // --- lỗi đã biết (báo cáo 33) ---
 
-  test.failing('R3/A5a: refresh token xoay vòng (dùng lần hai bị từ chối)', async () => {
+  // --- R3 (kế hoạch 37 nhóm C): xoay vòng có ân hạn 30 giây; phần đua tab/hết ân hạn nằm ở session-rotation.security.test.js ---
+  test('R3/A5a: refresh token xoay vòng — cấp refresh token MỚI, token mới dùng được', async () => {
     const { refreshToken } = await login();
-    await api().post('/api/v1/auth/refresh-token').send({ refreshToken });
-    const second = await api().post('/api/v1/auth/refresh-token').send({ refreshToken });
-    expect(second.status).toBe(401);
+    const first = await api().post('/api/v1/auth/refresh-token').send({ refreshToken });
+    expect(first.status).toBe(200);
+    expect(typeof first.body.data.refreshToken).toBe('string');
+    expect(first.body.data.refreshToken).not.toBe(refreshToken);
+    const next = await api().post('/api/v1/auth/refresh-token').send({ refreshToken: first.body.data.refreshToken });
+    expect(next.status).toBe(200);
   });
 
-  test.failing('R4/A6a: access token hết hiệu lực ngay sau logout', async () => {
+  // --- R4 (kế hoạch 37 nhóm C): access token bị thu hồi ngay khi logout ---
+  test('R4/A6a: access token hết hiệu lực ngay sau logout', async () => {
     const { accessToken } = await login();
     await api().post('/api/v1/auth/logout').set('Authorization', `Bearer ${accessToken}`);
     const res = await api().get('/api/v1/auth/me').set('Authorization', `Bearer ${accessToken}`);
@@ -131,8 +135,8 @@ describe('Phiên đăng nhập (A5, A6)', () => {
       expect(res.status).toBe(201);
     });
 
-    const change = (newPassword) => api().put('/api/v1/auth/change-password')
-      .set('Authorization', `Bearer ${tokenFor(me)}`).send({ oldPassword: me.password, newPassword });
+    const change = async (newPassword) => api().put('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${await tokenForCurrent(me)}`).send({ oldPassword: me.password, newPassword });
 
     test.each([
       ['quá ngắn', '1234567', /8 đến 72/],

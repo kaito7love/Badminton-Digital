@@ -61,6 +61,24 @@ module.exports = (sequelize) => {
         allowNull: true,
         field: "refresh_token",
       },
+      // R4: claim `tv` của access token phải bằng số này; tăng khi logout/đổi/đặt lại mật khẩu.
+      tokenVersion: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        field: "token_version",
+      },
+      // R3: hash refresh token ngay trước lần xoay gần nhất + hạn ân hạn (xem AuthService.refreshAccessToken).
+      previousRefreshToken: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+        field: "previous_refresh_token",
+      },
+      previousRefreshExpiresAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: "previous_refresh_expires_at",
+      },
     },
     {
       tableName: "users",
@@ -73,7 +91,7 @@ module.exports = (sequelize) => {
       // include). Có lỗi nào khác làm lộ bản ghi thì cũng không còn gì để lộ.
       // Chỗ nào thật sự cần hai trường này thì gọi User.scope("withSecrets").
       defaultScope: {
-        attributes: { exclude: ["passwordHash", "refreshToken"] },
+        attributes: { exclude: ["passwordHash", "refreshToken", "previousRefreshToken", "previousRefreshExpiresAt"] },
       },
       scopes: {
         withSecrets: {},

@@ -69,7 +69,7 @@ describe('Bí mật không rời khỏi hệ thống (E1, E2)', () => {
   test('model User mặc định không nạp passwordHash / refreshToken', () => {
     const { User } = require('../src/models');
     const excluded = User.options.defaultScope.attributes.exclude;
-    expect(excluded).toEqual(expect.arrayContaining(['passwordHash', 'refreshToken']));
+    expect(excluded).toEqual(expect.arrayContaining(['passwordHash', 'refreshToken', 'previousRefreshToken', 'previousRefreshExpiresAt']));
   });
 
   const appWithError = (err) => {

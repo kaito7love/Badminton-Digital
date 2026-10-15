@@ -210,3 +210,26 @@ cũ — lỗi của harness, không phải của ứng dụng; đã sửa bằng
 
 **Kiểm tra:** `npm test` (xem dòng dưới); `test:security` **5 suite, 74 test pass** (3 test mới cho R15: khách 6 giờ → 400,
 khách 3 giờ → 201, nhân viên 6 giờ → 201).
+
+### Nhóm C — phiên đăng nhập R3 + R4 (nhánh `fix/r3-r4-phien-dang-nhap`) — XONG
+
+**Migration** `20261015100001-add-session-revocation-columns-to-users.js` (3 cột trên `users`: `token_version INT NOT NULL
+DEFAULT 0`, `previous_refresh_token VARCHAR(64) NULL`, `previous_refresh_expires_at DATETIME NULL`). Đã chạy
+`up → down → up` trên **DB tạm** `bd_sectest_32`; **DB dev của bạn chưa bị migrate** (Q4) — khi bạn muốn dùng nhánh này
+trên máy dev, chạy `npm run migrate` ở `backend/`. Bản demo Render tự migrate ở lần reset đêm kế tiếp.
+
+| Mục | Đã làm |
+|---|---|
+| R3 | Refresh token thêm `jti` (hai token ký cùng giây không còn trùng nhau). `POST /auth/refresh-token` xoay vòng: khớp token hiện tại → cấp **cặp mới**, ghi hash mới + chuyển hash cũ sang `previous_*` hạn 30 giây, bằng **so-và-đổi** (`WHERE refresh_token = <hash đã đọc>`) nên hai request cùng token chỉ một bên xoay được. Token cũ trong ân hạn → chỉ trả `accessToken` (không xoay, không trả refresh token — bên thắng đã giữ token mới trong `localStorage` dùng chung). Quá ân hạn / lạ → 401. Frontend `apiClient` lưu `refreshToken` mới nếu có, tuyệt đối không ghi đè khi không có |
+| R4 | Access token mang `tv`; `authMiddleware` **và** `sseAuthMiddleware` (hai nơi duy nhất verify access token — cổng competition và SSE đi qua chúng) so với `users.token_version`, lệch → 401 "Phiên đăng nhập đã bị thu hồi". Tăng version ở: logout, đổi mật khẩu, đặt lại mật khẩu (đồng thời xoá `previous_*`). Thiết bị đang đổi mật khẩu nhận access token mang version mới nên giữ phiên. Token phát **trước** migration không có `tv` → coi như 0 → còn dùng được tới lần tăng đầu tiên, nên deploy không đăng xuất ai |
+| Rò rỉ | `previousRefreshToken`/`previousRefreshExpiresAt` vào `defaultScope.exclude`; `getProfile` loại thêm `tokenVersion` — `/auth/me` không lộ cột mới (có test) |
+
+**Ghi chú về "khoá tài khoản":** hệ thống hiện **không có** API nào đặt `is_active = false` (chỉ sửa tay trong DB);
+`authMiddleware` vốn đã chặn ngay user `isActive=false`, nên không cần tăng version ở đó.
+
+**Kiểm tra:** `npm test` **57 suite, 829 test pass**; Vitest **36 file, 493 test pass**; `test:security` **6 suite,
+86 test pass** — **không còn `test.failing` nào** (R3, R4 chuyển sang `test` thường, thêm 12 test mới: hai request
+refresh đồng thời, ân hạn, quá ân hạn, thu hồi chéo thiết bị, logout, SSE). Chrome headless **11/11**: hai tab
+chung `localStorage` cùng refresh một lúc → cả hai vẫn ở `/my-bookings`, `refresh_token` được xoay đúng một lần;
+thiết bị B đổi mật khẩu qua giao diện → thiết bị A (access token **còn hạn**) bị đưa về `/login` ngay, B vẫn trong
+hệ thống.

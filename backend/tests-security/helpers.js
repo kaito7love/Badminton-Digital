@@ -12,6 +12,13 @@ const api = () => request(app);
 // Token ký đúng như AuthService (cùng secret) — không dùng /login để khỏi chạm limiter 10 lần/15 phút/IP.
 const tokenFor = (u) => jwt.sign({ id: u.id, email: u.email, role: u.role }, process.env.JWT_ACCESS_SECRET, { expiresIn: '15m' });
 
+// Token mang đúng token_version HIỆN TẠI trong DB — cần khi tài khoản đã logout/đổi mật khẩu (R4): token ký
+// tay với tv = 0 sẽ bị thu hồi. Với tài khoản chưa từng bị thu hồi, `tokenFor` là đủ.
+const tokenForCurrent = async (u) => {
+  const [row] = await sequelize.query('SELECT token_version AS tv FROM users WHERE id = ?', { replacements: [u.id], type: 'SELECT' });
+  return jwt.sign({ id: u.id, email: u.email, role: u.role, tv: Number(row?.tv) || 0 }, process.env.JWT_ACCESS_SECRET, { expiresIn: '15m' });
+};
+
 // Tài khoản mẫu của seeder (đúng thứ tự id trong DB vừa seed).
 const DEMO = {
   admin: { id: 1, email: 'admin@badminton.com', role: 'admin' },
@@ -33,4 +40,4 @@ const registerCustomer = async (phone, password = 'Cam-Bien-Gio-2026') => {
 let counter = 0;
 const unique = () => `09${String(Date.now()).slice(-7)}${counter++ % 10}`.slice(0, 11);
 
-module.exports = { app, api, sequelize, tokenFor, bearer, DEMO, registerCustomer, unique };
+module.exports = { app, api, sequelize, tokenFor, tokenForCurrent, bearer, DEMO, registerCustomer, unique };
