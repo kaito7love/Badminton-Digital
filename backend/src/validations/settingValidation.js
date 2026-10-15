@@ -12,7 +12,7 @@ const validate = (req, res, next) => {
 
 // Khoá cài đặt mà code thật sự đọc (SettingService, discountPolicy, operatingHours...). `PUT /settings` trước
 // đây nhận khoá tuỳ ý — admin gõ nhầm khoá thì lưu im lặng một giá trị chẳng ai đọc (R12, báo cáo 33).
-const KNOWN_KEYS = ['pricing', 'operating_hours', 'branding', 'discount_policy', 'store_info'];
+const KNOWN_KEYS = ['pricing', 'operating_hours', 'branding', 'discount_policy', 'store_info', 'booking_policy'];
 
 const MAX_KEYS = 20;
 const MAX_BYTES = 4096;
@@ -91,6 +91,13 @@ const updateSettingRules = [
   body('value.employeeMaxPercent')
     .if(body('key').equals('discount_policy'))
     .isFloat({ min: 0, max: 100 }).withMessage('Trần giảm giá của nhân viên phải là số từ 0 đến 100'),
+  // Chính sách giữ chỗ (kế hoạch 42): số nguyên không âm; 0 = tắt trần / tắt tự huỷ.
+  body('value.maxActivePerCustomer').if(body('key').equals('booking_policy')).optional()
+    .isInt({ min: 0, max: 1000 }).withMessage('Trần lịch đang giữ mỗi khách phải là số nguyên từ 0 đến 1000 (0 = không giới hạn)'),
+  body('value.pendingExpiryHours').if(body('key').equals('booking_policy')).optional()
+    .isInt({ min: 0, max: 1440 }).withMessage('Số giờ tự huỷ lịch chưa duyệt phải là số nguyên từ 0 đến 1440 (0 = tắt)'),
+  body('value.pendingExpireBeforeStartMinutes').if(body('key').equals('booking_policy')).optional()
+    .isInt({ min: 0, max: 1440 }).withMessage('Số phút trước giờ chơi phải là số nguyên từ 0 đến 1440'),
   body('value').custom((value) => validateSettingObject(value)),
   validate
 ];

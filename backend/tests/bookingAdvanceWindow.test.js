@@ -1,17 +1,23 @@
 // Mô hình giả: phần createBooking chỉ cần biết ai bị chặn và chặn trước khi đụng
 // tới kiểm tra khung giờ hay ghi lịch. Phần đo trên API thật nằm ở kế hoạch 29, mục 12.
 jest.mock('../src/models', () => ({
-  Booking: { create: jest.fn() },
+  Booking: { create: jest.fn(), count: jest.fn() },
   Branch: { findByPk: jest.fn() },
   Court: { findByPk: jest.fn() },
   Customer: {},
   User: {},
+  Role: {},
   sequelize: { transaction: jest.fn() }
 }));
 jest.mock('../src/services/AuditService', () => ({ record: jest.fn() }));
-jest.mock('../src/services/CustomerService', () => ({ resolveWalkIn: jest.fn() }));
+jest.mock('../src/services/CustomerService', () => ({ resolveWalkIn: jest.fn(), resolveWalkInDetailed: jest.fn() }));
+jest.mock('../src/services/SettingService', () => ({
+  getBookingPolicy: jest.fn(),
+  getOperatingHours: jest.fn()
+}));
 
 const { Booking, Branch, Court, sequelize } = require('../src/models');
+const SettingService = require('../src/services/SettingService');
 const BookingService = require('../src/services/BookingService');
 
 const VN = 'Asia/Ho_Chi_Minh';
@@ -78,6 +84,8 @@ describe('BookingService.createBooking — dải đặt trước theo vai', () =
     transaction = { LOCK: { UPDATE: 'UPDATE' }, commit: jest.fn(), rollback: jest.fn() };
     sequelize.transaction.mockResolvedValue(transaction);
     Court.findByPk.mockResolvedValue({ id: 1, branchId: 1 });
+    Booking.count.mockResolvedValue(0);
+    SettingService.getBookingPolicy.mockResolvedValue({ maxActivePerCustomer: 5, pendingExpiryHours: 24, pendingExpireBeforeStartMinutes: 60 });
     Branch.findByPk.mockResolvedValue({ id: 1, timezone: VN });
     Booking.create.mockImplementation(async (values) => ({ id: 500, ...values, toJSON: () => values }));
     availability = jest
@@ -106,6 +114,31 @@ describe('BookingService.createBooking — dải đặt trước theo vai', () =
     expect(booking.status).toBe('pending');
     expect(Booking.create).toHaveBeenCalledTimes(1);
     expect(transaction.commit).toHaveBeenCalledTimes(1);
+  });
+
+  test('khách đã giữ đủ trần lịch chưa chơi → 400 BOOKING_LIMIT, không ghi lịch (F3a)', async () => {
+    Booking.count.mockResolvedValue(5);
+    await expect(BookingService.createBooking(payload('2026-10-10'), { actor: customer, branchId: 1 })).rejects.toMatchObject({
+      statusCode: 400,
+      errorCode: 'BOOKING_LIMIT',
+      message: expect.stringMatching(/tối đa 5/)
+    });
+    expect(Booking.create).not.toHaveBeenCalled();
+    expect(transaction.rollback).toHaveBeenCalledTimes(1);
+  });
+
+  test('còn dưới trần thì đặt được; trần = 0 là không giới hạn; nhân viên không bị đếm', async () => {
+    Booking.count.mockResolvedValue(4);
+    await expect(BookingService.createBooking(payload('2026-10-10'), { actor: customer, branchId: 1 })).resolves.toBeTruthy();
+
+    Booking.count.mockResolvedValue(999);
+    SettingService.getBookingPolicy.mockResolvedValue({ maxActivePerCustomer: 0, pendingExpiryHours: 24, pendingExpireBeforeStartMinutes: 60 });
+    await expect(BookingService.createBooking(payload('2026-10-10'), { actor: customer, branchId: 1 })).resolves.toBeTruthy();
+
+    Booking.count.mockClear();
+    SettingService.getBookingPolicy.mockResolvedValue({ maxActivePerCustomer: 5, pendingExpiryHours: 24, pendingExpireBeforeStartMinutes: 60 });
+    await BookingService.createBooking({ ...payload('2026-10-10'), customerId: 70 }, { actor: employee, branchId: 1 });
+    expect(Booking.count).not.toHaveBeenCalled();
   });
 
   test('nhân viên và quản trị đặt xa hơn dải vẫn được (giải đấu, sự kiện)', async () => {

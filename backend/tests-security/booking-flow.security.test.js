@@ -1,7 +1,19 @@
 // Kế hoạch 39 — flow "Đặt sân" từ website, bốn góc nhìn (khách, nhân viên, quản lý, admin), trên DB thử đã migrate + seed.
 // Phần lớn là hồi quy cho hành vi ĐÚNG đã quan sát. Các lỗi mở (báo cáo 40, mục 🐞) dùng `test.failing`:
 // test đang PASS vì lỗi còn đó — khi sửa xong, nó sẽ FAIL và nhắc đổi thành `test` thường.
-const { api, tokenForCurrent, registerCustomer, unique, sequelize, DEMO } = require('./helpers');
+const { api, tokenForCurrent, unique, sequelize, DEMO } = require('./helpers');
+const AuthService = require('../src/services/AuthService');
+const { User } = require('../src/models');
+const BookingService = require('../src/services/BookingService');
+const realtimeBus = require('../src/utils/realtimeBus');
+const { openWindowViolation } = require('../src/utils/bookingOpenWindow');
+
+// Khách mới cho mỗi nhóm test. Đi thẳng AuthService vì route /auth/register có limiter 5 lần/giờ/IP.
+const newCustomer = async (phone) => {
+  await AuthService.register({ fullName: `SecTest ${phone}`, phone, password: 'Cam-Bien-Gio-2026' });
+  const user = await User.findOne({ where: { phone } });
+  return { id: user.id, email: user.email, role: 'customer', phone };
+};
 
 const pad = (n) => String(n).padStart(2, '0');
 const hhmm = (h) => `${pad(h)}:00`;
@@ -66,8 +78,8 @@ describe('Khách: đặt sân', () => {
   let customer;
   let rival;
   beforeAll(async () => {
-    customer = await registerCustomer(unique());
-    rival = await registerCustomer(unique());
+    customer = await newCustomer(unique());
+    rival = await newCustomer(unique());
   });
 
   test('đặt hợp lệ → pending, gắn đúng khách + chi nhánh; trường nhạy cảm gửi kèm bị bỏ qua', async () => {
@@ -171,7 +183,7 @@ describe('Khách: đặt sân', () => {
 
 describe('Nhân viên / quản lý / admin: vận hành đặt sân', () => {
   let customer;
-  beforeAll(async () => { customer = await registerCustomer(unique()); });
+  beforeAll(async () => { customer = await newCustomer(unique()); });
 
   test('xác nhận chỉ từ pending; xác nhận lại → 400; nhân viên chi nhánh khác không đụng được', async () => {
     const { res } = await tryBook(customer, { dayOffset: 10 });
@@ -241,7 +253,7 @@ describe('Nhân viên / quản lý / admin: vận hành đặt sân', () => {
 
 describe('Vòng đời: đặt → xác nhận → mở sân → checkout', () => {
   test('booking thành completed; checkout lại cùng phiên idempotent; completed không huỷ/sửa được; chi nhánh khác không mở được', async () => {
-    const customer = await registerCustomer(unique());
+    const customer = await newCustomer(unique());
     // sân cuối của CN1, hôm nay (nhân viên đặt không bị chặn giờ đã qua với khung đang diễn ra? dùng khung cuối ngày)
     const courts = await publicCourts();
     const courtId = courts[courts.length - 1].id;
@@ -260,7 +272,8 @@ describe('Vòng đời: đặt → xác nhận → mở sân → checkout', () =
     const crossOpen = await api().post(`/api/v1/courts/${courts2[0].id}/open`).set('Authorization', await auth('employeeCn2')).send({ bookingId: booking.id });
     expect([400, 404]).toContain(crossOpen.status);
 
-    const open = await api().post(`/api/v1/courts/${courtId}/open`).set('Authorization', empAuth).send({ bookingId: booking.id });
+    // Khung được chọn từ cuối ngày nên thường lệch giờ so với lúc chạy test: xác nhận lệch giờ (kế hoạch 42, F4).
+    const open = await api().post(`/api/v1/courts/${courtId}/open`).set('Authorization', empAuth).send({ bookingId: booking.id, acknowledgeTimeMismatch: true });
     expect(open.status).toBe(201);
     const sessionId = open.body.data.session ? open.body.data.session.id : open.body.data.id;
     const co1 = await api().post('/api/v1/payments/checkout').set('Authorization', empAuth).send({ sessionId, paymentMethod: 'cash' });
@@ -295,7 +308,7 @@ describe('Đã sửa theo báo cáo 40 (F1, F2, F8, F10)', () => {
   test('danh sách hợp lệ vẫn chạy, kể cả khách; sort=desc cho lịch mới nhất trước', async () => {
     const ok = await api().get(`/api/v1/bookings?date=${dayFrom(5)}&status=pending&limit=5`).set('Authorization', await auth('employeeCn1'));
     expect(ok.status).toBe(200);
-    const customer = await registerCustomer(unique());
+    const customer = await newCustomer(unique());
     const own = await tryBook(customer, { dayOffset: 4, hours: [6, 7, 8] });
     track(own.res, customer);
     const later = await tryBook(customer, { dayOffset: 8, hours: [6, 7, 8] });
@@ -342,5 +355,173 @@ describe('Đã sửa theo báo cáo 40 (F1, F2, F8, F10)', () => {
       .send({ courtId: courts3[0].id, bookingDate: dayFrom(13), startTime: '06:00', endTime: '07:00', customerName: 'Khách Admin', customerPhone: `0917${String(Date.now()).slice(-7)}` });
     expect(res.status).toBe(404);
     expect(res.body.message).toMatch(/đổi chi nhánh/);
+  });
+});
+
+describe('Kế hoạch 42 — F3 giữ chỗ hàng loạt', () => {
+  test('khách đã giữ đủ 5 lịch → lần thứ 6 bị 400 BOOKING_LIMIT; huỷ một lịch thì đặt lại được; nhân viên không bị trần', async () => {
+    const customer = await newCustomer(unique());
+    const made = [];
+    for (let i = 0; i < 5; i += 1) {
+      const { res } = await tryBook(customer, { dayOffset: 3 + i, hours: [6, 7, 8, 9, 10, 11, 12, 13] });
+      track(res, customer);
+      expect(res.status).toBe(201);
+      made.push(res.body.data.id);
+    }
+    const courts = await publicCourts();
+    const sixth = await api().post('/api/v1/bookings').set('Authorization', await auth(customer))
+      .send({ courtId: courts[0].id, bookingDate: dayFrom(9), startTime: '14:00', endTime: '15:00' });
+    expect(sixth.status).toBe(400);
+    expect(sixth.body.code).toBe('BOOKING_LIMIT');
+    expect(sixth.body.message).toMatch(/tối đa 5/);
+
+    expect((await api().delete(`/api/v1/bookings/${made[0]}`).set('Authorization', await auth(customer))).status).toBe(200);
+    const again = await tryBook(customer, { dayOffset: 9, hours: [14, 15, 16] });
+    track(again.res, customer);
+    expect(again.res.status).toBe(201);
+
+    // nhân viên đặt hộ nhiều lịch cho cùng một khách: không bị trần
+    const staff = [];
+    for (let i = 0; i < 6; i += 1) {
+      const r = await tryBook('employeeCn1', { dayOffset: 10 + i, hours: [17, 18, 19, 20], extra: { customerId: undefined, customerName: 'Khách Nhiều Lịch', customerPhone: '0919555111' } });
+      track(r.res, 'employeeCn1');
+      staff.push(r.res.status);
+    }
+    expect(staff.every((x) => x === 201)).toBe(true);
+  });
+
+  test('POST /bookings của khách: lượt thứ 21 trong 10 phút → 429; nhân viên không bị giới hạn', async () => {
+    const customer = await newCustomer(unique());
+    const header = await auth(customer);
+    let last;
+    for (let i = 0; i < 21; i += 1) {
+      last = await api().post('/api/v1/bookings').set('Authorization', header).send({});
+    }
+    expect(last.status).toBe(429);
+    expect(last.body.message).toMatch(/quá nhanh/);
+
+    const staffHeader = await auth('employeeCn1');
+    let staffLast;
+    for (let i = 0; i < 22; i += 1) staffLast = await api().post('/api/v1/bookings').set('Authorization', staffHeader).send({});
+    expect(staffLast.status).toBe(400); // validator, không phải 429
+  });
+
+  test('sweeper: huỷ lịch pending quá hạn do KHÁCH đặt; không đụng lịch do nhân viên tạo hay lịch còn hạn', async () => {
+    const customer = await newCustomer(unique());
+    const old = await tryBook(customer, { dayOffset: 11, hours: [6, 7, 8, 9] });
+    const fresh = await tryBook(customer, { dayOffset: 12, hours: [6, 7, 8, 9] });
+    const byStaff = await tryBook('employeeCn1', { dayOffset: 13, hours: [6, 7, 8, 9], extra: { customerName: 'Khách Quầy', customerPhone: `0918${String(Date.now()).slice(-7)}` } });
+    [old, fresh].forEach((x) => track(x.res, customer));
+    track(byStaff.res, 'employeeCn1');
+    const idOf = (x) => x.res.body.data.id;
+    await sequelize.query('UPDATE bookings SET created_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY) WHERE id IN (?, ?)', { replacements: [idOf(old), idOf(byStaff)] });
+
+    const expired = await BookingService.expireStalePendingBookings();
+    expect(expired).toBeGreaterThanOrEqual(1);
+    const [rows] = await sequelize.query('SELECT id, status FROM bookings WHERE id IN (?, ?, ?)', { replacements: [idOf(old), idOf(fresh), idOf(byStaff)] });
+    const status = Object.fromEntries(rows.map((r) => [r.id, r.status]));
+    expect(status[idOf(old)]).toBe('cancelled');
+    expect(status[idOf(fresh)]).toBe('pending');
+    expect(status[idOf(byStaff)]).toBe('pending');
+    const [[log]] = await sequelize.query("SELECT user_id, employee_id, action FROM activity_logs WHERE action = 'booking.expired' AND target_id = ?", { replacements: [idOf(old)] });
+    expect(log.action).toBe('booking.expired');
+    expect(log.user_id).toBeNull();
+    // chạy lại không huỷ thêm lịch nào của ba lịch trên
+    await BookingService.expireStalePendingBookings();
+    const [after] = await sequelize.query('SELECT status FROM bookings WHERE id = ?', { replacements: [idOf(fresh)] });
+    expect(after[0].status).toBe('pending');
+  });
+});
+
+describe('Kế hoạch 42 — F4 mở sân từ booking', () => {
+  const closeSession = async (courtId, header) => {
+    const [[session]] = await sequelize.query("SELECT id FROM court_sessions WHERE court_id = ? AND status = 'playing'", { replacements: [courtId] });
+    if (session) await api().post('/api/v1/payments/checkout').set('Authorization', header).send({ sessionId: session.id, paymentMethod: 'cash' });
+  };
+
+  test('lịch của ngày khác → 400 BOOKING_WRONG_DAY và không tạo phiên; lịch hôm nay lệch giờ → 409 rồi 201 khi có cờ', async () => {
+    const header = await auth('employeeCn1');
+    const courts = await publicCourts();
+    const court = courts[courts.length - 2];
+    await closeSession(court.id, header);
+
+    const future = await api().post('/api/v1/bookings').set('Authorization', header)
+      .send({ courtId: court.id, bookingDate: dayFrom(20), startTime: '09:00', endTime: '10:00', customerName: 'Khách Xa', customerPhone: `0916${String(Date.now()).slice(-7)}` });
+    track(future, 'employeeCn1');
+    expect(future.status).toBe(201);
+    const [[before]] = await sequelize.query('SELECT COUNT(*) AS n FROM court_sessions WHERE booking_id = ?', { replacements: [future.body.data.id] });
+    const wrongDay = await api().post(`/api/v1/courts/${court.id}/open`).set('Authorization', header).send({ bookingId: future.body.data.id });
+    expect(wrongDay.status).toBe(400);
+    expect(wrongDay.body.code).toBe('BOOKING_WRONG_DAY');
+    const [[afterWrong]] = await sequelize.query('SELECT COUNT(*) AS n FROM court_sessions WHERE booking_id = ?', { replacements: [future.body.data.id] });
+    expect(Number(afterWrong.n)).toBe(Number(before.n));
+    const [[bk]] = await sequelize.query('SELECT status FROM bookings WHERE id = ?', { replacements: [future.body.data.id] });
+    expect(bk.status).toBe('pending');
+
+    // hôm nay: chọn một khung chưa qua mà đang LỆCH giờ so với bây giờ; không có (cuối ngày) thì bỏ qua phần này
+    const now = new Date();
+    let hour = null;
+    for (let h = 5; h <= 22 && hour === null; h += 1) {
+      const v = openWindowViolation({ bookingDate: dayFrom(0), startTime: hhmm(h), endTime: hhmm(h + 1), now, timezone: 'Asia/Ho_Chi_Minh' });
+      const endsAt = new Date(`${dayFrom(0)}T${hhmm(h + 1)}:00+07:00`).getTime();
+      if (v && v.code === 'TIME_MISMATCH' && endsAt > now.getTime()) hour = h;
+    }
+    if (hour === null) return;
+    const today = await api().post('/api/v1/bookings').set('Authorization', header)
+      .send({ courtId: court.id, bookingDate: dayFrom(0), startTime: hhmm(hour), endTime: hhmm(hour + 1), customerName: 'Khách Hôm Nay', customerPhone: `0915${String(Date.now()).slice(-7)}` });
+    if (today.status !== 201) return; // khung đã bị chiếm từ lần chạy trước
+    track(today, 'employeeCn1');
+    const mismatch = await api().post(`/api/v1/courts/${court.id}/open`).set('Authorization', header).send({ bookingId: today.body.data.id });
+    expect(mismatch.status).toBe(409);
+    expect(mismatch.body.code).toBe('BOOKING_TIME_MISMATCH');
+    const ok = await api().post(`/api/v1/courts/${court.id}/open`).set('Authorization', header).send({ bookingId: today.body.data.id, acknowledgeTimeMismatch: true });
+    expect(ok.status).toBe(201);
+    await closeSession(court.id, header);
+  });
+});
+
+describe('Kế hoạch 42 — F5 khớp SĐT khi đặt hộ và F6 sự kiện realtime', () => {
+  test('nhân viên đặt bằng SĐT khách có sẵn: phản hồi nêu hồ sơ khớp và tên có khác không; SĐT mới thì không', async () => {
+    const [[demo]] = await sequelize.query('SELECT id, full_name FROM customers WHERE id = 1');
+    const header = await auth('employeeCn1');
+
+    const differ = await tryBook('employeeCn1', { dayOffset: 16, hours: [6, 7, 8, 9], extra: { customerName: 'Tên Gõ Khác', customerPhone: '0903333333' } });
+    track(differ.res, 'employeeCn1');
+    expect(differ.res.status).toBe(201);
+    expect(differ.res.body.data.customerMatch).toEqual({ id: demo.id, fullName: demo.full_name, nameDiffers: true });
+
+    const same = await tryBook('employeeCn1', { dayOffset: 17, hours: [6, 7, 8, 9], extra: { customerName: demo.full_name, customerPhone: '0903 333 333' } });
+    track(same.res, 'employeeCn1');
+    expect(same.res.body.data.customerMatch.nameDiffers).toBe(false);
+
+    const fresh = await tryBook('employeeCn1', { dayOffset: 18, hours: [6, 7, 8, 9], extra: { customerName: 'Khách Mới Hoàn Toàn', customerPhone: `0914${String(Date.now()).slice(-7)}` } });
+    track(fresh.res, 'employeeCn1');
+    expect(fresh.res.status).toBe(201);
+    expect(fresh.res.body.data.customerMatch).toBeUndefined();
+
+    // khách tự đặt: không bao giờ có trường này
+    const customer = await newCustomer(unique());
+    const own = await tryBook(customer, { dayOffset: 7, hours: [6, 7, 8, 9] });
+    track(own.res, customer);
+    expect(own.res.body.data.customerMatch).toBeUndefined();
+    expect(header).toBeTruthy();
+  });
+
+  test('đặt / xác nhận / huỷ phát booking:changed chỉ với branchId, bookingId, status (không PII)', async () => {
+    const events = [];
+    const off = realtimeBus.subscribe('booking:changed', (p) => events.push(p));
+    try {
+      const customer = await newCustomer(unique());
+      const { res } = await tryBook(customer, { dayOffset: 8, hours: [10, 11, 12, 13] });
+      track(res, customer);
+      const id = res.body.data.id;
+      await api().put(`/api/v1/bookings/${id}/confirm`).set('Authorization', await auth('employeeCn1'));
+      await api().delete(`/api/v1/bookings/${id}`).set('Authorization', await auth(customer));
+      const mine = events.filter((e) => e.bookingId === id);
+      expect(mine.map((e) => e.status)).toEqual(['pending', 'confirmed', 'cancelled']);
+      mine.forEach((e) => expect(Object.keys(e).sort()).toEqual(['bookingId', 'branchId', 'status']));
+    } finally {
+      off();
+    }
   });
 });

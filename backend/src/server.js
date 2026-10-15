@@ -9,6 +9,7 @@ const errorHandler = require('./middleware/errorHandler');
 const requestContextMiddleware = require('./middleware/requestContextMiddleware');
 const OnlineOrderService = require('./services/OnlineOrderService');
 const SalesOrderService = require('./services/SalesOrderService');
+const BookingService = require('./services/BookingService');
 const { resolveCorsOrigin, resolveTrustProxy, resolveBuildVersion } = require('./utils/serverConfig');
 const { createFrontendHandlers } = require('./utils/frontendStatic');
 const { securityHeaders, apiNoStore } = require('./utils/securityHeaders');
@@ -184,6 +185,10 @@ setInterval(() => {
   });
   SalesOrderService.releaseAbandonedPosOrders().catch((err) => {
     console.error('❌ Lỗi khi dọn đơn tại quầy bỏ dở:', err.message);
+  });
+  // Lịch đặt sân chờ duyệt quá hạn của khách (báo cáo 40, F3b) — xem BookingService.expireStalePendingBookings.
+  BookingService.expireStalePendingBookings().catch((err) => {
+    console.error('❌ Lỗi khi huỷ lịch đặt sân quá hạn chờ duyệt:', err.message);
   });
 }, 5 * 60 * 1000);
 

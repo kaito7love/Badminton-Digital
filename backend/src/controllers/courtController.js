@@ -55,7 +55,13 @@ const openCourt = async (req, res, next) => {
       req.body.bookingId,
       req.body.guestName,
       req.body.guestPhone,
-      { actor: req.user, branchId: req.branchId, employeeId: req.user?.employee?.id, requestId: req.requestId }
+      {
+        actor: req.user,
+        branchId: req.branchId,
+        employeeId: req.user?.employee?.id,
+        requestId: req.requestId,
+        acknowledgeTimeMismatch: req.body.acknowledgeTimeMismatch === true
+      }
     );
     return successResponse(res, session, 'Court opened successfully', 201);
   } catch (err) {
