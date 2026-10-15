@@ -1,5 +1,6 @@
 const { body, param, validationResult } = require('express-validator');
 const { errorResponse } = require('../utils/responseHandler');
+const { isValidPhone } = require('../utils/phone');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -40,6 +41,10 @@ const openCourtRules = [
   body('bookingId').optional({ nullable: true }).isInt({ min: 1, max: 2147483647 }).withMessage('Booking ID must be an integer'),
   body('guestName').optional({ nullable: true }).isString().trim().isLength({ max: 100 }).withMessage('Guest name must be a string up to 100 characters'),
   body('guestPhone').optional({ nullable: true }).isString().trim().isLength({ max: 20 }).withMessage('Guest phone must be a string up to 20 characters'),
+  body('guestPhone').optional({ nullable: true, checkFalsy: true }).custom((value) => {
+    if (!isValidPhone(value)) throw new Error('Số điện thoại không hợp lệ.');
+    return true;
+  }),
   validate
 ];
 

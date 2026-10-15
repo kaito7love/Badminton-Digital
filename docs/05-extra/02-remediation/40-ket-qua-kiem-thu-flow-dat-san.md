@@ -7,6 +7,10 @@ File này **tự đầy đủ**: đọc một mình là đủ. Quy ước kết 
 
 ---
 
+> **Cập nhật sau kế hoạch 41 (nhánh `fix/flow-dat-san-f1-f2-nho`):** F1, F2, F7, F8, F10, F11 **đã sửa**; F9 **ghi nhận có chủ đích, không đổi**; F3, F4, F5, F6 vẫn mở. Chi tiết: [báo cáo kết quả sửa](41-ket-qua-sua-flow-dat-san.md).
+
+---
+
 ## Mục lục
 
 1. [Tóm tắt một trang](#1-tóm-tắt-một-trang)
@@ -88,14 +92,14 @@ File này **tự đầy đủ**: đọc một mình là đủ. Quy ước kết 
 
 Mức: 🟠 nên sửa · 🟡 ghi nhận, sửa khi tiện · 🟢 nhỏ. Không có 🔴.
 
-### F1 🐞 🟡 — `GET /bookings?date=abc` trả **500**
+### F1 🐞 🟡 — `GET /bookings?date=abc` trả **500** — **✅ đã sửa**
 - **Tái hiện:** nhân viên gọi `GET /api/v1/bookings?date=abc` → `500 Lỗi máy chủ nội bộ`; log: `SequelizeDatabaseError ER_WRONG_VALUE: Incorrect DATE value: 'Invalid date'`.
 - **Nguyên nhân:** `BookingService.getAllBookings` đưa thẳng `query.date` vào `where.bookingDate` (không có rule validate cho query như `createBookingRules`). `status=` lạ trả 200 danh sách rỗng; `courtId=abc` trả 200 (bị bỏ qua).
 - **Tác động:** thấp — chỉ nhân viên gọi được, thông điệp 500 đã được errorHandler che (không lộ SQL). Nhưng là 5xx do đầu vào người dùng.
 - **Gợi ý:** thêm `query('date').optional().isISO8601()` (và `courtId` `isInt`, `status` `isIn`) vào validator của `GET /bookings`, trả 400.
 - **Test:** `test.failing` "danh sách đặt sân với date không hợp lệ phải trả 400".
 
-### F2 🐞 🟡 — Đặt hộ: SĐT không được kiểm như lúc tự đăng ký
+### F2 🐞 🟡 — Đặt hộ: SĐT không được kiểm như lúc tự đăng ký — **✅ đã sửa**
 - **Tái hiện (nhân viên `POST /bookings` kèm `customerName` + `customerPhone`):**
   `"123"` → **201, lưu phone = `123`** · `"abc"` → **201, phone = NULL** (im lặng) · `"+84 919 000 333"` → 201, chuẩn hoá thành `0919000333` (tốt) · chuỗi 23 ký tự → 400.
   Trong khi tự đăng ký với `"abc"` → 400.
@@ -124,19 +128,19 @@ Mức: 🟠 nên sửa · 🟡 ghi nhận, sửa khi tiện · 🟢 nhỏ. Khôn
 - **Tác động:** vận hành — yêu cầu đặt sân `pending` của khách nằm đó tới khi nhân viên tình cờ tải lại; khách chờ "nhân viên sẽ duyệt trước giờ chơi".
 - **Gợi ý:** phát `booking:changed` qua `realtimeBus` và để trang đăng ký (cơ chế đã có cho sân), hoặc polling 30 s như `/dat-san`; kèm chấm/huy hiệu số booking `pending`.
 
-### F7 🎨 🟢 — Lỗi ở form nhân viên hiện bằng `alert()` của trình duyệt
+### F7 🎨 🟢 — Lỗi ở form nhân viên hiện bằng `alert()` của trình duyệt — **✅ đã sửa (luồng đặt sân)**
 Ví dụ 409 "Khung giờ này đã có người đặt…" bật hộp thoại gốc; trang khách thì dùng banner đẹp. Đồng bộ lại cho nhất quán.
 
-### F8 🎨 🟢 — Admin chưa chọn chi nhánh: thông báo mơ hồ
+### F8 🎨 🟢 — Admin chưa chọn chi nhánh: thông báo mơ hồ — **✅ đã sửa (câu chữ)**
 `POST /bookings` sân CN3 → `404 "Court not found"`; đọc booking CN3 theo id → `403 "Booking không thuộc chi nhánh hiện tại"`. Đúng về phân quyền nhưng nên nói "Hãy chọn chi nhánh trước" / hoặc tự suy chi nhánh từ sân khi là admin.
 
-### F9 ❓ 🟢 — Booking vẫn `completed` sau khi **huỷ hoá đơn**
+### F9 ❓ 🟢 — Booking vẫn `completed` sau khi **huỷ hoá đơn** — **ℹ️ giữ nguyên có chủ đích**
 Huỷ hoá đơn hoàn doanh thu đúng, phiên ở `closed`, nhưng booking giữ `completed`, khách vẫn thấy "hoàn thành" dù đã hoàn tiền. Nếu muốn: trạng thái/ghi chú riêng "hoá đơn đã huỷ" hoặc mở lại khung.
 
-### F10 🎨 🟢 — "Lịch đặt của tôi" trộn lịch đã huỷ với lịch còn hiệu lực
+### F10 🎨 🟢 — "Lịch đặt của tôi" trộn lịch đã huỷ với lịch còn hiệu lực — **✅ đã sửa**
 Sắp tăng dần theo ngày, các lịch `ĐÃ HUỶ` chen giữa (tài khoản demo sau kiểm có nhiều chục dòng). Gợi ý tab/bộ lọc "Sắp tới / Đã huỷ" hoặc đưa lịch đã huỷ xuống cuối.
 
-### F11 🎨 🟢 — Điện thoại: thanh tóm tắt bị cắt chữ, nút cuộn-lên chạm mép thanh
+### F11 🎨 🟢 — Điện thoại: thanh tóm tắt bị cắt chữ, nút cuộn-lên chạm mép thanh — **✅ đã sửa**
 Dòng phụ "Sân số 1 · T6 16/10 · 1…" bị cắt ở 390 px; nút mũi tên cuộn-lên nằm sát phải thanh tóm tắt. Không che nút chính, không cuộn ngang (`scrollWidth` = 390).
 
 ---

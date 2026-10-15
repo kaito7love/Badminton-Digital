@@ -1,5 +1,6 @@
 const { body, query, param, validationResult } = require('express-validator');
 const { errorResponse } = require('../utils/responseHandler');
+const { isValidPhone } = require('../utils/phone');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -10,11 +11,33 @@ const validate = (req, res, next) => {
   next();
 };
 
+// Dùng chung cho đặt hộ (customerPhone) và mở sân (guestPhone): SĐT là khoá nhận diện khách
+// xuyên chi nhánh nên không nhận số rác như "123" (báo cáo 40, F2).
+const optionalValidPhone = (value) => {
+  if (!isValidPhone(value)) throw new Error('Số điện thoại không hợp lệ.');
+  return true;
+};
+
+const BOOKING_STATUSES = ['pending', 'confirmed', 'cancelled', 'completed'];
+
+// Danh sách đặt sân: trước đây không có validator, `date=abc` đi thẳng vào SQL và trả 500 (báo cáo 40, F1).
+const listBookingsRules = [
+  query('date').optional()
+    .matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/).withMessage('Ngày phải có dạng YYYY-MM-DD')
+    .bail().isISO8601({ strict: true, strictSeparator: true }).withMessage('Ngày không tồn tại'),
+  query('courtId').optional().isInt({ min: 1, max: 2147483647 }).withMessage('Court ID must be an integer'),
+  query('status').optional().isIn(BOOKING_STATUSES).withMessage('Trạng thái phải là pending, confirmed, cancelled hoặc completed'),
+  query('sort').optional().isIn(['asc', 'desc']).withMessage('sort phải là asc hoặc desc'),
+  validate
+];
+
 const createBookingRules = [
   body('courtId').isInt({ min: 1, max: 2147483647 }).withMessage('Court ID is required and must be an integer'),
   body('customerId').optional({ nullable: true }).isInt({ min: 1, max: 2147483647 }).withMessage('Customer ID must be an integer'),
   body('customerName').optional({ nullable: true }).isString().trim().isLength({ max: 100 }).withMessage('Customer name must be a string up to 100 characters'),
   body('customerPhone').optional({ nullable: true }).isString().trim().isLength({ max: 20 }).withMessage('Customer phone must be a string up to 20 characters'),
+  // Khách vãng lai có thể không để lại SĐT; có nhập thì phải là số hợp lệ như lúc tự đăng ký.
+  body('customerPhone').optional({ nullable: true, checkFalsy: true }).custom(optionalValidPhone),
   body('bookingDate').isISO8601().withMessage('Booking date must be a valid date (YYYY-MM-DD)'),
   body('startTime').matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('Start time must be HH:mm or HH:mm:ss'),
   body('endTime').matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('End time must be HH:mm or HH:mm:ss'),
@@ -63,6 +86,9 @@ const checkAvailabilityRules = [
 module.exports = {
   EDITABLE_BOOKING_FIELDS,
   rejectUneditableBookingFields,
+  optionalValidPhone,
+  BOOKING_STATUSES,
+  listBookingsRules,
   createBookingRules,
   updateBookingRules,
   checkAvailabilityRules

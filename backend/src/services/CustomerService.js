@@ -2,7 +2,7 @@ const bcrypt = require('bcrypt');
 const { Customer, CourtSession, Booking, SalesOrder, Invoice, Court, User, Role, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { getPagination, getPagingData } = require('../utils/pagination');
-const { normalizePhone } = require('../utils/phone');
+const { normalizePhone, isValidPhone } = require('../utils/phone');
 const { computeLoyaltyTier } = require('../utils/loyalty');
 const { assertNotLockedDemoAccount } = require('../utils/demoMode');
 const AuditService = require('./AuditService');
@@ -195,6 +195,12 @@ class CustomerService {
   static async resolveWalkIn({ fullName, phone, transaction = null }) {
     const name = (fullName || '').trim();
     const normalizedPhone = normalizePhone(phone);
+    // Có nhập SĐT mà không hợp lệ thì từ chối, đừng lưu số rác hay lặng lẽ bỏ số (báo cáo 40, F2).
+    if (String(phone ?? '').trim() && !isValidPhone(phone)) {
+      const error = new Error('Số điện thoại không hợp lệ.');
+      error.statusCode = 400;
+      throw error;
+    }
 
     if (!name && !normalizedPhone) return null;
 

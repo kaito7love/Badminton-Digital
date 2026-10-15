@@ -161,6 +161,7 @@ class BookingService {
   static async getAllBookings(query, context = {}) {
     const { page, limit, offset } = getPagination(query);
     const { date, courtId, status } = query;
+    const direction = String(query.sort || 'asc').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 
     const where = {};
     if (date) where.bookingDate = date;
@@ -174,8 +175,8 @@ class BookingService {
       limit,
       offset,
       order: [
-        ["bookingDate", "ASC"],
-        ["startTime", "ASC"],
+        ["bookingDate", direction],
+        ["startTime", direction],
       ],
       include: [
         { model: Court, as: "court", attributes: ["id", "name"] },
@@ -229,7 +230,7 @@ class BookingService {
     try {
       const court = await Court.findByPk(data.courtId, { transaction, lock: transaction.LOCK.UPDATE });
       if (!court || (context.branchId && court.branchId !== context.branchId)) {
-        const error = new Error("Court not found");
+        const error = new Error("Không tìm thấy sân trong chi nhánh đang chọn — hãy đổi chi nhánh rồi thử lại.");
         error.statusCode = 404;
         throw error;
       }
@@ -350,7 +351,7 @@ class BookingService {
         lock: transaction.LOCK.UPDATE,
       });
       if (!court) {
-        const error = new Error("Court not found");
+        const error = new Error("Không tìm thấy sân trong chi nhánh đang chọn — hãy đổi chi nhánh rồi thử lại.");
         error.statusCode = 404;
         throw error;
       }
@@ -471,7 +472,7 @@ class BookingService {
 
   static assertOwnership(booking, actor, branchId) {
     if (branchId && booking.branchId !== branchId) {
-      const error = new Error("Booking không thuộc chi nhánh hiện tại");
+      const error = new Error("Booking thuộc chi nhánh khác — hãy đổi chi nhánh đang chọn rồi thử lại.");
       error.statusCode = 403;
       throw error;
     }
