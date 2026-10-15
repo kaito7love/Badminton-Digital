@@ -11,6 +11,7 @@ const OnlineOrderService = require('./services/OnlineOrderService');
 const SalesOrderService = require('./services/SalesOrderService');
 const { resolveCorsOrigin, resolveTrustProxy, resolveBuildVersion } = require('./utils/serverConfig');
 const { createFrontendHandlers } = require('./utils/frontendStatic');
+const { securityHeaders, apiNoStore } = require('./utils/securityHeaders');
 const { getCompetitionConfig } = require('./integrations/competition/config');
 const { createGatewayRouter } = require('./integrations/competition/gateway');
 const { createDispatcher } = require('./integrations/competition/dispatcher');
@@ -27,6 +28,10 @@ const app = express();
 // (xem utils/serverConfig.js).
 app.set('trust proxy', resolveTrustProxy());
 app.disable('x-powered-by');
+
+// Header bảo mật cho MỌI response (JSON, file tĩnh, 404, lỗi) — R9; no-store cho API — R10 (kế hoạch 35).
+app.use(securityHeaders);
+app.use('/api/v1', apiNoStore);
 
 app.use(cors({
   origin: resolveCorsOrigin(),

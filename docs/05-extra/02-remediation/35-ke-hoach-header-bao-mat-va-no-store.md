@@ -3,7 +3,7 @@
 **Ngày:** 2026-10-15 · **Nhánh:** `fix/r9-r10-header-bao-mat-va-no-store`
 **Tách từ:** `test/ke-hoach-kiem-thu-bao-mat` (45b7a9f, đã có R1). Theo quy tắc của đợt bảo mật: merge vào nhánh
 test, **không** vào `main`.
-**Trạng thái:** CHỜ DUYỆT. Chưa sửa dòng code nào.
+**Trạng thái:** ĐÃ DUYỆT 2026-10-15 và đã code; kết quả ở §9. Merge vào `test/ke-hoach-kiem-thu-bao-mat` theo lệnh của bạn.
 **Nguồn:** `33-ket-qua-kiem-thu-bao-mat.md` — R9 (F1, ZAP baseline) và R10 (F5).
 
 ## 1. Vấn đề đã đo được
@@ -118,3 +118,31 @@ Chưa trả lời thì chưa làm; mặc định bên cạnh chỉ là đề xu�
 - **Q4.** HSTS 180 ngày chỉ khi HTTPS, không `includeSubDomains`/`preload` — đồng ý?
 - **Q5.** Tài liệu: sau khi code xong có cập nhật `CLAUDE.md` (mục "HTTP/deploy config") + `00-tien-do.md` +
   đánh dấu R9/R10 đã sửa trong báo cáo 33 không? (Đề xuất: chỉ khi bạn nói.)
+
+## 9. Quyết định đã chốt và kết quả thực hiện
+
+**Trả lời (2026-10-15):** Q1 tự viết middleware · Q2 bật CSP chặn sau khi 0 vi phạm · Q3 chấp nhận
+`style-src 'unsafe-inline'` · Q4 HSTS 180 ngày chỉ khi HTTPS · Q5 chưa cập nhật tài liệu (`CLAUDE.md`,
+`00-tien-do.md`, báo cáo 33 **không** đụng).
+
+**Đã làm:** `backend/src/utils/securityHeaders.js` (mới), một lần đăng ký trong `server.js`, hai `location` tĩnh
+trong `docker/nginx.conf`. Khác kế hoạch một điểm: `/api-docs` (Swagger UI, chỉ dev hoặc khi
+`ENABLE_API_DOCS=true`) được **miễn CSP** vì nó dựng trang bằng script inline; các header còn lại vẫn áp dụng.
+
+**Kết quả kiểm tra:**
+
+| Hạng mục | Kết quả |
+|---|---|
+| `npm test` backend | 51 suite, 683 test pass (trước 665; +18 của `securityHeaders.test.js`) |
+| `npm run test:security` (DB tạm) | 3 suite, 48 test pass (+9 của `security-headers.security.test.js`) |
+| Vitest frontend | 35 file, 482 test pass (không đổi — frontend không bị sửa) |
+| Chrome headless, backend tạm :5052 (production-mode) | **30 trang × 2 cỡ màn hình (1366×768, 390×844), 0 vi phạm CSP**: 8 trang công khai, 6 trang khách, 16 trang nhân viên (Dashboard, Sân, Sơ đồ, Đặt sân, Khách, Nhân viên, Phụ kiện, Bán lẻ, Báo cáo, Cài đặt, Nhật ký, Lịch sử, Thi đấu ×4) |
+| CSP có tác dụng thật | ảnh từ `example.com` bị chặn, `img.vietqr.io` được phép, script inline bị chặn; CSS Google Fonts nạp được |
+| Clickjacking | nhúng `/login` bản mới từ origin khác → bị chặn; bản cũ (:5050) nhúng được → test đủ nhạy |
+| HSTS | HTTP thường: không có; qua `X-Forwarded-Proto: https` với trust proxy: `max-age=15552000`; chưa bật trust proxy thì client tự gửi header không kích hoạt được |
+| `no-store` (R10) | `/auth/me` (kể cả 401), `/bookings`, `/customers`, `/employees` đều `no-store`; `/public/*` giữ nguyên |
+| nginx | `nginx -t` OK; container `nginx:alpine` thật: `/`, `/login`, `/assets/*.js` đều mang đủ 5 header, `Cache-Control` cũ giữ nguyên; container đã xoá |
+| ZAP baseline lên :5052 | các luật Anti-clickjacking, X-Content-Type-Options, CSP, Permissions-Policy, HSTS, Referrer đều **PASS** (trước: 8 cảnh báo). Còn 5 cảnh báo: `style-src unsafe-inline` (đã chấp nhận ở Q3), COEP, SRI, "Storable and Cacheable" của file tĩnh, "Modern Web Application" (thông tin) |
+
+**Còn lại, cố ý không làm:** COEP/COOP, SRI, bỏ `'unsafe-inline'` của style (xem §3.3). Nginx không có HSTS —
+TLS do reverse proxy phía trước, nơi đó bật HSTS.
