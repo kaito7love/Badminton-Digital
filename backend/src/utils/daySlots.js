@@ -26,6 +26,13 @@ const SLOT_MINUTES = 60;
  */
 const BOOKING_WINDOW_DAYS = 14;
 
+/**
+ * Khách đặt tối đa bao nhiêu giờ liền cho MỘT lượt (R15, báo cáo 33). Trang Đặt sân đã giới hạn 3 giờ ở giao
+ * diện (`MAX_BOOKING_HOURS` trong frontend/src/pages/Booking/lib/daySelection.js — giữ hai nơi KHỚP nhau);
+ * server áp lại vì API gọi thẳng không đi qua giao diện. Nhân viên không bị giới hạn (giải đấu, sự kiện).
+ */
+const CUSTOMER_MAX_BOOKING_HOURS = 3;
+
 const SLOT_STATES = Object.freeze({
   FREE: 'free',
   BOOKED: 'booked',
@@ -180,6 +187,7 @@ const buildDayAvailability = ({
 module.exports = {
   SLOT_MINUTES,
   BOOKING_WINDOW_DAYS,
+  CUSTOMER_MAX_BOOKING_HOURS,
   SLOT_STATES,
   addDays,
   isRealDate,
