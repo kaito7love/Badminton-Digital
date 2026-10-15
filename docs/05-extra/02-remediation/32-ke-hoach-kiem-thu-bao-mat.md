@@ -1,22 +1,30 @@
 # Kế hoạch 32 — Kiểm thử bảo mật toàn hệ thống
 
 **Ngày:** 2026-10-15 · **Nhánh:** `test/ke-hoach-kiem-thu-bao-mat` (tách từ `main` 83e8f8b)
-**Trạng thái:** CHỜ DUYỆT. Chưa chạy test nào, chưa sửa dòng code nào.
+**Trạng thái:** CHỜ DUYỆT LẦN 2. Chủ dự án đã trả lời Q1–Q4 (§13), kế hoạch đã chỉnh theo. Còn Q5–Q6
+cần trả lời. Chưa chạy test nào, chưa sửa dòng code nào.
 
 ## 0. Mục tiêu và nguyên tắc
 
 - **Mục tiêu:** kiểm lại toàn bộ hệ thống (backend, frontend, competition-service, cấu hình deploy) theo
   OWASP ASVS 4.0 mức 2 và OWASP API Security Top 10 (2023). Mỗi mục có tiêu chí đạt/không đạt rõ ràng
   và bằng chứng thật (request/response, truy vấn DB, ảnh chụp trình duyệt).
-- **Chỉ kiểm thử, không sửa.** Lỗi tìm được ghi vào báo cáo (§11), chủ dự án chọn sửa cái nào. Mỗi nhóm
-  sửa sẽ có nhánh và kế hoạch riêng.
+- **Chỉ kiểm thử, không sửa code ứng dụng.** Lỗi tìm được ghi vào báo cáo (§11), chủ dự án chọn sửa cái
+  nào. Mỗi nhóm sửa sẽ có nhánh và kế hoạch riêng. Ngoại lệ duy nhất theo Q4: thêm **file test mới** vào
+  `backend/tests` (§11.2). Không sửa file `src/` nào.
+- **Test hồi quy viết ra phải đỏ đúng chỗ có lỗi.** Nếu một test tìm ra lỗi thật, test đó được đánh
+  `test.failing` kèm mã phát hiện (vd `B2`) để `npm test` vẫn xanh. Khi lỗi được sửa ở nhánh sau, đổi lại
+  thành `test` thường.
 - **Môi trường:** dùng một **DB tạm riêng** (tạo bằng `migrate` + `seed`) và một bộ server riêng chạy trên
   cổng khác (backend :5050, competition :5150, Vite :5180). **Không đụng** DB dev
   `badminton_digital_management`, không dừng các server đang chạy (:5000/:5102/:5173).
-- **Bản live trên Render: không kiểm thử tấn công.** Ở đó chỉ đọc header/cấu hình bằng vài request GET
-  bình thường (§9.4), và chỉ khi chủ dự án đồng ý (câu hỏi Q2).
-- Không cài công cụ quét từ bên ngoài khi chưa hỏi (câu hỏi Q3). Mặc định dùng thứ đã có: Jest, Vitest,
-  `npm audit`, script Node trong scratchpad, Chrome headless qua CDP.
+- **Bản live trên Render (đã đồng ý, Q2): chỉ đọc, không tấn công.** Tối đa khoảng 20 request GET thường
+  (trang chủ, một file JS/CSS, `/api/v1/health`, `/api/v1/public/branches`, một route không tồn tại, một
+  preflight `OPTIONS` từ origin lạ) để đọc header bảo mật, CORS và nội dung lỗi (H9). Không đăng nhập,
+  không ghi dữ liệu, không chạy ZAP hay k6 lên Render.
+- **Công cụ quét (đã đồng ý, Q3): chỉ chạy trong Docker** (§9.1). Không cài gì vào Windows hay vào
+  `node_modules`. Image và container chỉ xoá **sau khi chủ dự án xác nhận**.
+- Công cụ có sẵn vẫn dùng: Jest, Vitest, `npm audit`, script Node trong scratchpad, Chrome headless qua CDP.
 - Giới hạn đăng nhập (10 lần/15 phút/IP) **giữ nguyên**. Script lưu token để dùng lại, không nới server.
 
 ## 1. Bề mặt cần kiểm
@@ -142,7 +150,27 @@ Chạy **trên server tạm, tải nhỏ, có kiểm soát**, không chạy lên
 | H6 | DB: TLS bắt buộc kiểm cert (`dbSsl.js`), user DB không có quyền thừa | Đạt |
 | H7 | Seed: chặn ở production nếu thiếu `ALLOW_DEMO_SEED` / `DEMO_ADMIN_PASSWORD` | Đạt |
 | H8 | Workflow GitHub `demo-reset.yml`: quyền token, secret không in ra log | Đạt |
-| H9 | Header bản live (chỉ GET, chỉ khi được phép, xem Q2) | Ghi nhận |
+| H9 | Bản live Render: header bảo mật, CORS, nội dung trang 404 và lỗi, `/api-docs` có tắt không, `/health` lộ gì (≤ 20 request GET, xem §0) | Ghi nhận, so với bản cục bộ |
+| H10 | `semgrep` quét `backend/src`, `frontend/src`, `services/competition-service/src` (bộ luật JS/Node/Express/React, OWASP Top 10) | Lọc kết quả thật / báo nhầm; cái thật đưa vào báo cáo |
+| H11 | `gitleaks` quét toàn bộ lịch sử git | Không có secret thật (đối chiếu với H2) |
+| H12 | `trivy` quét image `docker/app.Dockerfile` build cục bộ + file cấu hình (Dockerfile, compose) | Liệt kê lỗ hổng OS/thư viện High/Critical và lỗi cấu hình |
+| H13 | OWASP ZAP lên **server tạm** :5050 / :5180: baseline (thụ động) cho SPA, API scan theo `openapi.yaml` với token của từng vai trò | Lọc báo nhầm; cái thật đưa vào báo cáo |
+
+### 9.1 Công cụ trong Docker (Q3)
+
+| Công cụ | Image (ghim phiên bản cụ thể khi kéo về) | Chạy vào đâu |
+|---|---|---|
+| OWASP ZAP | `ghcr.io/zaproxy/zaproxy` (bản stable) | Chỉ server tạm, qua `host.docker.internal` |
+| semgrep | `semgrep/semgrep` | Mã nguồn, mount **chỉ đọc** (`:ro`) |
+| gitleaks | `zricethezav/gitleaks` | Thư mục `.git`, mount chỉ đọc |
+| trivy | `aquasec/trivy` | Image app build cục bộ + file cấu hình, mount chỉ đọc |
+
+- Mọi container chạy với `--rm` và gắn nhãn `bd-security-test=32`; image build cục bộ đặt tên
+  `bd-security-test/app:32`. Kết quả ghi ra scratchpad, không ghi vào repo.
+- Cần Docker Desktop đang chạy. Lúc viết kế hoạch Docker CLI 29.8.0 có sẵn nhưng daemon **chưa bật**
+  (xem Q6).
+- **Dọn dẹp (sau khi chủ dự án xác nhận):** liệt kê đúng các image đã kéo/build cho đợt này kèm dung lượng,
+  chờ "xoá đi", rồi `docker rmi` từng cái. Không chạy `docker system prune` hay xoá image nào khác.
 
 ## 10. Rà mã có chủ đích
 
@@ -155,11 +183,28 @@ Chạy **trên server tạm, tải nhỏ, có kiểm soát**, không chạy lên
 
 ## 11. Sản phẩm bàn giao
 
-1. Script kiểm thử trong scratchpad (không đưa vào repo trừ khi được yêu cầu, xem Q4).
-2. Báo cáo `33-ket-qua-kiem-thu-bao-mat.md` trên nhánh này. Mỗi phát hiện gồm mức độ (🔴/🟠/🟡), vị trí
+1. Script khám phá dùng một lần (chạy ma trận trên DB tạm, đo thời gian, gọi bản live) để trong scratchpad.
+2. **Test hồi quy cố định trong repo (Q4).** Toàn bộ `npm test` hiện tại chạy **không cần DB** (unit +
+   `supertest` với service giả lập), nên test mới đi theo hai tầng:
+   - **Tầng 1, chạy trong `npm test`, không cần DB** (file mới trong `backend/tests/`):
+     - `securityRouteMatrix.test.js`: đọc `router.stack` của từng file route, so vai trò được phép của
+       **từng** route với bảng quyền mong đợi. Thêm route mới mà quên gắn quyền là test đỏ.
+     - `securityNoSecretsInResponses.test.js`: model `User` (kể cả khi include lồng) và `errorHandler`
+       không bao giờ trả `passwordHash`, `refreshToken`, `instance`, stack.
+     - `securityAuthTokens.test.js`: token sai chữ ký, sai `alg`, hết hạn, sai loại (refresh dùng làm access,
+       reset dùng làm access) đều bị từ chối.
+     - `securityOwnership.test.js`: các hàm kiểm quyền sở hữu (booking, đơn, hoá đơn, hồ sơ khách) và chặn
+       chéo chi nhánh, với dữ liệu giả lập.
+   - **Tầng 2, cần DB, chạy riêng bằng `npm run test:security`** (thư mục mới `backend/tests-security/`,
+     script mới trong `package.json`): dựng DB tạm, seed 10 tài khoản, chạy ma trận IDOR/chéo chi nhánh
+     thật, rò dữ liệu, race condition, rồi xoá DB. Không chạy trong `npm test` để không bắt máy khác cần
+     MySQL. Chi tiết xem Q5.
+   - Mỗi test ghi mã mục (A1…H13) trong tên để tra ngược về kế hoạch này.
+3. Báo cáo `33-ket-qua-kiem-thu-bao-mat.md` trên nhánh này. Mỗi phát hiện gồm mức độ (🔴/🟠/🟡), vị trí
    `file:dòng`, cách tái hiện dưới dạng mô tả (không kèm công cụ khai thác), bằng chứng, hướng sửa đề xuất.
-3. Bảng tổng hợp: mỗi mục A1–H9 là Đạt / Không đạt / Không kiểm được (kèm lý do).
-4. Dọn sạch: xoá DB tạm, dừng **chỉ** các server tạm do mình bật.
+4. Bảng tổng hợp: mỗi mục A1–H13 là Đạt / Không đạt / Không kiểm được (kèm lý do).
+5. Dọn sạch: xoá DB tạm, dừng **chỉ** các server tạm do mình bật. Image Docker giữ lại tới khi chủ dự
+   án xác nhận xoá (§9.1).
 
 ## 12. Thứ tự và ước lượng
 
@@ -167,16 +212,22 @@ Chạy **trên server tạm, tải nhỏ, có kiểm soát**, không chạy lên
 2. §2 xác thực → §3 ma trận phân quyền (phần nặng nhất, ưu tiên cao nhất).
 3. §5 tiền, §6 rò dữ liệu.
 4. §4 đầu vào, §7 HTTP.
-5. §8 tải nhỏ, §9 hạ tầng, §10 rà mã.
-6. Viết báo cáo và chờ chủ dự án chọn mục cần sửa.
+5. §8 tải nhỏ, §9 hạ tầng + công cụ Docker (§9.1), §10 rà mã, H9 bản live.
+6. Viết test hồi quy (§11.2), chạy `npm test` + `npm run test:security`, ghi số pass/fail.
+7. Viết báo cáo, chờ chủ dự án chọn mục cần sửa, và chờ xác nhận xoá image Docker.
 
-## 13. Câu hỏi cần chủ dự án trả lời trước khi chạy
+## 13. Câu hỏi
 
-- **Q1.** Đồng ý phạm vi trên (backend + competition-service + frontend + cấu hình), kiểm trên DB và server
-  tạm riêng?
-- **Q2.** Có cho gửi vài request GET thường lên bản live Render để đọc header bảo mật (H9) không? Nếu
-  không, chỉ kiểm cục bộ.
-- **Q3.** Có cho cài thêm công cụ quét (ví dụ OWASP ZAP baseline, `gitleaks`, `semgrep`) không? Nếu không,
-  chỉ dùng công cụ có sẵn + script tự viết.
-- **Q4.** Có muốn các kiểm thử quan trọng (ma trận phân quyền, IDOR, rò `passwordHash`) được đưa vào
-  `backend/tests` thành test hồi quy cố định không? Việc này là sửa repo nên cần bạn đồng ý riêng.
+### Đã trả lời (2026-10-15)
+
+- **Q1. Phạm vi + DB/server tạm riêng:** CÓ.
+- **Q2. Đọc header bản live Render bằng request GET thường:** CÓ. Giới hạn ở §0 và H9.
+- **Q3. Cài công cụ quét:** CÓ, **cài vào Docker**, xoá sau khi chủ dự án xác nhận. Xem §9.1.
+- **Q4. Đưa kiểm thử quan trọng vào `backend/tests`:** CÓ. Xem §11.2.
+
+### Còn hỏi
+
+- **Q5.** Test tầng 2 cần DB: đồng ý thêm thư mục `backend/tests-security/` + script
+  `npm run test:security` vào `package.json` không? (Đề xuất: có. Nếu không, chỉ làm tầng 1, còn kịch bản
+  cần DB để lại thành script trong scratchpad.)
+- **Q6.** Docker Desktop đang tắt. Mình tự mở Docker Desktop khi tới bước §9.1, hay bạn tự mở?
