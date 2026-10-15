@@ -86,7 +86,8 @@ const validateRegister = [
   }),
   // Email không bắt buộc — nhưng có thì mới nhận được thư đặt lại mật khẩu
   body('email').optional({ nullable: true, checkFalsy: true })
-    .isEmail().withMessage('Email không hợp lệ.'),
+    .isEmail().withMessage('Email không hợp lệ.')
+    .isLength({ max: 255 }).withMessage('Email tối đa 255 ký tự.'),
   body('password').isLength({ min: 6 }).withMessage('Mật khẩu phải có tối thiểu 6 ký tự.'),
   (req, res, next) => {
     const errors = validationResult(req);

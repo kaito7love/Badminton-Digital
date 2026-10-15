@@ -15,6 +15,10 @@ const CustomerService = require("./CustomerService");
 const { normalizePhone, looksLikePhone, isValidPhone } = require("../utils/phone");
 const { assertNotLockedDemoAccount } = require("../utils/demoMode");
 
+// Hash giả (cost 10 như hash thật, sinh một lần lúc nạp module) để đường "không có tài khoản" của `login`
+// cũng tốn một lần bcrypt.compare — xem R5.
+const TIMING_DUMMY_HASH = bcrypt.hashSync(require("crypto").randomBytes(16).toString("hex"), 10);
+
 // Model User mặc định không nạp passwordHash/refreshToken (defaultScope). Chỉ
 // các hàm ở file này thật sự cần so mật khẩu, so refresh token hay ký reset
 // token mới gọi User.scope("withSecrets").
@@ -54,16 +58,26 @@ class AuthService {
       return error;
     };
 
-    if (!user) throw rejectCredentials();
+    // Mật khẩu không phải chuỗi (object/mảng từ body JSON) coi như sai thay vì để bcrypt ném lỗi → 500.
+    const candidate = typeof password === "string" ? password : "";
 
+    // R5 (báo cáo 33): không có tài khoản thì vẫn tốn đúng MỘT lần bcrypt.compare — nếu trả lỗi ngay thì
+    // thời gian phản hồi (≈6 ms so với ≈70 ms) cho biết số điện thoại/email nào đã đăng ký.
+    if (!user) {
+      await bcrypt.compare(candidate, TIMING_DUMMY_HASH);
+      throw rejectCredentials();
+    }
+
+    const isMatch = await bcrypt.compare(candidate, user.passwordHash);
+    if (!isMatch) throw rejectCredentials();
+
+    // R6: chỉ báo "bị vô hiệu hóa" khi người gọi đã chứng minh biết mật khẩu — trước đó, ai cũng dò được
+    // tài khoản nào đang bị khoá chỉ bằng mật khẩu bất kỳ.
     if (!user.isActive) {
       const error = new Error("Tài khoản đã bị vô hiệu hóa.");
       error.statusCode = 403;
       throw error;
     }
-
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) throw rejectCredentials();
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);

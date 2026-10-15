@@ -17,7 +17,7 @@ const createCategoryRules = [
 ];
 
 const updateCategoryRules = [
-  param('id').isInt().withMessage('Category ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Category ID must be an integer'),
   body('name').optional().trim().notEmpty(),
   body('sortOrder').optional().isInt(),
   validate
@@ -25,7 +25,7 @@ const updateCategoryRules = [
 
 const createProductRules = [
   body('name').trim().notEmpty().withMessage('Product name is required'),
-  body('categoryId').optional({ nullable: true }).isInt(),
+  body('categoryId').optional({ nullable: true }).isInt({ min: 1, max: 2147483647 }),
   body('productType').optional().isIn(['retail', 'consumable', 'rental', 'service']),
   body('variants').isArray({ min: 1 }).withMessage('Product needs at least 1 variant'),
   body('variants.*.sku').trim().notEmpty().withMessage('sku is required for each variant'),
@@ -36,16 +36,16 @@ const createProductRules = [
 ];
 
 const updateProductRules = [
-  param('id').isInt().withMessage('Product ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Product ID must be an integer'),
   body('name').optional().trim().notEmpty(),
-  body('categoryId').optional({ nullable: true }).isInt(),
+  body('categoryId').optional({ nullable: true }).isInt({ min: 1, max: 2147483647 }),
   body('productType').optional().isIn(['retail', 'consumable', 'rental', 'service']),
   body('isActive').optional().isBoolean(),
   validate
 ];
 
 const addVariantRules = [
-  param('id').isInt().withMessage('Product ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Product ID must be an integer'),
   body('sku').trim().notEmpty().withMessage('sku is required'),
   body('listPrice').isFloat({ min: 0 }).withMessage('listPrice must be a non-negative number'),
   body('size').optional({ nullable: true }).trim(),
@@ -54,7 +54,7 @@ const addVariantRules = [
 ];
 
 const updateVariantRules = [
-  param('variantId').isInt().withMessage('Variant ID must be an integer'),
+  param('variantId').isInt({ min: 1, max: 2147483647 }).withMessage('Variant ID must be an integer'),
   body('sku').optional().trim().notEmpty(),
   body('listPrice').optional().isFloat({ min: 0 }),
   body('size').optional({ nullable: true }).trim(),

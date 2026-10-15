@@ -62,7 +62,7 @@ const addSessionExtra = async (req, res, next) => {
 
 const getSessionExtras = async (req, res, next) => {
   try {
-    const extras = await AccessoryService.getSessionExtras(req.params.sessionId);
+    const extras = await AccessoryService.getSessionExtras(req.params.sessionId, { branchId: req.branchId });
     return successResponse(res, extras, 'Session extras retrieved');
   } catch (err) {
     next(err);

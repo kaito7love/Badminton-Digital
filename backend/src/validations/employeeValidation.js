@@ -13,19 +13,21 @@ const validate = (req, res, next) => {
 
 const createEmployeeRules = [
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('email').isEmail().withMessage('Valid email is required'),
+  body('email').isEmail().withMessage('Valid email is required')
+    .isLength({ max: 255 }).withMessage('Email tối đa 255 ký tự'),
   body('phone').custom((value) => {
     if (!isValidPhone(value)) throw new Error('Số điện thoại không hợp lệ');
     return true;
   }),
-  body('fullName').trim().notEmpty().withMessage('Full name is required'),
-  body('position').optional().isString(),
-  body('shift').optional().isString(),
+  body('fullName').trim().notEmpty().withMessage('Full name is required')
+    .isLength({ max: 100 }).withMessage('Họ tên tối đa 100 ký tự'),
+  body('position').optional().isString().isLength({ max: 50 }).withMessage('Chức vụ tối đa 50 ký tự'),
+  body('shift').optional().isString().isLength({ max: 50 }).withMessage('Ca làm tối đa 50 ký tự'),
   validate
 ];
 
 const updateEmployeeRules = [
-  param('id').isInt().withMessage('Employee ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Employee ID must be an integer'),
   // Email là danh tính đăng nhập và là nơi nhận link đặt lại mật khẩu: đổi được
   // qua API này thì chiếm được tài khoản. Trang Nhân viên không gửi email khi sửa.
   body('email').not().exists().withMessage('Không thể đổi email đăng nhập qua API sửa nhân viên.'),

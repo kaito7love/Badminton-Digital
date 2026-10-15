@@ -154,7 +154,17 @@ class AccessoryService {
     }
   }
 
-  static async getSessionExtras(sessionId) {
+  static async getSessionExtras(sessionId, context = {}) {
+    // R8 (báo cáo 33): phiên phải thuộc chi nhánh đang chọn — trước đây chỉ lọc theo `sessionId` nên nhân viên
+    // chi nhánh khác đọc được phụ kiện của phiên này. Cùng cách `addSessionExtra` đã làm.
+    if (context.branchId) {
+      const session = await CourtSession.findOne({ where: { id: sessionId, branchId: context.branchId }, attributes: ["id"] });
+      if (!session) {
+        const error = new Error("Court session not found");
+        error.statusCode = 404;
+        throw error;
+      }
+    }
     return await SessionExtra.findAll({
       where: { sessionId },
       include: [{ model: Extra, as: "extra" }],
