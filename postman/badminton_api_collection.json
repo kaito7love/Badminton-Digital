@@ -1621,6 +1621,44 @@
               ],
               "path": [
                 "bookings"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-10-20",
+                  "description": "Lọc theo ngày, dạng YYYY-MM-DD (sai → 400)",
+                  "disabled": true
+                },
+                {
+                  "key": "courtId",
+                  "value": "1",
+                  "description": "Lọc theo sân (số nguyên)",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": "pending | confirmed | cancelled | completed",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "desc",
+                  "description": "asc (mặc định) | desc — theo ngày + giờ bắt đầu",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "tối đa 100",
+                  "disabled": true
+                }
               ]
             },
             "description": ""

@@ -1,7 +1,7 @@
 # Kế hoạch 41 — Sửa F1, F2 và các mục nhỏ F7–F11 của báo cáo 40
 
 **Nhánh:** `fix/flow-dat-san-f1-f2-nho` (cắt từ `test/flow-dat-san` = `ad2a099`, đã có test hồi quy + báo cáo 40)
-**Trạng thái:** ⏳ **chờ bạn duyệt** — chưa sửa dòng code nào. Nguồn: [báo cáo 40](40-ket-qua-kiem-thu-flow-dat-san.md) §3.
+**Trạng thái:** ✅ **đã duyệt (Q1–Q7 theo mặc định) và làm xong** — xem [kết quả](41-ket-qua-sua-flow-dat-san.md). Nguồn: [báo cáo 40](40-ket-qua-kiem-thu-flow-dat-san.md) §3.
 **Không nằm trong kế hoạch này (bạn chưa chọn):** F3 (trần/hết hạn `pending`), F4 (mở sân từ booking sai ngày), F5 (cảnh báo trùng SĐT), F6 (trang nhân viên tự cập nhật).
 
 ---

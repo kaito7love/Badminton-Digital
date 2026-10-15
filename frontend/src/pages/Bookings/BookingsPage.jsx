@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Badge, Pagination } from '../../components/UIComponents';
 import { bookingService, courtService } from '../../services/apiServices';
 import InlineNotice from '../../components/InlineNotice';
+import { serverMessage } from '../../utils/serverMessage';
 
 const formatMoney = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n)) + 'đ';
 
@@ -114,7 +115,7 @@ export default function BookingsPage() {
       await fetchBookings();
       setIsModalOpen(false);
     } catch (err) {
-      setModalError(err.response?.data?.message || 'Lỗi lưu lịch đặt sân');
+      setModalError(serverMessage(err, 'Lỗi lưu lịch đặt sân'));
     }
   };
 
@@ -124,7 +125,7 @@ export default function BookingsPage() {
       await bookingService.cancelBooking(id);
       await fetchBookings();
     } catch (err) {
-      setNotice(err.response?.data?.message || 'Lỗi hủy đặt sân');
+      setNotice(serverMessage(err, 'Lỗi hủy đặt sân'));
     }
   };
 
@@ -133,7 +134,7 @@ export default function BookingsPage() {
       await bookingService.confirmBooking(id);
       await fetchBookings();
     } catch (err) {
-      setNotice(err.response?.data?.message || 'Lỗi xác nhận đặt sân');
+      setNotice(serverMessage(err, 'Lỗi xác nhận đặt sân'));
     }
   };
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import CustomerLayout from '../../layouts/CustomerLayout';
 import { bookingService } from '../../services/apiServices';
 import InlineNotice from '../../components/InlineNotice';
+import { serverMessage } from '../../utils/serverMessage';
 import { groupMyBookings, isUpcoming } from './groupMyBookings';
 
 // Trang của khách hàng, cố tình KHÔNG dùng SidebarLayout: khách không có việc gì
@@ -60,7 +61,7 @@ export default function MyBookingsPage() {
       await bookingService.cancelBooking(id);
       await fetchBookings();
     } catch (err) {
-      setNotice(err.response?.data?.message || 'Huỷ lịch thất bại');
+      setNotice(serverMessage(err, 'Huỷ lịch thất bại'));
     } finally {
       setBusyId(null);
     }
