@@ -67,6 +67,8 @@ tags:
     name: '22 · Settings'
   -
     name: '23 · Realtime (SSE)'
+  -
+    name: '25 · Notifications (thông báo của khách — vai customer)'
 security:
   -
     bearerAuth: []
@@ -4034,6 +4036,83 @@ paths:
           schema:
             type: string
           example: accessToken
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/notifications:
+    get:
+      tags:
+        - '25 · Notifications (thông báo của khách — vai customer)'
+      summary: 'Danh sách thông báo'
+      operationId: get_notifications
+      description: 'Thông báo mới nhất trước kèm `unreadCount` (chưa đọc, tính cả khi lọc).'
+      parameters:
+        -
+          name: limit
+          in: query
+          required: false
+          schema:
+            type: string
+          example: '20'
+        -
+          name: unread
+          in: query
+          required: false
+          schema:
+            type: string
+          example: 'true'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/notifications/{id}/read':
+    put:
+      tags:
+        - '25 · Notifications (thông báo của khách — vai customer)'
+      summary: 'Đánh dấu một thông báo đã đọc'
+      operationId: put_notifications_id_read
+      description: 'Thông báo của khách khác hoặc không có → 404.'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/notifications/read-all:
+    put:
+      tags:
+        - '25 · Notifications (thông báo của khách — vai customer)'
+      summary: 'Đánh dấu tất cả đã đọc'
+      operationId: put_notifications_read_all
+      description: 'Chỉ đụng thông báo của chính khách.'
       responses:
         '200':
           $ref: '#/components/responses/Success'

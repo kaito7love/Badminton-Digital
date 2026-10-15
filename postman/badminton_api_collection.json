@@ -242,6 +242,11 @@
     {
       "key": "competitionTournamentId",
       "value": ""
+    },
+    {
+      "key": "notificationId",
+      "value": "1",
+      "type": "string"
     }
   ],
   "item": [
@@ -7353,6 +7358,222 @@
               "// Chỉ khi runCompetition bật (tắt thì cả nhóm bị bỏ qua, đăng nhập là đốt vô ích một lượt rate limit 10 lần / 15 phút / IP)",
               "// và chỉ khi chưa có token (script này chạy trước TỪNG request trong nhóm).",
               "if (String(pm.variables.get('runCompetition')) === 'true' && !pm.collectionVariables.get('customerAccessToken')) {",
+              "  pm.sendRequest({",
+              "    url: pm.variables.get('baseUrl') + '/auth/login',",
+              "    method: 'POST', header: { 'Content-Type': 'application/json' },",
+              "    body: { mode: 'raw', raw: JSON.stringify({",
+              "      identifier: pm.variables.get('customerPhone') || '0903333333',",
+              "      password: pm.variables.get('customerPassword') || 'Customer@123'",
+              "    }) }",
+              "  }, function (err, res) {",
+              "    if (!err && res.code === 200) {",
+              "      pm.collectionVariables.set('customerAccessToken', res.json().data.accessToken);",
+              "    } else {",
+              "      console.log('Không đăng nhập được vai trò customer: ' + (err ? err.message : res.text()));",
+              "    }",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 · Notifications (thông báo của khách — vai customer)",
+      "description": "Thông báo trong ứng dụng cho **khách** (kế hoạch 43): lịch được duyệt / tự huỷ quá hạn / bị nhân viên huỷ / bị đổi. Chỉ vai `customer` và chỉ của chính mình (token admin/nhân viên → 403). Thư mục tự đăng nhập bằng `{{customerPhone}}` / `{{customerPassword}}` như nhóm 15; không gửi `X-Branch-Id`.",
+      "item": [
+        {
+          "name": "Danh sách thông báo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "1–50 (mặc định 20)",
+                  "disabled": true
+                },
+                {
+                  "key": "unread",
+                  "value": "true",
+                  "description": "true = chỉ chưa đọc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Thông báo mới nhất trước kèm `unreadCount` (chưa đọc, tính cả khi lọc).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request nay tac dong len DU LIEU CO SAN (xoa/sua ban ghi seed, checkout, doi cau hinh)",
+                  "// hoac lam hong phien chay (vd: logout huy token). Chi bat khi that su muon:",
+                  "// newman run ... --env-var runDestructive=true",
+                  "if (String(pm.variables.get('runDestructive')) !== 'true') {",
+                  "  console.log('SKIP (runDestructive=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đánh dấu một thông báo đã đọc",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notificationId}}",
+                "read"
+              ]
+            },
+            "description": "Thông báo của khách khác hoặc không có → 404.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request nay tac dong len DU LIEU CO SAN (xoa/sua ban ghi seed, checkout, doi cau hinh)",
+                  "// hoac lam hong phien chay (vd: logout huy token). Chi bat khi that su muon:",
+                  "// newman run ... --env-var runDestructive=true",
+                  "if (String(pm.variables.get('runDestructive')) !== 'true') {",
+                  "  console.log('SKIP (runDestructive=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đánh dấu tất cả đã đọc",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "read-all"
+              ]
+            },
+            "description": "Chỉ đụng thông báo của chính khách.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request nay tac dong len DU LIEU CO SAN (xoa/sua ban ghi seed, checkout, doi cau hinh)",
+                  "// hoac lam hong phien chay (vd: logout huy token). Chi bat khi that su muon:",
+                  "// newman run ... --env-var runDestructive=true",
+                  "if (String(pm.variables.get('runDestructive')) !== 'true') {",
+                  "  console.log('SKIP (runDestructive=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Đăng nhập vai trò customer một lần cho cả nhóm.",
+              "// Hai điều kiện, cả hai đều vì rate limit /auth/login (10 lần / 15 phút / IP):",
+              "//  - chỉ khi runDestructive bật, vì tắt thì cả 4 request dưới đều bị bỏ qua,",
+              "//    đăng nhập lúc đó là đốt phí một lượt vô ích;",
+              "//  - chỉ khi chưa có token, vì script này chạy trước TỪNG request trong nhóm.",
+              "if (String(pm.variables.get('runDestructive')) === 'true' && !pm.collectionVariables.get('customerAccessToken')) {",
               "  pm.sendRequest({",
               "    url: pm.variables.get('baseUrl') + '/auth/login',",
               "    method: 'POST', header: { 'Content-Type': 'application/json' },",
