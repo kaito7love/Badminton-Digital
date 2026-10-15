@@ -36,14 +36,36 @@ const publicCourts = async (branchId = 1) => {
 };
 
 // Dò một khung còn trống ở ngày +offset (DB thử dùng lại nhiều lần nên khung cố định sẽ bị chiếm).
+const freeHours = async (branchId, bookingDate) => {
+  const grid = await api().get(`/api/v1/public/availability/day?branchId=${branchId}&date=${bookingDate}`);
+  if (grid.status !== 200) return null;
+  const out = new Map();
+  for (const court of grid.body.data.courts || []) {
+    const free = new Set((court.slots || []).filter((c) => c.state === 'free').map((c) => Number(String(c.start || c.startTime).slice(0, 2))));
+    out.set(court.courtId ?? court.id, free);
+  }
+  return out;
+};
+
 const tryBook = async (as, { dayOffset, branchId = 1, hours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15], length = 1, extra = {}, header = {} }) => {
   const courts = await publicCourts(branchId);
   const bookingDate = dayFrom(dayOffset);
+  const grid = await freeHours(branchId, bookingDate); // null khi ngày nằm ngoài dải của lưới công khai
+  const post = async (court, h) => {
+    let req = api().post('/api/v1/bookings').set('Authorization', await auth(as));
+    Object.entries(header).forEach(([k, v]) => { req = req.set(k, v); });
+    return req.send({ courtId: court.id, bookingDate, startTime: hhmm(h), endTime: hhmm(h + length), ...extra });
+  };
   for (const court of courts) {
     for (const h of hours) {
-      let req = api().post('/api/v1/bookings').set('Authorization', await auth(as));
-      Object.entries(header).forEach(([k, v]) => { req = req.set(k, v); });
-      const res = await req.send({ courtId: court.id, bookingDate, startTime: hhmm(h), endTime: hhmm(h + length), ...extra });
+      if (grid) {
+        const free = grid.get(court.id);
+        if (!free) continue;
+        let ok = true;
+        for (let k = 0; k < length; k += 1) if (!free.has(h + k)) ok = false;
+        if (!ok) continue;
+      }
+      const res = await post(court, h);
       if (res.status !== 409 && res.status !== 400) return { res, courtId: court.id, bookingDate, startHour: h };
       if (res.status === 400 && !/bảo trì|đã qua/.test(res.body.message || '')) return { res, courtId: court.id, bookingDate, startHour: h };
     }
@@ -523,5 +545,145 @@ describe('Kế hoạch 42 — F5 khớp SĐT khi đặt hộ và F6 sự kiện 
     } finally {
       off();
     }
+  });
+});
+
+describe('Kế hoạch 43 — thông báo cho khách', () => {
+  const inbox = async (customer, qs = '') => {
+    const res = await api().get(`/api/v1/notifications${qs}`).set('Authorization', await auth(customer));
+    expect(res.status).toBe(200);
+    return res.body.data;
+  };
+
+  test('nhân viên duyệt → khách có 1 thông báo booking.confirmed (chưa đọc), đánh dấu đã đọc → unreadCount 0', async () => {
+    const customer = await newCustomer(unique());
+    const { res } = await tryBook(customer, { dayOffset: 4, hours: [6, 7, 8, 9] });
+    track(res, customer);
+    expect((await inbox(customer)).items).toHaveLength(0);
+
+    await api().put(`/api/v1/bookings/${res.body.data.id}/confirm`).set('Authorization', await auth('employeeCn1'));
+    const data = await inbox(customer);
+    expect(data.unreadCount).toBe(1);
+    expect(data.items[0]).toMatchObject({ type: 'booking.confirmed', bookingId: res.body.data.id, readAt: null });
+    expect(data.items[0].body).toMatch(/\d{2}\/\d{2}\/\d{4} · \d{2}:\d{2}–\d{2}:\d{2}/);
+
+    const read = await api().put(`/api/v1/notifications/${data.items[0].id}/read`).set('Authorization', await auth(customer));
+    expect(read.status).toBe(200);
+    expect((await inbox(customer)).unreadCount).toBe(0);
+    expect((await inbox(customer, '?unread=true')).items).toHaveLength(0);
+  });
+
+  test('nhân viên huỷ → cancelled_by_staff; khách tự huỷ → KHÔNG có thông báo', async () => {
+    const customer = await newCustomer(unique());
+    const a = await tryBook(customer, { dayOffset: 5, hours: [6, 7, 8, 9] });
+    const b = await tryBook(customer, { dayOffset: 6, hours: [6, 7, 8, 9] });
+    track(a.res, customer); track(b.res, customer);
+
+    expect((await api().delete(`/api/v1/bookings/${b.res.body.data.id}`).set('Authorization', await auth(customer))).status).toBe(200);
+    expect((await inbox(customer)).items).toHaveLength(0);
+
+    expect((await api().delete(`/api/v1/bookings/${a.res.body.data.id}`).set('Authorization', await auth('employeeCn1'))).status).toBe(200);
+    const data = await inbox(customer);
+    expect(data.items.map((n) => n.type)).toEqual(['booking.cancelled_by_staff']);
+  });
+
+  test('nhân viên đổi giờ → rescheduled nêu cả khung cũ và mới; sửa mà không đổi gì → không thêm', async () => {
+    const customer = await newCustomer(unique());
+    const made = await tryBook(customer, { dayOffset: 7, hours: [6, 7, 8, 9] });
+    track(made.res, customer);
+    const id = made.res.body.data.id;
+    const startNow = made.startHour;
+
+    const same = await api().put(`/api/v1/bookings/${id}`).set('Authorization', await auth('employeeCn1'))
+      .send({ startTime: hhmm(startNow), endTime: hhmm(startNow + 1) });
+    expect(same.status).toBe(200);
+    expect((await inbox(customer)).items).toHaveLength(0);
+
+    // dời sang một giờ trống thật (lấy từ lưới công khai) của cùng sân/ngày
+    const grid = await freeHours(1, made.bookingDate);
+    const free = [...(grid.get(made.courtId) || [])].filter((h) => h !== startNow && h >= 5 && h <= 21).sort((x, y) => x - y);
+    expect(free.length).toBeGreaterThan(0);
+    const moved = free[free.length - 1];
+    const r = await api().put(`/api/v1/bookings/${id}`).set('Authorization', await auth('employeeCn1'))
+      .send({ startTime: hhmm(moved), endTime: hhmm(moved + 1) });
+    expect(r.status).toBe(200);
+    const data = await inbox(customer);
+    expect(data.items).toHaveLength(1);
+    expect(data.items[0].type).toBe('booking.rescheduled');
+    expect(data.items[0].body).toContain(`${hhmm(startNow)}–${hhmm(startNow + 1)}`);
+    expect(data.items[0].body).toContain(`${hhmm(moved)}–${hhmm(moved + 1)}`);
+  });
+
+  test('lịch pending quá hạn bị tự huỷ → khách có booking.expired', async () => {
+    const customer = await newCustomer(unique());
+    const made = await tryBook(customer, { dayOffset: 8, hours: [6, 7, 8, 9] });
+    track(made.res, customer);
+    await sequelize.query('UPDATE bookings SET created_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY) WHERE id = ?', { replacements: [made.res.body.data.id] });
+    await BookingService.expireStalePendingBookings();
+    const data = await inbox(customer);
+    expect(data.items.map((n) => n.type)).toEqual(['booking.expired']);
+    expect(data.items[0].body).toMatch(/chưa được xác nhận kịp thời/);
+  });
+
+  test('khách vãng lai không tài khoản: không có thông báo nào; thông báo không chứa tên nhân viên/SĐT', async () => {
+    const phone = `0913${String(Date.now()).slice(-7)}`;
+    const walkIn = await tryBook('employeeCn1', { dayOffset: 9, hours: [6, 7, 8, 9], extra: { customerName: 'Khách Vãng Lai TB', customerPhone: phone } });
+    track(walkIn.res, 'employeeCn1');
+    await api().put(`/api/v1/bookings/${walkIn.res.body.data.id}/confirm`).set('Authorization', await auth('employeeCn1'));
+    const [[n]] = await sequelize.query('SELECT COUNT(*) AS n FROM customer_notifications WHERE customer_id = ?', { replacements: [walkIn.res.body.data.customerId] });
+    expect(Number(n.n)).toBe(0);
+
+    const [rows] = await sequelize.query('SELECT title, body FROM customer_notifications ORDER BY id DESC LIMIT 30');
+    const blob = JSON.stringify(rows);
+    expect(blob).not.toMatch(/employee@badminton|manager\.q3|admin@badminton|\b09\d{8}\b/);
+  });
+
+  test('IDOR: khách B không đọc/đánh dấu thông báo của khách A; vai khác 403; không token 401; read-all chỉ của mình', async () => {
+    const a = await newCustomer(unique());
+    const b = await newCustomer(unique());
+    const made = await tryBook(a, { dayOffset: 10, hours: [6, 7, 8, 9] });
+    track(made.res, a);
+    await api().put(`/api/v1/bookings/${made.res.body.data.id}/confirm`).set('Authorization', await auth('employeeCn1'));
+    const aInbox = await inbox(a);
+    const id = aInbox.items[0].id;
+
+    expect((await api().put(`/api/v1/notifications/${id}/read`).set('Authorization', await auth(b))).status).toBe(404);
+    expect((await inbox(b)).items).toHaveLength(0);
+    expect((await inbox(a)).unreadCount).toBe(1);
+
+    for (const who of ['employeeCn1', 'managerCn2', 'admin']) {
+      expect((await api().get('/api/v1/notifications').set('Authorization', await auth(who))).status).toBe(403);
+    }
+    expect((await api().get('/api/v1/notifications')).status).toBe(401);
+    expect((await api().get('/api/v1/notifications?limit=500').set('Authorization', await auth(a))).status).toBe(400);
+    expect((await api().put('/api/v1/notifications/abc/read').set('Authorization', await auth(a))).status).toBe(400);
+
+    expect((await api().put('/api/v1/notifications/read-all').set('Authorization', await auth(b))).status).toBe(200);
+    expect((await inbox(a)).unreadCount).toBe(1); // read-all của B không đụng của A
+    expect((await api().put('/api/v1/notifications/read-all').set('Authorization', await auth(a))).status).toBe(200);
+    expect((await inbox(a)).unreadCount).toBe(0);
+  });
+
+  test('ghi thông báo lỗi → trạng thái lịch KHÔNG đổi (cùng transaction)', async () => {
+    const { CustomerNotification } = require('../src/models');
+    const customer = await newCustomer(unique());
+    const made = await tryBook(customer, { dayOffset: 11, hours: [6, 7, 8, 9] });
+    track(made.res, customer);
+    const spy = jest.spyOn(CustomerNotification, 'create').mockRejectedValueOnce(new Error('boom'));
+    try {
+      const res = await api().put(`/api/v1/bookings/${made.res.body.data.id}/confirm`).set('Authorization', await auth('employeeCn1'));
+      expect(res.status).toBeGreaterThanOrEqual(500);
+    } finally {
+      spy.mockRestore();
+    }
+    const [[row]] = await sequelize.query('SELECT status FROM bookings WHERE id = ?', { replacements: [made.res.body.data.id] });
+    expect(row.status).toBe('pending');
+  });
+
+  test('khoá cài đặt notification_policy: email phải là true/false', async () => {
+    const bad = await api().put('/api/v1/settings').set('Authorization', await auth('admin')).send({ key: 'notification_policy', value: { email: 'yes' } });
+    expect(bad.status).toBe(400);
+    const ok = await api().put('/api/v1/settings').set('Authorization', await auth('admin')).send({ key: 'notification_policy', value: { email: true } });
+    expect(ok.status).toBe(200);
   });
 });
