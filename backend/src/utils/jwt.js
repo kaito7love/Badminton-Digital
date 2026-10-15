@@ -65,7 +65,9 @@ const generateAccessToken = (user) => {
     {
       id: user.id,
       email: user.email,
-      role: user.role ? user.role.name : undefined
+      role: user.role ? user.role.name : undefined,
+      // R4: phiên bản token của tài khoản — authMiddleware so với users.token_version; lệch = đã bị thu hồi.
+      tv: Number(user.tokenVersion) || 0
     },
     JWT_ACCESS_SECRET,
     { expiresIn: JWT_ACCESS_EXPIRES }
@@ -75,7 +77,10 @@ const generateAccessToken = (user) => {
 const generateRefreshToken = (user) => {
   return jwt.sign(
     {
-      id: user.id
+      id: user.id,
+      // R3: mã duy nhất cho từng refresh token. Thiếu nó, hai token ký trong cùng một giây (iat tính theo giây)
+      // trùng nhau từng ký tự — xoay vòng sẽ "cấp token mới" giống hệt token cũ.
+      jti: crypto.randomUUID()
     },
     JWT_REFRESH_SECRET,
     { expiresIn: JWT_REFRESH_EXPIRES }
