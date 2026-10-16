@@ -35,7 +35,19 @@ Duyệt theo đề xuất mặc định Q1–Q8. Chưa push, chưa merge `main`.
 | X5 | Điện thoại 390 px: chuông trong thanh trên, bấm tới `/notifications`, không cuộn ngang | ✅ |
 | X6 | Trang chủ (header kính tối) có chuông cho khách; **nhân viên đăng nhập không có chuông** | ✅ |
 
-Ảnh: `docs/05-extra/02-remediation/43-anh/` (`x1…x6`).
+### Ảnh chụp
+
+Thư mục `docs/05-extra/02-remediation/43-anh/` (laptop 1366×768 trừ khi ghi *điện thoại*).
+
+| Ảnh | Nội dung |
+|---|---|
+| ![](43-anh/x1-chuong-co-cham.png) | **X1a** Nhân viên duyệt → chuông có chấm đỏ "1" |
+| ![](43-anh/x1-bang-thong-bao.png) | **X1a** Bấm chuông → bảng thông báo (sân, ngày, giờ, "Vừa xong") |
+| ![](43-anh/x2-hai-thong-bao-moi.png) | **X2** Nhân viên huỷ + đổi giờ → chấm "2" khi quay lại tab, không tải lại |
+| ![](43-anh/x3-trang-thong-bao.png) | **X3** Trang `/notifications` (kể cả lịch tự huỷ quá hạn) |
+| ![](43-anh/x5-dien-thoai-chuong.png) | **X5** *Điện thoại* — chuông trên thanh 80 px |
+| ![](43-anh/x5-dien-thoai-trang-thong-bao.png) | **X5** *Điện thoại* — trang thông báo |
+| ![](43-anh/x6-trang-chu-chuong.png) | **X6** Trang chủ (header kính tối) có chuông cho khách |
 
 ### Lỗi tự bắt được khi chạy thật (đã sửa)
 1. **Chuông không hết chấm sau khi bấm thông báo:** bấm vừa đánh dấu đọc vừa chuyển trang; header cũ bị huỷ, header mới hỏi server **trước khi** PUT xong → hiện lại số cũ. Sửa: sau PUT phát sự kiện cửa sổ `bd:notifications-changed` để mọi bản header đang sống hỏi lại.

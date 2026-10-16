@@ -41,7 +41,16 @@ Duyệt theo đề xuất mặc định Q1–Q8. Chưa push, chưa merge `main`.
 | W4 | SĐT mới → không có dòng khớp | ✅ |
 | W5 | Khách đủ 5 lịch đặt thêm trên `/dat-san` → POST 400, trang hiện "Bạn đang giữ 5 lịch chưa chơi (tối đa 5)…" | ✅ |
 
-Ảnh: `docs/05-extra/02-remediation/42-anh/` (`w1`, `w3`, `w5`).
+### Ảnh chụp
+
+Thư mục `docs/05-extra/02-remediation/42-anh/` (laptop 1366×768 trừ khi ghi *điện thoại*).
+
+| Ảnh | Nội dung |
+|---|---|
+| ![](42-anh/w1-tu-cap-nhat-khong-reload.png) | **W1** Trang nhân viên tự hiện lịch mới do nơi khác tạo, không tải lại |
+| ![](42-anh/w3-khop-sdt-canh-bao-ten.png) | **W3b** Gõ SĐT khách có sẵn + tên khác → dòng "Khớp khách … Kiểm lại SĐT?" |
+| ![](42-anh/w3-banner-sau-khi-luu.png) | **W3c** Sau khi lưu → banner vàng nêu hồ sơ đã gắn |
+| ![](42-anh/w5-khach-du-tran.png) | **W5** Khách đủ 5 lịch đặt thêm → "Bạn đang giữ 5 lịch chưa chơi (tối đa 5)…" |
 
 ## 3. Còn lại / nên biết
 

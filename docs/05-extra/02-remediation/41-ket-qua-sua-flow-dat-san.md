@@ -38,7 +38,18 @@ Phát hiện thêm khi sửa: `HistoryPage` cũng gọi `GET /bookings` (với `
 | V4c | Huỷ một lịch sắp tới có hộp xác nhận, nhóm Sắp tới 6 → 5 | ✅ |
 | V5 / V5b | Điện thoại: dòng phụ đủ chữ, không cuộn ngang (390), Lịch của tôi không cuộn ngang | ✅ |
 
-Ảnh: `docs/05-extra/02-remediation/41-anh/` (`v1…`, `v2…`, `v3…`, `v4…`, `v5…`).
+### Ảnh chụp
+
+Thư mục `docs/05-extra/02-remediation/41-anh/` (laptop 1366×768 trừ khi ghi *điện thoại*).
+
+| Ảnh | Nội dung |
+|---|---|
+| ![](41-anh/v1-sdt-sai-banner-trong-modal.png) | **V1** SĐT `123` → banner đỏ "Số điện thoại không hợp lệ." trong form, giữ nguyên dữ liệu đang gõ |
+| ![](41-anh/v2-loi-thao-tac-banner-trang.png) | **V2** Duyệt lịch đã bị huỷ → banner lỗi ngay trong trang (không còn hộp `alert`) |
+| ![](41-anh/v3-lich-su-dat-san.png) | **V3** Trang Lịch sử vẫn tải bình thường sau khi siết validator |
+| ![](41-anh/v4-lich-cua-toi-hai-nhom.png) | **V4** "Lịch của tôi" chia **Sắp tới** / **Lịch sử** |
+| ![](41-anh/v5-dien-thoai-thanh-tom-tat.png) | **V5** *Điện thoại* — thanh tóm tắt khi chọn ô, đủ chữ |
+| ![](41-anh/v5-dien-thoai-lich-cua-toi.png) | **V5b** *Điện thoại* — Lịch của tôi, không cuộn ngang |
 
 ## 3. Còn mở (không thuộc kế hoạch 41)
 
