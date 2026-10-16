@@ -14,6 +14,15 @@ const { sendPasswordResetEmail } = require("../utils/mailer");
 const CustomerService = require("./CustomerService");
 const { normalizePhone, looksLikePhone, isValidPhone } = require("../utils/phone");
 const { assertNotLockedDemoAccount } = require("../utils/demoMode");
+const { assertPassword } = require("../utils/passwordPolicy");
+
+// Hash giả (cost 10 như hash thật, sinh một lần lúc nạp module) để đường "không có tài khoản" của `login`
+// cũng tốn một lần bcrypt.compare — xem R5.
+// R3: sau khi xoay, token CŨ vẫn được nhận access token mới trong chừng này mili giây — hai tab/luồng SSE
+// refresh cùng lúc không đá nhau ra khỏi phiên (xem refreshAccessToken).
+const REFRESH_GRACE_MS = 30 * 1000;
+
+const TIMING_DUMMY_HASH = bcrypt.hashSync(require("crypto").randomBytes(16).toString("hex"), 10);
 
 // Model User mặc định không nạp passwordHash/refreshToken (defaultScope). Chỉ
 // các hàm ở file này thật sự cần so mật khẩu, so refresh token hay ký reset
@@ -54,16 +63,26 @@ class AuthService {
       return error;
     };
 
-    if (!user) throw rejectCredentials();
+    // Mật khẩu không phải chuỗi (object/mảng từ body JSON) coi như sai thay vì để bcrypt ném lỗi → 500.
+    const candidate = typeof password === "string" ? password : "";
 
+    // R5 (báo cáo 33): không có tài khoản thì vẫn tốn đúng MỘT lần bcrypt.compare — nếu trả lỗi ngay thì
+    // thời gian phản hồi (≈6 ms so với ≈70 ms) cho biết số điện thoại/email nào đã đăng ký.
+    if (!user) {
+      await bcrypt.compare(candidate, TIMING_DUMMY_HASH);
+      throw rejectCredentials();
+    }
+
+    const isMatch = await bcrypt.compare(candidate, user.passwordHash);
+    if (!isMatch) throw rejectCredentials();
+
+    // R6: chỉ báo "bị vô hiệu hóa" khi người gọi đã chứng minh biết mật khẩu — trước đó, ai cũng dò được
+    // tài khoản nào đang bị khoá chỉ bằng mật khẩu bất kỳ.
     if (!user.isActive) {
       const error = new Error("Tài khoản đã bị vô hiệu hóa.");
       error.statusCode = 403;
       throw error;
     }
-
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) throw rejectCredentials();
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
@@ -75,7 +94,7 @@ class AuthService {
     // nhập đồng thời là xung đột cần chặn — "ai lưu sau thắng" là đúng cho
     // refresh token.
     await User.update(
-      { refreshToken: hashRefreshToken(refreshToken) },
+      { refreshToken: hashRefreshToken(refreshToken), previousRefreshToken: null, previousRefreshExpiresAt: null },
       { where: { id: user.id } }
     );
 
@@ -115,21 +134,53 @@ class AuthService {
       include: [{ model: Role, as: "role" }],
     });
 
-    if (!user || !refreshTokenMatches(refreshTokenInput, user.refreshToken) || !user.isActive) {
-      const error = new Error(
-        "Refresh Token không hợp lệ hoặc tài khoản đã bị khóa.",
-      );
+    const reject = () => {
+      const error = new Error("Refresh Token không hợp lệ hoặc tài khoản đã bị khóa.");
       error.statusCode = 401;
-      throw error;
+      return error;
+    };
+    if (!user || !user.isActive) throw reject();
+
+    // R3 — xoay vòng: mỗi lần refresh thành công cấp refresh token MỚI, token cũ chuyển sang `previous_*`.
+    if (refreshTokenMatches(refreshTokenInput, user.refreshToken)) {
+      const newRefreshToken = generateRefreshToken(user);
+      // So-và-đổi (compare-and-swap) trên chính hash vừa đọc: hai request cùng token chỉ MỘT bên xoay được.
+      const [rotated] = await User.update(
+        {
+          refreshToken: hashRefreshToken(newRefreshToken),
+          previousRefreshToken: user.refreshToken,
+          previousRefreshExpiresAt: new Date(Date.now() + REFRESH_GRACE_MS),
+        },
+        { where: { id: user.id, refreshToken: user.refreshToken } }
+      );
+      if (rotated === 1) {
+        return { accessToken: generateAccessToken(user), refreshToken: newRefreshToken };
+      }
+      // Thua cuộc đua: một request khác vừa xoay. Token ta đưa giờ là `previous` → xét ân hạn bên dưới.
+      const fresh = await User.scope("withSecrets").findByPk(decoded.id, { include: [{ model: Role, as: "role" }] });
+      if (!fresh || !fresh.isActive) throw reject();
+      return AuthService.acceptPreviousRefreshToken(refreshTokenInput, fresh, reject);
     }
 
-    const newAccessToken = generateAccessToken(user);
-    return { accessToken: newAccessToken };
+    return AuthService.acceptPreviousRefreshToken(refreshTokenInput, user, reject);
+  }
+
+  /**
+   * Ân hạn: token ngay trước lần xoay gần nhất còn được đổi lấy access token mới trong REFRESH_GRACE_MS. Chỉ
+   * cấp access token, KHÔNG xoay tiếp và KHÔNG trả refresh token — bên thắng cuộc đã giữ token mới trong
+   * localStorage dùng chung của trình duyệt; quá ân hạn hoặc không khớp thì 401.
+   */
+  static acceptPreviousRefreshToken(refreshTokenInput, user, reject) {
+    const withinGrace = user.previousRefreshExpiresAt && new Date(user.previousRefreshExpiresAt).getTime() > Date.now();
+    if (withinGrace && refreshTokenMatches(refreshTokenInput, user.previousRefreshToken)) {
+      return { accessToken: generateAccessToken(user) };
+    }
+    throw reject();
   }
 
   static async getProfile(userId) {
     const user = await User.findByPk(userId, {
-      attributes: { exclude: ["passwordHash", "refreshToken"] },
+      attributes: { exclude: ["passwordHash", "refreshToken", "previousRefreshToken", "previousRefreshExpiresAt", "tokenVersion"] },
       include: [
         { model: Role, as: "role", attributes: ["id", "name", "description"] },
         {
@@ -155,12 +206,25 @@ class AuthService {
   }
 
   static async logout(userId) {
-    await User.update({ refreshToken: null }, { where: { id: userId } });
+    // R4: tăng token_version để access token đang lưu ở máy khách cũng mất hiệu lực ngay (không chờ hết 15 phút);
+    // R3: xoá cả `previous_*` — logout xong thì token cũ không còn ân hạn.
+    await User.update(
+      {
+        refreshToken: null,
+        previousRefreshToken: null,
+        previousRefreshExpiresAt: null,
+        tokenVersion: sequelize.literal('token_version + 1'),
+      },
+      { where: { id: userId } }
+    );
     return { message: 'Đăng xuất thành công.' };
   }
 
   static async changePassword(userId, { oldPassword, newPassword }) {
-    const user = await User.scope("withSecrets").findByPk(userId);
+    // Kèm role để access token mới mang đúng `role` như khi đăng nhập.
+    const user = await User.scope("withSecrets").findByPk(userId, {
+      include: [{ model: Role, as: "role" }],
+    });
     if (!user) {
       const error = new Error("Người dùng không tồn tại.");
       error.statusCode = 404;
@@ -177,10 +241,39 @@ class AuthService {
       throw error;
     }
 
-    user.passwordHash = await bcrypt.hash(newPassword, 10);
-    await user.save();
+    // R2: lớp thứ hai sau validator (đã biết user nên kiểm được "trùng SĐT/email/tên"). Đổi sang chính mật khẩu
+    // hiện tại không thêm rủi ro mới nên không kiểm lại.
+    if (newPassword !== oldPassword) {
+      assertPassword(newPassword, { phone: user.phone, email: user.email, fullName: user.fullName });
+    }
 
-    return { message: "Đổi mật khẩu thành công." };
+    // Đổi mật khẩu phải thu hồi mọi phiên cũ (R1, báo cáo 33): mỗi user chỉ có
+    // MỘT cột refreshToken nên ghi refresh token mới vào đây là vô hiệu refresh
+    // token của mọi thiết bị khác. Thiết bị đang đổi nhận cặp token mới để giữ
+    // phiên (giao diện hứa "vẫn giữ nguyên phiên đăng nhập này").
+    //
+    // Update trực tiếp, không qua `user.save()`: cùng lý do với `login` — model có
+    // `version: true`, save() ném OptimisticLockError (→ 500) khi chạm một lần
+    // đăng nhập/refresh đồng thời.
+    //
+    // R4: đồng thời tăng token_version — access token của các thiết bị khác (còn hạn ≤ 15 phút) mất hiệu lực
+    // NGAY; thiết bị đang đổi nhận access token mang version mới nên không bị ảnh hưởng.
+    const nextVersion = (Number(user.tokenVersion) || 0) + 1;
+    const tokenSubject = { id: user.id, email: user.email, role: user.role, tokenVersion: nextVersion };
+    const accessToken = generateAccessToken(tokenSubject);
+    const refreshToken = generateRefreshToken(user);
+    await User.update(
+      {
+        passwordHash: await bcrypt.hash(newPassword, 10),
+        refreshToken: hashRefreshToken(refreshToken),
+        previousRefreshToken: null,
+        previousRefreshExpiresAt: null,
+        tokenVersion: nextVersion,
+      },
+      { where: { id: user.id } }
+    );
+
+    return { message: "Đổi mật khẩu thành công.", accessToken, refreshToken };
   }
 
   static async forgotPassword(email) {
@@ -246,9 +339,14 @@ class AuthService {
       throw invalidTokenError();
     }
     assertNotLockedDemoAccount(user);
+    // R2: validator chưa biết user (token được giải ở đây) nên phần "trùng SĐT/email/tên" kiểm tại đây.
+    assertPassword(newPassword, { phone: user.phone, email: user.email, fullName: user.fullName });
 
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     user.refreshToken = null; // đăng xuất mọi phiên đang mở
+    user.previousRefreshToken = null; // R3: không còn ân hạn cho token cũ
+    user.previousRefreshExpiresAt = null;
+    user.tokenVersion = (Number(user.tokenVersion) || 0) + 1; // R4: access token đang lưu mất hiệu lực ngay
     await user.save();
 
     return { message: "Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại." };

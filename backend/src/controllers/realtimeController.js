@@ -52,11 +52,17 @@ const stream = (req, res) => {
     if (payload.branchId === branchId) send('court:updated', payload);
   });
 
+  // Danh sách đặt sân đổi (F6): chỉ id/trạng thái, màn hình tự tải lại — không có tên/SĐT khách trong payload.
+  const unsubscribeBookingChanged = subscribe('booking:changed', (payload) => {
+    if (payload.branchId === branchId) send('booking:changed', payload);
+  });
+
   const heartbeat = setInterval(() => res.write(HEARTBEAT_FRAME), HEARTBEAT_MS);
   const stop = () => {
     clearInterval(heartbeat);
     clearTimeout(closeTimer);
     unsubscribeCourtUpdated();
+    unsubscribeBookingChanged();
   };
   const closeTimer = setTimeout(() => {
     stop();

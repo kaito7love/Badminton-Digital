@@ -1,12 +1,15 @@
-const { Booking, Branch, Court, Customer, User, sequelize } = require("../models");
+const { Booking, Branch, Court, Customer, User, Role, sequelize } = require("../models");
 const { Op } = require("sequelize");
 const { getPagination, getPagingData } = require("../utils/pagination");
-const { toMinutes, zonedTimeToUtc, localDateString, DEFAULT_TIMEZONE } = require("../utils/dateTime");
+const { toMinutes, zonedTimeToUtc, localDateString, localTimeString, DEFAULT_TIMEZONE } = require("../utils/dateTime");
+const realtimeBus = require("../utils/realtimeBus");
+const NotificationService = require("./NotificationService");
+const { activeBookingLimitViolation, pendingExpiryAt } = require("../utils/bookingPolicy");
 const AuditService = require("./AuditService");
 const CustomerService = require("./CustomerService");
 const SettingService = require("./SettingService");
 const { operatingHoursViolation } = require("../utils/operatingHours");
-const { BOOKING_WINDOW_DAYS, bookingWindow } = require("../utils/daySlots");
+const { BOOKING_WINDOW_DAYS, CUSTOMER_MAX_BOOKING_HOURS, bookingWindow } = require("../utils/daySlots");
 
 // Thông điệp khách đọc trực tiếp trên trang Đặt sân (hộp xác nhận và thông báo
 // lỗi khi đặt) nên phải là tiếng Việt — ALREADY_BOOKED trước đây là câu tiếng Anh duy nhất trong
@@ -66,6 +69,16 @@ class BookingService {
     if (String(bookingDate).slice(0, 10) <= last) return null;
     const [year, month, day] = last.split("-");
     return `Chỉ nhận đặt trước tối đa ${BOOKING_WINDOW_DAYS} ngày (đến ${day}/${month}/${year}), vui lòng chọn ngày sớm hơn`;
+  }
+
+  /**
+   * Khách đặt một lượt dài quá giới hạn chưa — hàm thuần (R15). Chỉ áp cho vai `customer` (nhân viên đặt giải
+   * đấu/sự kiện dài hơn vẫn được). Trả `null` nếu hợp lệ, hoặc câu thông báo.
+   */
+  static durationViolation({ startTime, endTime, maxHours = CUSTOMER_MAX_BOOKING_HOURS }) {
+    const minutes = toMinutes(endTime) - toMinutes(startTime);
+    if (minutes <= maxHours * 60) return null;
+    return `Mỗi lượt đặt tối đa ${maxHours} giờ liền, vui lòng chọn khoảng giờ ngắn hơn hoặc đặt thành nhiều lượt`;
   }
 
   /**
@@ -151,6 +164,7 @@ class BookingService {
   static async getAllBookings(query, context = {}) {
     const { page, limit, offset } = getPagination(query);
     const { date, courtId, status } = query;
+    const direction = String(query.sort || 'asc').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 
     const where = {};
     if (date) where.bookingDate = date;
@@ -164,8 +178,8 @@ class BookingService {
       limit,
       offset,
       order: [
-        ["bookingDate", "ASC"],
-        ["startTime", "ASC"],
+        ["bookingDate", direction],
+        ["startTime", direction],
       ],
       include: [
         { model: Court, as: "court", attributes: ["id", "name"] },
@@ -219,7 +233,7 @@ class BookingService {
     try {
       const court = await Court.findByPk(data.courtId, { transaction, lock: transaction.LOCK.UPDATE });
       if (!court || (context.branchId && court.branchId !== context.branchId)) {
-        const error = new Error("Court not found");
+        const error = new Error("Không tìm thấy sân trong chi nhánh đang chọn — hãy đổi chi nhánh rồi thử lại.");
         error.statusCode = 404;
         throw error;
       }
@@ -236,6 +250,12 @@ class BookingService {
           error.statusCode = 400;
           throw error;
         }
+        const tooLong = BookingService.durationViolation({ startTime: data.startTime, endTime: data.endTime });
+        if (tooLong) {
+          const error = new Error(tooLong);
+          error.statusCode = 400;
+          throw error;
+        }
       }
       let customerId = context.actor?.role?.name === "customer" ? context.actor.customer?.id : data.customerId || null;
       if (context.actor?.role?.name === "customer" && !customerId) {
@@ -243,14 +263,45 @@ class BookingService {
         error.statusCode = 403;
         throw error;
       }
+      if (context.actor?.role?.name === "customer") {
+        // Trần số lịch đang giữ (F3): đếm trong cùng transaction nên hai yêu cầu song song không cùng lọt qua trần.
+        const policy = await SettingService.getBookingPolicy();
+        if (policy.maxActivePerCustomer > 0) {
+          const branch = await Branch.findByPk(court.branchId, { attributes: ["id", "timezone"], transaction });
+          const timezone = branch?.timezone || DEFAULT_TIMEZONE;
+          const now = new Date();
+          const activeCount = await Booking.count({
+            where: {
+              customerId,
+              status: { [Op.in]: ["pending", "confirmed"] },
+              [Op.or]: [
+                { bookingDate: { [Op.gt]: localDateString(now, timezone) } },
+                { bookingDate: localDateString(now, timezone), endTime: { [Op.gt]: localTimeString(now, timezone) } },
+              ],
+            },
+            transaction,
+          });
+          const overLimit = activeBookingLimitViolation({ activeCount, limit: policy.maxActivePerCustomer });
+          if (overLimit) {
+            const error = new Error(overLimit);
+            error.statusCode = 400;
+            error.errorCode = "BOOKING_LIMIT";
+            throw error;
+          }
+        }
+      }
+      let customerMatch = null;
       if (!customerId) {
         // Khách đặt tại quầy chưa có hồ sơ: tạo (hoặc gộp theo SĐT) thành khách hàng
-        const walkIn = await CustomerService.resolveWalkIn({
+        const walkIn = await CustomerService.resolveWalkInDetailed({
           fullName: data.customerName,
           phone: data.customerPhone,
           transaction,
         });
-        customerId = walkIn ? walkIn.id : null;
+        customerId = walkIn.customer ? walkIn.customer.id : null;
+        if (walkIn.matched) {
+          customerMatch = { id: walkIn.customer.id, fullName: walkIn.customer.fullName, nameDiffers: walkIn.nameDiffers };
+        }
       }
       const availability = await BookingService.checkAvailability({
         courtId: data.courtId,
@@ -292,11 +343,87 @@ class BookingService {
         transaction,
       });
       await transaction.commit();
+      BookingService.notifyChanged(booking);
+      // Chỉ nhân viên đi nhánh này (khách luôn có customerId từ hồ sơ của chính họ): cho nhân viên biết lịch vừa gắn
+      // vào hồ sơ có sẵn theo SĐT, và tên nhập có khác không (F5). Không lưu DB.
+      if (customerMatch) booking.dataValues.customerMatch = customerMatch;
       return booking;
     } catch (error) {
       await transaction.rollback();
       throw error;
     }
+  }
+
+  /**
+   * Báo các màn hình nhân viên đang mở rằng danh sách đặt sân vừa đổi (F6). Gọi SAU KHI commit. Payload chỉ có
+   * id/trạng thái — không tên, không SĐT — vì SSE là tín hiệu "tải lại đi", không phải kênh dữ liệu.
+   */
+  static notifyChanged(booking) {
+    if (!booking) return;
+    realtimeBus.emit("booking:changed", { branchId: booking.branchId, bookingId: booking.id, status: booking.status });
+  }
+
+  /**
+   * Tự huỷ lịch `pending` do KHÁCH tự đặt mà quá hạn chờ duyệt (F3b). Lịch do nhân viên tạo không bao giờ bị huỷ ở
+   * đây. Chạy trong vòng quét 5 phút của server.js. Mỗi lịch được khoá + đọc lại trong transaction riêng nên không
+   * đè lên một lần duyệt/huỷ tay vừa xảy ra. Trả về số lịch đã huỷ.
+   */
+  static async expireStalePendingBookings({ now = new Date(), batch = 200 } = {}) {
+    const policy = await SettingService.getBookingPolicy();
+    if (!(policy.pendingExpiryHours > 0)) return 0;
+
+    const candidates = await Booking.findAll({
+      where: { status: "pending" },
+      include: [{
+        model: User, as: "creator", attributes: ["id"], required: true,
+        include: [{ model: Role, as: "role", attributes: ["name"], where: { name: "customer" }, required: true }],
+      }],
+      order: [["createdAt", "ASC"]],
+      limit: batch,
+    });
+    if (!candidates.length) return 0;
+
+    const branches = await Branch.findAll({ attributes: ["id", "timezone"] });
+    const timezoneOf = new Map(branches.map((b) => [b.id, b.timezone || DEFAULT_TIMEZONE]));
+    let expired = 0;
+
+    for (const candidate of candidates) {
+      const [year, month, day] = String(candidate.bookingDate).slice(0, 10).split("-").map(Number);
+      const [hour, minute] = String(candidate.startTime).split(":").map(Number);
+      const startAt = zonedTimeToUtc(year, month, day, hour, minute, 0, timezoneOf.get(candidate.branchId) || DEFAULT_TIMEZONE);
+      const expireAt = pendingExpiryAt({ createdAt: candidate.createdAt, startAt, policy });
+      if (!expireAt || expireAt.getTime() > now.getTime()) continue;
+
+      const transaction = await sequelize.transaction();
+      try {
+        const booking = await Booking.findByPk(candidate.id, { transaction, lock: transaction.LOCK.UPDATE });
+        if (!booking || booking.status !== "pending") {
+          await transaction.rollback();
+          continue;
+        }
+        const oldValues = booking.toJSON();
+        await booking.update({ status: "cancelled" }, { transaction });
+        await AuditService.record({
+          actor: null,
+          branchId: booking.branchId,
+          action: "booking.expired",
+          targetType: "booking",
+          targetId: booking.id,
+          oldValues,
+          newValues: { ...booking.toJSON(), expiredAt: expireAt.toISOString(), reason: "pending_not_confirmed_in_time" },
+          transaction,
+        });
+        const notified = await NotificationService.notifyBooking(NotificationService.TYPES.EXPIRED, booking, { transaction });
+        await transaction.commit();
+        BookingService.notifyChanged(booking);
+        NotificationService.deliverEmail(notified);
+        expired += 1;
+      } catch (error) {
+        await transaction.rollback();
+        console.error("❌ Không huỷ được lịch quá hạn chờ duyệt #" + candidate.id + ":", error.message);
+      }
+    }
+    return expired;
   }
 
   static async updateBooking(id, data, context) {
@@ -334,7 +461,7 @@ class BookingService {
         lock: transaction.LOCK.UPDATE,
       });
       if (!court) {
-        const error = new Error("Court not found");
+        const error = new Error("Không tìm thấy sân trong chi nhánh đang chọn — hãy đổi chi nhánh rồi thử lại.");
         error.statusCode = 404;
         throw error;
       }
@@ -366,7 +493,16 @@ class BookingService {
         requestId: context.requestId,
         transaction,
       });
+      // Đổi sân/ngày/giờ của khách thì phải báo (kế hoạch 43); sửa mà không đổi gì thì không.
+      const slotOf = (b) => [b.courtId, String(b.bookingDate).slice(0, 10), String(b.startTime).slice(0, 5), String(b.endTime).slice(0, 5)].join("|");
+      let notified = null;
+      if (slotOf(oldValues) !== slotOf(updated)) {
+        const previous = await NotificationService.describeSlot(oldValues, { transaction });
+        notified = await NotificationService.notifyBooking(NotificationService.TYPES.RESCHEDULED, updated, { transaction, previous });
+      }
       await transaction.commit();
+      BookingService.notifyChanged(updated);
+      NotificationService.deliverEmail(notified);
       return updated;
     } catch (error) {
       await transaction.rollback();
@@ -406,7 +542,13 @@ class BookingService {
         requestId: context.requestId,
         transaction,
       });
+      // Khách tự huỷ thì không cần báo (họ vừa làm xong); nhân viên huỷ thì báo (kế hoạch 43).
+      const notified = context.actor?.role?.name === "customer"
+        ? null
+        : await NotificationService.notifyBooking(NotificationService.TYPES.CANCELLED_BY_STAFF, updated, { transaction });
       await transaction.commit();
+      BookingService.notifyChanged(updated);
+      NotificationService.deliverEmail(notified);
       return updated;
     } catch (error) {
       await transaction.rollback();
@@ -445,7 +587,11 @@ class BookingService {
         requestId: context.requestId,
         transaction,
       });
+      // Báo khách (kế hoạch 43) — cùng transaction nên trạng thái và thông báo không lệch nhau.
+      const notified = await NotificationService.notifyBooking(NotificationService.TYPES.CONFIRMED, updated, { transaction });
       await transaction.commit();
+      BookingService.notifyChanged(updated);
+      NotificationService.deliverEmail(notified);
       return updated;
     } catch (error) {
       await transaction.rollback();
@@ -455,7 +601,7 @@ class BookingService {
 
   static assertOwnership(booking, actor, branchId) {
     if (branchId && booking.branchId !== branchId) {
-      const error = new Error("Booking không thuộc chi nhánh hiện tại");
+      const error = new Error("Booking thuộc chi nhánh khác — hãy đổi chi nhánh đang chọn rồi thử lại.");
       error.statusCode = 403;
       throw error;
     }

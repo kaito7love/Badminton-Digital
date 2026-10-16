@@ -29,6 +29,8 @@ const REFRESH_MARGIN_SECONDS = 60;
 // và mở lại, không ngồi chờ mãi trên một kết nối câm.
 const SILENCE_TIMEOUT_MS = 60000;
 const WATCHDOG_INTERVAL_MS = 10000;
+// Các sự kiện backend phát qua /realtime/stream (xem backend/src/controllers/realtimeController.js).
+export const REALTIME_EVENTS = ['court:updated', 'booking:changed'];
 
 /** Kết nối đã im lặng quá lâu chưa (quá SILENCE_TIMEOUT_MS kể từ lần nhận cuối). */
 export const isConnectionSilent = (lastSeenMs, nowMs = Date.now()) => nowMs - lastSeenMs > SILENCE_TIMEOUT_MS;
@@ -120,13 +122,17 @@ export const connectRealtimeStream = ({ branchId, onEvent, onReconnect, onStatus
       lastSeen = Date.now();
     });
 
-    source.addEventListener('court:updated', (e) => {
-      lastSeen = Date.now();
-      try {
-        onEvent?.('court:updated', JSON.parse(e.data));
-      } catch {
-        // Payload lỗi định dạng — bỏ qua, không phải lỗi nghiêm trọng.
-      }
+    // Mỗi tên sự kiện một listener; trang tự lọc theo tên (CourtsPage chỉ quan tâm court:updated, BookingsPage chỉ
+    // booking:changed). Payload chỉ là tín hiệu "tải lại đi" — xem ghi chú đầu file.
+    REALTIME_EVENTS.forEach((eventName) => {
+      source.addEventListener(eventName, (e) => {
+        lastSeen = Date.now();
+        try {
+          onEvent?.(eventName, JSON.parse(e.data));
+        } catch {
+          // Payload lỗi định dạng — bỏ qua, không phải lỗi nghiêm trọng.
+        }
+      });
     });
 
     // Mất kết nối (server đóng sau 20 phút, mất mạng, tab bị hệ điều hành tạm

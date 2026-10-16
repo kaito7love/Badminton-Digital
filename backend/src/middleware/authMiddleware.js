@@ -43,6 +43,16 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
+    // R4: access token phát trước lần logout/đổi mật khẩu gần nhất đã bị thu hồi. Token cũ chưa có `tv` coi như 0.
+    if ((Number(decoded.tv) || 0) !== (Number(user.tokenVersion) || 0)) {
+      return res.status(401).json({
+        success: false,
+        data: null,
+        message: 'Phiên đăng nhập đã bị thu hồi, vui lòng đăng nhập lại.',
+        errors: null
+      });
+    }
+
     req.user = user;
     next();
   } catch (error) {

@@ -242,6 +242,11 @@
     {
       "key": "competitionTournamentId",
       "value": ""
+    },
+    {
+      "key": "notificationId",
+      "value": "1",
+      "type": "string"
     }
   ],
   "item": [
@@ -404,7 +409,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Khách Postman\",\n  \"phone\": \"{{qaCustomerPhone}}\",\n  \"email\": \"{{qaEmail}}\",\n  \"password\": \"Customer@123\"\n}",
+              "raw": "{\n  \"fullName\": \"Khách Postman\",\n  \"phone\": \"{{qaCustomerPhone}}\",\n  \"email\": \"{{qaEmail}}\",\n  \"password\": \"Postman-Khach#2026qa\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -460,7 +465,7 @@
                 "change-password"
               ]
             },
-            "description": "Đổi mật khẩu của chính tài khoản đang đăng nhập.",
+            "description": "Đổi mật khẩu của chính tài khoản đang đăng nhập. Thu hồi refresh token cũ (mọi thiết bị khác bị đăng xuất) và trả `data.accessToken` + `data.refreshToken` mới cho thiết bị đang đổi — script test bên dưới lưu lại vào biến collection.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oldPassword\": \"{{adminPassword}}\",\n  \"newPassword\": \"{{adminPassword}}\"\n}",
@@ -493,7 +498,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
-                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });",
+                  "pm.test(pm.info.requestName + ' -> cap token moi', function () { var d = pm.response.json().data; pm.expect(d.accessToken).to.be.a('string'); pm.expect(d.refreshToken).to.be.a('string'); pm.collectionVariables.set('accessToken', d.accessToken); pm.collectionVariables.set('refreshToken', d.refreshToken); });"
                 ]
               }
             }
@@ -587,7 +593,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"<token-tu-email>\",\n  \"newPassword\": \"MatKhauMoi@123\"\n}",
+              "raw": "{\n  \"token\": \"<token-tu-email>\",\n  \"newPassword\": \"Postman-Mat-Khau-Moi#2026\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1356,7 +1362,7 @@
                 "open"
               ]
             },
-            "description": "Tạo `CourtSession`. Có thể gắn khách có sẵn (`customerId`), booking (`bookingId`) hoặc khách vãng lai (`guestName`/`guestPhone`).",
+            "description": "Tạo `CourtSession`. Có thể gắn khách có sẵn (`customerId`), booking (`bookingId`) hoặc khách vãng lai (`guestName`/`guestPhone`, SĐT sai → 400). Với `bookingId`: lịch khác ngày hôm nay (theo múi giờ chi nhánh) → 400 `BOOKING_WRONG_DAY`; cùng ngày nhưng lệch giờ → 409 `BOOKING_TIME_MISMATCH`, gửi lại kèm `acknowledgeTimeMismatch: true` để vẫn mở.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"guestName\": \"Khách vãng lai\",\n  \"guestPhone\": \"0900000009\"\n}",
@@ -1620,6 +1626,44 @@
               ],
               "path": [
                 "bookings"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-10-20",
+                  "description": "Lọc theo ngày, dạng YYYY-MM-DD (sai → 400)",
+                  "disabled": true
+                },
+                {
+                  "key": "courtId",
+                  "value": "1",
+                  "description": "Lọc theo sân (số nguyên)",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": "pending | confirmed | cancelled | completed",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "desc",
+                  "description": "asc (mặc định) | desc — theo ngày + giờ bắt đầu",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "tối đa 100",
+                  "disabled": true
+                }
               ]
             },
             "description": ""
@@ -5147,7 +5191,7 @@
                   "    pm.sendRequest({",
                   "      url: _base + '/auth/register', method: 'POST',",
                   "      header: { 'Content-Type': 'application/json' },",
-                  "      body: { mode: 'raw', raw: JSON.stringify({ fullName: 'Khách QA online (gộp)', phone: _phone, password: 'Customer@123' }) }",
+                  "      body: { mode: 'raw', raw: JSON.stringify({ fullName: 'Khách QA online (gộp)', phone: _phone, password: 'Postman-Khach#2026qa' }) }",
                   "    }, function (err2, registerRes) {",
                   "      if (err2 || registerRes.code !== 201) {",
                   "        console.log('Không đăng ký được tài khoản cùng số để gộp: ' + (err2 ? err2.message : registerRes.text()));",
@@ -5393,7 +5437,7 @@
             "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"NV QA Postman\",\n  \"email\": \"{{qaEmail}}\",\n  \"phone\": \"{{qaEmployeePhone}}\",\n  \"password\": \"Employee@123\",\n  \"position\": \"Lễ tân\",\n  \"shift\": \"Ca sáng\"\n}",
+              "raw": "{\n  \"fullName\": \"NV QA Postman\",\n  \"email\": \"{{qaEmail}}\",\n  \"phone\": \"{{qaEmployeePhone}}\",\n  \"password\": \"Postman-NhanVien#2026qa\",\n  \"position\": \"Lễ tân\",\n  \"shift\": \"Ca sáng\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -7314,6 +7358,222 @@
               "// Chỉ khi runCompetition bật (tắt thì cả nhóm bị bỏ qua, đăng nhập là đốt vô ích một lượt rate limit 10 lần / 15 phút / IP)",
               "// và chỉ khi chưa có token (script này chạy trước TỪNG request trong nhóm).",
               "if (String(pm.variables.get('runCompetition')) === 'true' && !pm.collectionVariables.get('customerAccessToken')) {",
+              "  pm.sendRequest({",
+              "    url: pm.variables.get('baseUrl') + '/auth/login',",
+              "    method: 'POST', header: { 'Content-Type': 'application/json' },",
+              "    body: { mode: 'raw', raw: JSON.stringify({",
+              "      identifier: pm.variables.get('customerPhone') || '0903333333',",
+              "      password: pm.variables.get('customerPassword') || 'Customer@123'",
+              "    }) }",
+              "  }, function (err, res) {",
+              "    if (!err && res.code === 200) {",
+              "      pm.collectionVariables.set('customerAccessToken', res.json().data.accessToken);",
+              "    } else {",
+              "      console.log('Không đăng nhập được vai trò customer: ' + (err ? err.message : res.text()));",
+              "    }",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 · Notifications (thông báo của khách — vai customer)",
+      "description": "Thông báo trong ứng dụng cho **khách** (kế hoạch 43): lịch được duyệt / tự huỷ quá hạn / bị nhân viên huỷ / bị đổi. Chỉ vai `customer` và chỉ của chính mình (token admin/nhân viên → 403). Thư mục tự đăng nhập bằng `{{customerPhone}}` / `{{customerPassword}}` như nhóm 15; không gửi `X-Branch-Id`.",
+      "item": [
+        {
+          "name": "Danh sách thông báo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "1–50 (mặc định 20)",
+                  "disabled": true
+                },
+                {
+                  "key": "unread",
+                  "value": "true",
+                  "description": "true = chỉ chưa đọc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Thông báo mới nhất trước kèm `unreadCount` (chưa đọc, tính cả khi lọc).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request nay tac dong len DU LIEU CO SAN (xoa/sua ban ghi seed, checkout, doi cau hinh)",
+                  "// hoac lam hong phien chay (vd: logout huy token). Chi bat khi that su muon:",
+                  "// newman run ... --env-var runDestructive=true",
+                  "if (String(pm.variables.get('runDestructive')) !== 'true') {",
+                  "  console.log('SKIP (runDestructive=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đánh dấu một thông báo đã đọc",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notificationId}}",
+                "read"
+              ]
+            },
+            "description": "Thông báo của khách khác hoặc không có → 404.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request nay tac dong len DU LIEU CO SAN (xoa/sua ban ghi seed, checkout, doi cau hinh)",
+                  "// hoac lam hong phien chay (vd: logout huy token). Chi bat khi that su muon:",
+                  "// newman run ... --env-var runDestructive=true",
+                  "if (String(pm.variables.get('runDestructive')) !== 'true') {",
+                  "  console.log('SKIP (runDestructive=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đánh dấu tất cả đã đọc",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "read-all"
+              ]
+            },
+            "description": "Chỉ đụng thông báo của chính khách.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request nay tac dong len DU LIEU CO SAN (xoa/sua ban ghi seed, checkout, doi cau hinh)",
+                  "// hoac lam hong phien chay (vd: logout huy token). Chi bat khi that su muon:",
+                  "// newman run ... --env-var runDestructive=true",
+                  "if (String(pm.variables.get('runDestructive')) !== 'true') {",
+                  "  console.log('SKIP (runDestructive=false): ' + pm.info.requestName);",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(pm.info.requestName + ' -> 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test(pm.info.requestName + ' -> success:true', function () { pm.expect(pm.response.json().success).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Đăng nhập vai trò customer một lần cho cả nhóm.",
+              "// Hai điều kiện, cả hai đều vì rate limit /auth/login (10 lần / 15 phút / IP):",
+              "//  - chỉ khi runDestructive bật, vì tắt thì cả 4 request dưới đều bị bỏ qua,",
+              "//    đăng nhập lúc đó là đốt phí một lượt vô ích;",
+              "//  - chỉ khi chưa có token, vì script này chạy trước TỪNG request trong nhóm.",
+              "if (String(pm.variables.get('runDestructive')) === 'true' && !pm.collectionVariables.get('customerAccessToken')) {",
               "  pm.sendRequest({",
               "    url: pm.variables.get('baseUrl') + '/auth/login',",
               "    method: 'POST', header: { 'Content-Type': 'application/json' },",

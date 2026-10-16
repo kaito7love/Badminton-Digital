@@ -12,36 +12,36 @@ const validate = (req, res, next) => {
 };
 
 const createOrderRules = [
-  body('customerId').optional({ nullable: true }).isInt(),
+  body('customerId').optional({ nullable: true }).isInt({ min: 1, max: 2147483647 }),
   validate
 ];
 
 const addLineRules = [
-  param('id').isInt().withMessage('Sales order ID must be an integer'),
-  body('variantId').isInt().withMessage('variantId is required'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Sales order ID must be an integer'),
+  body('variantId').isInt({ min: 1, max: 2147483647 }).withMessage('variantId is required'),
   body('quantity').isInt({ min: 1 }).withMessage('quantity must be at least 1'),
   validate
 ];
 
 const removeLineRules = [
-  param('id').isInt().withMessage('Sales order ID must be an integer'),
-  param('lineId').isInt().withMessage('Line ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Sales order ID must be an integer'),
+  param('lineId').isInt({ min: 1, max: 2147483647 }).withMessage('Line ID must be an integer'),
   validate
 ];
 
 const applyVoucherRules = [
-  param('id').isInt().withMessage('Sales order ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Sales order ID must be an integer'),
   body('voucherCode').optional({ nullable: true }).trim().isLength({ max: 32 }).withMessage('Mã giảm giá không hợp lệ'),
   validate
 ];
 
 const cancelOrderRules = [
-  param('id').isInt().withMessage('Sales order ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Sales order ID must be an integer'),
   validate
 ];
 
 const checkoutRules = [
-  param('id').isInt().withMessage('Sales order ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Sales order ID must be an integer'),
   body('paymentMethod').optional().isIn(['cash', 'transfer']),
   body('discountAmount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('Số tiền giảm giá phải là số không âm').toFloat(),
   body('discountReason')

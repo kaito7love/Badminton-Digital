@@ -1,5 +1,6 @@
 const { body, param, validationResult } = require('express-validator');
 const { errorResponse } = require('../utils/responseHandler');
+const { isValidPhone } = require('../utils/phone');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -19,7 +20,7 @@ const createCourtRules = [
 ];
 
 const updateCourtRules = [
-  param('id').isInt().withMessage('Court ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Court ID must be an integer'),
   body('name').optional().trim().notEmpty().withMessage('Court name cannot be empty'),
   body('peakPricePerHour').optional().isNumeric().withMessage('Peak price must be a number'),
   body('offpeakPricePerHour').optional().isNumeric().withMessage('Off-peak price must be a number'),
@@ -28,24 +29,29 @@ const updateCourtRules = [
 ];
 
 const updateCourtStatusRules = [
-  param('id').isInt().withMessage('Court ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Court ID must be an integer'),
   body('status').isIn(['active', 'maintenance', 'inactive'])
     .withMessage('Trạng thái sân phải là active, maintenance hoặc inactive'),
   validate
 ];
 
 const openCourtRules = [
-  param('id').isInt().withMessage('Court ID must be an integer'),
-  body('customerId').optional({ nullable: true }).isInt().withMessage('Customer ID must be an integer'),
-  body('bookingId').optional({ nullable: true }).isInt().withMessage('Booking ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Court ID must be an integer'),
+  body('customerId').optional({ nullable: true }).isInt({ min: 1, max: 2147483647 }).withMessage('Customer ID must be an integer'),
+  body('bookingId').optional({ nullable: true }).isInt({ min: 1, max: 2147483647 }).withMessage('Booking ID must be an integer'),
   body('guestName').optional({ nullable: true }).isString().trim().isLength({ max: 100 }).withMessage('Guest name must be a string up to 100 characters'),
   body('guestPhone').optional({ nullable: true }).isString().trim().isLength({ max: 20 }).withMessage('Guest phone must be a string up to 20 characters'),
+  body('acknowledgeTimeMismatch').optional({ nullable: true }).isBoolean({ strict: true }).withMessage('acknowledgeTimeMismatch must be true or false'),
+  body('guestPhone').optional({ nullable: true, checkFalsy: true }).custom((value) => {
+    if (!isValidPhone(value)) throw new Error('Số điện thoại không hợp lệ.');
+    return true;
+  }),
   validate
 ];
 
 const transferCourtRules = [
-  param('id').isInt().withMessage('Source Court ID must be an integer'),
-  body('targetCourtId').isInt().withMessage('Target Court ID must be an integer'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Source Court ID must be an integer'),
+  body('targetCourtId').isInt({ min: 1, max: 2147483647 }).withMessage('Target Court ID must be an integer'),
   validate
 ];
 

@@ -1,6 +1,7 @@
 const { body, param, validationResult } = require('express-validator');
 const { errorResponse } = require('../utils/responseHandler');
 const { isValidPhone } = require('../utils/phone');
+const { checkPassword } = require('../utils/passwordPolicy');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -18,23 +19,30 @@ const validate = (req, res, next) => {
 // sân online. Khách vãng lai không chịu đưa số vẫn mở sân được bình thường —
 // đường đó đi qua resolveWalkIn chứ không qua đây.
 const createCustomerRules = [
-  body('fullName').trim().notEmpty().withMessage('Vui lòng nhập họ tên khách hàng'),
+  body('fullName').trim().notEmpty().withMessage('Vui lòng nhập họ tên khách hàng')
+    .isLength({ max: 100 }).withMessage('Họ tên tối đa 100 ký tự'),
   body('phone').custom((value) => {
     if (!isValidPhone(value)) throw new Error('Số điện thoại không hợp lệ');
     return true;
   }),
-  body('email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('Email không hợp lệ'),
+  body('email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('Email không hợp lệ')
+    .isLength({ max: 100 }).withMessage('Email tối đa 100 ký tự'),
   // Có mật khẩu nghĩa là nhân viên tạo luôn tài khoản đăng nhập cho khách
-  body('password').optional({ nullable: true, checkFalsy: true })
-    .isLength({ min: 6 }).withMessage('Mật khẩu phải có tối thiểu 6 ký tự'),
+  body('password').optional({ nullable: true, checkFalsy: true }).custom((value, { req }) => {
+    const result = checkPassword(value, { phone: req.body.phone, email: req.body.email, fullName: req.body.fullName });
+    if (!result.ok) throw new Error(result.message);
+    return true;
+  }),
   validate
 ];
 
 const updateCustomerRules = [
-  param('id').isInt().withMessage('Customer ID must be an integer'),
-  body('fullName').optional().trim().notEmpty().withMessage('Full name cannot be empty'),
+  param('id').isInt({ min: 1, max: 2147483647 }).withMessage('Customer ID must be an integer'),
+  body('fullName').optional().trim().notEmpty().withMessage('Full name cannot be empty')
+    .isLength({ max: 100 }).withMessage('Họ tên tối đa 100 ký tự'),
   body('phone').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 20 }).withMessage('Phone number must be at most 20 characters'),
-  body('email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('Invalid email address'),
+  body('email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('Invalid email address')
+    .isLength({ max: 100 }).withMessage('Email tối đa 100 ký tự'),
   validate
 ];
 

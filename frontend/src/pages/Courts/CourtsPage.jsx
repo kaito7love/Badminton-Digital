@@ -165,7 +165,9 @@ export default function CourtsPage() {
   useEffect(() => {
     const close = connectRealtimeStream({
       branchId: selectedBranchId,
-      onEvent: () => fetchCourts(),
+      onEvent: (eventName) => {
+        if (eventName === 'court:updated') fetchCourts();
+      },
       // Kết nối lại sau khi mất: có thể đã lỡ sự kiện trong lúc đó.
       onReconnect: () => fetchCourts(),
       onStatusChange: setRealtimeStatus

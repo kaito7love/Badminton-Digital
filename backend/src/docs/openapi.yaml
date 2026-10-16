@@ -67,6 +67,8 @@ tags:
     name: '22 · Settings'
   -
     name: '23 · Realtime (SSE)'
+  -
+    name: '25 · Notifications (thông báo của khách — vai customer)'
 security:
   -
     bearerAuth: []
@@ -218,7 +220,7 @@ paths:
               fullName: 'Khách Postman'
               phone: string
               email: string
-              password: Customer@123
+              password: 'Postman-Khach#2026qa'
       security: []
       responses:
         '201':
@@ -237,7 +239,7 @@ paths:
         - '01 · Auth'
       summary: 'Change password'
       operationId: put_auth_change_password
-      description: 'Đổi mật khẩu của chính tài khoản đang đăng nhập.'
+      description: 'Đổi mật khẩu của chính tài khoản đang đăng nhập. Thu hồi refresh token cũ (mọi thiết bị khác bị đăng xuất) và trả `data.accessToken` + `data.refreshToken` mới cho thiết bị đang đổi — script test bên dưới lưu lại vào biến collection.'
       requestBody:
         required: true
         content:
@@ -300,7 +302,7 @@ paths:
               type: object
             example:
               token: '<token-tu-email>'
-              newPassword: MatKhauMoi@123
+              newPassword: 'Postman-Mat-Khau-Moi#2026'
       security: []
       responses:
         '201':
@@ -778,7 +780,7 @@ paths:
         - '04 · Courts'
       summary: 'Mở sân (bắt đầu phiên chơi)'
       operationId: post_courts_id_open
-      description: 'Tạo `CourtSession`. Có thể gắn khách có sẵn (`customerId`), booking (`bookingId`) hoặc khách vãng lai (`guestName`/`guestPhone`).'
+      description: 'Tạo `CourtSession`. Có thể gắn khách có sẵn (`customerId`), booking (`bookingId`) hoặc khách vãng lai (`guestName`/`guestPhone`, SĐT sai → 400). Với `bookingId`: lịch khác ngày hôm nay (theo múi giờ chi nhánh) → 400 `BOOKING_WRONG_DAY`; cùng ngày nhưng lệch giờ → 409 `BOOKING_TIME_MISMATCH`, gửi lại kèm `acknowledgeTimeMismatch: true` để vẫn mở.'
       parameters:
         -
           name: id
@@ -937,6 +939,48 @@ paths:
       operationId: get_bookings
       description: ""
       parameters:
+        -
+          name: date
+          in: query
+          required: false
+          schema:
+            type: string
+          example: '2026-10-20'
+        -
+          name: courtId
+          in: query
+          required: false
+          schema:
+            type: string
+          example: '1'
+        -
+          name: status
+          in: query
+          required: false
+          schema:
+            type: string
+          example: pending
+        -
+          name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+          example: desc
+        -
+          name: page
+          in: query
+          required: false
+          schema:
+            type: string
+          example: '1'
+        -
+          name: limit
+          in: query
+          required: false
+          schema:
+            type: string
+          example: '20'
         -
           name: X-Branch-Id
           in: header
@@ -3172,7 +3216,7 @@ paths:
               fullName: 'NV QA Postman'
               email: string
               phone: string
-              password: Employee@123
+              password: 'Postman-NhanVien#2026qa'
               position: 'Lễ tân'
               shift: 'Ca sáng'
       responses:
@@ -3992,6 +4036,83 @@ paths:
           schema:
             type: string
           example: accessToken
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/notifications:
+    get:
+      tags:
+        - '25 · Notifications (thông báo của khách — vai customer)'
+      summary: 'Danh sách thông báo'
+      operationId: get_notifications
+      description: 'Thông báo mới nhất trước kèm `unreadCount` (chưa đọc, tính cả khi lọc).'
+      parameters:
+        -
+          name: limit
+          in: query
+          required: false
+          schema:
+            type: string
+          example: '20'
+        -
+          name: unread
+          in: query
+          required: false
+          schema:
+            type: string
+          example: 'true'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  '/api/v1/notifications/{id}/read':
+    put:
+      tags:
+        - '25 · Notifications (thông báo của khách — vai customer)'
+      summary: 'Đánh dấu một thông báo đã đọc'
+      operationId: put_notifications_id_read
+      description: 'Thông báo của khách khác hoặc không có → 404.'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Mã định danh bản ghi'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/notifications/read-all:
+    put:
+      tags:
+        - '25 · Notifications (thông báo của khách — vai customer)'
+      summary: 'Đánh dấu tất cả đã đọc'
+      operationId: put_notifications_read_all
+      description: 'Chỉ đụng thông báo của chính khách.'
       responses:
         '200':
           $ref: '#/components/responses/Success'

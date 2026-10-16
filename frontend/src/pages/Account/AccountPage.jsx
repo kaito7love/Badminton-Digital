@@ -4,6 +4,9 @@ import CustomerLayout from '../../layouts/CustomerLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService, customerService } from '../../services/apiServices';
 import { formatDateTime, formatDate } from '../../utils/datetime';
+import { PASSWORD_MIN_LENGTH, PASSWORD_HINT, passwordLengthError } from '../../utils/passwordRules';
+import { serverMessage } from '../../utils/serverMessage';
+import { storeSessionTokens } from '../../utils/sessionTokens';
 import MyRatingCard from '../../features/competition/components/MyRatingCard';
 
 /**
@@ -63,8 +66,9 @@ function ChangePasswordCard() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (form.newPassword.length < 6) {
-      setStatus({ type: 'error', message: 'Mật khẩu mới phải có tối thiểu 6 ký tự.' });
+    const lengthError = passwordLengthError(form.newPassword);
+    if (lengthError) {
+      setStatus({ type: 'error', message: lengthError });
       return;
     }
     if (form.newPassword !== form.confirmPassword) {
@@ -74,11 +78,13 @@ function ChangePasswordCard() {
 
     setSubmitting(true);
     try {
-      await authService.changePassword({ oldPassword: form.oldPassword, newPassword: form.newPassword });
+      const res = await authService.changePassword({ oldPassword: form.oldPassword, newPassword: form.newPassword });
+      // Đổi mật khẩu thu hồi refresh token cũ — giữ cặp token mới để phiên này không bị đăng xuất.
+      storeSessionTokens(res.data?.data);
       setForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
       setStatus({ type: 'success', message: 'Đã đổi mật khẩu.' });
     } catch (err) {
-      setStatus({ type: 'error', message: err.response?.data?.message || 'Đổi mật khẩu không thành công.' });
+      setStatus({ type: 'error', message: serverMessage(err, 'Đổi mật khẩu không thành công.') });
     } finally {
       setSubmitting(false);
     }
@@ -87,7 +93,7 @@ function ChangePasswordCard() {
   return (
     <section className="nike-card-static p-7">
       <h2 className="font-kinetic text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">Đổi mật khẩu</h2>
-      <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Tối thiểu 6 ký tự. Đổi xong bạn vẫn giữ nguyên phiên đăng nhập này.</p>
+      <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{PASSWORD_HINT}. Đổi xong bạn vẫn giữ nguyên phiên đăng nhập này.</p>
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-4">
         <div>
@@ -113,7 +119,7 @@ function ChangePasswordCard() {
               id="new-password"
               type="password"
               required
-              minLength={6}
+              minLength={PASSWORD_MIN_LENGTH}
               autoComplete="new-password"
               value={form.newPassword}
               onChange={(event) => setForm({ ...form, newPassword: event.target.value })}
@@ -128,7 +134,7 @@ function ChangePasswordCard() {
               id="confirm-password"
               type="password"
               required
-              minLength={6}
+              minLength={PASSWORD_MIN_LENGTH}
               autoComplete="new-password"
               value={form.confirmPassword}
               onChange={(event) => setForm({ ...form, confirmPassword: event.target.value })}

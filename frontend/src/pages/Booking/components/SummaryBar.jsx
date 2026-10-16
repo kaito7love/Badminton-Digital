@@ -47,7 +47,7 @@ export default function SummaryBar({ summary, date, role, onBook, portal = false
       <div className="min-w-0">
         {/* Khung giờ lên đầu: đó là thứ khách cần thấy nguyên vẹn, nên không để bị cắt ở màn hẹp. */}
         <strong className="block font-kinetic text-base font-black text-slate-900 dark:text-white">{summary.label}</strong>
-        <span className="block truncate text-xs text-slate-600 dark:text-slate-400">
+        <span className="block line-clamp-2 text-xs text-slate-600 dark:text-slate-400">
           {courtTitle({ name: summary.courtName }).title} · {dayLabel(date)} · {summary.hours} giờ
         </span>
       </div>

@@ -45,4 +45,17 @@ describe('classifyBookingError', () => {
     expect(r.kind).toBe('other');
     expect(r.message).toMatch(/không thành công/);
   });
+
+  test('429 (quá nhiều lượt đặt) hiện nguyên văn thông báo tiếng Việt của server, không làm tải lại lưới', () => {
+    const r = classifyBookingError({ response: { status: 429, data: { message: 'Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút.' } } });
+    expect(r.message).toBe('Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút.');
+    expect(r.refreshGrid).toBe(false);
+  });
+
+  test('400 BOOKING_LIMIT (đã giữ đủ trần lịch) hiện nguyên văn câu của server', () => {
+    const message = 'Bạn đang giữ 5 lịch chưa chơi (tối đa 5). Hãy huỷ bớt hoặc chơi xong rồi đặt thêm.';
+    const r = classifyBookingError({ response: { status: 400, data: { message, code: 'BOOKING_LIMIT' } } });
+    expect(r.kind).toBe('rejected');
+    expect(r.message).toBe(message);
+  });
 });

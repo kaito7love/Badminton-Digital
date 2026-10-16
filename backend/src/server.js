@@ -9,8 +9,11 @@ const errorHandler = require('./middleware/errorHandler');
 const requestContextMiddleware = require('./middleware/requestContextMiddleware');
 const OnlineOrderService = require('./services/OnlineOrderService');
 const SalesOrderService = require('./services/SalesOrderService');
+const BookingService = require('./services/BookingService');
+const NotificationService = require('./services/NotificationService');
 const { resolveCorsOrigin, resolveTrustProxy, resolveBuildVersion } = require('./utils/serverConfig');
 const { createFrontendHandlers } = require('./utils/frontendStatic');
+const { securityHeaders, apiNoStore } = require('./utils/securityHeaders');
 const { getCompetitionConfig } = require('./integrations/competition/config');
 const { createGatewayRouter } = require('./integrations/competition/gateway');
 const { createDispatcher } = require('./integrations/competition/dispatcher');
@@ -27,6 +30,10 @@ const app = express();
 // (xem utils/serverConfig.js).
 app.set('trust proxy', resolveTrustProxy());
 app.disable('x-powered-by');
+
+// Header bảo mật cho MỌI response (JSON, file tĩnh, 404, lỗi) — R9; no-store cho API — R10 (kế hoạch 35).
+app.use(securityHeaders);
+app.use('/api/v1', apiNoStore);
 
 app.use(cors({
   origin: resolveCorsOrigin(),
@@ -107,6 +114,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/courts', require('./routes/courtRoutes'));
 app.use('/api/v1/realtime', require('./routes/realtimeRoutes'));
 app.use('/api/v1/bookings', require('./routes/bookingRoutes'));
+app.use('/api/v1/notifications', require('./routes/notificationRoutes'));
 app.use('/api/v1/accessories', require('./routes/accessoryRoutes'));
 app.use('/api/v1/suppliers', require('./routes/supplierRoutes'));
 app.use('/api/v1/goods-receipts', require('./routes/goodsReceiptRoutes'));
@@ -179,6 +187,14 @@ setInterval(() => {
   });
   SalesOrderService.releaseAbandonedPosOrders().catch((err) => {
     console.error('❌ Lỗi khi dọn đơn tại quầy bỏ dở:', err.message);
+  });
+  // Lịch đặt sân chờ duyệt quá hạn của khách (báo cáo 40, F3b) — xem BookingService.expireStalePendingBookings.
+  BookingService.expireStalePendingBookings().catch((err) => {
+    console.error('❌ Lỗi khi huỷ lịch đặt sân quá hạn chờ duyệt:', err.message);
+  });
+  // Dọn thông báo cũ của khách (đã đọc > 30 ngày, mọi thông báo > 90 ngày) — kế hoạch 43.
+  NotificationService.purgeOld().catch((err) => {
+    console.error('❌ Lỗi khi dọn thông báo cũ:', err.message);
   });
 }, 5 * 60 * 1000);
 

@@ -85,7 +85,35 @@ const sendPasswordResetEmail = async ({ to, fullName, resetUrl }) => {
   return info;
 };
 
+const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/** Email thông báo lịch đặt sân (kế hoạch 43) — gửi cộng thêm khi khách có email và SMTP đã cấu hình. */
+const sendBookingNotificationEmail = async ({ to, fullName, title, body }) => {
+  const transporter = getTransporter();
+  const greeting = fullName ? `Xin chào ${fullName},` : 'Xin chào,';
+  const text = [greeting, '', body, '', 'Xem chi tiết trong mục "Lịch của tôi" trên Badminton Digital.', 'Badminton Digital Management'].join('\n');
+  const html = `
+  <div style="font-family:'Segoe UI',Roboto,Arial,sans-serif;background:#0f172a;padding:32px;color:#e2e8f0">
+    <div style="max-width:520px;margin:0 auto;background:#1e293b;border-radius:16px;padding:32px">
+      <h1 style="margin:0 0 8px;font-size:20px;color:#f8fafc">Badminton <span style="color:#10b981">Digital</span></h1>
+      <p style="margin:0 0 24px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8">${escapeHtml(title)}</p>
+      <p style="margin:0 0 16px">${escapeHtml(greeting)}</p>
+      <p style="margin:0 0 24px">${escapeHtml(body)}</p>
+      <p style="margin:0;font-size:12px;color:#64748b">Xem chi tiết trong mục "Lịch của tôi" trên Badminton Digital.</p>
+    </div>
+  </div>`;
+
+  return transporter.sendMail({
+    from: process.env.MAIL_FROM || `Badminton Digital <${process.env.MAIL_USER}>`,
+    to,
+    subject: `${title} — Badminton Digital`,
+    text,
+    html
+  });
+};
+
 module.exports = {
   isMailConfigured,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendBookingNotificationEmail
 };

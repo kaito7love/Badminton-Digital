@@ -6,6 +6,7 @@ const SettingService = require('./SettingService');
 const CustomerService = require('./CustomerService');
 const { localDateString, localTimeString } = require('../utils/dateTime');
 const realtimeBus = require('../utils/realtimeBus');
+const { openWindowViolation } = require('../utils/bookingOpenWindow');
 
 const COURT_STATUSES = ['active', 'maintenance', 'inactive'];
 
@@ -237,6 +238,7 @@ class CourtService {
         throw error;
       }
       let booking = null;
+      let timeMismatchAcknowledged = false;
       if (bookingId) {
         booking = await Booking.findOne({ where: { id: bookingId, courtId, branchId: context.branchId }, transaction, lock: transaction.LOCK.UPDATE });
         if (!booking || !['pending', 'confirmed'].includes(booking.status)) {
@@ -244,6 +246,22 @@ class CourtService {
           error.statusCode = 400;
           throw error;
         }
+        // Booking phải là của hôm nay (chặn cứng) và đúng khung giờ (hỏi lại nhân viên) — mở nhầm lịch của ngày khác
+        // sẽ "ăn" mất lịch đó (báo cáo 40, F4).
+        const branch = await Branch.findByPk(context.branchId, { attributes: ['id', 'timezone'], transaction });
+        const violation = openWindowViolation({
+          bookingDate: booking.bookingDate,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          timezone: branch?.timezone
+        });
+        if (violation && (violation.code === 'WRONG_DAY' || !context.acknowledgeTimeMismatch)) {
+          const error = new Error(violation.message);
+          error.statusCode = violation.code === 'WRONG_DAY' ? 400 : 409;
+          error.errorCode = violation.code === 'WRONG_DAY' ? 'BOOKING_WRONG_DAY' : 'BOOKING_TIME_MISMATCH';
+          throw error;
+        }
+        timeMismatchAcknowledged = Boolean(violation);
       }
       let resolvedCustomerId = booking?.customerId || customerId || null;
       if (booking?.customerId && customerId && booking.customerId !== customerId) {
@@ -283,14 +301,16 @@ class CourtService {
       }, { transaction });
 
       if (booking) await booking.update({ status: 'completed' }, { transaction });
+      const sessionValues = { ...session.toJSON(), ...(timeMismatchAcknowledged ? { timeMismatchAcknowledged: true } : {}) };
 
-      await AuditService.record({ actor: context.actor, branchId: context.branchId, action: 'court.session_opened', targetType: 'court_session', targetId: session.id, newValues: session.toJSON(), requestId: context.requestId, transaction });
+      await AuditService.record({ actor: context.actor, branchId: context.branchId, action: 'court.session_opened', targetType: 'court_session', targetId: session.id, newValues: sessionValues, requestId: context.requestId, transaction });
 
       await transaction.commit();
       // Chỉ bắn sự kiện SAU KHI commit xong — bắn sớm hơn có thể khiến thiết
       // bị khác fetch lại đúng lúc transaction chưa ghi xong, đọc phải dữ
       // liệu cũ rồi coi như "không có gì đổi" (mục (c), RealtimeCourtSync.md).
       realtimeBus.emit('court:updated', { branchId: context.branchId, courtId: Number(courtId) });
+      if (booking) realtimeBus.emit('booking:changed', { branchId: booking.branchId, bookingId: booking.id, status: booking.status });
       return session;
     } catch (err) {
       await transaction.rollback();
