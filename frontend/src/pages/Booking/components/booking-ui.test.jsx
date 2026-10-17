@@ -214,6 +214,31 @@ describe('DayStrip, Legend, BoardStates', () => {
   });
 });
 
+describe('sơ đồ mặt bằng: điểm bám để cuộn / tô sáng / chuyển tab (kế hoạch 45)', () => {
+  test('CourtGrid: ô tên mỗi sân có data-court-title và nhận tiêu điểm lập trình', () => {
+    const html = renderToStaticMarkup(<CourtGrid day={day()} selection={null} onTap={noop} />);
+    for (const c of fixture.courts) expect(html).toContain(`data-court-title="${c.id}"`);
+    expect(html.match(/tabindex="-1"/g) || []).toHaveLength(fixture.courts.length);
+  });
+
+  test('CourtGrid: chỉ hàng của sân được chỉ định có vòng sáng; không chỉ định thì không hàng nào có', () => {
+    const none = renderToStaticMarkup(<CourtGrid day={day()} selection={null} onTap={noop} />);
+    expect(none).not.toContain('ring-2');
+    const lit = renderToStaticMarkup(
+      <CourtGrid day={day()} selection={null} onTap={noop} highlightCourtId={fixture.courts[0].id} />
+    );
+    expect((lit.match(/ring-2/g) || []).length).toBe(1);
+    expect(lit).toContain('dark:ring-emerald-400');
+  });
+
+  test('PhoneGrid: mỗi tab sân có data-court-tab', () => {
+    const html = renderToStaticMarkup(
+      <PhoneGrid day={day()} courtId={fixture.courts[0].id} onCourt={noop} selection={null} onTap={noop} />
+    );
+    for (const c of fixture.courts) expect(html).toContain(`data-court-tab="${c.id}"`);
+  });
+});
+
 describe('giao diện sáng / tối (kế hoạch 28: không có text-white trần)', () => {
   test('mọi chuỗi lớp có text-white đều kèm cặp dark:text-', () => {
     const dir = path.resolve(__dirname, '..');

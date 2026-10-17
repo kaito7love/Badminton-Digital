@@ -5,10 +5,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { roleOf } from '../../utils/roles';
 import { todayInZone } from '../../utils/datetime';
 import { bookingService, publicService } from '../../services/apiServices';
+import CourtFloorPlan from '../../components/CourtFloorPlan';
 import useDayAvailability from './useDayAvailability';
 import useCompactLayout from './useCompactLayout';
+import useBranchLayout from './useBranchLayout';
 import { buildDayStrip, fallbackWindow } from './lib/dayStrip';
 import { dayStatus } from './lib/gridModel';
+import { PLAN_HIGHLIGHT_MS, branchLine, hasFloorPlan, planPickText } from './lib/floorPlan';
 import { confirmBooking, resumePending } from './lib/bookingFlow';
 import {
   MAX_BOOKING_HOURS,
@@ -82,12 +85,19 @@ export default function BookingPage() {
   const [busy, setBusy] = useState(false);
   const [dialogError, setDialogError] = useState('');
   const [resumed, setResumed] = useState(false);
+  // Sân khách vừa chạm trên sơ đồ mặt bằng: { courtId, n } — `n` để chạm lại cùng sân vẫn cuộn / tô sáng lần nữa.
+  const [planPick, setPlanPick] = useState(null);
+  const [highlightId, setHighlightId] = useState(null);
+  const gridRef = useRef(null);
+  const highlightTimer = useRef(null);
 
   const { day, loading, error, stamp, reload, refresh } = useDayAvailability({
     date,
     branchId,
     paused: dialogOpen
   });
+  // Sơ đồ của chi nhánh ĐANG HIỆN trong lưới (không phải giá trị vừa chọn dở).
+  const layout = useBranchLayout(day?.branch?.id);
 
   // Danh sách chi nhánh cho bộ chọn, tải một lần.
   useEffect(() => {
@@ -239,6 +249,39 @@ export default function BookingPage() {
     }
   };
 
+  // Khách chạm một sân trên sơ đồ: máy tính cuộn tới lưới và tô sáng hàng của sân đó; điện thoại (lưới từng
+  // sân một) chuyển sang tab sân đó. Không tự chọn giờ — giờ nào còn trống vẫn do khách chạm trong lưới.
+  const pickFromPlan = (court) => {
+    if (compact) {
+      changeCourtTab(court.id);
+    } else {
+      setHighlightId(court.id);
+      clearTimeout(highlightTimer.current);
+      highlightTimer.current = setTimeout(() => setHighlightId(null), PLAN_HIGHLIGHT_MS);
+    }
+    setNotice({ tone: 'info', text: planPickText(court) });
+    setPlanPick((cur) => ({ courtId: court.id, n: (cur?.n || 0) + 1 }));
+  };
+  useEffect(() => () => clearTimeout(highlightTimer.current), []);
+
+  // Sau khi lưới vẽ lại theo lựa chọn trên: cuộn tới lưới (chừa chỗ cho header cố định bằng scroll-mt) rồi đưa
+  // tiêu điểm tới sân đó để trình đọc màn hình đọc ra; không cuộn trang thêm lần nữa khi đặt tiêu điểm.
+  useEffect(() => {
+    const root = gridRef.current;
+    if (!planPick || !root) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    root.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    const target = root.querySelector(
+      compact ? `[data-court-tab="${planPick.courtId}"]` : `[data-court-title="${planPick.courtId}"]`
+    );
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    // Dải tab sân có thể đang cuộn ngang: đưa tab vừa chọn ra giữa, chỉ ở trục ngang (không kéo cả trang).
+    const strip = compact ? target.parentElement : null;
+    if (strip) strip.scrollLeft = target.offsetLeft - (strip.clientWidth - target.offsetWidth) / 2;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planPick]);
+
   const onTap = (court, slot) => {
     const result = tapSlot({ selection, court, slot, maxHours: MAX_BOOKING_HOURS });
     setSelection(result.selection);
@@ -261,6 +304,9 @@ export default function BookingPage() {
 
   const peak = day?.peakHours;
   const pad = (n) => String(n).padStart(2, '0');
+  const shownBranch = branchLine(branches, day, branchId);
+  // Sơ đồ chỉ hiện khi lưới đang hiện (tránh một sơ đồ chạm được mà không có gì để cuộn tới) và vẽ ra được ít nhất một sân thật.
+  const showPlan = !loading && !error && (status === 'ok' || status === 'full') && hasFloorPlan(layout, courts);
 
   return (
     <CustomerLayout
@@ -305,6 +351,13 @@ export default function BookingPage() {
               ))}
             </select>
           </label>
+          {shownBranch && (
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              <span aria-hidden="true">📍 </span>
+              Đang xem: <strong className="font-bold text-emerald-700 dark:text-emerald-300">{shownBranch.name}</strong>
+              {shownBranch.address ? ` — ${shownBranch.address}` : ''}
+            </p>
+          )}
           <DayStrip days={days} value={date} onChange={changeDate} />
         </div>
 
@@ -312,7 +365,7 @@ export default function BookingPage() {
           <Legend />
         </div>
 
-        <section className="nike-card-static p-4 sm:p-5" aria-label="Lịch sân theo giờ">
+        <section ref={gridRef} className="nike-card-static scroll-mt-24 p-4 sm:p-5 lg:scroll-mt-28" aria-label="Lịch sân theo giờ">
           {loading && <LoadingBoard />}
           {!loading && error && <ErrorBoard message={error} onRetry={reload} />}
           {!loading && !error && day && status === 'no-courts' && <NoCourtsBoard />}
@@ -330,7 +383,7 @@ export default function BookingPage() {
                   onTap={onTap}
                 />
               ) : (
-                <CourtGrid day={day} selection={selection} onTap={onTap} />
+                <CourtGrid day={day} selection={selection} onTap={onTap} highlightCourtId={highlightId} />
               )}
               <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-slate-200 pt-3 text-xs text-slate-600 dark:border-white/10 dark:text-slate-400">
                 <span>Cập nhật {clock(stamp)} · tự tải lại mỗi 30 giây</span>
@@ -355,6 +408,22 @@ export default function BookingPage() {
           >
             {hint}
           </p>
+        )}
+
+        {showPlan && (
+          <section className="mt-8" aria-labelledby="dat-san-plan-title">
+            <h2
+              id="dat-san-plan-title"
+              className="font-kinetic text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white"
+            >
+              Sơ đồ mặt bằng
+            </h2>
+            <p className="mb-3 mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Vị trí các sân trong chi nhánh. Chạm vào một sân để xem lịch của sân đó ở bảng phía trên.
+              {compact ? ' Vuốt ngang để xem hết sơ đồ.' : ''}
+            </p>
+            <CourtFloorPlan tone="auto" layout={layout} courts={courts} onSelectCourt={pickFromPlan} />
+          </section>
         )}
 
         {(status === 'ok' || status === 'full') && (

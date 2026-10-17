@@ -9,8 +9,12 @@ import { BOOKED_STRIPES, cellClass, cellGlyph } from './cellStyles';
  * Số cột lấy từ dữ liệu (giờ mở cửa là setting, không phải hằng số). Cột tên
  * sân co từ 168 xuống 112 px để ở 1024 px ô giờ vẫn rộng ~38 px; cả lưới nằm
  * trong khung riêng nên không bao giờ làm trang cuộn ngang.
+ *
+ * `highlightCourtId`: hàng của sân khách vừa chạm trên sơ đồ mặt bằng, được tô sáng trong ít giây.
+ * Ô tên sân nhận tiêu điểm lập trình (`tabIndex=-1`, không nằm trong thứ tự Tab) để trình đọc màn hình
+ * đọc ra sân đó sau khi trang cuộn tới.
  */
-export default function CourtGrid({ day, selection, onTap }) {
+export default function CourtGrid({ day, selection, onTap, highlightCourtId = null }) {
   const headers = hourHeaders(day);
   const columns = `minmax(112px, 168px) repeat(${headers.length}, minmax(0, 1fr))`;
 
@@ -37,9 +41,20 @@ export default function CourtGrid({ day, selection, onTap }) {
       <div className="mt-1 space-y-1">
         {day.courts.map((court) => {
           const { title, kind } = courtTitle(court);
+          const lit = highlightCourtId != null && court.id === highlightCourtId;
           return (
-            <div key={court.id} className="grid items-stretch gap-1" style={{ gridTemplateColumns: columns }}>
-              <div className="flex flex-col justify-center py-1 pl-1 pr-2 leading-tight">
+            <div
+              key={court.id}
+              className={`grid items-stretch gap-1 rounded-lg transition-shadow ${
+                lit ? 'bg-emerald-500/10 ring-2 ring-emerald-600 dark:ring-emerald-400' : ''
+              }`}
+              style={{ gridTemplateColumns: columns }}
+            >
+              <div
+                data-court-title={court.id}
+                tabIndex={-1}
+                className="flex flex-col justify-center py-1 pl-1 pr-2 leading-tight outline-none"
+              >
                 <strong className="font-kinetic text-[15px] font-black text-slate-900 dark:text-white">{title}</strong>
                 <span className="text-xs text-slate-600 dark:text-slate-400">
                   {kind ? `${kind} · ` : ''}
