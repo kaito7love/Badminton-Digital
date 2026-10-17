@@ -23,6 +23,7 @@ export default function PhoneGrid({ day, courtId, onCourt, selection, onTap }) {
             <button
               key={c.id}
               type="button"
+              data-court-tab={c.id}
               aria-pressed={on}
               onClick={() => onCourt(c.id)}
               className={`shrink-0 rounded-2xl border px-4 py-2 text-left leading-tight transition-colors ${
