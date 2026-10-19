@@ -1,5 +1,7 @@
 # Mô hình trạng thái sân — bốn quyết định đã chốt
 
+*Cập nhật 18/10/2026: realtime đã triển khai (mục 4); thêm luật thời gian vào `checkAvailability` (mục 2); thêm mục 5 về mở sân từ lịch đặt. Bốn quyết định gốc không đổi.*
+
 Tài liệu này chốt cách hệ thống biểu diễn trạng thái sân. Mọi tính năng mới đụng
 tới sân, phiên chơi, đặt lịch hay realtime đều phải theo đây.
 
@@ -60,18 +62,28 @@ Mọi câu hỏi về khả dụng đi qua **đúng một hàm**:
 checkAvailability(courtId, date, from, to)
   → { available, reason, message, conflictBookingId }
 
-reason ∈ COURT_NOT_FOUND | COURT_INACTIVE | COURT_MAINTENANCE | ALREADY_BOOKED
+reason ∈ COURT_NOT_FOUND | COURT_INACTIVE | COURT_MAINTENANCE
+       | SLOT_PASSED | OUTSIDE_OPERATING_HOURS | ALREADY_BOOKED
 ```
 
-Cả `POST /bookings`, `PUT /bookings/:id` và `GET /bookings/availability` đều gọi
-chính hàm này. **Giao diện không được tự suy luận khả dụng từ `court.status`** —
+Kiểm theo đúng thứ tự trên: sân tồn tại và đang khai thác → khung giờ chưa kết thúc
+(theo múi giờ **chi nhánh**, không theo đồng hồ máy chủ) → nằm trọn trong giờ mở cửa
+(`operating_hours`, mặc định 05:00–23:00) → không trùng lịch `pending`/`confirmed`. Khung
+đã bắt đầu nhưng chưa kết thúc vẫn nhận (khách bước vào quầy giữa giờ).
+
+Cả `POST /bookings`, `PUT /bookings/:id`, `GET /bookings/availability` và
+`GET /public/availability` đều gọi chính hàm này. Lưới `GET /public/availability/day`
+**không** gọi hàm này cho từng ô (sẽ tốn truy vấn) mà dùng một hàm thuần `utils/daySlots.js`
+với **cùng thứ tự ưu tiên** (bảo trì → đã qua → đã kín → trống), và cố ý chặt hơn một bậc:
+coi ô đã bắt đầu là "đã qua". Các luật chỉ dành riêng cho khách (14 ngày, 3 giờ, tối đa 5
+lịch giữ) nằm ở `POST /bookings`, ngoài `checkAvailability`, vì nhân viên không bị các giới hạn đó. **Giao diện không được tự suy luận khả dụng từ `court.status`** —
 chỗ suy luận riêng là nơi UI bắt đầu lệch với server.
 
 Trả về `reason` có cấu trúc thay vì chỉ `false` là để giao diện hiển thị đúng lý
 do mà không phải đoán.
 
-Mã lỗi: `ALREADY_BOOKED` → **409** (xung đột tài nguyên); sân ngưng/bảo trì →
-**400** (yêu cầu không hợp lệ ngay từ đầu).
+Mã lỗi: `ALREADY_BOOKED` → **409** (xung đột tài nguyên); sân ngưng/bảo trì, khung đã
+qua, ngoài giờ mở cửa → **400** (yêu cầu không hợp lệ ngay từ đầu).
 
 ### Giới hạn hiện tại
 
@@ -154,7 +166,12 @@ một sân" — kiểm tra ở tầng ứng dụng chỉ làm giảm xác suất
 Nguyên tắc: **bất biến nào ép được xuống DB thì ép**, tầng ứng dụng chỉ để báo lỗi
 cho dễ hiểu.
 
-### Quy tắc cho realtime *(chưa triển khai — chốt trước khi làm)*
+### Quy tắc cho realtime *(đã triển khai — `realtimeBus`, `/realtime/stream`)*
+
+Hai sự kiện đang phát: `court:updated { branchId, courtId }` (mở, đóng, chuyển sân, đổi
+trạng thái) và `booking:changed { branchId, bookingId, status }` (mọi thay đổi lịch đặt),
+kèm nhịp `ping` mỗi 25 giây. Máy nhân viên nhận theo chi nhánh qua SSE rồi nạp lại bằng REST.
+Hai quy tắc dưới được áp ngay từ đầu và có chú thích tại chỗ phát (`CourtService`, `BookingService`).
 
 **1. Event không mang trạng thái, chỉ mang tín hiệu vô hiệu hoá.**
 
@@ -181,4 +198,28 @@ gì đính chính.
 | UI báo trống nhưng DB còn session | ✅ Không thể xảy ra | UI không đọc cột nào, tính từ chính bảng session |
 | Sân bảo trì vẫn booking được | ✅ Đã chặn | `checkAvailability` xét trạng thái sân |
 | Hai nhân viên mở cùng một sân | ✅ Chặn ở tầng DB | `uq_court_sessions_open_court` |
-| Booking và realtime khác nhau | ⏳ Chưa có realtime | Quy tắc ở mục 4 phải áp ngay từ đầu |
+| Booking và realtime khác nhau | ✅ Đã triển khai theo quy tắc | Event chỉ mang tín hiệu "tải lại đi" kèm mã, phát **sau commit**; client nạp lại bằng REST (mục 4) |
+
+---
+
+## 5. Mở sân từ một lịch đặt
+
+Phiên chơi (`court_sessions`) và lịch đặt (`bookings`) là hai thứ khác nhau; mở sân từ lịch chỉ **nối** chúng.
+`POST /courts/:id/open` nhận thêm `bookingId` tuỳ chọn:
+
+- Lịch phải là của **hôm nay theo múi giờ chi nhánh** — sai ngày → 400 `BOOKING_WRONG_DAY` (cứng).
+- Nếu bây giờ sớm hơn giờ bắt đầu hơn 60 phút, hoặc đã quá giờ kết thúc → 409 `BOOKING_TIME_MISMATCH` cho tới khi người gọi gửi lại kèm `acknowledgeTimeMismatch: true` (nhân viên phải xác nhận tường minh).
+- Mở thành công: phiên gắn `booking_id`, lịch chuyển `completed`, và phát cả `court:updated` lẫn `booking:changed` **sau commit**.
+- Giao diện nhân viên hiện chưa có nút mở sân từ lịch đặt (chỉ API hỗ trợ).
+- Bất biến "một sân tối đa một phiên mở" vẫn do `uq_court_sessions_open_court` canh gác, bất kể mở từ lịch hay mở trực tiếp.
+
+Khi **đổi sân** giữa phiên (`POST /courts/:id/transfer`), đoạn đã chơi ở sân cũ được chốt tiền vào `court_sessions.accrued_court_fee` và mốc `billed_from` dời sang lúc chuyển; mọi chỗ tính tiền phiên phải đi qua `calculateSessionCourtFee`, không tính lại từ giờ bắt đầu.
+
+---
+
+## Lịch sử thay đổi
+
+| Ngày | Thay đổi |
+|---|---|
+| (bản đầu) | Bốn quyết định về trạng thái sân |
+| 18/10/2026 | Realtime đã triển khai; `checkAvailability` có thêm `SLOT_PASSED` và `OUTSIDE_OPERATING_HOURS`; thêm mục 5 (mở sân từ lịch, đổi sân và tiền sân) |
