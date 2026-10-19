@@ -2,6 +2,7 @@
 
 **Actor:** Admin (Chủ sân / Quản trị viên)  
 **Quyền hạn:** Toàn quyền hệ thống
+**Cập nhật:** 18/10/2026 (khớp `UseCase.md` v1.3; mục 4b, 6, 8–11 được sửa hoặc thêm)
 
 ---
 
@@ -27,7 +28,7 @@
 Sai định danh và sai mật khẩu trả về cùng 1 thông báo lỗi — không phân biệt
 "chưa có tài khoản" với "sai mật khẩu". Tài khoản `isActive = false` báo riêng:
 "Tài khoản bị khóa, vui lòng liên hệ Admin". Chi tiết đầy đủ (chuẩn hoá SĐT,
-quên mật khẩu, đổi mật khẩu, refresh token) xem `flows/WF-01-Login.md`.
+quên mật khẩu, đổi mật khẩu, xoay vòng refresh token, giới hạn 10 lần/15 phút/IP) xem `flows/WF-01-Login.md`.
 
 Use Cases: UC-01 (Đăng nhập), UC-03 (Quên mật khẩu), UC-04 (Đổi mật khẩu)
 
@@ -45,9 +46,15 @@ Dashboard
            │       └─→ Cập nhật tên, giá, ghi chú → Lưu
            ├─→ [Xóa sân]
            │       └─→ Xác nhận → Xóa (chỉ khi sân đang trống)
-           └─→ [Bật/Tắt bảo trì]
-                   └─→ Sân chuyển trạng thái "Maintenance"
+           ├─→ [Bật/Tắt bảo trì]
+           │       └─→ Sân chuyển trạng thái "Maintenance"
+           │            (rời "active" cần: không có phiên đang mở, không còn lịch sắp tới)
+           └─→ [Sơ đồ mặt bằng] (/courts/layout — Admin và quản lý chi nhánh)
+                   └─→ Kéo thả sân và vùng (bãi xe…) lên khung, lưu → khách thấy ở
+                       trang Đặt sân và trang chủ
 ```
+
+Sơ đồ mặt bằng được lưu thành **file** `backend/public/layouts/branch-<id>.json` (không phải CSDL): trên Render mất khi deploy lại và quay về ba file mặc định; compose có volume giữ lại.
 
 Use Cases: UC-05, UC-09
 
@@ -60,9 +67,9 @@ Dashboard
   └─→ [Trang Nhân viên]
            ├─→ Xem danh sách nhân viên
            ├─→ [Thêm nhân viên]
-           │       └─→ Tạo tài khoản User (username, email, mật khẩu)
+           │       └─→ Tạo tài khoản User (họ tên, SĐT hoặc email, mật khẩu đạt chính sách)
            │             → Gán Role "employee"
-           │             → Tạo hồ sơ Employee (vị trí, ca làm)
+           │             → Tạo hồ sơ Employee (chi nhánh, vị trí, ca làm)
            ├─→ [Sửa thông tin / phân quyền]
            │       └─→ Cập nhật vị trí, ca làm, email
            ├─→ [Xóa nhân viên]
@@ -70,6 +77,8 @@ Dashboard
            └─→ [Xem nhật ký hoạt động]
                    └─→ Lịch sử thao tác của nhân viên (activity_logs)
 ```
+
+`branch_manager` cũng vào được trang này nhưng chỉ quản lý tài khoản `employee` trong chi nhánh của mình. Không ai xoá được tài khoản `admin` hoặc chính mình.
 
 Use Cases: UC-16
 
@@ -79,7 +88,7 @@ Use Cases: UC-16
 
 ```
 Dashboard
-  └─→ [Trang Dịch Vụ & Kho — 4 tab]
+  └─→ [Trang Dịch Vụ & Kho — 4 tab: Sản phẩm · Nhập kho · Lịch sử kho · Nhà cung cấp]
            ├─→ [Sản phẩm] Danh mục dùng chung mọi chi nhánh (tên, giá,
            │       ngưỡng cảnh báo) + tồn kho hiển thị là của chi nhánh
            │       đang chọn (xem §7 — Chuyển chi nhánh)
@@ -110,15 +119,19 @@ Use Cases: UC-17
 
 ```
 Dashboard
-  └─→ [Trang Bán Lẻ Dụng Cụ — 3 tab]
+  └─→ [Trang Bán Lẻ Dụng Cụ — 4 tab: Bán hàng · Kho bán lẻ · Danh mục sản phẩm · Mã giảm giá]
            ├─→ [Bán hàng] Quầy POS độc lập với luồng sân: chọn sản phẩm →
-           │       giỏ hàng → giảm giá → thanh toán (tiền mặt/VietQR)
+           │       giỏ hàng → mã giảm giá / giảm giá tay (kèm lý do) → thanh toán (tiền mặt/VietQR)
            ├─→ [Kho bán lẻ] Tồn kho ProductVariant theo chi nhánh đang
            │       chọn + form nhập kho (dùng chung phiếu nhập với phụ
            │       kiện — 1 phiếu có thể trộn cả 2 loại dòng)
-           └─→ [Danh mục sản phẩm] — Admin/branch_manager mới thấy tab
-                   này: CRUD danh mục, sản phẩm, biến thể (size/màu, SKU,
-                   giá bán, ngưỡng cảnh báo)
+           ├─→ [Danh mục sản phẩm] — Admin/branch_manager mới thấy tab
+           │       này: CRUD nhóm hàng, sản phẩm, biến thể (size/màu, SKU,
+           │       giá bán, ngưỡng cảnh báo)
+           └─→ [Mã giảm giá] — Admin/branch_manager: tạo mã (% có trần hoặc
+                   số tiền cố định, giá trị đơn tối thiểu, thời hạn, tổng lượt
+                   và lượt mỗi khách), xem trước mức giảm, ngừng áp dụng. Mã
+                   dùng cho POS và đơn online, KHÔNG dùng cho tiền sân
 ```
 
 Đây là hệ thống catalog RIÊNG với `Extra` ở mục 4 (vợt/áo/quần bán độc lập,
@@ -142,11 +155,11 @@ Dashboard
   ├─→ Top phụ kiện bán chạy (chỉ phụ kiện gọi trong sân, KHÔNG gồm bán lẻ)
   ├─→ [Báo cáo doanh thu chi tiết theo nguồn] — tách sân/phụ kiện trong
   │       sân/bán lẻ/giảm giá theo từng kỳ; Admin xem được kèm so sánh
-  │       toàn chuỗi (`compareBranches=true`) — mới, chỉ có dữ liệu từ
-  │       2026-08-16
+  │       toàn chuỗi (`compareBranches=true`; `branch_manager` bị ép về
+  │       chi nhánh mình) — chỉ có dữ liệu từ 2026-08-16
   ├─→ [Đối chiếu nhập-bán-tồn kho] — so khớp sổ nhật ký kho với hóa đơn
   │       thật, phát hiện chênh lệch (kho đã trừ nhưng chưa có hóa đơn) —
-  │       mới, gộp cả phụ kiện lẫn sản phẩm bán lẻ
+  │       gộp cả phụ kiện lẫn sản phẩm bán lẻ
   └─→ [Xuất báo cáo]
            ├─→ Xuất Excel (.xlsx)
            └─→ Xuất PDF
@@ -164,16 +177,13 @@ Use Cases: UC-19, UC-20, UC-25
 ```
 Dashboard
   └─→ [Trang Cài đặt]
-           ├─→ [Cài đặt bảng giá]
-           │       └─→ Giá cao điểm (Peak Hour Price per Hour)
-           │             Giá thấp điểm (Off-Peak Price per Hour)
-           ├─→ [Cài đặt giờ hoạt động]
-           │       └─→ Giờ mở cửa / đóng cửa
-           │             Khung giờ cao điểm (VD: 17:00 - 22:00)
-           ├─→ [Thông tin thương hiệu]
-           │       └─→ Tên trung tâm, logo, theme màu sắc
-           └─→ [Giá phụ kiện mặc định]
+           ├─→ [Giờ mở cửa] — giờ nhận đặt sân (mặc định 05:00–23:00); khách
+           │       không đặt được ngoài khung này
+           ├─→ [Giá khung giờ] — giá cao điểm / thấp điểm, khung cao điểm
+           └─→ [Nhân viên giảm giá tay tối đa] — trần % (mặc định 10)
 ```
+
+Giá phụ kiện sửa ở trang Dịch Vụ & Kho (`PUT /accessories/:id`). Hai chính sách `booking_policy` (giữ chỗ: tối đa lịch khách giữ, hạn tự huỷ lịch chưa duyệt) và `notification_policy` (gửi thêm email thông báo) **chưa có màn hình**, chỉnh bằng `PUT /settings`; giá trị mặc định ở `APIDesign.md` §11.
 
 Use Cases: UC-21
 
@@ -200,3 +210,55 @@ Nhân viên (`employee`, `branch_manager`) không có bộ chuyển này — lu�
 khoá vào đúng chi nhánh của mình; nếu tự gửi `X-Branch-Id` khác, API chặn
 403 "Nhân viên không được phép thao tác tại chi nhánh này." Chỉ `admin` được
 gửi `X-Branch-Id` bất kỳ vì quản lý cả chuỗi.
+
+---
+
+## 🧾 8. Nhật ký hoạt động (mới)
+
+```
+Dashboard → [Nhật ký hoạt động] (Admin và quản lý chi nhánh)
+       ↓
+  Lọc theo hành động, loại đối tượng, khoảng ngày (cắt theo giờ chi nhánh), phân trang
+       ↓
+  Mỗi dòng: ai làm, làm gì, trên đối tượng nào, giá trị trước/sau, mã truy vết yêu cầu
+```
+
+Ghi lại các thao tác nhạy cảm: mở/đóng sân, huỷ/tự huỷ lịch, giảm giá tay, thanh toán, **webhook bị từ chối** (kèm lý do và số tiền — nơi để quầy phát hiện tiền về sau khi đơn đã huỷ), gộp hồ sơ khách, huỷ hoá đơn, huỷ đơn POS. Không bao giờ chứa mật khẩu hay token.
+
+---
+
+## 🧯 9. Huỷ hoá đơn đã thanh toán (void) (mới)
+
+```
+Mở hoá đơn đã thanh toán → "Huỷ hoá đơn" → nhập LÝ DO (bắt buộc) → xác nhận
+       ↓
+  Hoá đơn → void, thanh toán → refunded, trừ lại tổng chi tiêu của khách,
+  hoàn kho hàng bán lẻ của đơn, ghi nhật ký; lịch đặt vẫn "completed"
+```
+
+Dành cho Admin và quản lý chi nhánh (nhân viên không có quyền). Chỉ huỷ trọn hoá đơn, không hoàn từng dòng; hoàn tiền thực tế cho khách do quầy làm thủ công. Hoá đơn chưa thanh toán → 400, đã void → 409. Use Cases: UC-30.
+
+---
+
+## 🏆 10. Quản lý thi đấu (mới)
+
+```
+Dashboard → menu "Thi đấu" (hiện khi dịch vụ thi đấu bật)
+       ├─→ Giải đấu: tạo giải (3 thể thức), nhận đăng ký, bốc thăm, sơ đồ, chốt / huỷ chốt giải
+       ├─→ Buổi giao lưu: điểm danh, xếp sân trống, ghép cặp, đóng buổi
+       ├─→ Bấm điểm trực tiếp và màn hình TV
+       ├─→ Người chơi: chấm trình, xác nhận điểm tạm, chỉnh điểm trình (quản lý/Admin)
+       └─→ Bảng xếp hạng
+```
+
+Admin và quản lý chi nhánh có thêm quyền tạo và chốt giải, chấm trình mọi người và chỉnh điểm. Dịch vụ thi đấu là hệ thống riêng với CSDL riêng; chi tiết: `UseCase.md` UC-31 và `services/competition-service/docs/`.
+
+---
+
+## 🛠️ 11. Việc vận hành dành cho người cài đặt hệ thống
+
+- **Chuyển khoản:** chỉ bật khi đủ 4 biến `PAYMENT_*`; chưa đủ thì checkout sân, POS, đơn online từ chối "chuyển khoản" và trang khách ẩn lựa chọn này (`GET /public/branches` báo `transferEnabled: false`).
+- **Thi đấu:** chỉ bật khi đủ 5 biến `COMPETITION_*` (`npm run competition:keys`); thiếu thì menu tự ẩn.
+- **Admin đầu tiên của bản chạy thật:** `npm run create-admin`; không seed dữ liệu demo (mật khẩu công khai).
+- **Trang tài liệu API** `/api-docs` tắt mặc định ở production (`ENABLE_API_DOCS=true` để bật).
+- Hướng dẫn đầy đủ: `DeploymentGuide.md`.

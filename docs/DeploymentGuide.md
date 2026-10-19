@@ -1,9 +1,9 @@
 # Deployment Guide
 ## Dự án: Badminton Digital Management – Hệ thống quản lý sân cầu lông
 
-**Phiên bản:** 2.0
-**Ngày:** 25/09/2026 (viết lại theo nhóm sửa 4/6 — `docs/05-extra/02-remediation/16-ke-hoach-ha-tang-deploy.md`)
-**Tài liệu tham chiếu:** `Architecture.md`, `TestPlan.md`
+**Phiên bản:** 2.1
+**Ngày:** 18/10/2026 (từ v2.0 ngày 25/09/2026 — viết lại theo nhóm sửa 4/6, `docs/05-extra/02-remediation/16-ke-hoach-ha-tang-deploy.md`; lịch sử ở mục 11)
+**Tài liệu tham chiếu:** `Architecture.md`, `TestPlan.md`, `DatabaseDesign.md`, `README.md` (gốc repo)
 
 ---
 
@@ -41,6 +41,10 @@ Nguồn tham chiếu chính thức là `backend/.env.example` — đọc comment
 | `FRONTEND_URL` | Dựng link đặt lại mật khẩu; trên Render tự lấy `RENDER_EXTERNAL_URL` |
 | `MAIL_*` | SMTP cho "Quên mật khẩu" (bỏ trống thì tính năng này không gửi được mail) |
 | `PAYMENT_*` | Chuyển khoản chỉ bật khi đủ cả 4 biến — xem mục 10 |
+| `ENABLE_API_DOCS` | Trang Swagger `/api-docs` phơi toàn bộ bề mặt API nên **tắt mặc định ở production**; đặt `true` mới bật (dev và test luôn bật) |
+| `FRONTEND_DIST_DIR` | Khi đặt, backend phục vụ luôn bản build frontend (cùng origin). Image Render (`docker/app.Dockerfile`) đặt sẵn; đường B dùng nginx nên không cần |
+| `GIT_COMMIT` / `RENDER_GIT_COMMIT` | Mã commit hiển thị ở `/health` (xem mục 9). Render tự đặt; nơi khác truyền `GIT_COMMIT` |
+| `DB_NAME_TEST` | Chỉ cho `npm run test:security` (tầng bảo mật cần DB): tên một DB đã migrate và seed, **bắt buộc có chữ "test"** để không chạy nhầm lên DB thật |
 | `DEMO_MODE` | `true` ở bản demo công khai: các tài khoản in trên trang đăng nhập không đổi được mật khẩu/SĐT, không bị xoá |
 | `ALLOW_DEMO_SEED`, `DEMO_ADMIN_PASSWORD` | Chỉ cho lúc seed dữ liệu demo ở production (script reset). Admin của bản demo dùng mật khẩu bí mật này, không dùng `Admin@123` công khai trong repo |
 
@@ -72,7 +76,7 @@ Chép từ `docker/.env.example`: `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `DEMO_MODE`
 
 ### 4.2 GitHub — secrets và seed lần đầu
 1. Repo → **Settings → Secrets and variables → Actions → New repository secret**, tạo: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_SSL_CA` (chuỗi base64 ở 4.1), `DEMO_ADMIN_PASSWORD` (≥ 12 ký tự, chỉ bạn biết — đây là mật khẩu admin của bản demo). Có thi đấu thì thêm `COMPETITION_DB_NAME` (tên database thứ hai ở 4.1); thiếu secret này thì job bỏ qua DB thi đấu.
-2. Tab **Actions → Demo reset → Run workflow**. Job xoá mọi bảng → chạy 42 migration → 7 seeder (đo thử trên MySQL bật TLS: ~30–40 giây); nếu có `COMPETITION_DB_NAME` thì **sau đó** reset DB thi đấu (xoá bảng → 13 migration → seed 39 người chơi, 8 giải, 3 buổi giao lưu — gồm dữ liệu cho trang công khai `/thi-dau`: 2 giải mở đăng ký online, 1 buổi sắp tới có 8 người đã đăng ký; thêm **15–23 phút** trên Aiven thật: seed gửi ~5.700 câu lệnh nối tiếp (đếm 07/10/2026; trước khi có trang công khai ~5.400), mỗi câu mất 0,15–0,23 s vì runner GitHub ở xa Aiven Singapore — cục bộ chỉ ~30 s; cả job 19–27 phút (đo 06/10/2026 trước khi thêm dữ liệu trang công khai: chạy tay 18 m 39 s, theo lịch 27 m 8 s; dữ liệu mới thêm khoảng 300 câu lệnh ≈ 1 phút, chưa đo lại trên Aiven), giới hạn 60 phút; trong lúc DB thi đấu bị dựng lại, API thi đấu của demo trả 503, nên đừng chạy tay lúc có người đang xem). DB thi đấu reset sau vì hồ sơ thi đấu trỏ `bd:customer:<id>` của DB chính; bước này lỗi thì job đỏ. Từ đó job tự chạy lúc 03:00 giờ Việt Nam mỗi đêm.
+2. Tab **Actions → Demo reset → Run workflow**. Job xoá mọi bảng → chạy 44 migration → 7 seeder (đo thử trên MySQL bật TLS: ~30–40 giây); nếu có `COMPETITION_DB_NAME` thì **sau đó** reset DB thi đấu (xoá bảng → 15 migration → seed 39 người chơi, 8 giải, 3 buổi giao lưu — gồm dữ liệu cho trang công khai `/thi-dau`: 2 giải mở đăng ký online, 1 buổi sắp tới có 8 người đã đăng ký; thêm **15–23 phút** trên Aiven thật: seed gửi ~5.700 câu lệnh nối tiếp (đếm 07/10/2026; trước khi có trang công khai ~5.400), mỗi câu mất 0,15–0,23 s vì runner GitHub ở xa Aiven Singapore — cục bộ chỉ ~30 s; cả job 19–27 phút (đo 06/10/2026 trước khi thêm dữ liệu trang công khai: chạy tay 18 m 39 s, theo lịch 27 m 8 s; dữ liệu mới thêm khoảng 300 câu lệnh ≈ 1 phút, chưa đo lại trên Aiven), giới hạn 60 phút; trong lúc DB thi đấu bị dựng lại, API thi đấu của demo trả 503, nên đừng chạy tay lúc có người đang xem). DB thi đấu reset sau vì hồ sơ thi đấu trỏ `bd:customer:<id>` của DB chính; bước này lỗi thì job đỏ. Từ đó job tự chạy lúc 03:00 giờ Việt Nam mỗi đêm.
 3. Lưu ý: GitHub tự tắt workflow theo lịch nếu repo công khai không có commit nào trong 60 ngày — khi đó vào tab Actions bật lại.
 
 ### 4.3 Render — web service
@@ -98,10 +102,11 @@ Log khi bật, theo thứ tự: `[entrypoint] Migration xong` → `competition-s
 - **Aiven tắt dịch vụ free khi lâu không dùng** (có email báo trước) và **phải tự vào dashboard bấm bật lại** — không tự dậy. Job reset mỗi đêm chạm DB hằng ngày nên giảm khả năng này.
 - **Sơ đồ mặt bằng sân** sửa qua giao diện lưu trên ổ đĩa của container — mất khi Render cho service ngủ hoặc deploy lại, quay về 3 file mặc định.
 - Dữ liệu demo tự về trạng thái seed lúc 03:00 mỗi đêm.
+- **Chỉ chạy một bản sao:** bộ đếm giới hạn tần suất, bus thời gian thực của SSE và vòng lặp việc nền 5 phút (tự huỷ lịch chưa duyệt, đơn chuyển khoản quá hạn, đơn POS bỏ dở, dọn thông báo) đều nằm trong bộ nhớ từng tiến trình; gói free chỉ có một bản nên đúng, nhưng nếu scale ngang phải xử lý ba thứ này trước (xem `Architecture.md` mục 10).
 - **Hai process trong một container 512 MB / 0,1 CPU** (khi bật thi đấu). Đo trên container giới hạn `--memory 512m --cpus 0.1`, MySQL bật TLS: RSS backend ~117 MB + service ~101 MB lúc rảnh, đỉnh khoảng 255 MB (docker stats 153 MiB) khi chịu 200 request đồng thời + 20 luồng SSE, không OOM. Khởi động nguội: `/health` xanh sau ~38 giây (bằng khi không có thi đấu), cổng thi đấu sẵn sàng sau ~90 giây.
 
 ### 4.6 Tuỳ chọn: giữ service không ngủ
-Một dịch vụ ping miễn phí (vd cron-job.org) gọi `https://<tên>.onrender.com/health` mỗi 14 phút giữ service luôn thức (~744 giờ/tháng, vừa đủ hạn mức 750 giờ nếu workspace chỉ có một service free). Không làm trong code — tuỳ bạn quyết.
+Một dịch vụ ping miễn phí (vd cron-job.org) gọi `https://<tên>.onrender.com/health` mỗi 14 phút giữ service luôn thức (~744 giờ/tháng, vừa đủ hạn mức 750 giờ nếu workspace chỉ có một service free). Không làm trong code — tuỳ bạn quyết. **Hiện repo chưa có job ping nào**: workflow duy nhất có lịch là `demo-reset.yml` (03:00 giờ VN mỗi đêm), việc nó chạm DB hằng ngày chỉ giảm khả năng Aiven tắt dịch vụ free vì lâu không dùng chứ không bảo đảm, và không giữ Render thức.
 
 ### 4.7 Reset tay
 Tab Actions → **Demo reset → Run workflow**. Hoặc từ máy mình (cần đủ biến như workflow):
@@ -163,7 +168,8 @@ Compose chỉ bind `127.0.0.1`. Đặt reverse proxy có TLS trên host (Caddy, 
 - `.github/workflows/ci.yml`: trên `push`/`pull_request` vào `main`, `develop` — backend `npm test` (Jest), frontend Vitest + `npm run build`, đều Node 22.
 - Job `competition-service` (MySQL 8.4 riêng, `check-boundaries`, `npm test`) và job `docker-build` (build image Render + image service, kiểm trong image có đủ service và không lọt `.env` / `.keys` / `tests`, `docker compose config` có và không profile `competition`).
 - `.github/workflows/demo-reset.yml`: reset dữ liệu bản demo (mục 4.2), kèm DB thi đấu nếu có secret `COMPETITION_DB_NAME`.
-- Chưa có: lint, integration test với MySQL, Newman, build/push image, deploy tự động (Render tự deploy khi `main` có commit mới).
+- Các action được ghim theo mã commit (có test kiểm). `ci.yml` chưa khai báo `permissions:` (R16 trong báo cáo bảo mật, còn mở).
+- Chưa có: lint, `test:security` (cần DB, chạy tay), integration test backend với MySQL, Newman, build/push image, deploy tự động (Render tự deploy khi `main` có commit mới).
 
 ---
 
@@ -184,6 +190,14 @@ Compose chỉ bind `127.0.0.1`. Đặt reverse proxy có TLS trên host (Caddy, 
 
 ---
 
+### 8.1 Nâng cấp từ bản cũ (các thay đổi cần biết khi deploy)
+Khi đưa code mới lên một môi trường đã có dữ liệu:
+- **Migration mới** (Render tự chạy khi khởi động và khi reset đêm; compose chạy trong entrypoint; máy dev phải tự `npm run migrate`): `20261005100001-create-integration-outbox`, `20261005100002-create-integration-inbox` (tích hợp thi đấu), `20261015100001-add-session-revocation-columns-to-users` (thêm `token_version`, `previous_refresh_token`, `previous_refresh_expires_at` vào `users`), `20261016100001-create-customer-notifications` (thông báo cho khách). DB thi đấu có migration riêng và tự chạy khi dịch vụ khởi động. **Backup cả hai DB trước khi migrate trên dữ liệu thật.**
+- **Phiên đăng nhập không bị ảnh hưởng khi deploy:** refresh token cũ (chưa có `jti`) vẫn đổi được sang cặp xoay vòng ở lần làm mới đầu; access token cũ (chưa có `tv`) vẫn dùng được cho tới lần thu hồi đầu tiên.
+- **Chạy lại `npm ci`** ở `backend/` và `frontend/` (đã nâng `bcrypt`, `nodemailer`, `express`, `axios`, gỡ `multer`).
+- **Tên miền ngoài mới ở frontend** (font, CDN, ảnh) phải thêm vào `CSP_DIRECTIVES` (`backend/src/utils/securityHeaders.js`) **và** `docker/nginx.conf`, nếu không trình duyệt chặn.
+- **Sơ đồ mặt bằng sân** nằm ở file `backend/public/layouts/branch-<id>.json` trong container, không phải CSDL: compose có volume `layouts_data`, Render thì mất khi deploy lại (quay về 3 file mặc định).
+
 ## 9. Giám sát
 - `GET /health`: liveness (process còn sống) — Render và compose dùng làm health check. Kèm `version` = 7 ký tự đầu của commit đang chạy.
 - `GET /api/v1/health`: kèm `ip` để kiểm `TRUST_PROXY_HOPS`, và `version` như trên.
@@ -199,10 +213,24 @@ Compose chỉ bind `127.0.0.1`. Đặt reverse proxy có TLS trên host (Caddy, 
 - [ ] Chọn đúng **một** chế độ:
   - **Demo công khai:** `DEMO_MODE=true`, `VITE_SHOW_DEMO_ACCOUNTS=true`, seed bằng Demo reset với `DEMO_ADMIN_PASSWORD` bí mật.
   - **Vận hành thật:** không seed, `npm run create-admin`, `DEMO_MODE=false`, `VITE_SHOW_DEMO_ACCOUNTS=false`.
-- [ ] `GET /api/v1/health` trả `ip` là IP của bạn.
+- [ ] `GET /api/v1/health` trả `ip` là IP của bạn và `version` bằng `git rev-parse --short HEAD` (bản mới đã thật sự lên).
+- [ ] Đã chạy migration mới (mục 8.1) trên cả hai DB và `npm ci`; `ENABLE_API_DOCS` để trống ở production trừ khi cố ý bật.
+- [ ] Email: nếu muốn gửi mail quên mật khẩu và thông báo, điền đủ `MAIL_*`; để trống thì thông báo vẫn có trong ứng dụng, chỉ không có email.
 - [ ] Thi đấu — chọn một: **tắt** (không đặt `COMPETITION_*` / `COMPETITION_DB_NAME`; `/api/v1/competition/*` trả 503 `COMPETITION_DISABLED`) hoặc **bật** (mục 3.1b + 4.3b hoặc 5.2; DB thứ hai đã tạo; hai DB cùng được backup).
 - [ ] Thanh toán chuyển khoản — chọn một:
   - **Tắt** (bản demo): để trống 4 biến `PAYMENT_*`. `GET /api/v1/public/branches` trả `transferEnabled: false`, `POST /api/v1/payments/webhook` trả 503.
   - **Bật:** đủ `PAYMENT_BANK_ID`, `PAYMENT_BANK_ACCOUNT_NO`, `PAYMENT_BANK_ACCOUNT_NAME` (tài khoản thật của quán) và `PAYMENT_WEBHOOK_SECRET`; khai cùng secret ở dịch vụ báo có. Thử một đơn nhỏ.
 - [ ] Trần giảm giá tay của nhân viên (Cài đặt → "Nhân viên giảm giá tay tối đa", mặc định 10%) đúng chính sách.
+- [ ] Chính sách giữ chỗ `booking_policy` (mặc định: khách giữ tối đa 5 lịch, lịch chưa duyệt tự huỷ sau 24 giờ nhưng không muộn hơn 60 phút trước giờ bắt đầu) đúng ý quán; chưa có màn hình chỉnh, đổi bằng `PUT /settings`.
+- [ ] Giờ nhận đặt sân (`operating_hours`, mặc định 05:00–23:00) và múi giờ của từng chi nhánh (`branches.timezone`) đúng thực tế.
 - [ ] README có hướng dẫn chạy cho người xem portfolio; có video demo ngắn phòng khi bản live đang ngủ/tắt lúc phỏng vấn.
+
+---
+
+## 11. Lịch sử thay đổi
+
+| Phiên bản | Ngày | Thay đổi chính |
+|---|---|---|
+| v1.x | — | Các bản trước khi viết lại |
+| v2.0 | 25/09/2026 | Viết lại theo hai đường: Render + Aiven và docker compose; biến môi trường, backup, rollback, kiểm tra sau deploy; thi đấu tuỳ chọn |
+| v2.1 | 18/10/2026 | Cập nhật số migration (44 và 15); thêm biến `ENABLE_API_DOCS`, `FRONTEND_DIST_DIR`, `GIT_COMMIT`, `DB_NAME_TEST`; mục 8.1 nâng cấp từ bản cũ; ghi rõ chưa có job giữ không ngủ; giới hạn "chỉ một bản sao"; bổ sung checklist phát hành; CI hiện trạng |

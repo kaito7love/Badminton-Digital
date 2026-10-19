@@ -3,6 +3,7 @@
 **Actor:** Nhân viên, `branch_manager`, Admin  
 **Use Cases:** UC-18 (Thanh toán & xuất hóa đơn)  
 **Tiền điều kiện:** CourtSession đã đóng (UC-07) hoặc đang mở (auto-close khi checkout)
+**Cập nhật:** 18/10/2026 — thêm mục F (huỷ hoá đơn đã thanh toán / void); hoá đơn có các dòng `invoice_lines`; mã giảm giá chỉ dùng cho POS và đơn online (xem `WF-09-Retail.md`), không dùng cho tiền sân.
 
 `POST /api/v1/payments/checkout` yêu cầu `roleMiddleware(['admin', 'branch_manager', 'employee'])`
 và luôn branch-scoped: tìm session theo `{ id: sessionId, branchId }` — không
@@ -215,3 +216,23 @@ khoản: lúc webhook xác nhận — xem mục A/B):
     IF total_spent >= 5,000,000   → loyalty_tier = 'gold'
     ELSE                          → loyalty_tier = 'normal'
 ```
+
+---
+
+## F. Huỷ hoá đơn đã thanh toán (void) — UC-30
+
+```
+Admin / branch_manager (employee → 403)
+    │
+    ├─→ [POST /api/v1/invoices/:id/void] { reason }   ← lý do BẮT BUỘC
+    │
+    └─→ PaymentService.voidInvoice — một DB Transaction:
+          ├─→ Chỉ huỷ được hoá đơn 'paid' (draft/issued → 400; đã 'void' → 409,
+          │     tránh trừ total_spent và trả kho hai lần)
+          ├─→ Hoá đơn của đơn bán lẻ: hoàn kho từng dòng (stock_movements sale_return)
+          ├─→ Payment → 'refunded'; Invoice → 'void'
+          ├─→ Customer.total_spent −= totalAmount (không xuống dưới 0), tính lại loyalty_tier
+          └─→ Nhật ký: invoiceStatus 'void', paymentStatus 'refunded', lý do
+```
+
+Chỉ huỷ **trọn** hoá đơn, không hoàn từng dòng. **Lịch đặt liên quan vẫn là `completed`** (buổi chơi đã diễn ra): trạng thái tiền nằm ở hoá đơn và thanh toán, lịch đặt không có trạng thái "đã hoàn tiền". Tiền hoàn lại cho khách do quầy làm thủ công; hệ thống không chuyển tiền.

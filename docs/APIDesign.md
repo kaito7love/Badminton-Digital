@@ -1,31 +1,25 @@
 # API Design Specification
-
-## Phase 1 production-safety additions
-
-- Branch-scoped APIs support `X-Branch-Id`. `employee`/`branch_manager` are locked to their own branch (a different value is rejected with 403); `admin` has no home branch and may send `X-Branch-Id` for any active branch to view/operate on it (see `GET /branches`). If omitted, the branch assigned to the logged-in employee is used. Only staff accounts may send the header: a `customer` token with `X-Branch-Id` gets 403, and a `branch_manager`/`employee` account without an employee row (no branch) gets 403 on every branch-scoped route.
-- `POST /payments/checkout` supports the `Idempotency-Key` header. Reuse the key when retrying a request.
-- `POST /payments/webhook` accepts `provider`, `providerReference`, `invoiceNo`, `amount` (integer VND, must match the payment), and `status: "paid"`. It is fail-closed: without a `PAYMENT_WEBHOOK_SECRET` of 32+ chars it answers 503, and a missing/wrong `X-Webhook-Secret` header is 401 (see §9.1).
-- Bank transfer (`paymentMethod: "transfer"`) is only accepted when `PAYMENT_BANK_ID`, `PAYMENT_BANK_ACCOUNT_NO`, `PAYMENT_BANK_ACCOUNT_NAME` and `PAYMENT_WEBHOOK_SECRET` are all set; otherwise checkout, POS and online orders return 400 and `GET /public/branches` reports `transferEnabled: false`.
-
-## Multi-branch & inventory additions (`2ca2672`)
-
-- A fourth role, `branch_manager`, now appears in `roleMiddleware([...])` on most branch-scoped routes (see §1.7).
-- Customer profiles are chain-wide (no `branch_id`); `Booking`/`CourtSession`/`Invoice`/`Payment` still carry `branch_id`.
-- Login accepts phone number or email in a single `identifier` field; customers can self-register (see §2).
-- Accessory stock moved from a flat `extras.stock_quantity` column to a per-branch ledger (`suppliers`, `goods-receipts`, `inventory/*` — see §8).
-
-## Booking page additions (plan 29)
-
-- New public, read-only `GET /public/availability/day?date=YYYY-MM-DD[&branchId=]` (`Cache-Control: no-store`): every court of a branch for one day as 60-minute slots (`state`: `free | booked | passed | maintenance`, plus a `peak` flag). It exposes no booking id and no customer data. See §12.1.
-- Booking time rules are decided in one place (`BookingService.checkAvailability`) and apply identically to `GET /public/availability`, `GET /bookings/availability` and `POST /bookings`: a slot that has already ended is rejected, and a slot outside `operating_hours` (`open`/`close`, default 05:00–23:00) is rejected. See §5.
-- `POST /bookings` for the `customer` role is limited to 14 calendar days ahead (today … today + 13, branch calendar); staff are not limited. See §5.
-- `GET /public/courts` also returns `operatingHours: { open, close }`.
-
 ## Dự án: Badminton Digital Management – Hệ thống quản lý sân cầu lông
 
-**Phiên bản:** 1.0
-**Ngày:** 19/07/2026
-**Tài liệu tham chiếu:** `SRS.md`, `UseCase.md`
+**Phiên bản:** 1.1
+**Ngày:** 18/10/2026 (từ v1.0 ngày 19/07/2026 — lịch sử ở mục 22)
+**Tài liệu tham chiếu:** `SRS.md`, `UseCase.md`, `DatabaseDesign.md`, `Architecture.md`
+**Nguồn đối chiếu:** `backend/src/routes/` (118 operation của app chính) và `/api-docs` khi chạy backend; spec OpenAPI `backend/src/docs/openapi.yaml` được **sinh từ Postman collection** (`npm --prefix backend run docs:build`, không sửa tay) và lệnh này báo lỗi nếu collection lệch với `routes/`. Dịch vụ thi đấu có spec riêng (121 operation) ở `services/competition-service/openapi/`; tài liệu này chỉ mô tả cổng nối tới nó (mục 19).
+
+---
+
+## 0. Những điểm cần biết trước khi đọc
+
+Bản v1.0 mô tả nhóm API gốc. Các điểm sau là thay đổi lớn đã có trong code, mỗi điểm có mục chi tiết bên dưới:
+
+- **Đa chi nhánh.** API có phạm vi chi nhánh nhận header `X-Branch-Id`. `employee`/`branch_manager` bị khoá vào chi nhánh của mình (giá trị khác → 403); `admin` không có chi nhánh gốc và gửi `X-Branch-Id` của bất kỳ chi nhánh đang hoạt động nào để xem/thao tác (`GET /branches`); bỏ trống thì dùng chi nhánh của nhân viên đăng nhập. **Chỉ tài khoản nhân viên được gửi header này**: token của `customer` kèm `X-Branch-Id` → 403; tài khoản `branch_manager`/`employee` chưa có dòng nhân viên (chưa gán chi nhánh) → 403 ở mọi route có phạm vi chi nhánh. Vai trò thứ tư `branch_manager` nằm trong `roleMiddleware([...])` của hầu hết route (mục 1.7).
+- **Khách hàng dùng chung toàn chuỗi** (không còn `branchId` trên `Customer`); `Booking`/`CourtSession`/`Invoice`/`Payment` vẫn mang `branchId`. Đăng nhập bằng số điện thoại hoặc email trong một trường `identifier`; khách tự đăng ký (mục 2).
+- **Kho hàng** tách thành sổ theo chi nhánh (`suppliers`, `goods-receipts`, `inventory/*` — mục 8); **bán lẻ POS** (`/products`, `/product-categories`, `/sales-orders` — mục 14, 15), **mã giảm giá** (mục 13), **đơn online** (`/my-orders` — mục 12).
+- **Tiền.** `POST /payments/checkout` hỗ trợ `Idempotency-Key`. Chuyển khoản (`paymentMethod: "transfer"`) chỉ nhận khi đủ `PAYMENT_BANK_ID`, `PAYMENT_BANK_ACCOUNT_NO`, `PAYMENT_BANK_ACCOUNT_NAME` và `PAYMENT_WEBHOOK_SECRET` (≥ 32 ký tự); thiếu thì checkout sân, POS và đơn online trả 400 và `GET /public/branches` báo `transferEnabled: false`. `POST /payments/webhook` chặn mặc định: không cấu hình secret → 503, thiếu/sai `X-Webhook-Secret` → 401, bắt buộc `amount` là số nguyên đồng khớp giao dịch (mục 9.1).
+- **Đặt sân.** Lưới công khai `GET /public/availability/day` (mục 12.1), một nguồn quy tắc thời gian duy nhất `BookingService.checkAvailability` cho mọi nơi (mục 5), khách chỉ đặt trước tối đa 14 ngày và tối đa 3 giờ, chính sách giữ chỗ, thông báo cho khách (mục 18).
+- **Phiên đăng nhập.** Refresh token xoay vòng và access token mang `tv` để thu hồi tức thì (mục 1.3).
+- **Header bảo mật, `no-store`, giới hạn tần suất** (mục 1.8).
+- **Thời gian thực** qua SSE (mục 17), **nhật ký hoạt động** (mục 16), **thi đấu** qua cổng nội bộ (mục 19), **health** (mục 20).
 
 ---
 
@@ -42,9 +36,12 @@
 
 ### 1.3 Authentication
 - Header: `Authorization: Bearer <access_token>`
-- Access Token (JWT): hạn ngắn (~15 phút)
-- Refresh Token: hạn dài (~7 ngày). Trả về trong body của `POST /auth/login` (không phải cookie) — client tự lưu (frontend hiện dùng `localStorage`) và gửi lại trong body `{ "refreshToken": "..." }` khi gọi `POST /auth/refresh-token`.
+- Access Token (JWT): hạn ngắn (15 phút), mang claim `tv` (phiên bản phiên của người dùng).
+- Refresh Token: hạn dài (7 ngày). Trả về trong body của `POST /auth/login` (không phải cookie) — client tự lưu (frontend hiện dùng `localStorage`) và gửi lại trong body `{ "refreshToken": "..." }` khi gọi `POST /auth/refresh-token`. Server chỉ lưu sha256 của nó.
+- **Xoay vòng:** mỗi lần `POST /auth/refresh-token` thành công trả về **cặp mới** (`accessToken` + `refreshToken`); token cũ còn hiệu lực thêm 30 giây nhưng trong khoảng đó chỉ đổi được lấy access token mới, không nhận refresh token mới — để hai tab hoặc luồng SSE làm mới cùng lúc không đá nhau ra. Cùng lúc chỉ một bên thắng.
+- **Thu hồi tức thì:** `authMiddleware` và `sseAuthMiddleware` (hai nơi duy nhất xác minh access token) từ chối token có `tv` lệch `users.token_version`. Đăng xuất, đổi mật khẩu và đặt lại mật khẩu tăng số này nên access token cũ chết ngay. `PUT /auth/change-password` trả cặp token mới cho thiết bị vừa đổi.
 - Đăng nhập nhận **số điện thoại hoặc email** trong cùng một field `identifier` (xem §2).
+- Frontend (`apiClient`): gặp 401 thì làm mới rồi gọi lại; **chỉ** kết thúc phiên khi máy chủ từ chối làm mới (400/401/403), lỗi mạng hoặc 5xx thì ném lỗi để nơi gọi thử lại.
 
 ### 1.4 Response Envelope chuẩn
 ```json
@@ -77,8 +74,13 @@ Lỗi:
 | 401 | Chưa xác thực / token hết hạn |
 | 403 | Không có quyền truy cập |
 | 404 | Không tìm thấy tài nguyên |
-| 409 | Xung đột (VD: trùng lịch) |
+| 409 | Xung đột (VD: trùng lịch; khoá chết hoặc hết thời gian chờ của MySQL cũng trả 409) |
+| 429 | Vượt giới hạn tần suất (mục 1.8) |
 | 500 | Lỗi hệ thống |
+| 502 | Cổng thi đấu: dịch vụ từ chối chữ ký token (`COMPETITION_AUTH_FAILED`) — cố ý không trả 401 để client không tưởng phiên hết hạn |
+| 503 | Tính năng tắt hoặc chưa sẵn sàng: webhook chưa cấu hình, `COMPETITION_DISABLED`/`COMPETITION_UNAVAILABLE` |
+
+Lỗi trả về luôn theo khuôn `{ success: false, data: null, message, errors }`; `errors` chỉ gồm `[{ field, message }]` — bộ xử lý lỗi **không bao giờ** trả thẳng `err.errors` của Sequelize (mỗi phần tử mang cả bản ghi trong `instance`). Một số lỗi có thêm trường `code` ở cấp trên cùng (ví dụ `BOOKING_LIMIT`, `BOOKING_WRONG_DAY`).
 
 ### 1.6 Phân trang (Pagination)
 Query params dùng chung cho các API danh sách:
@@ -92,6 +94,20 @@ Response kèm:
 
 ### 1.7 Phân quyền
 Mỗi endpoint có cột **Role** quy định vai trò được phép gọi: `Admin`, `BranchManager` (`branch_manager` — quản lý vận hành trong phạm vi 1 chi nhánh, thêm từ merge quản lý kho/đa chi nhánh), `Employee`, `Customer`, hoặc `Public` (không cần token). Đây vẫn là kiểm tra theo tên vai trò cố định trong `roleMiddleware([...])`, chưa có bảng `permissions`/`role_permissions` riêng.
+
+### 1.8 Header, giới hạn tần suất và bộ nhớ đệm
+
+| Hạng mục | Quy ước |
+|---|---|
+| `X-Request-Id` | Gửi vào hoặc để server sinh UUID; server trả lại trong header phản hồi và ghi vào `activity_logs.request_id` để truy vết |
+| `Idempotency-Key` | Tuỳ chọn ở `POST /payments/checkout`; dùng lại đúng khoá khi retry. Khoá không dùng chéo giữa hai đối tượng khác nhau. Bộ gọi thi đấu cũng gắn khoá này cho mọi thao tác ghi |
+| `X-Webhook-Secret` | Bắt buộc ở `POST /payments/webhook` |
+| `Cache-Control` | Mọi phản hồi `/api/v1` **trừ nhóm `/public/*`** là `no-store`; `GET /public/availability/day` cũng `no-store` |
+| Header bảo mật | Mọi phản hồi: `Content-Security-Policy` (`script-src 'self'`; chỉ Google Fonts và `img.vietqr.io` được phép ngoài origin), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, và HSTS 180 ngày khi yêu cầu qua HTTPS. `/api-docs` miễn CSP |
+| Giới hạn tần suất (theo IP) | `POST /auth/login`, `/auth/forgot-password` và `/auth/reset-password` cùng ngưỡng 10 lần/15 phút; `POST /auth/register` 5 lần/60 phút; `POST /auth/refresh-token` 30 lần/15 phút; `POST /bookings` của khách 20 lần/10 phút **theo người dùng**; `/api/v1/competition/public/*` 900 yêu cầu/phút/IP (cả quán dùng chung một IP Wi-Fi). Vượt → 429 |
+| Số proxy tin cậy | Cấu hình bằng `TRUST_PROXY_HOPS` (mặc định 0; compose 1; Render 3) để giới hạn tần suất đếm đúng IP người dùng |
+| CORS | Cùng origin ở cả hai đường triển khai nên production mặc định không cho origin nào khác; chỉ mở bằng `CORS_ORIGIN` |
+| Phân trang | Danh sách phân trang dùng `?page=&limit=`; `/notifications` dùng `?limit=&unread=` (không phân trang) |
 
 ---
 
@@ -168,6 +184,19 @@ xác minh được người đăng ký là chủ số. Tài khoản luôn nhận
 Nhân viên xác minh khách tại quầy rồi gộp lịch sử bằng
 `POST /customers/:id/merge-into-account` (§6).
 
+**POST /auth/refresh-token**
+```json
+// Request
+{ "refreshToken": "eyJhbGciOi..." }
+// Response 200
+{ "success": true, "data": { "accessToken": "eyJ...", "refreshToken": "eyJ..." }, "message": "...", "errors": null }
+```
+Trong khoảng ân hạn 30 giây của token cũ, phản hồi chỉ có `accessToken` (không có `refreshToken` mới). Token sai, hết hạn hoặc đã bị xoay quá 30 giây → 401.
+
+**Quy tắc mật khẩu** (đăng ký, đổi, đặt lại, tạo nhân viên, tạo tài khoản khách): 8–72 **byte**, không nằm trong danh sách mật khẩu phổ biến, không bằng hoặc chứa SĐT, phần tên của email hay họ tên của chính người dùng — vi phạm → 400 kèm `errors[].field = "password"`.
+
+**Chống dò tài khoản:** đăng nhập sai (sai tài khoản hay sai mật khẩu) luôn cùng một thông điệp 401 và cùng chi phí tính toán; "tài khoản bị khoá" chỉ nói ra khi mật khẩu đã đúng; `POST /auth/forgot-password` luôn trả cùng một phản hồi 200 cho email có thật lẫn email bịa (kể cả khi chưa cấu hình SMTP).
+
 ---
 
 ## 3. Branch API
@@ -207,12 +236,18 @@ không cần chọn chi nhánh vì đã bị khoá cố định vào chi nhánh 
 | POST | `/courts/:id/open` | Admin, BranchManager, Employee | Mở sân cho khách chơi (UC-06) |
 | POST | `/courts/:id/close` | Admin, BranchManager, Employee | Đóng sân & tính tiền (UC-07) |
 | PUT | `/courts/:id/status` | Admin, BranchManager, Employee | Đổi vòng đời khai thác: `active` / `maintenance` / `inactive` |
-| POST | `/courts/:id/transfer` | Admin, BranchManager, Employee | Chuyển khách sang sân khác |
+| POST | `/courts/:id/transfer` | Admin, BranchManager, Employee | Chuyển khách sang sân khác (đoạn đã chơi được chốt tiền vào `accrued_court_fee`) |
+| PUT | `/courts/layout` | Admin, BranchManager | Lưu sơ đồ mặt bằng sân của chi nhánh. Ghi ra **file** `backend/public/layouts/branch-<id>.json` (không ghi CSDL); trên Render/compose file này nằm trong container nên mất khi deploy lại (compose có volume `layouts_data`). Sơ đồ được trang khách đọc qua `/static/layouts/` |
 
 **POST /courts/:id/open**
 ```json
 // Request
 { "customerId": 12 }   // optional, null nếu khách vãng lai
+// Tuỳ chọn mở từ một lịch đặt: { "bookingId": 88, "acknowledgeTimeMismatch": true }
+//   - lịch phải là của HÔM NAY theo múi giờ chi nhánh, sai ngày → 400 BOOKING_WRONG_DAY
+//   - sớm hơn giờ bắt đầu hơn 60 phút hoặc muộn hơn giờ kết thúc → 409 BOOKING_TIME_MISMATCH
+//     cho tới khi gửi lại kèm acknowledgeTimeMismatch: true
+//   - số điện thoại khách vãng lai sai định dạng → 400 (rỗng được phép)
 
 // Response 201
 {
@@ -247,7 +282,7 @@ không cần chọn chi nhánh vì đã bị khoá cố định vào chi nhánh 
 
 | Method | Endpoint | Role | Mô tả |
 |---|---|---|---|
-| GET | `/bookings` | Authenticated (Customer chỉ thấy booking của mình) | Danh sách booking (filter theo ngày/sân/trạng thái) |
+| GET | `/bookings` | Authenticated (Customer chỉ thấy booking của mình) | Danh sách booking. Tham số: `page`, `limit`, `date` (đúng `YYYY-MM-DD`), `courtId`, `status` (`pending`/`confirmed`/`cancelled`/`completed`), `sort` (`asc` mặc định — danh sách nhân viên không đổi; `/my-bookings` hỏi `desc`). Giá trị sai → 400 |
 | GET | `/bookings/:id` | Authenticated (Customer chỉ xem booking của mình, không kèm `creator`) | Chi tiết booking |
 | POST | `/bookings` | Admin, BranchManager, Employee, Customer | Tạo booking mới (UC-10). Trạng thái ban đầu `pending`. Chịu các **luật thời gian** bên dưới; vai Customer chỉ đặt trước tối đa 14 ngày |
 | PUT | `/bookings/:id` | Admin, BranchManager, Employee | Đổi sân/ngày/giờ — body chỉ nhận `courtId`, `bookingDate`, `startTime`, `endTime`; trường khác → 400 `"Không sửa được các trường: ..."`. Khách muốn đổi thì hủy rồi đặt lại |
@@ -290,6 +325,16 @@ Ghi chú:
 - Luật 3 và 4 áp cho **mọi vai** và cả `PUT /bookings/:id`. Luật 6 chỉ áp cho `customer` ở `POST /bookings` (được kiểm **trước** các luật còn lại, ngay sau khi tìm thấy sân) — nhân viên đặt xa hơn cho giải đấu, sự kiện vẫn được.
 - Cột "Kết quả" của các dòng 2–5 là mã HTTP của `POST /bookings`; ở `/availability` và `/bookings/availability` cùng lý do được trả dưới dạng `available: false` kèm `message`.
 - "Hôm nay" luôn theo lịch của **chi nhánh** (`branches.timezone`), không theo đồng hồ máy chủ.
+- Khách (`customer`) đặt tối đa **3 giờ** mỗi lần (`CUSTOMER_MAX_BOOKING_HOURS`); nhân viên không giới hạn.
+
+**Chính sách giữ chỗ** (cài đặt `booking_policy`, hàm thuần `utils/bookingPolicy.js`; mặc định 5 / 24 giờ / 60 phút; `0` là tắt quy tắc):
+- Một **khách** chỉ giữ tối đa `maxActivePerCustomer` (5) lịch `pending`/`confirmed` chưa qua giờ kết thúc; vượt → 400 kèm `code: "BOOKING_LIMIT"` (đếm trong giao dịch SERIALIZABLE nên hai request cùng lúc không cùng lọt). Nhân viên được miễn.
+- `POST /bookings` của khách bị giới hạn 20 lần/10 phút theo người dùng (429); nhân viên bỏ qua.
+- Việc nền mỗi 5 phút (`expireStalePendingBookings`) tự huỷ lịch `pending` **do khách tự đặt** vào lúc `max(tạo + 15 phút, min(tạo + pendingExpiryHours, giờ bắt đầu − pendingExpireBeforeStartMinutes))`, ghi nhật ký `booking.expired` (không có user) và tạo thông báo cho khách. Lịch do nhân viên tạo không bao giờ tự huỷ.
+
+**POST /bookings** (nhân viên) trả thêm `customerMatch { id, fullName, nameDiffers }` (không lưu) khi số điện thoại nhập khớp một khách có sẵn; màn hình nhân viên tra số trước khi lưu bằng `GET /customers?search=`. Số điện thoại khách vãng lai được kiểm tra định dạng (`utils/phone#isValidPhone`): rỗng được phép, `123`/`abc` → 400.
+
+**Thời gian thực:** mọi thay đổi lịch (tạo, sửa, huỷ, xác nhận, mở sân từ lịch, tự huỷ hết hạn) phát `booking:changed { branchId, bookingId, status }` lên luồng SSE (§17).
 
 ---
 
@@ -452,7 +497,8 @@ sai kiểu → 400 tương ứng `"quantity must be at least 1"` /
 
 | Method | Endpoint | Role | Mô tả |
 |---|---|---|---|
-| GET | `/inventory/stock-levels` | Admin, BranchManager, Employee | Tồn kho hiện tại theo sản phẩm, của chi nhánh hiện tại |
+| GET | `/inventory/stock-levels` | Admin, BranchManager, Employee | Tồn kho phụ kiện hiện tại theo sản phẩm, của chi nhánh hiện tại |
+| GET | `/inventory/product-stock-levels` | Admin, BranchManager, Employee | Tồn kho hàng bán lẻ (theo biến thể) của chi nhánh hiện tại |
 | GET | `/inventory/movements` | Admin, BranchManager, Employee | Lịch sử biến động kho (filter `?extraId=&type=&from=&to=&page=`) |
 | POST | `/inventory/adjustments` | Admin, BranchManager, Employee | Điều chỉnh kho thủ công (tăng/giảm, hàng hỏng, thất lạc) |
 
@@ -512,6 +558,7 @@ lại `GET /accessories`.
 | POST | `/payments/webhook` | Public — bắt buộc `X-Webhook-Secret` khớp `PAYMENT_WEBHOOK_SECRET` (chưa cấu hình → 503) | Dịch vụ báo có xác nhận tiền chuyển khoản đã về (§9.1) |
 | GET | `/invoices/:id` | Authenticated (Customer chỉ xem hóa đơn của mình) | Xem chi tiết hóa đơn |
 | GET | `/invoices/:id/export-pdf` | Admin, BranchManager, Employee | Xuất hóa đơn PDF |
+| POST | `/invoices/:id/void` | Admin, BranchManager | Huỷ trọn hoá đơn đã thanh toán — body `{ "reason": "..." }` **bắt buộc**. Hoá đơn → `void`, thanh toán → `refunded`, trừ lại `totalSpent` của khách, hoàn kho hàng bán lẻ, ghi nhật ký; lịch đặt vẫn `completed`. Hoá đơn chưa `paid` → 400, đã `void` → 409 |
 
 **POST /payments/checkout** — không còn `discountCode`; giảm giá là số tiền/%
 nhân viên nhập trực tiếp tại quầy, không có hệ thống mã giảm giá:
@@ -603,6 +650,10 @@ scope theo chi nhánh hiện tại (`X-Branch-Id`) giống các route khác.
 | GET | `/reports/top-accessories` | Admin, BranchManager | Top phụ kiện bán chạy |
 | GET | `/reports/export-excel` | Admin, BranchManager | Xuất báo cáo Excel |
 | GET | `/reports/export-pdf` | Admin, BranchManager | Xuất báo cáo PDF |
+| GET | `/reports/revenue-breakdown` | Admin, BranchManager | Doanh thu tách theo nguồn (tiền sân / phụ kiện trong sân / bán lẻ / giảm giá) từ `invoice_lines`; `?from=&to=`; Admin thêm `compareBranches=true` để so sánh chi nhánh (với `branch_manager` bị ép về `false`). Chỉ có dữ liệu từ 16/08/2026 |
+| GET | `/reports/inventory-reconciliation` | Admin, BranchManager | Đối chiếu nhập-bán-tồn: so `stock_movements` với số lượng thật sự xuất hiện trên hoá đơn, lộ `soldDiscrepancy`; `?from=&to=` |
+
+Tham số kỳ `period` ∈ `daily|weekly|monthly|yearly`, `from`/`to` đúng `YYYY-MM-DD` (kiểm ở `validations/reportValidation.js`; sai → 400). Mọi báo cáo gộp theo ngày/giờ của **chi nhánh**, không theo múi giờ máy chủ.
 
 ---
 
@@ -620,10 +671,16 @@ Endpoint `PUT /settings/accessory-pricing` mô tả ở bản tài liệu trư�
 route riêng trong `settingRoutes.js` — giá phụ kiện được sửa qua
 `PUT /accessories/:id` (§8.1).
 
-Trần giảm giá tay của nhân viên lưu qua route generic:
-`PUT /settings { "key": "discount_policy", "value": { "employeeMaxPercent": 10 } }` —
-`employeeMaxPercent` phải là số 0–100 (400 nếu sai), chỉ trường này được lưu. Chưa
-có setting thì mặc định 10%.
+Các cài đặt chính sách lưu qua route generic `PUT /settings { "key": ..., "value": ... }` (kiểu dữ liệu được kiểm, chỉ nhận khoá đã biết):
+
+| Khoá | Giá trị | Mặc định |
+|---|---|---|
+| `discount_policy` | `{ "employeeMaxPercent": 0–100 }` — trần giảm giá tay của `employee` (tính trên số còn phải trả; ở POS là sau khi trừ mã giảm giá) | 10 |
+| `booking_policy` | `{ "maxActivePerCustomer", "pendingExpiryHours", "pendingExpireBeforeStartMinutes" }` — xem §5; `0` tắt quy tắc | 5, 24, 60 |
+| `notification_policy` | `{ "email": true\|false }` — gửi thêm email cho thông báo | bật |
+| `operating_hours` | `{ "open": "05:00", "close": "23:00", ... }` — giờ nhận đặt sân; giá trị hỏng thì rơi về mặc định thay vì chặn toàn bộ | 05:00–23:00 |
+
+Chỉ `discount_policy` có màn hình riêng ở Cài đặt; `booking_policy` và `notification_policy` hiện chỉnh bằng gọi API.
 
 ---
 
@@ -781,7 +838,7 @@ và trang đặt hàng ẩn lựa chọn này.
 dịch). Hàng đã trả về kệ nên hệ thống không hồi đơn — quầy đọc nhật ký hoạt động
 để hoàn tiền thủ công. Chưa có màn hình/cảnh báo riêng cho ca này.
 
-### 12.4 Đơn tại quầy (POS) — huỷ và dọn đơn bỏ dở
+### 12.4 Đơn tại quầy (POS) — huỷ và dọn đơn bỏ dở (đặc tả đầy đủ ở §15)
 
 - `POST /sales-orders/:id/cancel` (nhân viên, đúng chi nhánh): chỉ đơn `channel='pos'`
   đang `open` — hoàn kho mọi dòng và chuyển `cancelled` trong một transaction, nhật
@@ -794,7 +851,168 @@ dịch). Hàng đã trả về kệ nên hệ thống không hồi đơn — qu�
 
 ---
 
-## 13. Xử lý lỗi đặc thù theo nghiệp vụ
+## 13. Voucher API (mã giảm giá)
+
+Mã giảm giá dùng chung cho **POS** và **đơn online** (không dùng cho tiền sân). Chỉ `admin`, `branch_manager` quản lý; không có bảng "lượt đã dùng" — số lượt đếm bằng `COUNT` trên `sales_orders.voucher_id` (đơn `paid` cộng đơn chuyển khoản đang chờ trả), nên huỷ hoặc hết hạn một đơn tự nhả lại một lượt.
+
+| Method | Endpoint | Role | Mô tả |
+|---|---|---|---|
+| GET | `/vouchers` | Admin, BranchManager | Danh sách voucher |
+| GET | `/vouchers/:id` | Admin, BranchManager | Chi tiết |
+| POST | `/vouchers` | Admin, BranchManager | Tạo voucher |
+| PUT | `/vouchers/:id` | Admin, BranchManager | Cập nhật |
+| POST | `/vouchers/preview` | Admin, BranchManager | Tính thử mức giảm cho một giá trị đơn, **không tiêu lượt dùng** |
+| POST | `/vouchers/:id/deactivate` | Admin, BranchManager | Ngừng áp dụng |
+
+```json
+// POST /vouchers
+{ "code": "KHAITRUONG10", "description": "Giảm 10% tối đa 50k", "discountType": "percent", "discountValue": 10,
+  "maxDiscountAmount": 50000, "minOrderAmount": 100000, "startsAt": null, "endsAt": null,
+  "usageLimit": 100, "perCustomerLimit": 1, "isActive": true }
+// POST /vouchers/preview
+{ "code": "KHAITRUONG10", "orderAmount": 500000 }
+```
+`discountType` ∈ `percent`, `flat`. Mã được chuẩn hoá về chữ hoa. Mức giảm không bao giờ vượt tổng đơn (đơn 50k với voucher cố định 100k chỉ giảm 50k) và được làm tròn về đồng nguyên. Mã hết hạn, hết lượt, chưa chạm `minOrderAmount` hoặc đã ngừng → 400 kèm lý do (ví dụ "Mã giảm giá này đã ngừng áp dụng").
+
+---
+
+## 14. Product & Product Category API (hàng bán lẻ)
+
+Danh mục dùng chung toàn chuỗi; tồn kho theo chi nhánh (`/inventory/product-stock-levels`, §8.4).
+
+| Method | Endpoint | Role | Mô tả |
+|---|---|---|---|
+| GET | `/product-categories` | Admin, BranchManager, Employee | Danh sách nhóm hàng |
+| POST | `/product-categories` | Admin, BranchManager | Tạo nhóm hàng (`name`, `sortOrder`) |
+| PUT | `/product-categories/:id` | Admin, BranchManager | Cập nhật |
+| DELETE | `/product-categories/:id` | Admin, BranchManager | Xoá |
+| GET | `/products` | Admin, BranchManager, Employee | Danh sách sản phẩm kèm biến thể và tồn kho của chi nhánh hiện tại |
+| GET | `/products/:id` | Admin, BranchManager, Employee | Chi tiết |
+| POST | `/products` | Admin, BranchManager | Tạo sản phẩm kèm các biến thể |
+| PUT | `/products/:id` | Admin, BranchManager | Cập nhật (`isActive` để ngừng bán) |
+| POST | `/products/:id/variants` | Admin, BranchManager | Thêm biến thể |
+| PUT | `/products/variants/:variantId` | Admin, BranchManager | Cập nhật biến thể |
+
+```json
+// POST /products
+{ "name": "Áo Yonex Thi Đấu Nam", "categoryId": 2, "productType": "retail",
+  "variants": [ { "sku": "YNX-SHIRT-M-RED", "listPrice": 250000, "size": "M", "color": "Đỏ" } ] }
+```
+`productType` ∈ `retail`, `consumable`, `rental`, `service`. `sku` unique toàn hệ thống. Biến thể có `trackInventory` (mặc định true) và `lowStockThreshold` (mặc định 5). Trang khách chỉ thấy sản phẩm `retail` đang mở bán qua `/public/products` (§12.1). **Các route vận hành `GET /products`, `/accessories`, `/courts`, `/product-categories` chỉ dành cho nhân viên**; trang khách dùng `/public/*`.
+
+---
+
+## 15. Sales Order API (bán lẻ POS)
+
+Toàn nhóm yêu cầu `admin`, `branch_manager`, `employee` và đúng chi nhánh (`branchContextMiddleware`). Đơn do POS có `channel = 'pos'`.
+
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| GET | `/sales-orders` | Danh sách đơn của chi nhánh |
+| POST | `/sales-orders` | Tạo đơn rỗng `open` — body `{ "customerId": null }` (mặc định không gắn khách) |
+| GET | `/sales-orders/:id` | Chi tiết đơn kèm các dòng |
+| POST | `/sales-orders/:id/lines` | Thêm dòng `{ variantId, quantity }` — **trừ kho ngay**. Phản hồi là **cả đơn**, id của dòng nằm ở `data.lines[...]` (`data.id` là id đơn) |
+| DELETE | `/sales-orders/:id/lines/:lineId` | Xoá dòng — hoàn kho |
+| POST | `/sales-orders/:id/voucher` | Áp mã giảm giá `{ voucherCode }` |
+| POST | `/sales-orders/:id/checkout` | Thanh toán |
+| POST | `/sales-orders/:id/cancel` | Huỷ đơn `open` của POS — hoàn kho mọi dòng, nhật ký `sales_order.cancelled` |
+
+```json
+// POST /sales-orders/:id/checkout
+{ "paymentMethod": "cash", "discountAmount": 0, "discountReason": "..." }
+```
+`paymentMethod` ∈ `cash`, `transfer` (`transfer` chỉ khi đã cấu hình chuyển khoản, nếu không → 400). Checkout trừ kho (đã trừ từ lúc thêm dòng), sinh hoá đơn nhiều dòng và thanh toán, cộng `totalSpent` cho khách **nếu đơn có gắn khách**. Giảm giá tay `discountAmount` > 0 phải kèm `discountReason` (tối đa 200 ký tự); `employee` vượt `discount_policy.employeeMaxPercent` → 403. Không đủ tồn khi thêm dòng → 400 "Không đủ tồn kho tại chi nhánh này. Hiện có: {N}"; thêm dòng vào đơn đã `paid` → 400. Huỷ đơn đã thanh toán → 400; đơn online hoặc của chi nhánh khác → 404. Đơn POS `open` không đổi gì quá 6 giờ bị tự huỷ và hoàn kho (§12.4).
+
+---
+
+## 16. Activity Log API
+
+| Method | Endpoint | Role | Mô tả |
+|---|---|---|---|
+| GET | `/activity-logs` | Admin, BranchManager | Nhật ký của chi nhánh hiện tại, mới nhất trước. Tham số: `page`, `limit`, `action`, `targetType`, `from`, `to` (`YYYY-MM-DD`, cắt theo giờ chi nhánh). Thiếu chi nhánh → 400 |
+| GET | `/employees/:id/activity-logs` | Admin, BranchManager | Nhật ký của một nhân viên (§7) |
+
+Mỗi dòng gồm `action` (ví dụ `OPEN_COURT`, `booking.cancelled`, `booking.expired`, `payment.discount_applied`, `payment.webhook_rejected`, `customer.merged`, `sales_order.cancelled`, `sales_order.abandoned_released`), `targetType`/`targetId`, `oldValues`/`newValues`, `requestId`, người thực hiện. Nhật ký không bao giờ chứa mật khẩu hay token.
+
+---
+
+## 17. Realtime (SSE)
+
+| Method | Endpoint | Role | Mô tả |
+|---|---|---|---|
+| GET | `/realtime/stream?branchId=&token=` | Tài khoản nhân viên (cần có chi nhánh; token của khách không có ngữ cảnh chi nhánh nên không dùng được) | Mở luồng Server-Sent Events của một chi nhánh |
+
+`EventSource` của trình duyệt không đặt được header tuỳ ý nên **access token và `branchId` đi qua query string** (`branchId` được ánh xạ sang `X-Branch-Id` ở tầng route; `sseAuthMiddleware` xác minh `tv` như `authMiddleware`). Sự kiện:
+
+| Sự kiện | Dữ liệu | Khi nào |
+|---|---|---|
+| `court:updated` | `{ branchId, courtId }` | Mở, đóng, chuyển sân, đổi trạng thái |
+| `booking:changed` | `{ branchId, bookingId, status }` | Mọi thay đổi lịch đặt (§5) |
+| `ping` | `{}` | Mỗi 25 giây, để client biết kết nối còn sống |
+
+Sự kiện chỉ mang **tín hiệu vô hiệu hoá** (kèm mã chi nhánh/đối tượng), không mang trạng thái hay dữ liệu cá nhân; client nạp lại dữ liệu qua REST (nguyên tắc chốt ở `CourtStateModel.md`). Client (`realtimeClient.js`) làm mới token trước mỗi lần (nối lại), lùi dần 2 → 30 giây, coi 60 giây không có `ping` là đứt kết nối, và gọi `onReconnect` để trang nạp lại. Khách không có luồng này (không có chi nhánh); trang khách thăm dò thông báo mỗi 60 giây (§18).
+
+---
+
+## 18. Notification API (thông báo cho khách)
+
+Chỉ vai `customer`, chỉ đọc/sửa thông báo của chính mình (id của người khác → 404), không qua `branchContextMiddleware`.
+
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| GET | `/notifications?limit=&unread=` | Mới nhất trước, kèm `unreadCount` (chưa đọc, tính cả khi lọc) |
+| PUT | `/notifications/:id/read` | Đánh dấu một thông báo đã đọc |
+| PUT | `/notifications/read-all` | Đánh dấu tất cả đã đọc |
+
+```json
+// GET /notifications
+{ "success": true, "data": { "items": [
+  { "id": 12, "type": "booking.confirmed", "title": "Lịch đặt sân đã được xác nhận",
+    "body": "Sân số 1 · 16/10/2026 · 19:00–20:00 đã được cửa hàng xác nhận. Hẹn gặp bạn tại sân!",
+    "bookingId": 88, "readAt": null, "createdAt": "2026-10-15T09:00:00.000Z" } ],
+  "unreadCount": 1 }, "message": "OK", "errors": null }
+```
+`type` ∈ `booking.confirmed`, `booking.expired`, `booking.cancelled_by_staff`, `booking.rescheduled`. Thông báo được ghi **trong cùng giao dịch** với thay đổi lịch, chỉ cho khách có tài khoản, và khách tự huỷ lịch của mình thì không có thông báo. Nội dung chỉ có tên sân, ngày, giờ. Email là phần bổ sung gửi sau khi giao dịch hoàn tất (chỉ khi đã cấu hình SMTP, khách có email và `notification_policy.email` chưa tắt; lỗi gửi bị nuốt). Việc nền xoá thông báo đã đọc quá 30 ngày và mọi thông báo quá 90 ngày.
+
+---
+
+## 19. Cổng thi đấu (`/api/v1/competition/*`)
+
+Backend không phơi API thi đấu trực tiếp mà **chuyển tiếp** tới `services/competition-service` qua cổng (`backend/src/integrations/competition/gateway.js`). Danh sách endpoint đầy đủ của dịch vụ (121 operation) ở `services/competition-service/openapi/competition-service.v1.yaml` và `docs/02-hop-dong-api-va-su-kien.md`; phần này chỉ nêu hợp đồng của cổng.
+
+**Bật/tắt.** Tắt trừ khi đặt đủ năm biến `COMPETITION_*`. Không đặt biến nào → mọi route trả 503 `COMPETITION_DISABLED`; đặt thiếu hoặc khoá/secret sai → server **không khởi động**. `GET /competition/status` (công khai) trả `{ enabled, available }` để frontend ẩn menu khi tắt và hiện "tạm ngưng" khi bộ ngắt mạch mở.
+
+**Luồng một yêu cầu.** (1) Xác thực JWT thường của người dùng (route SSE nhận `?token=`; route công khai chấp nhận người chưa đăng nhập) → (2) `branchContextMiddleware` → (3) ký lại một **token dịch vụ ES256 riêng cho từng yêu cầu** (sống 60 giây, 300 giây với SSE) mang quyền bị cắt theo vai trò và `org` theo chi nhánh đang chọn (admin không chọn chi nhánh → `*`; khách mang `player = bd:customer:<id>`) → (4) chuyển tiếp. Dịch vụ tự kiểm quyền từng route lần nữa.
+
+**Danh sách cho phép** (`routeMap.js`): chỉ các tài nguyên `me`, `players`, `rubrics`, `assessments`, `leaderboards`, `matchmaking`, `matches`, `tournaments`, `sessions`, `public` với các method `GET/POST/PUT/PATCH/DELETE`; `events`, `ops`, mọi đường có đoạn `ai`, đường chứa `..` hay ký tự mã hoá để lách, đều bị chặn tại cổng (404). `/public/*` chỉ `GET`.
+
+| Vai trò | Trần quyền cấp vào token (không bao giờ có `ops:admin`) |
+|---|---|
+| Chưa đăng nhập | `ranking:read`, `public:read` |
+| `customer` | `rating:self`, `ranking:read`, `match:score`, `public:read`, `entry:self` (tự đăng ký/rút giải, đăng ký buổi giao lưu, tìm đồng đội) |
+| `employee` | đọc/chấm trình, ghi người chơi, vận hành giải và buổi giao lưu, `public:read` |
+| `branch_manager`, `admin` | như `employee` cộng chấm trình mọi người, chỉnh điểm, quản lý giải |
+
+**Mã lỗi riêng của cổng:** 503 `COMPETITION_DISABLED` (tắt), 503 `COMPETITION_UNAVAILABLE` (dịch vụ chưa dậy hoặc bộ ngắt mạch mở), 502 `COMPETITION_AUTH_FAILED` (dịch vụ từ chối chữ ký — cố ý không chuyển 401 vì `apiClient` sẽ tưởng phiên hết hạn). **Giới hạn riêng cho `/public`:** 900 yêu cầu/phút/IP; tối đa 40 luồng SSE công khai mỗi IP và 300 luồng tổng (`streamGuard.js`).
+
+**Quy ước từ dịch vụ** (frontend `competitionApi.js` xử lý): thao tác ghi kèm `Idempotency-Key`, ghi có điều kiện bằng `If-Match`/`ETag`, thông điệp lỗi tiếng Anh được dịch sang tiếng Việt ở frontend.
+
+**Sự kiện hai chiều (không phải HTTP của người dùng):** app chính → dịch vụ: `bd.customer.updated|merged|deleted` qua bảng `integration_outbox`, ký HMAC. Dịch vụ → app chính: `POST /api/v1/integrations/competition/events` (router này được gắn **trước** `express.json()` toàn cục để kiểm chữ ký trên đúng byte thô; chặn mặc định: chưa cấu hình 503, sai chữ ký 401; chống trùng bằng `integration_inbox`) nhận `competition.*` (giải chốt/huỷ chốt/huỷ, buổi đóng) rồi ghi thành dòng nhật ký hoạt động.
+
+**Chính sách riêng tư của dịch vụ.** Người chưa đăng nhập chỉ thấy hồ sơ để chế độ `public` (tên ngắn); khách đăng nhập thấy tên đầy đủ trừ hồ sơ `hidden`; chủ hồ sơ, người tham gia và nhân viên thấy tất cả; người bị che hiện dạng `{ "id": null, "name": "Thành viên A3F2", "masked": true }`. Schema công khai đóng kín (`additionalProperties: false`) nên rò thêm một trường là test đỏ.
+
+---
+
+## 20. Health
+
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| GET | `/health` | Liveness cho Render/compose: `{ status, time, version }`; `version` là 7 ký tự đầu của commit đang chạy (hoặc `dev`) |
+| GET | `/api/v1/health` | Như trên kèm `ip` (IP backend thấy) để kiểm `TRUST_PROXY_HOPS` |
+
+---
+
+## 21. Xử lý lỗi đặc thù theo nghiệp vụ
 
 | Trường hợp | HTTP Code | Message mẫu |
 |---|---|---|
@@ -814,11 +1032,28 @@ dịch). Hàng đã trả về kệ nên hệ thống không hồi đơn — qu�
 | `DELETE /customers/:id` với hồ sơ đang gắn tài khoản đăng nhập | 409 | "Hồ sơ này đang gắn với tài khoản đăng nhập của khách nên không xoá được." |
 | Huỷ đơn POS đã thanh toán | 400 | "Đơn hàng ở trạng thái 'paid', không huỷ được" |
 | Không đủ quyền (VD: Employee gọi API Admin) | 403 | "Bạn không có quyền thực hiện thao tác này" |
-| Token hết hạn | 401 | "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại" |
+| Token hết hạn, hoặc đã bị thu hồi (đăng xuất, đổi mật khẩu) | 401 | "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại" |
+| Khách đang giữ đủ 5 lịch chưa kết thúc | 400 (`code: BOOKING_LIMIT`) | Thông điệp tiếng Việt nêu giới hạn |
+| Khách đặt quá 3 giờ một lần | 400 | Thông điệp nêu tối đa 3 giờ |
+| Quá giới hạn tần suất (đăng nhập, đăng ký, đặt lịch…) | 429 | Thông điệp tiếng Việt, kèm `RateLimit-*` |
+| Mở sân từ lịch của ngày khác | 400 (`code: BOOKING_WRONG_DAY`) | |
+| Mở sân từ lịch quá lệch giờ khi chưa xác nhận | 409 (`code: BOOKING_TIME_MISMATCH`) | Gửi lại kèm `acknowledgeTimeMismatch: true` |
+| Mật khẩu vi phạm chính sách | 400 | `errors[].field = "password"` |
+| Chuyển khoản khi chưa cấu hình ngân hàng/webhook | 400 | |
+| Webhook thanh toán chưa cấu hình / sai secret / số tiền lệch | 503 / 401 / 409 | Xem §9.1 |
+| Giảm giá tay vượt trần của nhân viên | 403 | |
+| Huỷ hoá đơn chưa thanh toán / đã huỷ | 400 / 409 | |
+| Thi đấu tắt / chưa sẵn sàng / dịch vụ từ chối chữ ký | 503 `COMPETITION_DISABLED` / 503 `COMPETITION_UNAVAILABLE` / 502 `COMPETITION_AUTH_FAILED` | |
 
 ---
 
-## 14. Ghi chú triển khai
-- Toàn bộ endpoint (trừ nhóm Auth/Public/`payments/webhook`) đều yêu cầu middleware xác thực JWT + middleware kiểm tra Role.
-- Tài liệu này sẽ được đồng bộ thành file `swagger.yaml`/`openapi.json` ở giai đoạn Backend (Phase 3) để sinh Swagger UI tự động.
+## 22. Ghi chú triển khai và lịch sử thay đổi
+- Toàn bộ endpoint (trừ nhóm Auth/Public/`payments/webhook`/`health`) đều yêu cầu middleware xác thực JWT + middleware kiểm tra Role.
+- Spec OpenAPI đã có và được **sinh tự động** từ Postman collection (`postman/badminton_api_collection.json`, 131 request / 25 nhóm, trong đó nhóm "24 · Competition" không vào spec) bằng `npm --prefix backend run docs:build`; Swagger UI ở `/api-docs` (tắt mặc định ở production, bật bằng `ENABLE_API_DOCS=true`). Muốn thêm route mới phải thêm vào collection trước, nếu không lệnh sinh spec báo lỗi.
+- Mọi ghi chú rải rác ở đầu bản v1.0 ("Phase 1 production-safety", "Multi-branch & inventory", "Booking page additions") đã được gộp vào mục 0 và các mục tương ứng.
+
+| Phiên bản | Ngày | Thay đổi chính |
+|---|---|---|
+| v1.0 | 19/07/2026 | Bản đầu tiên |
+| v1.1 | 18/10/2026 | Gộp các ghi chú bổ sung vào cấu trúc chính; thêm mục 0 (tóm tắt thay đổi), 1.8 (header, giới hạn tần suất, cache), mục 13 (Voucher), 14 (Product), 15 (Sales Order/POS), 16 (Activity Log), 17 (Realtime SSE), 18 (Notification), 19 (cổng thi đấu), 20 (Health); cập nhật xác thực (xoay vòng, thu hồi), chính sách giữ chỗ và quy tắc đặt sân, void hoá đơn, báo cáo doanh thu chi tiết và đối chiếu kho, `PUT /courts/layout`, `/inventory/product-stock-levels`, các khoá cài đặt chính sách; sửa số thứ tự mục lỗi (13→21) |
 - Endpoint `checkout`, `open/close` court, nhập kho (`goods-receipts`) và điều chỉnh tồn kho (`inventory/adjustments`) đều dùng Sequelize transaction + row lock để tránh lệch dữ liệu khi có nhiều request đồng thời.
